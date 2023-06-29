@@ -1,0 +1,7 @@
+**/*.swp
+**/*.swo
+**/*~
+**/__pycache__/*
+**/*.sqlite
+config.yml
+tests/**
