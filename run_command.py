@@ -75,3 +75,6 @@ class Command(Action):
         else:
             event = Record(url='', title=f'command failed: {command_line}')
             self.on_event('failure', event)
+
+    async def run(self):
+        return

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import List
 
 from interfaces import Filter, Record
@@ -6,10 +7,10 @@ class NoopFilter(Filter):
     def match(self, record: Record):
         return record
 
+@dataclass
 class MatchFilter(Filter):
-
-    def __init__(self, patterns: List[str]):
-        self.patterns = patterns
+    name: str
+    patterns: List[str]
 
     def match(self, record: Record):
         for pattern in self.patterns:

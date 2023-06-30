@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Sequence
 from collections import defaultdict
 
 
@@ -24,7 +24,7 @@ class ActionEntity:
 
 
 class EventsMixin:
-    def __init__(self, conf: ActionConfig, entities: List[ActionEntity]):
+    def __init__(self, conf: ActionConfig, entities: Sequence[ActionEntity]):
         self.conf = conf
         self.entities = {}
         for entity in entities:
@@ -47,7 +47,7 @@ class EventsMixin:
 
 class Action(EventsMixin, ABC):
 
-    def __init__(self, conf: ActionConfig, entities: List[ActionEntity]):
+    def __init__(self, conf: ActionConfig, entities: Sequence[ActionEntity]):
         self.conf = conf
         self.entities = {}
         for entity in entities:
@@ -63,6 +63,9 @@ class Action(EventsMixin, ABC):
         '''Will be runned as asyncio task once everything set up'''
         return
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.entities!r})'
+
 @dataclass
 class MonitorConfig:
     pass
@@ -73,14 +76,14 @@ class MonitorEntity:
 
 class Monitor(ABC):
 
-    def __init__(self, conf: MonitorConfig, entities: List[MonitorEntity]):
+    def __init__(self, conf: MonitorConfig, entities: Sequence[MonitorEntity]):
         self.conf = conf
         self.entities = {}
         for entity in entities:
             self.entities[entity.name] = entity
         self.callbacks: Dict[str, List[Callable]] = defaultdict(list)
 
-    def register(self, entity_name: str, callback: Callable[[str, Record], None]):
+    def register(self, entity_name: str, callback: Callable[[Record], None]):
         '''Register callback to be called for every new record'''
         if entity_name in self.entities:
             self.callbacks[entity_name].append(callback)
@@ -97,6 +100,9 @@ class Monitor(ABC):
     async def run(self):
         '''Will be runned as asyncio task once everything set up'''
         return
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.entities!r})'
 
 
 class Filter:

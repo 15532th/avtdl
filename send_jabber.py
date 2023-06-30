@@ -1,23 +1,25 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import Sequence
 import sys
 
 import aioxmpp
 
 from interfaces import Action, ActionEntity, ActionConfig, Record
 
+@dataclass
 class JabberConfig(ActionConfig):
     xmpp_username: str
     xmpp_pass: str
 
+@dataclass
 class JabberEntity(ActionEntity):
     name: str
-    jid: str
+    xmpp_username: str
 
 class SendJabber(Action):
-    def __init__(self, conf: JabberConfig, entities: List[JabberEntity]):
+    def __init__(self, conf: JabberConfig, entities: Sequence[JabberEntity]):
         self.jbr = MSG2JBR(conf.xmpp_username, conf.xmpp_pass)
         super().__init__(conf, entities)
 

@@ -3,27 +3,28 @@
 import asyncio
 import logging
 import os
-from types import SimpleNamespace
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+from pprint import pformat
 
 import yaml
 
-from interfaces import Action, ActionEntity, ActionConfig, Filter, Monitor, MonitorEntity, MonitorConfig, Record
-from filters import NoopFilter, MatchFilter
+from interfaces import Action, Filter, Monitor, Record
+from filters import MatchFilter
 from send_jabber import SendJabber, JabberConfig, JabberEntity
 from youtube_rss import FeedMonitor, FeedMonitorConfig, FeedMonitorEntity
+from run_command import Command, CommandConfig, CommandEntity
 
 class Chain:
     def __init__(self,
-                 monitors: Dict[Monitor, List[str]],
-                 actions: Dict[Action, List[str]],
+                 monitors: List[Tuple[Monitor, List[str]]],
+                 actions: List[Tuple[Action, List[str]]],
                  filters: Optional[List[Filter]] = None,
                  name: str = "ChainX"):
         self.name = name
         self.monitors = monitors
         self.actions = actions
         self.filters = filters or []
-        for monitor, monitor_entities in monitors.items():
+        for monitor, monitor_entities in monitors:
             for monitor_entity in monitor_entities:
                 monitor.register(monitor_entity, self.handle)
 
@@ -38,27 +39,22 @@ class Chain:
         record = self.filter(record)
         if record is None:
             return
-        for action, action_entities in self.actions.items():
+        for action, action_entities in self.actions:
             for action_entity_name in action_entities:
                 action.handle(action_entity_name, record)
 
+    def _pformat(self, section):
+        f = []
+        for item in section:
+            item_instance, item_entries = item
+            item_name = item_instance.__class__.__name__
+            f.append(f'{item_name}, {item_entries}')
+            return ', '.join(f)
 
-
-class UserFeed:
-    def __init__(self, feeds: List[Feed], actions: List[Action], filters: Optional[List[Filter]] = None, name: str = "UserFeedX"):
-        self.feeds = feeds
-        self.actions = actions
-        self.filters = filters or []
-        self.name = name
-
-    def on_record(self, record: Record):
-        for f in self.filters:
-            record = f.match(record)
-            if record is None:
-                return
-        for action in self.actions:
-            action.handle(record)
-
+    def __repr__(self):
+        m = self._pformat(self.monitors)
+        a = self._pformat(self.actions)
+        return f'Chain("{self.name}", {m}, {self.filters!r}, {a})'
 
 def load_config(path):
     if not os.path.exists(path):
@@ -82,37 +78,74 @@ def set_logging(log_level):
 
 def main():
     conf = load_config('new_config.yml')
-    conf = SimpleNamespace(**conf)
-    set_logging(conf.loglevel)
-    db_path = 'test/test.db'
+#   conf = SimpleNamespace(**conf)
+    set_logging(conf['loglevel'])
 
     monitors_names = {
-        'rss': (RSSFeedMonitor, Feed)
+        'rss': (FeedMonitor, FeedMonitorConfig, FeedMonitorEntity)
     }
     filters_names = {
         'match': MatchFilter
     }
     actions_names = {
-        'send': SendAny,
-        'download': DownloadAny
+        'send': (SendJabber, JabberConfig, JabberEntity),
+        'download': (Command, CommandConfig, CommandEntity)
     }
 
-    monitors = []
-    for monitor_type, feeds_configs in conf['Monitors'].items():
-        MonitorFactory, FeedFactory = monitors_names.get(monitor_type, (None, None))
-        if MonitorFactory is None:
-            logging.warning('Unsupported monitor {monitor_type} ignored')
-            continue
-        feeds = []
-        for feed_config in feeds_configs:
-            try:
-                feed = FeedFactory(feed_config)
-                feeds.append(feed)
-            except ValueError as e:
-                logging.warning(f'In monitor {monitor_type} failed to parse feed {feed_config}: {e}')
-                continue
-        monitor = MonitorFactory(feeds)
-        monitors.append(monitor)
+    monitors = {}
+    for monitor_type, items in conf['Monitors'].items():
+        MonitorFactory, ConfigFactory, EntityFactory = monitors_names[monitor_type]
+        defaults = items.get('defaults', {})
+        entities = []
+        for entiry_item in items['entities']:
+            entity = EntityFactory(**{**defaults, **entiry_item})
+            entities.append(entity)
+
+        config = ConfigFactory(**items['config'])
+        monitor = MonitorFactory(config, entities)
+        monitors[monitor_type] = monitor
+
+    actions = {}
+    for action_type, items in conf['Actions'].items():
+        ActionFactory, ConfigFactory, EntityFactory = actions_names[action_type]
+        defaults = items.get('defaults', {})
+        entities = []
+        for entiry_item in items['entities']:
+            entity = EntityFactory(**{**defaults, **entiry_item})
+            entities.append(entity)
+
+        config = ConfigFactory(**items['config'])
+        action = ActionFactory(config, entities)
+        actions[action_type] = action
+
+    filters = {}
+    for filter_type, filters_list in conf['Filters'].items():
+        FilterFactory = filters_names[filter_type]
+        for entity in filters_list:
+            filters[entity['name']] = FilterFactory(**entity)
+
+    chains = {}
+    for name, chain_config in conf['Chains'].items():
+        chain_monitors = []
+        for monitors_list in chain_config['monitors'].items():
+            monitor_type, entries_names = monitors_list
+            monitor = monitors[monitor_type]
+            chain_monitors.append((monitor, entries_names))
+        chain_actions = []
+        for actions_list in chain_config['actions'].items():
+            action_type, entries_names = actions_list
+            action = actions[action_type]
+            chain_actions.append((action, entries_names))
+        chain_filters = []
+        for filter_type, filter_names in chain_config.get('filters', {}).items():
+            for filter_name in filter_names:
+                if filter_name in filters:
+                    chain_filters.append(filters[filter_name])
+
+        chain = Chain(chain_monitors, chain_actions, chain_filters, name)
+        chains[name] = chain
+
+    import pdb;pdb.set_trace()
 
 
 if __name__ == "__main__":
