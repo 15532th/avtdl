@@ -10,12 +10,12 @@ from pprint import pformat
 
 import yaml
 
-from interfaces import Action, Filter, Monitor, Record
-from filters import MatchFilter
-from send_jabber import SendJabber, JabberConfig, JabberEntity
-from youtube_rss import FeedMonitor, FeedMonitorConfig, FeedMonitorEntity
-from run_command import Command, CommandConfig, CommandEntity
-from text_file import FileMonitor, FileMonitorEntity, FileMonitorConfig, FileAction, FileActionEntity, FileActionConfig, TextRecord
+from plugins.core.interfaces import Action, Filter, Monitor, Record
+from plugins.core.filters import MatchFilter
+from plugins.xmpp.send_jabber import SendJabber, JabberConfig, JabberEntity
+from plugins.rss.youtube_rss import FeedMonitor, FeedMonitorConfig, FeedMonitorEntity
+from plugins.execute.run_command import Command, CommandConfig, CommandEntity
+from plugins.file.text_file import FileMonitor, FileMonitorEntity, FileMonitorConfig, FileAction, FileActionEntity, FileActionConfig
 
 class Chain:
     def __init__(self,

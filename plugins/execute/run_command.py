@@ -5,7 +5,7 @@ import os
 from typing import Dict, List
 import shlex
 
-from interfaces import Action, ActionConfig, ActionEntity, Record
+from ..core.interfaces import Action, ActionConfig, ActionEntity, Record
 
 URL_PLACEHOLDER = '{url}'
 

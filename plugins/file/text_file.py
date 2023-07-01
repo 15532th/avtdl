@@ -7,8 +7,8 @@ import os
 from typing import Dict, List, Sequence
 from pathlib import Path
 
-from interfaces import Monitor, MonitorEntity, MonitorConfig
-from interfaces import Action, ActionEntity, ActionConfig, Record
+from ..core.interfaces import Monitor, MonitorEntity, MonitorConfig
+from ..core.interfaces import Action, ActionEntity, ActionConfig, Record
 
 
 class TextRecord(Record):
