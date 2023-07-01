@@ -1,5 +1,6 @@
 import datetime
 import logging
+from typing import Dict
 import sqlite3
 
 import feedparser
@@ -101,7 +102,7 @@ class Record():
 
 class RSS2MSG():
 
-    def __init__(self, feeds, db_path=':memory:', ua=''):
+    def __init__(self, feeds: Dict[str, str], db_path=':memory:', ua=''):
         '''entries parsed from `feed_links` in `feeds` will be put in table `records`'''
         self.feeds = feeds
         self.ua = ua
@@ -115,7 +116,7 @@ class RSS2MSG():
         try:
             feed = feedparser.parse(link, agent=self.ua)
             if feed.get('status') is not None:
-                if feed.status != '200':
+                if str(feed.status) != '200':
                     logging.warning(f'got code {feed.status} while fetching {link}')
             if feed.get('entries') is not None:
                 return feed

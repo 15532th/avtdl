@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import asyncio
+import argparse
 import logging
 import os
 from typing import Dict, List, Optional, Tuple
+from pathlib import Path
 from pprint import pformat
 
 import yaml
@@ -13,6 +15,7 @@ from filters import MatchFilter
 from send_jabber import SendJabber, JabberConfig, JabberEntity
 from youtube_rss import FeedMonitor, FeedMonitorConfig, FeedMonitorEntity
 from run_command import Command, CommandConfig, CommandEntity
+from text_file import FileMonitor, FileMonitorEntity, FileMonitorConfig, FileAction, FileActionEntity, FileActionConfig, TextRecord
 
 class Chain:
     def __init__(self,
@@ -70,26 +73,33 @@ def load_config(path):
     return config
 
 
-def set_logging(log_level):
+def set_logging(level):
     log_format = '%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s'
     datefmt = '%Y/%m/%d %H:%M:%S'
-    logging.basicConfig(level=log_level, format=log_format, datefmt=datefmt)
+    logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
+async def run(runnables):
+    tasks = []
+    for runnable in runnables:
+        task = asyncio.create_task(runnable.run(), name=runnable.__class__.__name__)
+        tasks.append(task)
+    await asyncio.Future()
 
-def main():
-    conf = load_config('new_config.yml')
+def main(config_path: Path):
+    conf = load_config(config_path)
 #   conf = SimpleNamespace(**conf)
-    set_logging(conf['loglevel'])
 
     monitors_names = {
-        'rss': (FeedMonitor, FeedMonitorConfig, FeedMonitorEntity)
+        'rss': (FeedMonitor, FeedMonitorConfig, FeedMonitorEntity),
+        'file': (FileMonitor, FileMonitorConfig, FileMonitorEntity)
     }
     filters_names = {
         'match': MatchFilter
     }
     actions_names = {
         'send': (SendJabber, JabberConfig, JabberEntity),
-        'download': (Command, CommandConfig, CommandEntity)
+        'download': (Command, CommandConfig, CommandEntity),
+        'file': (FileAction, FileActionConfig, FileActionEntity)
     }
 
     monitors = {}
@@ -101,7 +111,7 @@ def main():
             entity = EntityFactory(**{**defaults, **entiry_item})
             entities.append(entity)
 
-        config = ConfigFactory(**items['config'])
+        config = ConfigFactory(**items.get('config', {}))
         monitor = MonitorFactory(config, entities)
         monitors[monitor_type] = monitor
 
@@ -114,12 +124,12 @@ def main():
             entity = EntityFactory(**{**defaults, **entiry_item})
             entities.append(entity)
 
-        config = ConfigFactory(**items['config'])
+        config = ConfigFactory(**items.get('config', {}))
         action = ActionFactory(config, entities)
         actions[action_type] = action
 
     filters = {}
-    for filter_type, filters_list in conf['Filters'].items():
+    for filter_type, filters_list in conf.get('Filters', {}).items():
         FilterFactory = filters_names[filter_type]
         for entity in filters_list:
             filters[entity['name']] = FilterFactory(**entity)
@@ -145,11 +155,20 @@ def main():
         chain = Chain(chain_monitors, chain_actions, chain_filters, name)
         chains[name] = chain
 
-    import pdb;pdb.set_trace()
+    workers = [*monitors.values(), *actions.values()]
+    asyncio.run(run(workers), debug=True)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        logging.info('stopping on user command')
+    description = '''Tool for monitoring rss feeds and other sources and running commands for new entries'''
+    parser = argparse.ArgumentParser(description=description)
+    help_v = 'set loglevel to DEBUG regardless of configuration setting'
+    parser.add_argument('-v', '--verbose', action='count', default=0, help=help_v)
+    help_c = 'specify path to configuration file to use instead of default'
+    parser.add_argument('-c', '--config', type=Path, default='config.yml', help=help_c)
+    args = parser.parse_args()
+
+    log_level = args.verbose or getattr(logging, args.config['loglevel'])
+    set_logging(log_level)
+
+    main(args.config)

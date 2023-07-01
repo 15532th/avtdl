@@ -16,12 +16,12 @@ class JabberConfig(ActionConfig):
 @dataclass
 class JabberEntity(ActionEntity):
     name: str
-    xmpp_username: str
+    jid: str
 
 class SendJabber(Action):
     def __init__(self, conf: JabberConfig, entities: Sequence[JabberEntity]):
-        self.jbr = MSG2JBR(conf.xmpp_username, conf.xmpp_pass)
         super().__init__(conf, entities)
+        self.jbr = MSG2JBR(conf.xmpp_username, conf.xmpp_pass)
 
     def handle(self, entity_name: str, record: Record):
         if entity_name not in self.entities:

@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import dataclass
+import logging
 from typing import Dict, Sequence
 
 from interfaces import Monitor, MonitorEntity, MonitorConfig
@@ -26,14 +27,14 @@ class FeedMonitor(Monitor):
 
     async def run(self):
         for name, feed in self.entities.items():
-            self.tasks[name] = asyncio.create_task(self.run_for(feed))
-        while True:
-            await asyncio.sleep(0.1)
+            self.tasks[name] = asyncio.create_task(self.run_for(feed), name=f'rss:{feed.name}')
+        await asyncio.Future()
 
     async def run_for(self, entry: FeedMonitorEntity):
         while True:
-            records = self.feedparser.get_records(entry.url)
+            records = self.feedparser.get_records(entry.name)
             for record in records:
                 for cb in self.callbacks[entry.name]:
                     cb(record)
+            logging.debug(f'rss:{entry.name} got {len(records)} new records, next update in {entry.update_interval}')
             await asyncio.sleep(entry.update_interval)
