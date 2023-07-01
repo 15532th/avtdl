@@ -7,19 +7,21 @@ import os
 from typing import Dict, List, Sequence
 from pathlib import Path
 
-from ..core.interfaces import Monitor, MonitorEntity, MonitorConfig
-from ..core.interfaces import Action, ActionEntity, ActionConfig, Record
+from plugins.core.interfaces import Monitor, MonitorEntity, MonitorConfig
+from plugins.core.interfaces import Action, ActionEntity, ActionConfig, Record
+from plugins.core.config import Plugins
 
 
 class TextRecord(Record):
     def __str__(self):
         return self.title
 
-
+@Plugins.register('file', Plugins.kind.MONITOR_CONFIG)
 @dataclass
 class FileMonitorConfig(MonitorConfig):
     pass
 
+@Plugins.register('file', Plugins.kind.MONITOR_ENTITY)
 class FileMonitorEntity(MonitorEntity):
 
     def __init__(self, name: str, path: str, poll_interval: int = 1, skip_existing_lines: bool = False):
@@ -64,6 +66,7 @@ class FileMonitorEntity(MonitorEntity):
         return self.get_records() if self.changed() else []
 
 
+@Plugins.register('file', Plugins.kind.MONITOR)
 class FileMonitor(Monitor):
 
     def __init__(self, conf: FileMonitorConfig,
@@ -89,14 +92,17 @@ class FileMonitor(Monitor):
             await asyncio.sleep(entity.poll_interval)
 
 
+@Plugins.register('file', Plugins.kind.ACTION_CONFIG)
 @dataclass
 class FileActionConfig(ActionConfig):
     pass
 
+@Plugins.register('file', Plugins.kind.ACTION_ENTITY)
 @dataclass
 class FileActionEntity(ActionEntity):
     path: Path
 
+@Plugins.register('file', Plugins.kind.ACTION)
 class FileAction(Action):
 
     def handle(self, entity_name: str, record: Record):
