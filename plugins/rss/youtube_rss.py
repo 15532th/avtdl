@@ -3,8 +3,8 @@ from dataclasses import dataclass
 import logging
 from typing import Dict, Sequence
 
-from interfaces import Monitor, MonitorEntity, MonitorConfig
-from feed_parser import RSS2MSG
+from plugins.core.interfaces import Monitor, MonitorEntity, MonitorConfig
+from plugins.rss.feed_parser import RSS2MSG
 
 @dataclass
 class FeedMonitorEntity(MonitorEntity):

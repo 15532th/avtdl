@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from interfaces import Filter, Record
+from plugins.core.interfaces import Filter, Record
 
 class NoopFilter(Filter):
     def match(self, record: Record):

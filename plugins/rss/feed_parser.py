@@ -5,7 +5,7 @@ import sqlite3
 
 import feedparser
 
-import yt_info
+from plugins.rss import yt_info
 
 
 class Record():

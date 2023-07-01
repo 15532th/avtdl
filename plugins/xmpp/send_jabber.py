@@ -6,7 +6,7 @@ import sys
 
 import aioxmpp
 
-from interfaces import Action, ActionEntity, ActionConfig, Record
+from ..core.interfaces import Action, ActionEntity, ActionConfig, Record
 
 @dataclass
 class JabberConfig(ActionConfig):
