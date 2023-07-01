@@ -3,21 +3,25 @@ from dataclasses import dataclass
 import logging
 from typing import Dict, Sequence
 
-from plugins.core.interfaces import Monitor, MonitorEntity, MonitorConfig
+from core.config import Plugins
+from core.interfaces import Monitor, MonitorEntity, MonitorConfig
 from plugins.rss.feed_parser import RSS2MSG
 
+@Plugins.register('rss', Plugins.kind.MONITOR_ENTITY)
 @dataclass
 class FeedMonitorEntity(MonitorEntity):
     name: str
     url: str
     update_interval: int = 900
 
+@Plugins.register('rss', Plugins.kind.MONITOR_CONFIG)
 @dataclass
 class FeedMonitorConfig(MonitorConfig):
     db_path: str
     ua: str
 
 
+@Plugins.register('rss', Plugins.kind.MONITOR)
 class FeedMonitor(Monitor):
     def __init__(self, conf: FeedMonitorConfig, entities: Sequence[FeedMonitorEntity]):
         super().__init__(conf, entities)

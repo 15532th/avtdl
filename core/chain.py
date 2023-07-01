@@ -1,6 +1,7 @@
+import logging
 from typing import List, Optional, Tuple
 
-from plugins.core.interfaces import Action, Filter, Monitor, Record
+from core.interfaces import Action, Filter, Monitor, Record
 
 class Chain:
     def __init__(self,
@@ -17,9 +18,11 @@ class Chain:
                 monitor.register(monitor_entity, self.handle)
 
     def filter(self, record: Record):
+        unfiltered_record = record
         for f in self.filters:
             record = f.match(record)
             if record is None:
+                logging.debug(f'chain {self.name}: record {unfiltered_record} dropped on filter {f}')
                 break
         return record
 

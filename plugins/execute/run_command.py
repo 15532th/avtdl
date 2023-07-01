@@ -5,14 +5,17 @@ import os
 from typing import Dict, List
 import shlex
 
-from ..core.interfaces import Action, ActionConfig, ActionEntity, Record
+from core.interfaces import Action, ActionConfig, ActionEntity, Record
+from core.config import Plugins
 
 URL_PLACEHOLDER = '{url}'
 
+@Plugins.register('execute', Plugins.kind.ACTION_CONFIG)
 @dataclass
 class CommandConfig(ActionConfig):
     url_placeholder: str = '{url}'
 
+@Plugins.register('execute', Plugins.kind.ACTION_ENTITY)
 @dataclass
 class CommandEntity(ActionEntity):
     name: str
@@ -20,6 +23,7 @@ class CommandEntity(ActionEntity):
     working_dir: str
 
 
+@Plugins.register('execute', Plugins.kind.ACTION)
 class Command(Action):
 
     def __init__(self, conf: CommandConfig, entities: CommandEntity):

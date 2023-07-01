@@ -8,14 +8,8 @@ from pathlib import Path
 
 import yaml
 
-from plugins.core.interfaces import Action, Filter, Monitor, Record
-from plugins.core.chain import Chain
-from plugins.core.filters import MatchFilter
-from plugins.xmpp.send_jabber import SendJabber, JabberConfig, JabberEntity
-from plugins.rss.youtube_rss import FeedMonitor, FeedMonitorConfig, FeedMonitorEntity
-from plugins.execute.run_command import Command, CommandConfig, CommandEntity
-from plugins.file.text_file import FileMonitor, FileMonitorEntity, FileMonitorConfig, FileAction, FileActionEntity, FileActionConfig
-from plugins.core import config
+from core.chain import Chain
+from core.config import Plugins
 
 
 def load_config(path):
@@ -47,23 +41,12 @@ async def run(runnables):
 def main(config_path: Path):
     conf = load_config(config_path)
 #   conf = SimpleNamespace(**conf)
-
-    monitors_names = {
-        'rss': (FeedMonitor, FeedMonitorConfig, FeedMonitorEntity),
-        'file': (FileMonitor, FileMonitorConfig, FileMonitorEntity)
-    }
-    filters_names = {
-        'match': MatchFilter
-    }
-    actions_names = {
-        'send': (SendJabber, JabberConfig, JabberEntity),
-        'download': (Command, CommandConfig, CommandEntity),
-        'file': (FileAction, FileActionConfig, FileActionEntity)
-    }
+    
+    Plugins.load('plugins')
 
     monitors = {}
     for monitor_type, items in conf['Monitors'].items():
-        MonitorFactory, ConfigFactory, EntityFactory = monitors_names[monitor_type]
+        MonitorFactory, ConfigFactory, EntityFactory = Plugins.get_monitor_factories(monitor_type)
         defaults = items.get('defaults', {})
         entities = []
         for entiry_item in items['entities']:
@@ -76,7 +59,7 @@ def main(config_path: Path):
 
     actions = {}
     for action_type, items in conf['Actions'].items():
-        ActionFactory, ConfigFactory, EntityFactory = actions_names[action_type]
+        ActionFactory, ConfigFactory, EntityFactory = Plugins.get_action_factories(action_type)
         defaults = items.get('defaults', {})
         entities = []
         for entiry_item in items['entities']:
@@ -89,7 +72,7 @@ def main(config_path: Path):
 
     filters = {}
     for filter_type, filters_list in conf.get('Filters', {}).items():
-        FilterFactory = filters_names[filter_type]
+        FilterFactory = Plugins.get_filter_factory(filter_type)
         for entity in filters_list:
             filters[entity['name']] = FilterFactory(**entity)
 
