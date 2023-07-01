@@ -7,9 +7,9 @@ import os
 from typing import Dict, List, Sequence
 from pathlib import Path
 
-from plugins.core.interfaces import Monitor, MonitorEntity, MonitorConfig
-from plugins.core.interfaces import Action, ActionEntity, ActionConfig, Record
-from plugins.core.config import Plugins
+from core.interfaces import Monitor, MonitorEntity, MonitorConfig
+from core.interfaces import Action, ActionEntity, ActionConfig, Record
+from core.config import Plugins
 
 
 class TextRecord(Record):

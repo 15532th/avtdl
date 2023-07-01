@@ -1,8 +1,10 @@
 import logging
 from enum import Enum
+import importlib.util
+from pathlib import Path
 from typing import Dict, Tuple, List, Union
 
-from plugins.core.interfaces import Monitor, MonitorEntity, MonitorConfig, Action, ActionEntity, ActionConfig, Filter
+from core.interfaces import Monitor, MonitorEntity, MonitorConfig, Action, ActionEntity, ActionConfig, Filter
 
 class Plugins:
 
@@ -18,7 +20,10 @@ class Plugins:
     known: Dict[kind, Dict] = {k: {} for k in kind}
 
     @classmethod
-    def _register(cls, name: str, kind, instance: Union[Monitor, MonitorEntity, MonitorConfig, Action, ActionEntity, ActionConfig, Filter]):
+    def _register(cls, name: str, kind: kind,
+                  instance: Union[Monitor, MonitorEntity, MonitorConfig,
+                                  Action, ActionEntity, ActionConfig,
+                                  Filter]):
         cls.known[kind][name] = instance
 
     @classmethod
@@ -43,7 +48,7 @@ class Plugins:
         return (action_factory, config_factory, entity_factory)
 
     @classmethod
-    def get_filter_factories(cls, name):
+    def get_filter_factory(cls, name):
         filter_factory = cls._get(name, cls.kind.FILTER)
         return filter_factory
 
@@ -53,4 +58,18 @@ class Plugins:
             cls._register(name, kind, func)
             return func
         return wrapper
+
+    @classmethod
+    def load(cls, directory='plugins'):
+        for item in Path(directory).glob('*'):
+            try:
+                module_name = '.'.join(item.parts)
+                m = importlib.import_module(module_name)
+                __import__(module_name, fromlist=m.__all__)
+            except Exception:
+                logging.exception(f'while trying to import {module_name}:')
+                continue
+            else:
+                logging.info('from {} imported {}'.format(module_name, ', '.join(m.__all__)))
+
 
