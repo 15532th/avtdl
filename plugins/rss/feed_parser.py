@@ -41,7 +41,7 @@ class Record():
         return self.link == other.link
 
     def __str__(self):
-        return str(self.__dict__)
+        return self.format_record()
 
     def __repr__(self):
         return f'Record({self.updated=}, {self.author=}, {self.title=})'
