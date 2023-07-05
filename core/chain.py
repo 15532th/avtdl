@@ -5,10 +5,11 @@ from core.interfaces import Action, Filter, Monitor, Record
 
 class Chain:
     def __init__(self,
+                 name: str,
                  monitors: List[Tuple[Monitor, List[str]]],
                  actions: List[Tuple[Action, List[str]]],
-                 filters: Optional[List[Filter]] = None,
-                 name: str = "ChainX"):
+                 filters: Optional[List[Filter]] = None
+                 ):
         self.name = name
         self.monitors = monitors
         self.actions = actions

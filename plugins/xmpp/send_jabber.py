@@ -9,20 +9,20 @@ import aioxmpp
 from core.config import Plugins
 from core.interfaces import Action, ActionEntity, ActionConfig, Record
 
-@Plugins.register('xmpp', Plugins.kind.MONITOR_CONFIG)
+@Plugins.register('xmpp', Plugins.kind.ACTION_CONFIG)
 @dataclass
 class JabberConfig(ActionConfig):
     xmpp_username: str
     xmpp_pass: str
 
-@Plugins.register('xmpp', Plugins.kind.MONITOR_ENTITY)
+@Plugins.register('xmpp', Plugins.kind.ACTION_ENTITY)
 @dataclass
 class JabberEntity(ActionEntity):
     name: str
     jid: str
 
 
-@Plugins.register('xmpp', Plugins.kind.MONITOR)
+@Plugins.register('xmpp', Plugins.kind.ACTION)
 class SendJabber(Action):
     def __init__(self, conf: JabberConfig, entities: Sequence[JabberEntity]):
         super().__init__(conf, entities)
