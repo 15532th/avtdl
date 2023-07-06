@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 
 from core.interfaces import Action, Filter, Monitor, Record
 
@@ -8,7 +8,8 @@ class Chain:
                  name: str,
                  monitors: List[Tuple[Monitor, List[str]]],
                  actions: List[Tuple[Action, List[str]]],
-                 filters: Optional[List[Filter]] = None
+                 filters: Optional[List[Filter]] = None,
+                 events: Dict[str, List[Action]] = {}
                  ):
         self.name = name
         self.monitors = monitors
@@ -17,13 +18,20 @@ class Chain:
         for monitor, monitor_entities in monitors:
             for monitor_entity in monitor_entities:
                 monitor.register(monitor_entity, self.handle)
+        for event_type, items in events.items():
+            for action, action_entries in items:
+
+                for chain_action, _ in self.actions:
+                    if action is chain_action:
+                        continue
+                    chain_action.events.register(event_type, action.handle)
 
     def filter(self, record: Record):
         unfiltered_record = record
         for f in self.filters:
             record = f.match(record)
             if record is None:
-                logging.debug(f'chain {self.name}: record {unfiltered_record} dropped on filter {f}')
+                logging.debug(f'chain {self.name}: record "{unfiltered_record}" dropped on filter {f}')
                 break
         return record
 
