@@ -1,12 +1,13 @@
 
 from dataclasses import dataclass
+from collections import defaultdict
 from enum import Enum
 import importlib.util
 import logging
 from pathlib import Path
 from typing import Dict, Tuple, List, Union, Callable
 
-from core.interfaces import Monitor, MonitorEntity, MonitorConfig, Action, ActionEntity, ActionConfig, Filter
+from core.interfaces import Monitor, MonitorEntity, MonitorConfig, Action, ActionEntity, ActionConfig, Filter, Event, EventMonitor
 from core.chain import Chain
 
 class TopSectionName(Enum):
@@ -77,7 +78,13 @@ class ConfigParser:
                 for filter_name in filter_names:
                     if filter_name in filters:
                         chain_filters.append(filters[filter_name])
-            chain = Chain(name, chain_monitors, chain_actions, chain_filters)
+            chain_events = defaultdict(list)
+            for event_type, actions_lists in chain_config.get('events', {}).items():
+                for action_type, entries_names in actions_lists.items():
+                    action = actions[action_type]
+                    chain_events[event_type].append((action, entries_names))
+
+            chain = Chain(name, chain_monitors, chain_actions, chain_filters, chain_events)
             chains[name] = chain
         return chains
 

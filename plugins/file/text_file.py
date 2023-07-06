@@ -24,19 +24,16 @@ class FileMonitorConfig(MonitorConfig):
 @Plugins.register('file', Plugins.kind.MONITOR_ENTITY)
 class FileMonitorEntity(MonitorEntity):
 
-    def __init__(self, name: str, path: str, poll_interval: int = 1, skip_existing_lines: bool = False):
+    def __init__(self, name: str, path: str, poll_interval: int = 1, split_lines: bool = False):
         super().__init__(name)
         self.path = Path(path)
+        self.split_lines = split_lines
         self.poll_interval = poll_interval
-        self.position: int = 0
         self.mtime: float = -1
-        if skip_existing_lines:
-            self.get_new_records()
 
     def exists(self) -> bool:
         if not self.path.exists():
             self.mtime = -1
-            self.position = 0
             return False
         else:
             return True
@@ -55,11 +52,13 @@ class FileMonitorEntity(MonitorEntity):
         records = []
         if self.exists():
             with open(self.path, 'rt') as fp:
-                fp.seek(self.position)
-                for line in fp.readlines():
-                    record = TextRecord(line, str(self.path))
+                if self.split_lines:
+                    lines = fp.readlines()
+                else:
+                    lines = [fp.read()]
+                for line in lines:
+                    record = TextRecord(line.strip(), str(self.path))
                     records.append(record)
-                self.position = fp.tell()
         return records
 
     def get_new_records(self) -> List[TextRecord]:
@@ -108,7 +107,7 @@ class FileAction(Action):
     def handle(self, entity_name: str, record: Record):
         entity = self.entities[entity_name]
         with open(entity.path, 'at') as fp:
-            fp.write(str(record))
+            fp.write(str(record) + '\n')
 
     async def run(self):
         return
