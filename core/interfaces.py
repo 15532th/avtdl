@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
+import asyncio
 from dataclasses import dataclass
 from enum import Enum
 import logging
-from typing import Callable, Dict, List, Sequence, Tuple
+from typing import Callable, Dict, List, Sequence, Tuple, Type
 from collections import defaultdict
 
 
@@ -97,7 +98,40 @@ class Monitor(RunnableMixin, ABC):
         self.bus.pub(topic, record)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.entities!r})'
+        return f'{self.__class__.__name__}({[entity for entity in self.entities]})'
+
+
+@dataclass
+class TaskMonitorEntity(MonitorEntity):
+    def __init__(self, name: str, update_interval: int):
+        super().__init__(name)
+        self.update_interval = update_interval
+
+class TaskMonitor(Monitor):
+
+    def __init__(self, conf: MonitorConfig, entities: Sequence[TaskMonitorEntity]):
+        super().__init__(conf, entities)
+        self.tasks: Dict[str, asyncio.Task] = {}
+
+    async def run(self):
+        for name, entity in self.entities.items():
+            self.tasks[name] = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
+        await asyncio.Future()
+
+    async def run_for(self, entity: TaskMonitorEntity):
+        while True:
+            try:
+                records = await self.get_new_records(entity)
+            except Exception:
+                logging.exception(f'{self.conf.name}: task for entity {entity} failed')
+                break
+            for record in records:
+                self.on_record(entity.name, record)
+            await asyncio.sleep(entity.update_interval)
+
+    @abstractmethod
+    async def get_new_records(self, entity: TaskMonitorEntity) -> Sequence[Record]:
+        '''Produce new records, optionally adjust update_interval'''
 
 
 @dataclass
@@ -109,6 +143,8 @@ class ActionEntity:
     name: str
 
 class Action(RunnableMixin, ABC):
+
+    supported_record_types: List[Type] = [Record]
 
     def __init__(self, conf: ActionConfig, entities: Sequence[ActionEntity]):
         self.conf = conf
@@ -122,7 +158,13 @@ class Action(RunnableMixin, ABC):
     def _handle(self, topic: str, record: Record):
         actor, entity = self.bus.split_message_topic(topic)
         if actor == self.conf.name:
-            pass
+            logging.debug(f'{self.conf.name}: on topic {topic} ignored record produced by self: {record}')
+        for record_type in self.supported_record_types:
+            if isinstance(record, record_type):
+                break
+        else:
+            logging.debug(f'{self.conf.name}: ignoring record with unsupported type "{record.__class__.__name__}": {record}')
+            return
         self.handle(entity, record)
 
     @abstractmethod
@@ -135,7 +177,7 @@ class Action(RunnableMixin, ABC):
         self.bus.pub(topic, record)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.entities!r})'
+        return f'{self.__class__.__name__}({[entity for entity in self.entities]})'
 
 
 class Filter:
