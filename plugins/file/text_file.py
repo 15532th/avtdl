@@ -8,7 +8,7 @@ from typing import Dict, List, Sequence
 from pathlib import Path
 
 from core.interfaces import Monitor, MonitorEntity, MonitorConfig
-from core.interfaces import Action, ActionEntity, ActionConfig, Record
+from core.interfaces import Action, ActionEntity, ActionConfig, Record, Event
 from core.config import Plugins
 
 
@@ -16,12 +16,12 @@ class TextRecord(Record):
     def __str__(self):
         return self.title
 
-@Plugins.register('file', Plugins.kind.MONITOR_CONFIG)
+@Plugins.register('from_file', Plugins.kind.MONITOR_CONFIG)
 @dataclass
 class FileMonitorConfig(MonitorConfig):
     pass
 
-@Plugins.register('file', Plugins.kind.MONITOR_ENTITY)
+@Plugins.register('from_file', Plugins.kind.MONITOR_ENTITY)
 class FileMonitorEntity(MonitorEntity):
 
     def __init__(self, name: str, path: str, poll_interval: int = 1, split_lines: bool = False):
@@ -65,18 +65,18 @@ class FileMonitorEntity(MonitorEntity):
         return self.get_records() if self.changed() else []
 
 
-@Plugins.register('file', Plugins.kind.MONITOR)
+@Plugins.register('from_file', Plugins.kind.MONITOR)
 class FileMonitor(Monitor):
 
-    def __init__(self, conf: FileMonitorConfig,
+    def __init__(self, bus, conf: FileMonitorConfig,
                  entities: Sequence[FileMonitorEntity]):
-        super().__init__(conf, entities)
+        super().__init__(bus, conf, entities)
         self.tasks: Dict[str, asyncio.Task] = {}
 
     async def run(self):
         for name, entity in self.entities.items():
             self.tasks[name] = asyncio.create_task(self.run_for(entity),
-                                                   name=f'file:{entity.name}')
+                                                   name=f'from_file:{entity.name}')
         await asyncio.Future()
 
     async def run_for(self, entity: FileMonitorEntity):
@@ -91,23 +91,27 @@ class FileMonitor(Monitor):
             await asyncio.sleep(entity.poll_interval)
 
 
-@Plugins.register('file', Plugins.kind.ACTION_CONFIG)
+@Plugins.register('to_file', Plugins.kind.ACTION_CONFIG)
 @dataclass
 class FileActionConfig(ActionConfig):
     pass
 
-@Plugins.register('file', Plugins.kind.ACTION_ENTITY)
+@Plugins.register('to_file', Plugins.kind.ACTION_ENTITY)
 @dataclass
 class FileActionEntity(ActionEntity):
     path: Path
 
-@Plugins.register('file', Plugins.kind.ACTION)
+@Plugins.register('to_file', Plugins.kind.ACTION)
 class FileAction(Action):
 
     def handle(self, entity_name: str, record: Record):
         entity = self.entities[entity_name]
-        with open(entity.path, 'at') as fp:
-            fp.write(str(record) + '\n')
+        try:
+            with open(entity.path, 'at') as fp:
+                fp.write(str(record) + '\n')
+        except Exception as e:
+            message = f'error in {self.conf.name}.{entity_name}: {e}'
+            self.on_event(Event.error, entity_name, TextRecord(message, record.url))
 
     async def run(self):
         return

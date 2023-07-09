@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Tuple, List, Union, Callable
 
-from core.interfaces import Monitor, MonitorEntity, MonitorConfig, Action, ActionEntity, ActionConfig, Filter, Event, EventMonitor
+from core.interfaces import Monitor, MonitorEntity, MonitorConfig, Action, ActionEntity, ActionConfig, Filter, Event, MessageBus
 from core.chain import Chain
 
 class TopSectionName(Enum):
@@ -24,7 +24,7 @@ class SectionName(Enum):
 class ConfigParser:
 
     @classmethod
-    def _parse_actor_section(cls, section: Dict, get_actor_factories: Callable):
+    def _parse_actor_section(cls, bus: MessageBus, section: Dict, get_actor_factories: Callable):
         actors = {}
         for actor_type, items in section.items():
             ActorFactory, ConfigFactory, EntityFactory = get_actor_factories(actor_type)
@@ -33,19 +33,20 @@ class ConfigParser:
             for entiry_item in items['entities']:
                 entity = EntityFactory(**{**defaults, **entiry_item})
                 entities.append(entity)
-
-            config = ConfigFactory(**items.get('config', {}))
-            actor = ActorFactory(config, entities)
+            config_dict = items.get('config', {})
+            config_dict['name'] = actor_type
+            config = ConfigFactory(**config_dict)
+            actor = ActorFactory(bus, config, entities)
             actors[actor_type] = actor
             return actors
 
     @classmethod
-    def parse_monitors(cls, config_section: Dict) -> Dict[str, Monitor]:
-        return cls._parse_actor_section(config_section, Plugins.get_monitor_factories)
+    def parse_monitors(cls, bus: MessageBus, config_section: Dict) -> Dict[str, Monitor]:
+        return cls._parse_actor_section(bus, config_section, Plugins.get_monitor_factories)
 
     @classmethod
-    def parse_actions(cls, config_section: Dict) -> Dict[str, Action]:
-        return cls._parse_actor_section(config_section, Plugins.get_action_factories)
+    def parse_actions(cls, bus: MessageBus, config_section: Dict) -> Dict[str, Action]:
+        return cls._parse_actor_section(bus, config_section, Plugins.get_action_factories)
 
     @classmethod
     def parse_filters(cls, config_section: Dict) -> Dict[str, Filter]:
@@ -57,51 +58,38 @@ class ConfigParser:
         return filters
 
     @classmethod
-    def parse_chains(cls, config_section: Dict,
-                     monitors: Dict[str, Monitor],
-                     actions: Dict[str, Action],
-                     filters: Dict[str, Filter]) -> Dict[str, Chain]:
+    def parse_chains(cls, bus: MessageBus,
+                     filters: Dict[str, Filter],
+                     config_section: Dict) -> Dict[str, Chain]:
         chains = {}
         for name, chain_config in config_section.items():
-            chain_monitors = []
-            for monitors_list in chain_config['monitors'].items():
-                monitor_type, entries_names = monitors_list
-                monitor = monitors[monitor_type]
-                chain_monitors.append((monitor, entries_names))
-            chain_actions = []
-            for actions_list in chain_config['actions'].items():
-                action_type, entries_names = actions_list
-                action = actions[action_type]
-                chain_actions.append((action, entries_names))
             chain_filters = []
             for filter_type, filter_names in chain_config.get('filters', {}).items():
                 for filter_name in filter_names:
                     if filter_name in filters:
                         chain_filters.append(filters[filter_name])
-            chain_events = defaultdict(list)
-            for event_type, actions_lists in chain_config.get('events', {}).items():
-                for action_type, entries_names in actions_lists.items():
-                    action = actions[action_type]
-                    chain_events[event_type].append((action, entries_names))
+            chain_monitors = chain_config['monitors']
+            chain_actions = chain_config['actions']
+            chain_events = chain_config.get('events', {})
 
-            chain = Chain(name, chain_monitors, chain_actions, chain_filters, chain_events)
+            chain = Chain(name, bus, chain_filters, chain_monitors, chain_actions, chain_events)
             chains[name] = chain
         return chains
 
     @classmethod
-    def parse(cls, conf) -> Tuple[Dict[str, Monitor],
-                                  Dict[str, Action],
-                                  Dict[str, Filter],
-                                  Dict[str, Chain]]:
+    def parse(cls, bus: MessageBus, conf) -> Tuple[Dict[str, Monitor],
+                                                   Dict[str, Action],
+                                                   Dict[str, Filter],
+                                                   Dict[str, Chain]]:
         monitors_section = conf[TopSectionName.monitors.value]
-        monitors = ConfigParser.parse_monitors(monitors_section)
+        monitors = ConfigParser.parse_monitors(bus, monitors_section)
         actions_section = conf[TopSectionName.actions.value]
-        actions = ConfigParser.parse_actions(actions_section)
+        actions = ConfigParser.parse_actions(bus, actions_section)
         filters_section = conf.get(TopSectionName.filters.value, {})
         filters = ConfigParser.parse_filters(filters_section)
 
         chains_section = conf[TopSectionName.chains.value]
-        chains = ConfigParser.parse_chains(chains_section, monitors, actions, filters)
+        chains = ConfigParser.parse_chains(bus, filters, chains_section)
 
         return monitors, actions, filters, chains
 
