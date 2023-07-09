@@ -33,8 +33,10 @@ class MessageBus:
     EVENT_PREFIX = 'event'
     SEPARATOR = '/'
 
-    def __init__(self) -> None:
-        self.subscriptions: Dict[str, List[Callable[[str, Record], None]]] = defaultdict(list)
+    _subscriptions: Dict[str, List[Callable[[str, Record], None]]] = defaultdict(list)
+
+    def __init__(self):
+        self.subscriptions = self._subscriptions
 
     def sub(self, topic: str, callback: Callable[[str, Record], None]):
         logging.debug(f'[bus] subscription on topic {topic} by {callback!r}')
@@ -84,9 +86,9 @@ class MonitorEntity:
 
 class Monitor(RunnableMixin, ABC):
 
-    def __init__(self, bus: MessageBus, conf: MonitorConfig, entities: Sequence[MonitorEntity]):
+    def __init__(self, conf: MonitorConfig, entities: Sequence[MonitorEntity]):
         self.conf = conf
-        self.bus = bus
+        self.bus = MessageBus()
         self.entities = {entity.name: entity for entity in entities}
 
     def on_record(self, entity_name: str, record: Record):
@@ -108,9 +110,9 @@ class ActionEntity:
 
 class Action(RunnableMixin, ABC):
 
-    def __init__(self, bus: MessageBus, conf: ActionConfig, entities: Sequence[ActionEntity]):
+    def __init__(self, conf: ActionConfig, entities: Sequence[ActionEntity]):
         self.conf = conf
-        self.bus = bus
+        self.bus = MessageBus()
         self.entities = {entity.name: entity for entity in entities}
 
         for entity_name in self.entities:
