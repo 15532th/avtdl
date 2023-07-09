@@ -44,8 +44,7 @@ def main(config_path: Path):
 
     conf = load_config(config_path)
 #   conf = SimpleNamespace(**conf)
-    bus = MessageBus()
-    monitors, actions, filters, chains = ConfigParser.parse(bus, conf)
+    monitors, actions, filters, chains = ConfigParser.parse(conf)
 
     workers = [*monitors.values(), *actions.values()]
     asyncio.run(run(workers), debug=True)

@@ -68,9 +68,9 @@ class FileMonitorEntity(MonitorEntity):
 @Plugins.register('from_file', Plugins.kind.MONITOR)
 class FileMonitor(Monitor):
 
-    def __init__(self, bus, conf: FileMonitorConfig,
+    def __init__(self, conf: FileMonitorConfig,
                  entities: Sequence[FileMonitorEntity]):
-        super().__init__(bus, conf, entities)
+        super().__init__(conf, entities)
         self.tasks: Dict[str, asyncio.Task] = {}
 
     async def run(self):

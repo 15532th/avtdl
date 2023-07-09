@@ -6,14 +6,13 @@ from core.interfaces import Action, Filter, Monitor, Record, MessageBus
 class Chain:
     def __init__(self,
                  name: str,
-                 bus: MessageBus,
                  filters: Optional[List[Filter]],
                  monitors: Dict[str, List[str]],
                  actions: Dict[str, List[str]],
                  events: Dict[str, Dict[str, List[str]]] = {}
                  ):
         self.name = name
-        self.bus = bus
+        self.bus = MessageBus()
         self.monitors = monitors
         self.actions = actions
         self.filters = filters or []
