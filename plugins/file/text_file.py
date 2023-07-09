@@ -7,7 +7,7 @@ import os
 from typing import Dict, List, Sequence
 from pathlib import Path
 
-from core.interfaces import Monitor, MonitorEntity, MonitorConfig
+from core.interfaces import TaskMonitor, TaskMonitorEntity, MonitorConfig
 from core.interfaces import Action, ActionEntity, ActionConfig, Record, Event
 from core.config import Plugins
 
@@ -22,14 +22,13 @@ class FileMonitorConfig(MonitorConfig):
     pass
 
 @Plugins.register('from_file', Plugins.kind.MONITOR_ENTITY)
-class FileMonitorEntity(MonitorEntity):
+class FileMonitorEntity(TaskMonitorEntity):
 
     def __init__(self, name: str, path: str, poll_interval: int = 1, split_lines: bool = False):
-        super().__init__(name)
         self.path = Path(path)
         self.split_lines = split_lines
-        self.poll_interval = poll_interval
         self.mtime: float = -1
+        super().__init__(name, poll_interval)
 
     def exists(self) -> bool:
         if not self.path.exists():
@@ -66,29 +65,10 @@ class FileMonitorEntity(MonitorEntity):
 
 
 @Plugins.register('from_file', Plugins.kind.MONITOR)
-class FileMonitor(Monitor):
+class FileMonitor(TaskMonitor):
 
-    def __init__(self, conf: FileMonitorConfig,
-                 entities: Sequence[FileMonitorEntity]):
-        super().__init__(conf, entities)
-        self.tasks: Dict[str, asyncio.Task] = {}
-
-    async def run(self):
-        for name, entity in self.entities.items():
-            self.tasks[name] = asyncio.create_task(self.run_for(entity),
-                                                   name=f'from_file:{entity.name}')
-        await asyncio.Future()
-
-    async def run_for(self, entity: FileMonitorEntity):
-        while True:
-            try:
-                records = entity.get_new_records()
-            except Exception:
-                logging.exception(f'task for entity {entity} failed')
-                break
-            for record in records:
-                self.on_record(entity.name, record)
-            await asyncio.sleep(entity.poll_interval)
+    async def get_new_records(self, entity: TaskMonitorEntity):
+        return entity.get_new_records()
 
 
 @Plugins.register('to_file', Plugins.kind.ACTION_CONFIG)
