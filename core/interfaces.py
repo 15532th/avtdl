@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, List, Sequence
+import logging
+from typing import Callable, Dict, List, Sequence, Tuple
 from collections import defaultdict
 
 
@@ -21,9 +22,61 @@ class RunnableMixin(ABC):
         '''Will be runned as asyncio task once everything set up'''
         return
 
+
+class Event(Enum):
+    start: str = 'start'
+    end: str = 'end'
+    error: str = 'error'
+
+class MessageBus:
+    MSG_PREFIX = 'record'
+    EVENT_PREFIX = 'event'
+    SEPARATOR = '/'
+
+    def __init__(self) -> None:
+        self.subscriptions: Dict[str, List[Callable[[str, Record], None]]] = defaultdict(list)
+
+    def sub(self, topic: str, callback: Callable[[str, Record], None]):
+        logging.debug(f'[bus] subscription on topic {topic} by {callback!r}')
+        self.subscriptions[topic].append(callback)
+
+    def pub(self, topic: str, message: Record):
+        logging.debug(f'[bus] on topic {topic} message "{message}"')
+        for cb in self.subscriptions[topic]:
+            cb(topic, message)
+
+    def make_topic(self, *args: str):
+        return self.SEPARATOR.join(args)
+
+    def split_topic(self, topic: str):
+        return topic.split(self.SEPARATOR)
+
+    def message_topic_for(self, actor: str, entity: str) -> str:
+        return self.make_topic(self.MSG_PREFIX, actor, entity)
+
+    def split_message_topic(self, topic) -> Tuple[str, str]:
+        try:
+            _, actor, entity = self.split_topic(topic)
+        except ValueError:
+            logging.error(f'failed to split message topic "{topic}"')
+            raise
+        return actor, entity
+
+    def event_topic_for(self, event: str, actor: str, entity: str) -> str:
+        return self.make_topic(self.EVENT_PREFIX, event, actor, entity)
+
+    def split_event_topic(self, topic) -> Tuple[str, str, str]:
+        try:
+            _, event_type, action, entity = self.split_topic(topic)
+        except ValueError:
+            logging.error(f'failed to split event topic "{topic}"')
+            raise
+        return event_type, action, entity
+
+
 @dataclass
 class MonitorConfig:
-    pass
+    name: str
 
 @dataclass
 class MonitorEntity:
@@ -31,43 +84,23 @@ class MonitorEntity:
 
 class Monitor(RunnableMixin, ABC):
 
-    def __init__(self, conf: MonitorConfig, entities: Sequence[MonitorEntity]):
+    def __init__(self, bus: MessageBus, conf: MonitorConfig, entities: Sequence[MonitorEntity]):
         self.conf = conf
+        self.bus = bus
         self.entities = {entity.name: entity for entity in entities}
-        self.callbacks: Dict[str, List[Callable]] = defaultdict(list)
-
-    def register(self, entity_name: str, callback: Callable[[Record], None]):
-        '''Register callback to be called for every new record'''
-        if entity_name in self.entities:
-            self.callbacks[entity_name].append(callback)
-        else:
-            raise ValueError(f'Unable to register callback for {entity_name}: no such feed')
 
     def on_record(self, entity_name: str, record: Record):
         '''Implementation should call it for every new Record'''
-        if entity_name in self.callbacks:
-            for cb in self.callbacks[entity_name]:
-                cb(record)
+        topic = self.bus.message_topic_for(self.conf.name, entity_name)
+        self.bus.pub(topic, record)
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.entities!r})'
 
 
-class Event(Enum):
-    start: str = 'start'
-    end: str = 'end'
-    error: str = 'error'
-
-class EventMonitor(Monitor):
-
-    def __init__(self) -> None:
-        entities = [MonitorEntity(name.value) for name in Event]
-        super().__init__(MonitorConfig(), entities)
-
-
 @dataclass
 class ActionConfig:
-    pass
+    name: str
 
 @dataclass
 class ActionEntity:
@@ -75,13 +108,29 @@ class ActionEntity:
 
 class Action(RunnableMixin, ABC):
 
-    def __init__(self, conf: ActionConfig, entities: Sequence[ActionEntity]):
+    def __init__(self, bus: MessageBus, conf: ActionConfig, entities: Sequence[ActionEntity]):
         self.conf = conf
+        self.bus = bus
         self.entities = {entity.name: entity for entity in entities}
+
+        for entity_name in self.entities:
+            topic = self.bus.message_topic_for(self.conf.name, entity_name)
+            self.bus.sub(topic, self._handle)
+
+    def _handle(self, topic: str, record: Record):
+        actor, entity = self.bus.split_message_topic(topic)
+        if actor == self.conf.name:
+            pass
+        self.handle(entity, record)
 
     @abstractmethod
     def handle(self, entity_name: str, record: Record):
         '''Perform action on record if entity in self.entities'''
+
+    def on_event(self, event: Event, entity_name: str, record: Record):
+        '''Implementation should call it to publish event'''
+        topic = self.bus.event_topic_for(event.value, self.conf.name, entity_name)
+        self.bus.pub(topic, record)
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.entities!r})'
@@ -93,3 +142,4 @@ class Filter:
     def match(self, record):
         '''Take record and return it if it matches some condition
         or otherwise process it, else return None'''
+

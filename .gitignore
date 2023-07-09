@@ -5,3 +5,5 @@
 **/*.sqlite
 config.yml
 tests/**
+*.txt
+*.yml

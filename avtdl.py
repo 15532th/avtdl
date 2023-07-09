@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 
 from core.chain import Chain
+from core.interfaces import MessageBus
 from core.config import Plugins, ConfigParser, TopSectionName
 
 
@@ -43,7 +44,8 @@ def main(config_path: Path):
 
     conf = load_config(config_path)
 #   conf = SimpleNamespace(**conf)
-    monitors, actions, filters, chains = ConfigParser.parse(conf)
+    bus = MessageBus()
+    monitors, actions, filters, chains = ConfigParser.parse(bus, conf)
 
     workers = [*monitors.values(), *actions.values()]
     asyncio.run(run(workers), debug=True)
