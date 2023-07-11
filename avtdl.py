@@ -26,9 +26,14 @@ def load_config(path):
         raise SystemExit from e
     return config
 
+def set_logger(name, log_level, propagate=True):
+    logger = logging.getLogger(name)
+    logger.propagate = propagate
+    logger.setLevel(log_level)
+
 
 def set_logging(level):
-    log_format = '%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s'
+    log_format = '%(asctime)s.%(msecs)03d [%(name)s] [%(levelname)s] %(message)s'
     datefmt = '%Y/%m/%d %H:%M:%S'
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
@@ -40,6 +45,9 @@ async def run(runnables):
     await asyncio.Future()
 
 def main(config_path: Path):
+    set_logger('asyncio', logging.INFO, propagate=False)
+    set_logger('charset_normalizer', logging.INFO, propagate=False)
+
     Plugins.load('plugins')
 
     conf = load_config(config_path)

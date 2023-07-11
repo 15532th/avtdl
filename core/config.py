@@ -38,7 +38,7 @@ class ConfigParser:
             config = ConfigFactory(**config_dict)
             actor = ActorFactory(config, entities)
             actors[actor_type] = actor
-            return actors
+        return actors
 
     @classmethod
     def parse_monitors(cls, config_section: Dict) -> Dict[str, Monitor]:

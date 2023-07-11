@@ -14,7 +14,8 @@ class Record:
     url: str
 
     def __str__(self):
-        return f'{self.title} ({self.url})'
+        text = self.title.strip()
+        return f'{text} ({self.url})'
 
 class RunnableMixin(ABC):
 
@@ -98,7 +99,7 @@ class Monitor(RunnableMixin, ABC):
         self.bus.pub(topic, record)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({[entity for entity in self.entities]})'
+        return f'{self.__class__.__name__}({list(self.entities)})'
 
 
 @dataclass
@@ -114,20 +115,49 @@ class TaskMonitor(Monitor):
         self.tasks: Dict[str, asyncio.Task] = {}
 
     async def run(self):
-        for name, entity in self.entities.items():
-            self.tasks[name] = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
+        # update slow tasks sequentially once on startup
+        for entity in self.entities.values():
+            if entity.update_interval < 60:
+                continue
+            try:
+                await self.run_once(entity)
+            except Exception:
+                logging.exception(f'{self.conf.name}: first update of entity {entity} failed')
+        # then start cyclic tasks
+        await self.start_cyclic_tasks()
+        # and wait forever
         await asyncio.Future()
+
+    async def start_cyclic_tasks(self):
+        by_entity_interval = defaultdict(list)
+        for entity in self.entities.values():
+            by_entity_interval[entity.update_interval].append(entity)
+        by_group_interval = {interval / len(entities): entities for interval, entities in by_entity_interval.items()}
+        for interval in sorted(by_group_interval.keys()):
+            entities = by_group_interval[interval]
+            asyncio.create_task(self.start_tasks_for(entities, interval))
+
+    async def start_tasks_for(self, entities, interval):
+        logging.debug(f'[start_tasks_for] will start {len(entities)} tasks with {interval} interval')
+        for entity in entities:
+            await asyncio.sleep(interval)
+            logging.debug(f'[start_tasks_for] starting task {entity.name} with {entity.update_interval} update interval')
+            self.tasks[entity.name] = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
+        logging.debug(f'[start_tasks_for] done with tasks set with {interval} interval')
 
     async def run_for(self, entity: TaskMonitorEntity):
         while True:
             try:
-                records = await self.get_new_records(entity)
+                await self.run_once(entity)
             except Exception:
-                logging.exception(f'{self.conf.name}: task for entity {entity} failed')
+                logging.exception(f'{self.conf.name}: task for entity {entity} failed, terminating')
                 break
-            for record in records:
-                self.on_record(entity.name, record)
             await asyncio.sleep(entity.update_interval)
+
+    async def run_once(self, entity: TaskMonitorEntity):
+        records = await self.get_new_records(entity)
+        for record in records:
+            self.on_record(entity.name, record)
 
     @abstractmethod
     async def get_new_records(self, entity: TaskMonitorEntity) -> Sequence[Record]:
@@ -156,9 +186,7 @@ class Action(RunnableMixin, ABC):
             self.bus.sub(topic, self._handle)
 
     def _handle(self, topic: str, record: Record):
-        actor, entity = self.bus.split_message_topic(topic)
-        if actor == self.conf.name:
-            logging.debug(f'{self.conf.name}: on topic {topic} ignored record produced by self: {record}')
+        _, entity = self.bus.split_message_topic(topic)
         for record_type in self.supported_record_types:
             if isinstance(record, record_type):
                 break
