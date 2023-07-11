@@ -52,7 +52,11 @@ def main(config_path: Path):
 
     conf = load_config(config_path)
 #   conf = SimpleNamespace(**conf)
-    monitors, actions, filters, chains = ConfigParser.parse(conf)
+    try:
+        monitors, actions, filters, chains = ConfigParser.parse(conf)
+    except Exception as e:
+        logging.exception(e)
+        raise SystemExit from e
 
     workers = [*monitors.values(), *actions.values()]
     asyncio.run(run(workers), debug=True)

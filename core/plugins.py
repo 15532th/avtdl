@@ -31,7 +31,8 @@ class Plugins:
     def _get(cls, name: str, kind: kind):
         instance = cls.known[kind].get(name)
         if instance is None:
-            raise KeyError(f'"{name}" is not registered as "{kind}"')
+            known = ', '.join(cls.known[kind].keys())
+            raise KeyError(f'"{name}" is not registered as {kind.value} plugin. Known {kind.value} plugins are {known}')
         return instance
 
     @classmethod
