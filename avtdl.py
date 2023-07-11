@@ -26,10 +26,10 @@ def load_config(path):
         raise SystemExit from e
     return config
 
-def set_logger(name, log_level, propagate=True):
+def set_logger(name, level, propagate=True):
     logger = logging.getLogger(name)
     logger.propagate = propagate
-    logger.setLevel(log_level)
+    logger.setLevel(level)
 
 
 def set_logging(level):
