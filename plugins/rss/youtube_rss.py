@@ -23,8 +23,6 @@ class FeedMonitorConfig(MonitorConfig):
 @Plugins.register('rss', Plugins.kind.MONITOR)
 class FeedMonitor(TaskMonitor):
 
-    supported_record_types = [RSSRecord]
-
     def __init__(self, conf: FeedMonitorConfig, entities: Sequence[FeedMonitorEntity]):
         super().__init__(conf, entities)
         feeds = {e.name: e.url for e in entities}
