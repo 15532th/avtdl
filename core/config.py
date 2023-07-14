@@ -4,6 +4,7 @@ from enum import Enum
 import importlib.util
 import logging
 from pathlib import Path
+import re
 from typing import Dict, Tuple, List, Union, Callable
 
 from core.interfaces import Monitor, MonitorEntity, MonitorConfig, Action, ActionEntity, ActionConfig, Filter, Event
@@ -31,28 +32,32 @@ class ConfigParser:
         check_section_is_type(section, parent_name, dict, f'sections {variants(TopSectionName)}')
         actors = {}
         for actor_type, items in section.items():
-            check_section_is_type(items, actor_type, dict, f'sections {variants(SectionName)}')
             ActorFactory, ConfigFactory, EntityFactory = get_actor_factories(actor_type)
+            check_section_is_type(items, actor_type, dict, f'sections {variants(SectionName)}')
             defaults = get_section(items, actor_type, SectionName.defaults, {})
             entities_items = get_section(items, actor_type, SectionName.entities, section_type=list)
             entities = []
             for entiry_item in entities_items:
-                entity = EntityFactory(**{**defaults, **entiry_item})
+                data = {**defaults, **entiry_item}
+                msg = f'in section {parent_name}: {actor_type}: failed to construct entity from data "{data}": '
+                entity = try_constructing(EntityFactory, data, msg)
                 entities.append(entity)
             config_dict = get_section(items, actor_type, SectionName.config, {})
+            no_config_msg = 'config section is empty or absent' if config_dict == {} else f'error processing config section "{config_dict}"'
             config_dict['name'] = actor_type
-            config = ConfigFactory(**config_dict)
+            msg = f'in section {parent_name}: {actor_type}: {no_config_msg}:'
+            config = try_constructing(ConfigFactory, config_dict, msg)
             actor = ActorFactory(config, entities)
             actors[actor_type] = actor
         return actors
 
     @classmethod
     def parse_monitors(cls, config_section: Dict) -> Dict[str, Monitor]:
-        return cls._parse_actor_section(config_section, Plugins.get_monitor_factories, TopSectionName.monitors)
+        return cls._parse_actor_section(config_section, Plugins.get_monitor_factories, TopSectionName.monitors.value)
 
     @classmethod
     def parse_actions(cls, config_section: Dict) -> Dict[str, Action]:
-        return cls._parse_actor_section(config_section, Plugins.get_action_factories, TopSectionName.actions)
+        return cls._parse_actor_section(config_section, Plugins.get_action_factories, TopSectionName.actions.value)
 
     @classmethod
     def parse_filters(cls, config_section: Dict) -> Dict[str, Filter]:
@@ -88,11 +93,13 @@ class ConfigParser:
                                   Dict[str, Filter],
                                   Dict[str, Chain]]:
         check_config_is_dict(conf)
-        monitors_section = get_section(conf, 'Configuration file', TopSectionName.monitors)
+        top_name = 'Configuration file'
+        expected = 'dict of {} types'
+        monitors_section = get_section(conf, top_name, TopSectionName.monitors, expected_description=expected.format(TopSectionName.monitors.value))
         monitors = ConfigParser.parse_monitors(monitors_section)
-        actions_section = get_section(conf, 'Configuration file', TopSectionName.actions)
+        actions_section = get_section(conf, top_name, TopSectionName.actions, expected_description=expected.format(TopSectionName.actions.value))
         actions = ConfigParser.parse_actions(actions_section)
-        filters_section = get_section(conf, 'Configuration file', TopSectionName.filters, {})
+        filters_section = get_section(conf, top_name, TopSectionName.filters, {}, expected_description=expected.format(TopSectionName.filters.value))
         filters = ConfigParser.parse_filters(filters_section)
 
         chains_section = get_section(conf, 'Configuration file', TopSectionName.chains)
@@ -101,15 +108,22 @@ class ConfigParser:
         return monitors, actions, filters, chains
 
 
-def get_section(conf, parent_name, section_name, default=..., section_type=dict):
+def get_section(conf, parent_name, section_name, default=..., section_type=dict, expected_description=None):
     section = conf.get(section_name.value, ...)
     section = section if section is not ... else default
     if section is not ...:
-        check_section_is_type(section, section_name.value, section_type)
+        check_section_is_type(section, section_name.value, section_type, expected_description)
         return section
     else:
         msg = f'{parent_name} is missing section "{section_name.value}"'
         raise ConfigurationError(msg)
+
+def check_section_is_type(section, section_name, section_type, expected_description=None):
+    try:
+        check_type(section, section_type, expected_description)
+    except ConfigurationError as e:
+        msg = f'Section "{section_name}" has incorrect format: {e}'
+        raise ConfigurationError(msg) from e
 
 def check_type(item, expected_type, expected_description=None):
     if not isinstance(item, expected_type):
@@ -129,13 +143,6 @@ def check_config_is_dict(conf):
         msg = f'Configuration file has incorrect top-level structure: {e}'
         raise ConfigurationError(msg) from e
 
-def check_section_is_type(section, section_name, section_type, expected_description=None):
-    try:
-        check_type(section, section_type, expected_description)
-    except ConfigurationError as e:
-        msg = f'Section "{section_name}" has incorrect format: {e}'
-        raise ConfigurationError(msg) from e
-
 def variants(items):
     if issubclass(items, Enum):
         variants_list = [x.value for x in items.__members__.values()]
@@ -148,3 +155,13 @@ def variants(items):
     else:
         return str(items)
     return ', '.join(variants_list)
+
+def try_constructing(factory: Callable, data: Dict, message: str):
+    try:
+        return factory(**data)
+    except TypeError as e:
+        message += re.sub(r'^.+__init__\(\)', '', str(e))
+        raise ConfigurationError(message) from e
+    except Exception as e:
+        message = f'{message} {e}'
+        raise ConfigurationError(message) from e
