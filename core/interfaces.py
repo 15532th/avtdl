@@ -163,7 +163,6 @@ class TaskMonitor(Monitor):
     async def get_new_records(self, entity: TaskMonitorEntity) -> Sequence[Record]:
         '''Produce new records, optionally adjust update_interval'''
 
-
 @dataclass
 class ActionConfig:
     name: str

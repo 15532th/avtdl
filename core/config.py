@@ -52,15 +52,15 @@ class ConfigParser:
     @classmethod
     def _parse_actor(cls, actor_type: str, items: Dict, get_actor_factories: Callable):
         ActorFactory, ConfigFactory, EntityFactory = get_actor_factories(actor_type)
-        check_has_keys(items, [SectionName.entities.value], message_prefix=actor_type)
+        check_has_keys(items, [SectionName.entities.value])
         defaults = get_section(items, SectionName.defaults.value, {})
         entities_items = get_section(items, SectionName.entities.value, section_type=list)
         entities = []
         for entity_item in entities_items:
-            msg = f'failed to parse entity "{entity_item}"'
+            msg = f'{SectionName.entities.value}: failed to parse entity "{entity_item}"'
             check_entity_is_type(entity_item, dict, msg)
             data = {**defaults, **entity_item}
-            msg = f'failed to construct entity from data "{data}":'
+            msg = f'{SectionName.entities.value}: failed to construct entity from data "{data}":'
             entity = try_constructing(EntityFactory, **data, message=msg)
             entities.append(entity)
         config_dict = get_section(items, SectionName.config.value, {})
@@ -143,7 +143,7 @@ def check_has_keys(section: Dict, fields: List[str], message_prefix=None):
             msg = prefix + f'missing required field "{field}" in section "{section}"'
             raise ConfigurationError(msg)
 
-def get_top_section(conf, name: TopSectionName, default=None):
+def get_top_section(conf, name: TopSectionName, default=...):
     expected = 'name of plugin'
     return get_section(conf, name.value, default, message_prefix=name.value, expected=expected)
 
@@ -193,8 +193,9 @@ def try_constructing(factory: Callable, *args, message: str = '', **kwargs):
     try:
         return factory(*args, **kwargs)
     except TypeError as e:
-        message += re.sub(r'^.+__init__\(\)', '', str(e))
+        error = re.sub(r'^.+__init__\(\)', '', str(e))
+        message = f'{message}: {error}'
         raise ConfigurationError(message) from e
     except Exception as e:
-        message = f'{message} {e}'
+        message = f'{message}: {e}'
         raise ConfigurationError(message) from e
