@@ -22,13 +22,16 @@ class FileMonitorConfig(MonitorConfig):
     pass
 
 @Plugins.register('from_file', Plugins.kind.MONITOR_ENTITY)
+@dataclass
 class FileMonitorEntity(TaskMonitorEntity):
+    name: str
+    update_interval: float
+    path: Path
+    split_lines: bool = False
+    mtime: float = -1
 
-    def __init__(self, name: str, path: str, poll_interval: int = 1, split_lines: bool = False):
-        self.path = Path(path)
-        self.split_lines = split_lines
-        self.mtime: float = -1
-        super().__init__(name, poll_interval)
+    def __post_init__(self):
+        self.path = Path(self.path)
 
     def exists(self) -> bool:
         if not self.path.exists():

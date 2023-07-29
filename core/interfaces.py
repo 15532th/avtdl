@@ -1,10 +1,11 @@
-from abc import ABC, abstractmethod
 import asyncio
-from dataclasses import dataclass
-from enum import Enum
 import logging
-from typing import Callable, Dict, List, Sequence, Tuple, Type
+from abc import ABC, abstractmethod
 from collections import defaultdict
+from enum import Enum
+from typing import Callable, Dict, List, Sequence, Tuple, Type
+
+from pydantic.dataclasses import dataclass
 
 
 @dataclass
@@ -101,12 +102,10 @@ class Monitor(RunnableMixin, ABC):
     def __repr__(self):
         return f'{self.__class__.__name__}({list(self.entities)})'
 
-
-@dataclass
 class TaskMonitorEntity(MonitorEntity):
     def __init__(self, name: str, update_interval: int):
-        super().__init__(name)
         self.update_interval = update_interval
+        super().__init__(name)
 
 class TaskMonitor(Monitor):
 
