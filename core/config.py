@@ -1,21 +1,26 @@
-from dataclasses import dataclass
-from collections import defaultdict
-from enum import Enum
 import importlib.util
-from functools import wraps
 import logging
-from pathlib import Path
 import re
-from typing import Dict, Tuple, List, Union, Callable
+from collections import defaultdict
+from dataclasses import dataclass
+from enum import Enum
+from functools import wraps
+from pathlib import Path
+from typing import Callable, Dict, List, Tuple, Union
 
-from core.interfaces import Monitor, MonitorEntity, MonitorConfig, Action, ActionEntity, ActionConfig, Filter, Event
+from pydantic import ValidationError
+
 from core.chain import Chain
+from core.interfaces import (Action, ActionConfig, ActionEntity, Event, Filter,
+                             Monitor, MonitorConfig, MonitorEntity)
 from core.plugins import Plugins
+
 
 class TopSectionName(Enum):
     monitors: str = 'Monitors'
     filters: str = 'Filters'
     actions: str = 'Actions'
+    events: str = 'Events'
     chains: str = 'Chains'
 
 class SectionName(Enum):
@@ -23,8 +28,16 @@ class SectionName(Enum):
     defaults: str = 'defaults'
     entities: str = 'entities'
 
+class FilterSectionName(Enum):
+    name: str = 'name'
+    patterns: str = 'patterns'
+
 class ConfigurationError(Exception):
     '''Generic exception raised if parsing config failed'''
+
+def format_validation_error(e):
+    errors = ['error parsing "{}" in "{}": {}'.format(err['input'], ' '.join(err['loc']), err['msg']) for err in e.errors()]
+    return ', '.join(errors)
 
 def try_parse(message_prefix):
     def add_error_prefix(func):
@@ -32,7 +45,7 @@ def try_parse(message_prefix):
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except (ValueError, TypeError, ConfigurationError) as e:
+            except (ValueError, KeyError, TypeError, ConfigurationError) as e:
                 msg = f'{message_prefix}: {e}'
                 raise ConfigurationError(msg) from e
         return wrapper
@@ -60,7 +73,7 @@ class ConfigParser:
             msg = f'{SectionName.entities.value}: failed to parse entity "{entity_item}"'
             check_entity_is_type(entity_item, dict, msg)
             data = {**defaults, **entity_item}
-            msg = f'{SectionName.entities.value}: failed to construct entity from data "{data}":'
+            msg = f'{SectionName.entities.value}: failed to construct {EntityFactory.__name__} entity from data "{data}"'
             entity = try_constructing(EntityFactory, **data, message=msg)
             entities.append(entity)
         config_dict = get_section(items, SectionName.config.value, {})
@@ -69,9 +82,9 @@ class ConfigParser:
         else:
             no_config_msg = f'error processing config section "{config_dict}"'
         config_dict['name'] = actor_type
-        config = try_constructing(ConfigFactory, **config_dict, message=f'{no_config_msg}:')
+        config = try_constructing(ConfigFactory, **config_dict, message=f'{no_config_msg}')
 
-        actor_failed_msg = f'initialization of {ActorFactory.__name__} from {config} failed:'
+        actor_failed_msg = f'initialization of {ActorFactory.__name__} from {config} failed'
         actor = try_constructing(ActorFactory, config, entities, message=actor_failed_msg)
         return actor
 
@@ -90,29 +103,44 @@ class ConfigParser:
     def parse_filters(cls, config_section: Dict) -> Dict[str, Filter]:
         filters = {}
         for filter_type, filters_list in config_section.items():
+            check_entity_is_type(filters_list, list, message_prefix=filter_type)
             FilterFactory = Plugins.get_filter_factory(filter_type)
             for entity in filters_list:
-                filters[entity['name']] = FilterFactory(**entity)
+                msg = f'{filter_type}: error parsing entity "{entity}"'
+                check_entity_is_type(entity, dict, message_prefix=msg)
+                filter_instance = try_constructing(FilterFactory, **entity, message=msg)
+                filters[entity['name']] = filter_instance
         return filters
 
     @classmethod
+    @try_parse(TopSectionName.chains.value)
     def parse_chains(cls,
                      filters: Dict[str, Filter],
                      config_section: Dict) -> Dict[str, Chain]:
         chains = {}
         for name, chain_config in config_section.items():
-            chain_filters = []
-            for filter_type, filter_names in chain_config.get('filters', {}).items():
-                for filter_name in filter_names:
-                    if filter_name in filters:
-                        chain_filters.append(filters[filter_name])
-            chain_monitors = chain_config['monitors']
-            chain_actions = chain_config['actions']
-            chain_events = chain_config.get('events', {})
-
-            chain = Chain(name, chain_filters, chain_monitors, chain_actions, chain_events)
-            chains[name] = chain
+            check_entity_is_type(chain_config, dict, message_prefix=name)
+            parse_chain = try_parse(name)(cls._parse_chain)
+            chains[name] = parse_chain(name, chain_config, filters)
         return chains
+
+    @classmethod
+    def _parse_chain(cls, name, chain_config, filters):
+        chain_filters = []
+        chain_filters_section = get_section(chain_config, TopSectionName.filters.value, {})
+        for filter_type, filter_names in chain_filters_section.items():
+            for filter_name in filter_names:
+                if filter_name in filters:
+                    chain_filters.append(filters[filter_name])
+                else:
+                    msg = f'filter with name "{filter_name}" not found in {TopSectionName.filters} section'
+                    raise ConfigurationError(msg)
+        chain_monitors = get_section(chain_config, TopSectionName.monitors.value)
+        chain_actions = get_section(chain_config, TopSectionName.actions.value)
+        chain_events = get_section(chain_config, TopSectionName.events.value, {})
+
+        chain = Chain(name, chain_filters, chain_monitors, chain_actions, chain_events)
+        return chain
 
     @classmethod
     def parse(cls, conf) -> Tuple[Dict[str, Monitor],
@@ -176,9 +204,12 @@ def check_type(item, expected_type, expected_description=None):
         msg = f'expected {expected_description}, got {gotten_type}'
         raise ConfigurationError(msg)
 
+def enum_values(an_enum: Enum) -> List:
+    return [x.value for x in an_enum.__members__.values()]
+
 def variants(items):
     if issubclass(items, Enum):
-        variants_list = [x.value for x in items.__members__.values()]
+        variants_list = enum_values(items)
     elif isinstance(items, list):
         variants_list = [str(item) for item in items]
     elif isinstance(items, dict):
@@ -194,6 +225,10 @@ def try_constructing(factory: Callable, *args, message: str = '', **kwargs):
         return factory(*args, **kwargs)
     except TypeError as e:
         error = re.sub(r'^.+__init__\(\)', '', str(e))
+        message = f'{message}: {error}'
+        raise ConfigurationError(message) from e
+    except ValidationError as e:
+        error = format_validation_error(e)
         message = f'{message}: {error}'
         raise ConfigurationError(message) from e
     except Exception as e:
