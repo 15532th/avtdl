@@ -1,5 +1,4 @@
 import asyncio
-from dataclasses import dataclass
 import logging
 from typing import Dict, Sequence
 
@@ -8,14 +7,12 @@ from core.interfaces import TaskMonitor, TaskMonitorEntity, MonitorConfig
 from plugins.rss.feed_parser import RSS2MSG, Record as RSSRecord
 
 @Plugins.register('rss', Plugins.kind.MONITOR_ENTITY)
-@dataclass
 class FeedMonitorEntity(TaskMonitorEntity):
     name: str
     url: str
     update_interval: int = 900
 
 @Plugins.register('rss', Plugins.kind.MONITOR_CONFIG)
-@dataclass
 class FeedMonitorConfig(MonitorConfig):
     db_path: str
     ua: str

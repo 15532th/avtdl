@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from dataclasses import dataclass
 import os
 from typing import Dict, List, Sequence
 from pathlib import Path
@@ -17,12 +16,10 @@ class TextRecord(Record):
         return self.title
 
 @Plugins.register('from_file', Plugins.kind.MONITOR_CONFIG)
-@dataclass
 class FileMonitorConfig(MonitorConfig):
     pass
 
 @Plugins.register('from_file', Plugins.kind.MONITOR_ENTITY)
-@dataclass
 class FileMonitorEntity(TaskMonitorEntity):
     name: str
     update_interval: float
@@ -59,7 +56,7 @@ class FileMonitorEntity(TaskMonitorEntity):
                 else:
                     lines = [fp.read()]
                 for line in lines:
-                    record = TextRecord(line.strip(), str(self.path))
+                    record = TextRecord(title=line.strip(), url=str(self.path))
                     records.append(record)
         return records
 
@@ -75,12 +72,10 @@ class FileMonitor(TaskMonitor):
 
 
 @Plugins.register('to_file', Plugins.kind.ACTION_CONFIG)
-@dataclass
 class FileActionConfig(ActionConfig):
     pass
 
 @Plugins.register('to_file', Plugins.kind.ACTION_ENTITY)
-@dataclass
 class FileActionEntity(ActionEntity):
     path: Path
 
@@ -94,7 +89,7 @@ class FileAction(Action):
                 fp.write(str(record) + '\n')
         except Exception as e:
             message = f'error in {self.conf.name}.{entity_name}: {e}'
-            self.on_event(Event.error, entity_name, TextRecord(message, record.url))
+            self.on_event(Event.error, entity_name, TextRecord(title=message, url=record.url))
 
     async def run(self):
         return

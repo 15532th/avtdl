@@ -1,11 +1,9 @@
-from pydantic.dataclasses import dataclass
 from typing import List
 
 from core.interfaces import Filter, Record
 from core.config import Plugins
 
 @Plugins.register('noop', Plugins.kind.FILTER)
-@dataclass
 class NoopFilter(Filter):
     name: str
 
@@ -13,7 +11,6 @@ class NoopFilter(Filter):
         return record
 
 @Plugins.register('match', Plugins.kind.FILTER)
-@dataclass
 class MatchFilter(Filter):
     name: str
     patterns: List[str]
@@ -25,7 +22,6 @@ class MatchFilter(Filter):
         return None
 
 @Plugins.register('exclude', Plugins.kind.FILTER)
-@dataclass
 class ExcludeFilter(Filter):
     name: str
     patterns: List[str]
