@@ -5,11 +5,10 @@ from collections import defaultdict
 from enum import Enum
 from typing import Callable, Dict, List, Sequence, Tuple, Type
 
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel
 
 
-@dataclass
-class Record:
+class Record(BaseModel):
     '''Data entry, passed around from Monitors to Actions through Filters'''
     title: str
     url: str
@@ -79,12 +78,10 @@ class MessageBus:
         return event_type, action, entity
 
 
-@dataclass
-class MonitorConfig:
+class MonitorConfig(BaseModel):
     name: str
 
-@dataclass
-class MonitorEntity:
+class MonitorEntity(BaseModel):
     name: str
 
 class Monitor(RunnableMixin, ABC):
@@ -103,9 +100,7 @@ class Monitor(RunnableMixin, ABC):
         return f'{self.__class__.__name__}({list(self.entities)})'
 
 class TaskMonitorEntity(MonitorEntity):
-    def __init__(self, name: str, update_interval: int):
-        self.update_interval = update_interval
-        super().__init__(name)
+    update_interval: int
 
 class TaskMonitor(Monitor):
 
@@ -162,12 +157,10 @@ class TaskMonitor(Monitor):
     async def get_new_records(self, entity: TaskMonitorEntity) -> Sequence[Record]:
         '''Produce new records, optionally adjust update_interval'''
 
-@dataclass
-class ActionConfig:
+class ActionConfig(BaseModel):
     name: str
 
-@dataclass
-class ActionEntity:
+class ActionEntity(BaseModel):
     name: str
 
 class Action(RunnableMixin, ABC):
@@ -206,7 +199,7 @@ class Action(RunnableMixin, ABC):
         return f'{self.__class__.__name__}({[entity for entity in self.entities]})'
 
 
-class Filter:
+class Filter(BaseModel):
 
     @abstractmethod
     def match(self, record):
