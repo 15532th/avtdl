@@ -134,12 +134,12 @@ class FilterParser:
         return filters_section_model
 
     @classmethod
-    def parse_filters(cls, config_section: Dict) -> Dict[str, Filter]:
+    def create_filters(cls, config_section: BaseModel) -> Dict[str, Filter]:
         filters = {}
-        for filter_type, filters_list in config_section.items():
+        for filter_type, filters_list in config_section:
             FilterFactory = Plugins.get_filter_factory(filter_type)
             for entity in filters_list:
-                filters[entity['name']] = FilterFactory(**entity)
+                filters[entity.name] = FilterFactory(**entity.model_dump())
         return filters
 
 class ConfigParser:
@@ -179,16 +179,16 @@ class ConfigParser:
         return SpecificConfigModel
 
     @classmethod
-    def parse_chains(cls,
+    def create_chains(cls,
                      filters: Dict[str, Filter],
                      config_section: Dict) -> Dict[str, Chain]:
         chains = {}
         for name, chain_config in config_section.items():
-            chains[name] = cls._parse_chain(name, chain_config, filters)
+            chains[name] = cls._create_chain(name, chain_config, filters)
         return chains
 
     @classmethod
-    def _parse_chain(cls, name, chain_config: ChainSection, filters):
+    def _create_chain(cls, name, chain_config: ChainSection, filters: Dict[str, Filter]):
         chain_filters = []
         chain_filters_section = chain_config.Filters
         for filter_type, filter_names in chain_filters_section.items():
@@ -220,8 +220,8 @@ class ConfigParser:
 
         monitors = ConfigParser.create_monitors(specific_config.Monitors)
         actions = ConfigParser.create_actions(specific_config.Actions)
-        filters = specific_config.Filters
-        chains = specific_config.Chains
+        filters = FilterParser.create_filters(specific_config.Filters)
+        chains = ConfigParser.create_chains(filters, specific_config.Chains)
 
         return monitors, actions, filters, chains
 
