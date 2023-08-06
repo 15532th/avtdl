@@ -10,7 +10,7 @@ import yaml
 
 from core.chain import Chain
 from core.interfaces import MessageBus
-from core.config import Plugins, ConfigParser, TopSectionName
+from core.config import Plugins, ConfigParser
 
 
 def load_config(path):
@@ -51,15 +51,13 @@ def main(config_path: Path):
     Plugins.load('plugins')
 
     conf = load_config(config_path)
-#   conf = SimpleNamespace(**conf)
     try:
-        monitors, actions, filters, chains = ConfigParser.parse(conf)
+        actors, chains = ConfigParser.parse(conf)
     except Exception as e:
         logging.exception(e)
         raise SystemExit from e
 
-    workers = [*monitors.values(), *actions.values()]
-    asyncio.run(run(workers), debug=True)
+    asyncio.run(run(actors.values()), debug=True)
 
 
 if __name__ == "__main__":

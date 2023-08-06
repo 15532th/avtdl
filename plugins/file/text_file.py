@@ -6,20 +6,15 @@ import os
 from typing import Dict, List, Sequence
 from pathlib import Path
 
-from core.interfaces import TaskMonitor, TaskMonitorEntity, MonitorConfig
-from core.interfaces import Action, ActionEntity, ActionConfig, Record, Event
+from core.interfaces import ActorConfig, TaskMonitor, TaskMonitorEntity, Record, TextRecord, Event, ActorEntity, Actor
 from core.config import Plugins
 
 
-class TextRecord(Record):
-    def __str__(self):
-        return self.title
-
-@Plugins.register('from_file', Plugins.kind.MONITOR_CONFIG)
-class FileMonitorConfig(MonitorConfig):
+@Plugins.register('from_file', Plugins.kind.ACTOR_CONFIG)
+class FileMonitorConfig(ActorConfig):
     pass
 
-@Plugins.register('from_file', Plugins.kind.MONITOR_ENTITY)
+@Plugins.register('from_file', Plugins.kind.ACTOR_ENTITY)
 class FileMonitorEntity(TaskMonitorEntity):
     name: str
     update_interval: float
@@ -64,23 +59,24 @@ class FileMonitorEntity(TaskMonitorEntity):
         return self.get_records() if self.changed() else []
 
 
-@Plugins.register('from_file', Plugins.kind.MONITOR)
+@Plugins.register('from_file', Plugins.kind.ACTOR)
 class FileMonitor(TaskMonitor):
 
     async def get_new_records(self, entity: TaskMonitorEntity):
         return entity.get_new_records()
 
 
-@Plugins.register('to_file', Plugins.kind.ACTION_CONFIG)
-class FileActionConfig(ActionConfig):
+@Plugins.register('to_file', Plugins.kind.ACTOR_CONFIG)
+class FileActionConfig(ActorConfig):
     pass
 
-@Plugins.register('to_file', Plugins.kind.ACTION_ENTITY)
-class FileActionEntity(ActionEntity):
+@Plugins.register('to_file', Plugins.kind.ACTOR_ENTITY)
+class FileActionEntity(ActorEntity):
     path: Path
 
-@Plugins.register('to_file', Plugins.kind.ACTION)
-class FileAction(Action):
+@Plugins.register('to_file', Plugins.kind.ACTOR)
+class FileAction(Actor):
+    supported_record_types = [TextRecord]
 
     def handle(self, entity_name: str, record: Record):
         entity = self.entities[entity_name]
@@ -89,7 +85,7 @@ class FileAction(Action):
                 fp.write(str(record) + '\n')
         except Exception as e:
             message = f'error in {self.conf.name}.{entity_name}: {e}'
-            self.on_event(Event.error, entity_name, TextRecord(title=message, url=record.url))
+            self.on_record(entity_name, Event(title=message, url=record.url))
 
     async def run(self):
         return
