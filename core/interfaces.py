@@ -3,7 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from enum import Enum
-from typing import Callable, Dict, List, Sequence, Tuple, Type
+from typing import Callable, Dict, List, Sequence, Tuple, Type, Optional
 
 from pydantic import BaseModel
 
@@ -17,22 +17,16 @@ class Record(BaseModel):
         text = self.title.strip()
         return f'{text} ({self.url})'
 
-class RunnableMixin(ABC):
+class TextRecord(Record):
+    def __str__(self):
+        return self.title
 
-    @abstractmethod
-    async def run(self):
-        '''Will be runned as asyncio task once everything set up'''
-        return
-
-
-class Event(Enum):
-    start: str = 'start'
-    end: str = 'end'
-    error: str = 'error'
-
+class Event(Record):
+    def __str__(self):
+        return self.title
 class MessageBus:
-    MSG_PREFIX = 'record'
-    EVENT_PREFIX = 'event'
+    PREFIX_IN = 'inputs'
+    PREFIX_OUT = 'output'
     SEPARATOR = '/'
 
     _subscriptions: Dict[str, List[Callable[[str, Record], None]]] = defaultdict(list)
@@ -55,8 +49,11 @@ class MessageBus:
     def split_topic(self, topic: str):
         return topic.split(self.SEPARATOR)
 
-    def message_topic_for(self, actor: str, entity: str) -> str:
-        return self.make_topic(self.MSG_PREFIX, actor, entity)
+    def incoming_topic_for(self, actor: str, entity: str) -> str:
+        return self.make_topic(self.PREFIX_IN, actor, entity)
+
+    def outgoing_topic_for(self, actor: str, entity: str) -> str:
+        return self.make_topic(self.PREFIX_OUT, actor, entity)
 
     def split_message_topic(self, topic) -> Tuple[str, str]:
         try:
@@ -65,9 +62,6 @@ class MessageBus:
             logging.error(f'failed to split message topic "{topic}"')
             raise
         return actor, entity
-
-    def event_topic_for(self, event: str, actor: str, entity: str) -> str:
-        return self.make_topic(self.EVENT_PREFIX, event, actor, entity)
 
     def split_event_topic(self, topic) -> Tuple[str, str, str]:
         try:
@@ -78,33 +72,59 @@ class MessageBus:
         return event_type, action, entity
 
 
-class MonitorConfig(BaseModel):
+class ActorConfig(BaseModel):
     name: str
 
-class MonitorEntity(BaseModel):
+class ActorEntity(BaseModel):
     name: str
 
-class Monitor(RunnableMixin, ABC):
+class Actor(ABC):
 
-    def __init__(self, conf: MonitorConfig, entities: Sequence[MonitorEntity]):
+    supported_record_types: List[Type] = [Record]
+
+    def __init__(self, conf: ActorConfig, entities: Sequence[ActorEntity]):
         self.conf = conf
         self.bus = MessageBus()
         self.entities = {entity.name: entity for entity in entities}
 
+        for entity_name in self.entities:
+            topic = self.bus.incoming_topic_for(self.conf.name, entity_name)
+            self.bus.sub(topic, self._handle)
+
+    def _handle(self, topic: str, record: Record) -> None:
+        _, entity = self.bus.split_message_topic(topic)
+        for record_type in self.supported_record_types:
+            if isinstance(record, record_type):
+                break
+        else:
+            logging.debug(
+                f'{self.conf.name}: ignoring record with unsupported type "{record.__class__.__name__}": {record}')
+            return
+        self.handle(entity, record)
+
+    @abstractmethod
+    def handle(self, entity_name: str, record: Record) -> None:
+        '''Perform action on record if entity in self.entities'''
+
     def on_record(self, entity_name: str, record: Record):
-        '''Implementation should call it for every new Record'''
-        topic = self.bus.message_topic_for(self.conf.name, entity_name)
+        '''Implementation should call it for every new Record it produces'''
+        topic = self.bus.outgoing_topic_for(self.conf.name, entity_name)
         self.bus.pub(topic, record)
 
     def __repr__(self):
         return f'{self.__class__.__name__}({list(self.entities)})'
 
-class TaskMonitorEntity(MonitorEntity):
+    async def run(self):
+        '''Will be run as asyncio task once everything is set up'''
+        return
+
+
+class TaskMonitorEntity(ActorEntity):
     update_interval: int
 
-class TaskMonitor(Monitor):
+class TaskMonitor(Actor):
 
-    def __init__(self, conf: MonitorConfig, entities: Sequence[TaskMonitorEntity]):
+    def __init__(self, conf: ActorConfig, entities: Sequence[TaskMonitorEntity]):
         super().__init__(conf, entities)
         self.tasks: Dict[str, asyncio.Task] = {}
 
@@ -153,56 +173,37 @@ class TaskMonitor(Monitor):
         for record in records:
             self.on_record(entity.name, record)
 
+    def handle(self, entity_name: str, record: Record) -> None:
+        logging.warning(f'TaskMonitor({self.conf.name}, {entity_name}) got Record despite not expecting any, might be sign of possible misconfiguration. Record: {record}')
+
     @abstractmethod
     async def get_new_records(self, entity: TaskMonitorEntity) -> Sequence[Record]:
         '''Produce new records, optionally adjust update_interval'''
 
-class ActionConfig(BaseModel):
-    name: str
 
-class ActionEntity(BaseModel):
-    name: str
+class Monitor(Actor, ABC):
+    pass
 
-class Action(RunnableMixin, ABC):
+class Action(Actor, ABC):
+    pass
 
-    supported_record_types: List[Type] = [Record]
+class FilterEntity(ActorEntity):
+    pass
 
-    def __init__(self, conf: ActionConfig, entities: Sequence[ActionEntity]):
-        self.conf = conf
-        self.bus = MessageBus()
-        self.entities = {entity.name: entity for entity in entities}
+class Filter(Actor):
 
-        for entity_name in self.entities:
-            topic = self.bus.message_topic_for(self.conf.name, entity_name)
-            self.bus.sub(topic, self._handle)
+    def __init__(self, conf: ActorConfig, entities: Sequence[FilterEntity]):
+        super().__init__(conf, entities)
 
-    def _handle(self, topic: str, record: Record):
-        _, entity = self.bus.split_message_topic(topic)
-        for record_type in self.supported_record_types:
-            if isinstance(record, record_type):
-                break
-        else:
-            logging.debug(f'{self.conf.name}: ignoring record with unsupported type "{record.__class__.__name__}": {record}')
-            return
-        self.handle(entity, record)
-
-    @abstractmethod
     def handle(self, entity_name: str, record: Record):
-        '''Perform action on record if entity in self.entities'''
-
-    def on_event(self, event: Event, entity_name: str, record: Record):
-        '''Implementation should call it to publish event'''
-        topic = self.bus.event_topic_for(event.value, self.conf.name, entity_name)
-        self.bus.pub(topic, record)
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}({[entity for entity in self.entities]})'
-
-
-class Filter(BaseModel):
+        filtered = self.match(entity_name, record)
+        if filtered is not None:
+            self.on_record(entity_name, record)
+        else:
+            logging.debug(f'filter {self.conf.name}: record "{record}" dropped on filter {self.entities[entity_name]}')
 
     @abstractmethod
-    def match(self, record):
+    def match(self, entity_name: str, record: Record) -> Optional[Record]:
         '''Take record and return it if it matches some condition
         or otherwise process it, else return None'''
 
