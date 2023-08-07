@@ -5,21 +5,22 @@ from dataclasses import dataclass
 import aiohttp
 
 from core.config import Plugins
-from core.interfaces import MonitorConfig, Record, TaskMonitor, TaskMonitorEntity
+from core.interfaces import TaskMonitor, TaskMonitorEntity, Record, ActorEntity
 
-@Plugins.register('get_url', Plugins.kind.MONITOR_CONFIG)
+
+@Plugins.register('get_url', Plugins.kind.ACTOR_CONFIG)
 @dataclass
-class UrlMonitorConfig(MonitorConfig):
+class UrlMonitorConfig(ActorEntity):
     pass
 
-@Plugins.register('get_url', Plugins.kind.MONITOR_ENTITY)
+@Plugins.register('get_url', Plugins.kind.ACTOR_ENTITY)
 @dataclass
 class UrlMonitorEntity(TaskMonitorEntity):
     name: str
-    update_interval: int
     url: str
+    update_interval: int
 
-@Plugins.register('get_url', Plugins.kind.MONITOR)
+@Plugins.register('get_url', Plugins.kind.ACTOR)
 class UrlMonitor(TaskMonitor):
     async def get_new_records(self, entity: UrlMonitorEntity):
         async with aiohttp.ClientSession() as session:
