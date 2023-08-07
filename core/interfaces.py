@@ -105,8 +105,8 @@ class Actor(ABC):
                 break
         else:
             logging.debug(
-                f'{self.conf.name}: ignoring record with unsupported type "{record.__class__.__name__}": {record}')
-            return
+                f'{self.conf.name}: forwarding record with unsupported type "{record.__class__.__name__}" down the chain: {record}')
+            self.on_record(entity, record)
         self.handle(entity, record)
 
     @abstractmethod
