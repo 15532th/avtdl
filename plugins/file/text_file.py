@@ -85,7 +85,7 @@ class FileAction(Actor):
                 fp.write(str(record) + '\n')
         except Exception as e:
             message = f'error in {self.conf.name}.{entity_name}: {e}'
-            self.on_record(entity_name, Event(title=message, url=record.url))
+            self.on_record(entity_name, Event(event_type='error', title=message, url=record.url))
 
     async def run(self):
         return

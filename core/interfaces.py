@@ -21,7 +21,14 @@ class TextRecord(Record):
     def __str__(self):
         return self.title
 
+class EventType:
+    generic: str = 'generic'
+    error: str = 'error'
+    started: str = 'started'
+    finished: str = 'finished'
 class Event(Record):
+    event_type: str = EventType.generic
+
     def __str__(self):
         return self.title
 class MessageBus:
