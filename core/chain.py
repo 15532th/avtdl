@@ -3,26 +3,35 @@ from typing import List, Optional, Dict, OrderedDict, Callable
 
 from pydantic import RootModel
 
-from core.interfaces import Actor, Record, MessageBus
+from core.interfaces import Record, MessageBus
 
 class ChainConfigSection(RootModel):
-    root: OrderedDict[str, List[str]]
+    root: List[OrderedDict[str, List[str]]]
 
     def __iter__(self):
-        return iter(self.root.items())
+        for item in self.root:
+            yield item.popitem()
 
+    def __len__(self):
+        return self.root.__len__()
+
+    def __getitem__(self, item):
+        value = self.root.__getitem__(item)
+        if isinstance(value, list):
+            return [x.popitem() for x in value]
+        return value.popitem()
 
 class Chain:
     def __init__(self, name: str, actors: ChainConfigSection):
         self.name = name
         self.bus = MessageBus()
 
-        if len(actors.root) < 2:
+        if len(actors) < 2:
             logging.warning(f'[chain {name}]: need at least two actors to create a chain')
             return
 
-        producer_name, producer = actors.root.popitem(last=False)
-        for consumer_name, consumer in actors:
+        producer_name, producer = actors[0]
+        for consumer_name, consumer in actors[1:]:
             for producer_entity in producer:
                 for consumer_entity in consumer:
                     producer_topic = self.bus.outgoing_topic_for(producer_name, producer_entity)
