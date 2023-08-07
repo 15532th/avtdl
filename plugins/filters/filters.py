@@ -54,7 +54,7 @@ class ExcludeFilter(Filter):
 
 @Plugins.register('filter.event', Plugins.kind.ACTOR_ENTITY)
 class EventFilterEntity(FilterEntity):
-    filter_type: List[str] = ['any']
+    filter_type: Optional[List[str]] = None
 
 @Plugins.register('filter.event', Plugins.kind.ACTOR)
 class EventFilter(Filter):
@@ -64,7 +64,8 @@ class EventFilter(Filter):
 
     def match(self, entity: str, record: Record) -> Optional[Record]:
         if isinstance(record, Event):
-            if record.filter_type == 'any':
+            filter_type = self.entities[entity].filter_type
+            if filter_type is None:
                 return record
             for filter_type in self.entities[entity].filter_type:
                 if record.filter_type == filter_type:
