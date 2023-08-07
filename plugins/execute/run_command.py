@@ -1,23 +1,26 @@
 import asyncio
 import logging
 import os
-from typing import Dict, List, Sequence
+import re
+from typing import Dict, List, Sequence, Optional
 import shlex
 
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record, Event, EventType
 from core.config import Plugins
 
 URL_PLACEHOLDER = '{url}'
+TEXT_PLACEHOLDER = '{text}'
 
 @Plugins.register('execute', Plugins.kind.ACTOR_CONFIG)
 class CommandConfig(ActorConfig):
-    url_placeholder: str = '{url}'
+    url_placeholder: str = URL_PLACEHOLDER
+    text_placeholder: str = TEXT_PLACEHOLDER
 
 @Plugins.register('execute', Plugins.kind.ACTOR_ENTITY)
 class CommandEntity(ActorEntity):
     name: str
     command: str
-    working_dir: str
+    working_dir: Optional[str] = None
 
 
 @Plugins.register('execute', Plugins.kind.ACTOR)
@@ -32,8 +35,7 @@ class Command(Actor):
         if entity_name not in self.entities:
             raise ValueError(f'Unable run command for {entity_name}: no entity found')
         entity = self.entities[entity_name]
-        args = self.args_for(entity, record)
-        self.add(args, entity.working_dir, entity_name)
+        self.add(entity, record)
 
     def args_for(self, entity: CommandEntity, record: Record):
         try:
@@ -42,13 +44,25 @@ class Command(Actor):
             logging.error(f'Error parsing "download_command" string {entity.command}: {e}')
             raise
         # need a copy of template arguments list anyway, since it gets changed
-        args = [record.url if arg == self.conf.url_placeholder else arg for arg in args]
-        return args
+        new_args = []
+        for arg in args:
+            if arg.find(self.conf.url_placeholder) > -1:
+                new_arg = re.sub(self.conf.url_placeholder, record.url, arg)
+                new_args.append(new_arg)
+            elif arg.find(self.conf.text_placeholder) > -1:
+                new_arg = re.sub(self.conf.text_placeholder, str(record), arg)
+                new_args.append(new_arg)
+            else:
+                new_args.append(arg)
+        return new_args
 
-    def shell_for(self, args: List[str]) -> str:
+    @staticmethod
+    def shell_for(args: List[str]) -> str:
         return ' '.join(args)
 
-    def add(self, args, working_dir, entity_name):
+    def add(self, entity: CommandEntity, record: Record):
+        args = self.args_for(entity, record)
+        working_dir = entity.working_dir
         if working_dir is None:
             working_dir = os.getcwd()
         else:
@@ -57,22 +71,25 @@ class Command(Actor):
                 os.makedirs(working_dir)
 
         command_line = self.shell_for(args)
-        if command_line in self.running_commands:
-            logging.debug('command line {} was called already'.format(self.shell_for(args)))
-        task = self.run_subprocess(args, working_dir, entity_name)
-        self.running_commands[command_line] = asyncio.get_event_loop().create_task(task)
+        task_id = f'Task for {entity.name}: on record {record} executing {command_line}'
+        if task_id in self.running_commands:
+            msg = f'Task for {entity.name} is already processing record {record}'
+            logging.info(msg)
+            return
+        task = self.run_subprocess(args, working_dir, entity.name, task_id)
+        self.running_commands[task_id] = asyncio.get_event_loop().create_task(task)
 
-    async def run_subprocess(self, args, working_dir, entity_name):
+    async def run_subprocess(self, args, working_dir, entity_name, task_id):
         command_line = self.shell_for(args)
-        logging.info('starting download subprocess for {}'.format(command_line))
+        logging.info(f'For {entity_name} executing command {command_line}')
         event = Event(event_type=EventType.started, url='', title=f'Running command: {command_line}')
         self.on_record(entity_name, event)
         process = await asyncio.create_subprocess_exec(*args, cwd=working_dir)
         await process.wait()
         logging.debug('subprocess for {} finished with exit code {}'.format(command_line, process.returncode))
-        self.running_commands.pop(command_line)
+        self.running_commands.pop(task_id)
         if process.returncode == 0:
-            event = Event(event_type=EventType.finished, url='', title=f'command finished: {command_line}')
+            event = Event(event_type=EventType.finished, url='', title=f'command finished successfully: {command_line}')
             self.on_record(entity_name, event)
         else:
             event = Event(event_type=EventType.error, url='', title=f'command failed: {command_line}')
