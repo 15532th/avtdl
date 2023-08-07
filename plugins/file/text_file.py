@@ -76,7 +76,7 @@ class FileActionEntity(ActorEntity):
 
 @Plugins.register('to_file', Plugins.kind.ACTOR)
 class FileAction(Actor):
-    supported_record_types = [TextRecord]
+    supported_record_types = [Record, TextRecord, Event]
 
     def handle(self, entity_name: str, record: Record):
         entity = self.entities[entity_name]
