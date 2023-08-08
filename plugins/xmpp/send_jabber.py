@@ -2,7 +2,7 @@ from typing import Sequence
 
 from core.config import Plugins
 from core.interfaces import ActorConfig, Record, ActorEntity, Actor
-from plugins.xmpp.msg2jbr import MSG2JBR
+from plugins.xmpp.msg2jbr_aioxmpp import MSG2JBR
 
 
 @Plugins.register('xmpp', Plugins.kind.ACTOR_CONFIG)

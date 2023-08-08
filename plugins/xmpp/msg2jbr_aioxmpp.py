@@ -7,6 +7,31 @@ import aioxmpp
 
 ON_ERROR_RETRY_DELAY = 60
 
+
+def instantiate_loggers(names, level):
+    '''
+    Make instance of logger with specific name and loglevel
+    before it gets done by someone else. Used to make
+    logging.getLogger(name) call return instance with
+    loglevel different from default.
+
+    This script relies on logging.basicConfig() to set default
+    logger level and format, so there is no need to pass
+    these settings between modules.
+
+    While aioxmpp.Client() accepts `logger` argument, allowing
+    to specify loglevel, some underlying modules and libraries
+    just create loggers by themself, using default loglevel
+    set by logging.basicConfig().
+
+    This leads to debug messages from aioxmpp modules being
+    produced when loglevel is set to DEBUG for this script.
+    '''
+    for name in names:
+        logger = logging.getLogger(name)
+        logger.setLevel(level)
+
+
 @dataclass
 class Line:
     recepient: str
@@ -22,7 +47,7 @@ class MSG2JBR:
         if not msg:
             return
         client = aioxmpp.PresenceManagedClient(aioxmpp.JID.fromstr(user), aioxmpp.make_security_layer(passwd))
-        async with client.connected() as stream:
+        async with client.connected():
             for line in msg:
                 message = aioxmpp.Message(to=aioxmpp.JID.fromstr(recepient), type_=aioxmpp.MessageType.CHAT)
                 message.body[None] = line
@@ -38,30 +63,7 @@ class MSG2JBR:
         self.passwd = passwd
         self.send_query = []
         self.can_send = (username is not None and passwd is not None and 'aioxmpp' in sys.modules)
-        self.instantiate_loggers(['aioopenssl', 'aiosasl', 'aioxmpp'], logging.ERROR)
-
-    def instantiate_loggers(self, names, level):
-        '''
-        Make instance of logger with specific name and loglevel
-        before it gets done by someone else. Used to make
-        logging.getLogger(name) call return instance with
-        loglevel different from default.
-
-        This script relies on logging.basicConfig() to set default
-        logger level and format, so there is no need to pass
-        these settings between modules.
-
-        While aioxmpp.Client() accepts `logger` argument, allowing
-        to specify loglevel, some underlying modules and libraries
-        just create loggers by themself, using default loglevel
-        set by logging.basicConfig().
-
-        This leads to debug messages from aioxmpp modules being
-        produced when loglevel is set to DEBUG for this script.
-        '''
-        for name in names:
-            logger = logging.getLogger(name)
-            logger.setLevel(level)
+        instantiate_loggers(['aioopenssl', 'aiosasl', 'aioxmpp'], logging.ERROR)
 
     def to_be_send(self, recepient, message):
         line = Line(recepient, message)
@@ -77,7 +79,7 @@ class MSG2JBR:
         if not self.send_query:
             return
         client = aioxmpp.PresenceManagedClient(aioxmpp.JID.fromstr(self.user), aioxmpp.make_security_layer(self.passwd))
-        async with client.connected() as stream:
+        async with client.connected():
             while self.send_query:
                 line = self.send_query.pop()
                 message = aioxmpp.Message(to=aioxmpp.JID.fromstr(line.recepient), type_=aioxmpp.MessageType.CHAT)
@@ -88,7 +90,7 @@ class MSG2JBR:
         while True:
             try:
                 await self.asend_pending()
-            except Exception as e:
+            except Exception:
                 logging.exception(f'failed to send jabber messages')
                 await asyncio.sleep(ON_ERROR_RETRY_DELAY)
             await asyncio.sleep(1)
