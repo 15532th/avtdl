@@ -40,13 +40,14 @@ class MessageBus:
 
     def __init__(self):
         self.subscriptions = self._subscriptions
+        self.logger = logging.getLogger('bus')
 
     def sub(self, topic: str, callback: Callable[[str, Record], None]):
-        logging.debug(f'[bus] subscription on topic {topic} by {callback!r}')
+        self.logger.debug(f'[bus] subscription on topic {topic} by {callback!r}')
         self.subscriptions[topic].append(callback)
 
     def pub(self, topic: str, message: Record):
-        logging.debug(f'[bus] on topic {topic} message "{message}"')
+        self.logger.debug(f'[bus] on topic {topic} message "{message}"')
         for cb in self.subscriptions[topic]:
             cb(topic, message)
 
@@ -66,7 +67,7 @@ class MessageBus:
         try:
             _, actor, entity = self.split_topic(topic)
         except ValueError:
-            logging.error(f'failed to split message topic "{topic}"')
+            self.logger.error(f'failed to split message topic "{topic}"')
             raise
         return actor, entity
 
@@ -74,7 +75,7 @@ class MessageBus:
         try:
             _, event_type, action, entity = self.split_topic(topic)
         except ValueError:
-            logging.error(f'failed to split event topic "{topic}"')
+            self.logger.error(f'failed to split event topic "{topic}"')
             raise
         return event_type, action, entity
 

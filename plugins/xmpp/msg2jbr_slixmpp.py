@@ -7,29 +7,6 @@ import slixmpp
 
 ON_ERROR_RETRY_DELAY = 60
 
-def instantiate_loggers(names, level):
-    '''
-    Make instance of logger with specific name and loglevel
-    before it gets done by someone else. Used to make
-    logging.getLogger(name) call return instance with
-    loglevel different from default.
-
-    This script relies on logging.basicConfig() to set default
-    logger level and format, so there is no need to pass
-    these settings between modules.
-
-    While aioxmpp.Client() accepts `logger` argument, allowing
-    to specify loglevel, some underlying modules and libraries
-    just create loggers by themself, using default loglevel
-    set by logging.basicConfig().
-
-    This leads to debug messages from aioxmpp modules being
-    produced when loglevel is set to DEBUG for this script.
-    '''
-    for name in names:
-        logger = logging.getLogger(name)
-        logger.setLevel(level)
-
 @dataclass
 class Line:
     recipient: str
@@ -41,7 +18,6 @@ class MSG2JBR:
         self.user = username
         self.passwd = passwd
         self.send_query = []
-        instantiate_loggers('slixmpp', logging.ERROR)
 
     def to_be_send(self, recipient, message):
         line = Line(recipient, message)
