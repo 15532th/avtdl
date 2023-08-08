@@ -25,9 +25,10 @@ class Chain:
     def __init__(self, name: str, actors: ChainConfigSection):
         self.name = name
         self.bus = MessageBus()
+        self.logger = logging.getLogger('chain')
 
         if len(actors) < 2:
-            logging.warning(f'[chain {name}]: need at least two actors to create a chain')
+            self.logger.warning(f'[chain {name}]: need at least two actors to create a chain')
             return
 
         producer_name, producer = actors[0]
@@ -42,7 +43,7 @@ class Chain:
 
     def get_handler(self, topic) -> Callable[[str, Record], None]:
         def handle(producer_topic: str, record: Record):
-            logging.debug(f'Chain {self.name}: forwarding record {record} from {producer_topic} to {topic}')
+            self.logger.debug(f'Chain {self.name}: forwarding record {record} from {producer_topic} to {topic}')
             self.bus.pub(topic, record)
         return handle
 
