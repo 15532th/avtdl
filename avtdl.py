@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 
-import asyncio
 import argparse
+import asyncio
 import logging
 import os
 from pathlib import Path
 
 import yaml
 
-from core.chain import Chain
-from core.interfaces import MessageBus
 from core.config import Plugins, ConfigParser
 
 
@@ -47,6 +45,7 @@ async def run(runnables):
 def main(config_path: Path):
     set_logger('asyncio', logging.INFO, propagate=False)
     set_logger('charset_normalizer', logging.INFO, propagate=False)
+    set_logger('slixmpp', logging.ERROR, propagate=False)
 
     Plugins.load('plugins')
 
