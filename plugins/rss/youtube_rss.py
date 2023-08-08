@@ -1,23 +1,22 @@
 import asyncio
 import logging
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Optional
 
 from core.config import Plugins
-from core.interfaces import TaskMonitor, TaskMonitorEntity, MonitorConfig
+from core.interfaces import TaskMonitor, TaskMonitorEntity, ActorConfig
 from plugins.rss.feed_parser import RSS2MSG, Record as RSSRecord
 
-@Plugins.register('rss', Plugins.kind.MONITOR_ENTITY)
+@Plugins.register('rss', Plugins.kind.ACTOR_ENTITY)
 class FeedMonitorEntity(TaskMonitorEntity):
     name: str
     url: str
     update_interval: int = 900
 
-@Plugins.register('rss', Plugins.kind.MONITOR_CONFIG)
-class FeedMonitorConfig(MonitorConfig):
-    db_path: str
-    ua: str
+@Plugins.register('rss', Plugins.kind.ACTOR_CONFIG)
+class FeedMonitorConfig(ActorConfig):
+    db_path: str = ':memory:'
 
-@Plugins.register('rss', Plugins.kind.MONITOR)
+@Plugins.register('rss', Plugins.kind.ACTOR)
 class FeedMonitor(TaskMonitor):
 
     def __init__(self, conf: FeedMonitorConfig, entities: Sequence[FeedMonitorEntity]):

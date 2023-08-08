@@ -8,18 +8,17 @@ import feedparser
 from plugins.rss import yt_info
 
 
-class Record():
+class Record:
 
     def __init__(self, **attrs):
         # attrs.get() used for youtube-specific fields
-        self.link = attrs.get('link')
+        self.url = attrs.get('link')
         self.title = attrs['title']
         self.published = attrs['published']
         self.updated = attrs['updated']
         self.author = attrs['author']
         self.video_id = attrs.get('yt_videoid')
         self.summary = attrs['summary']
-        self.unarchived = self.is_unarchived()
         try:
             self.views = int(attrs['media_statistics']['views'])
         except (ValueError, KeyError, TypeError):
@@ -38,20 +37,13 @@ class Record():
         return scheduled
 
     def __eq__(self, other):
-        return self.link == other.link
+        return self.url == other.url
 
     def __str__(self):
         return self.format_record()
 
     def __repr__(self):
         return f'Record({self.updated=}, {self.author=}, {self.title=})'
-
-    def is_unarchived(self):
-        patterns = ['archive', 'アーカイブ']
-        for pattern in patterns:
-            if pattern in self.title.lower():
-                return True
-        return False
 
     def has_text(self, patterns, field='all'):
         if isinstance(patterns, str):
@@ -77,7 +69,8 @@ class Record():
         else:
             return False
 
-    def format_date(self, datestring, timezone_offset=0):
+    @staticmethod
+    def format_date(datestring, timezone_offset=0):
         # remove semicolon from timezone part of string because %z doesn't have it
         datestring = ''.join([datestring[i] for i in range(len(datestring)) if i != 22])
         tz = datetime.timezone(datetime.timedelta(hours=timezone_offset))
@@ -91,7 +84,7 @@ class Record():
         else:
             scheduled_time = ''
         template = '{}\n{}\npublished by {} at {}'
-        return template.format(self.link, self.title, self.author, self.format_date(self.published, timezone_offset)) + scheduled_time
+        return template.format(self.url, self.title, self.author, self.format_date(self.published, timezone_offset)) + scheduled_time
 
     def convert_to_row(self, additional_fields):
         row = {}
@@ -100,7 +93,7 @@ class Record():
         return row
 
 
-class RSS2MSG():
+class RSS2MSG:
 
     def __init__(self, feeds: Dict[str, str], db_path=':memory:', ua=''):
         '''entries parsed from `feed_links` in `feeds` will be put in table `records`'''
@@ -129,7 +122,8 @@ class RSS2MSG():
             logging.warning('Exception while updating rss feed: {}'.format(e))
             return None
 
-    def parse_entries(self, feed):
+    @staticmethod
+    def parse_entries(feed):
         records = []
         for entry in feed['entries']:
             records.append(Record(**entry))
@@ -166,7 +160,7 @@ class RSS2MSG():
         return new_records
 
 
-class RecordDB():
+class RecordDB:
 
     def __init__(self, db_path):
         self.db = sqlite3.connect(db_path)
@@ -176,7 +170,7 @@ class RecordDB():
         self.db.commit()
 
     def insert_row(self, row):
-        row_structure = ':parsed_at, :feed_name, :author, :video_id, :link, :title, :summary, :published, :updated, :scheduled, :views'
+        row_structure = ':parsed_at, :feed_name, :author, :video_id, :url, :title, :summary, :published, :updated, :scheduled, :views'
         sql = "INSERT INTO records VALUES({})".format(row_structure)
         self.cursor.execute(sql, row)
         self.db.commit()
