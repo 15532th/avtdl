@@ -1,10 +1,9 @@
-import asyncio
-import logging
-from typing import Dict, Sequence, Optional
+from typing import Sequence
 
 from core.config import Plugins
 from core.interfaces import TaskMonitor, TaskMonitorEntity, ActorConfig
-from plugins.rss.feed_parser import RSS2MSG, Record as RSSRecord
+from plugins.rss.feed_parser import RSS2MSG
+
 
 @Plugins.register('rss', Plugins.kind.ACTOR_ENTITY)
 class FeedMonitorEntity(TaskMonitorEntity):

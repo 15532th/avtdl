@@ -1,9 +1,10 @@
 import logging
-from typing import List, Optional, Dict, OrderedDict, Callable
+from typing import List, OrderedDict, Callable
 
 from pydantic import RootModel
 
 from core.interfaces import Record, MessageBus
+
 
 class ChainConfigSection(RootModel):
     root: List[OrderedDict[str, List[str]]]

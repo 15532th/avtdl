@@ -2,7 +2,6 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from enum import Enum
 from typing import Callable, Dict, List, Sequence, Tuple, Type, Optional
 
 from pydantic import BaseModel
