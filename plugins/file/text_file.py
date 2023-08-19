@@ -89,6 +89,59 @@ class FileAction(Actor):
         except Exception as e:
             message = f'error in {self.conf.name}.{entity_name}: {e}'
             self.on_record(entity_name, Event(event_type='error', title=message, url=record.url))
+            logging.exception(message)
 
-    async def run(self):
-        return
+class SuffixType(str, Enum):
+    timestamp = 'timestamp'
+    date = 'date'
+
+@Plugins.register('as_file', Plugins.kind.ACTOR_CONFIG)
+class SaveAsFileActionConfig(ActorConfig):
+    pass
+
+@Plugins.register('as_file', Plugins.kind.ACTOR_ENTITY)
+class SaveAsFileActionEntity(ActorEntity):
+    save_path: Path
+    base_name: str
+    suffix_type: SuffixType = SuffixType.timestamp
+    only_save_changed: bool = True
+    hash: Optional[str] = None
+
+@Plugins.register('as_file', Plugins.kind.ACTOR)
+class SaveAsFileAction(Actor):
+    supported_record_types = [Record, TextRecord, Event]
+
+    @staticmethod
+    def has_changed(entity: SaveAsFileActionEntity, record: Record) -> bool:
+        record_hash = sha1(str(record).encode())
+        record_hash = record_hash.hexdigest()
+        changed = record_hash != entity.hash
+        entity.hash = record_hash
+        return changed
+
+    @staticmethod
+    def get_filename(entity: SaveAsFileActionEntity) -> Path:
+        now = datetime.datetime.now()
+        if entity.suffix_type == SuffixType.timestamp:
+            suffix = int(now.timestamp())
+        elif entity.suffix_type == SuffixType.date:
+            suffix = now.isoformat()
+        else:
+            suffix = '-'
+        path = Path(entity.save_path).joinpath(entity.base_name)
+        path = path.with_suffix(f'.{suffix}{path.suffix}')
+        return path
+
+    def handle(self, entity_name: str, record: Record):
+        entity = self.entities[entity_name]
+        if entity.only_save_changed and not self.has_changed(entity, record):
+            logging.debug(f'{self.conf.name}.{entity_name}: record did not change since last time, not saving')
+            return
+        path = self.get_filename(entity)
+        try:
+            with open(path, 'wt', encoding='utf8') as fp:
+                fp.write(str(record) + '\n')
+        except Exception as e:
+            message = f'error in {self.conf.name}.{entity_name}: {e}'
+            self.on_record(entity_name, Event(event_type='error', title=message, url=record.url))
+            logging.exception(message)
