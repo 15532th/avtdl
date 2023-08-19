@@ -19,6 +19,7 @@ class FileMonitorConfig(ActorConfig):
 @Plugins.register('from_file', Plugins.kind.ACTOR_ENTITY)
 class FileMonitorEntity(TaskMonitorEntity):
     name: str
+    encoding: Optional[str] = None
     update_interval: float
     path: Path
     split_lines: bool = False
@@ -47,7 +48,7 @@ class FileMonitorEntity(TaskMonitorEntity):
     def get_records(self) -> List[TextRecord]:
         records = []
         if self.exists():
-            with open(self.path, 'rt') as fp:
+            with open(self.path, 'rt', encoding=self.encoding) as fp:
                 if self.split_lines:
                     lines = fp.readlines()
                 else:
@@ -83,7 +84,7 @@ class FileAction(Actor):
     def handle(self, entity_name: str, record: Record):
         entity = self.entities[entity_name]
         try:
-            with open(entity.path, 'at') as fp:
+            with open(entity.path, 'at', encoding='utf8') as fp:
                 fp.write(str(record) + '\n')
         except Exception as e:
             message = f'error in {self.conf.name}.{entity_name}: {e}'
