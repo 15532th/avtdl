@@ -159,7 +159,8 @@ class TaskMonitor(Actor):
             asyncio.create_task(self.start_tasks_for(entities, interval))
 
     async def start_tasks_for(self, entities, interval):
-        logging.debug(f'[start_tasks_for] will start {len(entities)} tasks with {interval} interval')
+        names = ', '.join([entity.name for entity in entities])
+        logging.debug(f'[start_tasks_for] will start {len(entities)} tasks separated by {interval} seconds for {names}')
         for entity in entities:
             await asyncio.sleep(interval)
             logging.debug(f'[start_tasks_for] starting task {entity.name} with {entity.update_interval} update interval')
