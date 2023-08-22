@@ -136,15 +136,7 @@ class TaskMonitor(Actor):
         self.tasks: Dict[str, asyncio.Task] = {}
 
     async def run(self):
-        # update slow tasks sequentially once on startup
-        for entity in self.entities.values():
-            if entity.update_interval < 60:
-                continue
-            try:
-                await self.run_once(entity)
-            except Exception:
-                logging.exception(f'{self.conf.name}: first update of entity {entity} failed')
-        # then start cyclic tasks
+        # start cyclic tasks
         await self.start_cyclic_tasks()
         # and wait forever
         await asyncio.Future()
@@ -162,9 +154,9 @@ class TaskMonitor(Actor):
         names = ', '.join([entity.name for entity in entities])
         logging.debug(f'[start_tasks_for] will start {len(entities)} tasks separated by {interval} seconds for {names}')
         for entity in entities:
-            await asyncio.sleep(interval)
             logging.debug(f'[start_tasks_for] starting task {entity.name} with {entity.update_interval} update interval')
             self.tasks[entity.name] = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
+            await asyncio.sleep(interval)
         logging.debug(f'[start_tasks_for] done with tasks set with {interval} interval')
 
     async def run_for(self, entity: TaskMonitorEntity):
