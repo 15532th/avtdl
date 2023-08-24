@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Optional
 
 
-def load_cookies(path: Path, raise_on_error: bool = False) -> Optional[cookiejar.CookieJar]:
+def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional[cookiejar.CookieJar]:
+    if path is None:
+        return None
     cookie_jar = cookiejar.MozillaCookieJar(path)
     try:
         cookie_jar.load()
