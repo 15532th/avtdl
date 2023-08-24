@@ -2,9 +2,13 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from pathlib import Path
 from typing import Callable, Dict, List, Sequence, Tuple, Type, Optional
 
+import aiohttp
 from pydantic import BaseModel
+
+from core import utils
 
 
 class Record(BaseModel):
@@ -129,11 +133,14 @@ class Actor(ABC):
 class TaskMonitorEntity(ActorEntity):
     update_interval: int
 
-class TaskMonitor(Actor):
+class BaseTaskMonitor(Actor):
 
     def __init__(self, conf: ActorConfig, entities: Sequence[TaskMonitorEntity]):
         super().__init__(conf, entities)
         self.tasks: Dict[str, asyncio.Task] = {}
+
+    def handle(self, entity_name: str, record: Record) -> None:
+        logging.warning(f'TaskMonitor({self.conf.name}, {entity_name}) got Record despite not expecting any, might be sign of possible misconfiguration. Record: {record}')
 
     async def run(self):
         # start cyclic tasks
@@ -159,6 +166,13 @@ class TaskMonitor(Actor):
             await asyncio.sleep(interval)
         logging.debug(f'[start_tasks_for] done with tasks set with {interval} interval')
 
+    @abstractmethod
+    async def run_for(self, entity: TaskMonitorEntity):
+        '''Task for specific entity that should check for new records based on update_interval and call self.on_record() for each'''
+
+
+class TaskMonitor(BaseTaskMonitor):
+
     async def run_for(self, entity: TaskMonitorEntity):
         while True:
             try:
@@ -173,19 +187,51 @@ class TaskMonitor(Actor):
         for record in records:
             self.on_record(entity.name, record)
 
-    def handle(self, entity_name: str, record: Record) -> None:
-        logging.warning(f'TaskMonitor({self.conf.name}, {entity_name}) got Record despite not expecting any, might be sign of possible misconfiguration. Record: {record}')
-
     @abstractmethod
     async def get_new_records(self, entity: TaskMonitorEntity) -> Sequence[Record]:
         '''Produce new records, optionally adjust update_interval'''
 
+class HttpTaskMonitorEntity(TaskMonitorEntity):
+    cookies_file: Optional[Path] = None
 
-class Monitor(Actor, ABC):
-    pass
+class HttpTaskMonitor(BaseTaskMonitor):
+    '''Maintain and provide for records update tasks aiohttp.ClientSession objects
+    grouped by HttpTaskMonitorEntity.cookies_path, which means entities that use
+    the same cookies file will share session'''
 
-class Action(Actor, ABC):
-    pass
+    def __init__(self, conf: ActorConfig, entities: Sequence[HttpTaskMonitorEntity]):
+        self.sessions: Dict[str, aiohttp.ClientSession] = {}
+        super().__init__(conf, entities)
+
+    def _get_session(self, entity: HttpTaskMonitorEntity) -> aiohttp.ClientSession:
+        session_id = str(entity.cookies_file)
+        session = self.sessions.get(session_id)
+        if session is None:
+            cookies = utils.load_cookies(entity.cookies_file)
+            session = aiohttp.ClientSession(cookies=cookies)
+        return session
+
+    async def run_for(self, entity: HttpTaskMonitorEntity):
+        session = self._get_session(entity)
+        async with session:
+            while True:
+                try:
+                    await self.run_once(entity, session)
+                except Exception:
+                    logging.exception(f'{self.conf.name}: task for entity {entity} failed, terminating')
+                    break
+                await asyncio.sleep(entity.update_interval)
+
+    async def run_once(self, entity: TaskMonitorEntity, session: aiohttp.ClientSession):
+        records = await self.get_new_records(entity, session)
+        for record in records:
+            self.on_record(entity.name, record)
+
+    @abstractmethod
+    async def get_new_records(self, entity: TaskMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
+        '''Produce new records, optionally adjust update_interval'''
+
+
 
 class FilterEntity(ActorEntity):
     pass
