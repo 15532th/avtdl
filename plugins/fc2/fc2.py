@@ -41,6 +41,8 @@ class FC2Monitor(HttpTaskMonitor):
             return None
         try:
             record = cls.parse_metadata(data)
+            if record is None:
+                return None
         except (KeyError, TypeError, JSONDecodeError, pydantic.ValidationError) as e:
             logging.exception(f'FC2Monitor for {entity.name}: failed to parse channel info. Raw response: {data}')
             return None
