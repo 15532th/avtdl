@@ -20,6 +20,15 @@ class Record(BaseModel):
         text = self.title.strip()
         return f'{text} ({self.url})'
 
+    def format_record(self, timezone=None):
+        '''If implementation contains datetime objects it should overwrite this
+        method to allow representation in specific user-defined timezone.
+        If timezone is None, record should be formatted in local time.
+
+        Client code that wants to present Records in specific timezone should
+        call this method instead of str()'''
+        return self.__str__()
+
 class TextRecord(Record):
     def __str__(self):
         return self.title
