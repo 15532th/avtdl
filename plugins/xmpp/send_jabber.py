@@ -1,5 +1,8 @@
 import logging
-from typing import Sequence
+import zoneinfo
+from typing import Sequence, Optional
+
+from pydantic import field_validator
 
 from core.config import Plugins
 from core.interfaces import ActorConfig, Record, ActorEntity, Actor
@@ -23,6 +26,15 @@ class JabberConfig(ActorConfig):
 class JabberEntity(ActorEntity):
     name: str
     jid: str
+    timezone: Optional[str] = None # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+    @field_validator('timezone')
+    @classmethod
+    def check_timezone(cls, timezone: str) -> zoneinfo.ZoneInfo:
+        try:
+            return zoneinfo.ZoneInfo(key=timezone)
+        except zoneinfo.ZoneInfoNotFoundError as e:
+            raise ValueError(f'Unknown timezone: {timezone}') from e
 
 @Plugins.register('xmpp', Plugins.kind.ACTOR)
 class SendJabber(Actor):
@@ -34,7 +46,7 @@ class SendJabber(Actor):
         if entity_name not in self.entities:
             raise ValueError(f'Unable run command for {entity_name}: no entity found')
         entity = self.entities[entity_name]
-        self.jbr.to_be_send(entity.jid, str(record))
+        self.jbr.to_be_send(entity.jid, record.format_record(entity.timezone))
 
     async def run(self):
         await self.jbr.run()
