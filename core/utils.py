@@ -1,5 +1,5 @@
 import datetime
-from email.utils import parsedate_tz
+from email.utils import parsedate_tz, parsedate_to_datetime
 import logging
 import re
 from http import cookiejar
@@ -29,7 +29,7 @@ def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional
 
 def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
     '''Check for Expires and Cache-Control headers,
-    return integer representing how many seconds has
+    return integer representing how many seconds is
     left until resource is outdated'''
 
     def get_expires_from_cache_control(headers) -> Optional[datetime.datetime]:
@@ -39,7 +39,7 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
             max_age_value = datetime.timedelta(seconds=int(max_age))
 
             last_modified = headers.get('Last-Modified')
-            last_modified_value = datetime.datetime(*parsedate_tz(last_modified))
+            last_modified_value = parsedate_to_datetime(last_modified)
 
             expires  = last_modified_value + max_age_value
             return expires
@@ -51,7 +51,7 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
             expires_header = headers.get('Expires')
             if expires_header == '0':
                 return None
-            expires_value = datetime.datetime(*parsedate_tz(expires_header))
+            expires_value = parsedate_to_datetime(expires_header)
             return expires_value
         except (TypeError, ValueError):
             return None
@@ -60,7 +60,7 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
     if expires is None:
         return None
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
     delta = (expires - now).total_seconds()
     if delta < 0:
         return None

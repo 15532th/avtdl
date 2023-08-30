@@ -1,20 +1,20 @@
-from typing import Sequence, Any
+import asyncio
 import datetime
 import logging
 import sqlite3
 from typing import Optional, Union
+from typing import Sequence, Any
 
 import aiohttp
 import feedparser
+import pydantic
 from pydantic import ConfigDict, ValidationError
 
 from core import interfaces
-from plugins.rss import yt_info
-
-import pydantic
-
 from core.config import Plugins
-from core.interfaces import TaskMonitor, TaskMonitorEntity, ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor
+from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, TaskMonitor
+from core.utils import get_cache_ttl
+from plugins.rss import yt_info
 
 
 class Record(interfaces.Record):
@@ -72,8 +72,6 @@ class FeedMonitorEntity(HttpTaskMonitorEntity):
     name: str
     url: str
     update_interval: int = 900
-    etag: pydantic.PrivateAttr = None
-    modified: pydantic.PrivateAttr = None
     base_update_interval: pydantic.PrivateAttr = None
 
     def model_post_init(self, __context: Any) -> None:
@@ -88,33 +86,48 @@ class FeedMonitor(HttpTaskMonitor):
 
     def __init__(self, conf: FeedMonitorConfig, entities: Sequence[FeedMonitorEntity]):
         super().__init__(conf, entities)
-        feeds = {e.name: e.url for e in entities}
-        self.feedparser = RSS2MSG(feeds, conf.db_path)
+        self.feedparser = RSS2MSG(conf.db_path)
+
+    async def run(self):
+        for entity in self.entities.items():
+            await self.feedparser.prime_db(entity)
+        await super(TaskMonitor).run()
 
     async def get_new_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
-        return self.feedparser.get_records(entity, session)
+        return await self.feedparser.get_records(entity, session)
+
 
 class RSS2MSG:
 
-    def __init__(self, feeds: List[FeedMonitorEntity], db_path=':memory:'):
+    def __init__(self, db_path=':memory:'):
         '''entries parsed from `feed_links` in `feeds` will be put in table `records`'''
-        self.feeds = feeds
         self.db = RecordDB(db_path)
         db_size = self.db.get_size()
         logging.info('{} records in DB'.format(db_size))
-        if db_size == 0:
-            for feed in self.feeds:
-                self.get_records(feed)
+
+    async def prime_db(self, entity: FeedMonitorEntity, session: Optional[aiohttp.ClientSession] = None):
+        '''if feed has no prior records fetch it once and mark all entries as old
+        in order to not produce ten messages at once when feed first added'''
+        if self.db.get_size(entity.name) == 0:
+            await self.get_records(entity, session)
+        else:
+            await asyncio.sleep(0)
 
     async def get_feed(self, entity: FeedMonitorEntity, session: Optional[aiohttp.ClientSession] = None):
         session = session or aiohttp.ClientSession()
         async with session.get(entity.url) as response:
             text = await response.text()
-        if response.status == 304:
-            return None
-        elif response.status != 200:
+        if response.status != 200:
             logging.warning(f'got code {response.status} while fetching {entity.url}')
-            return None
+            if response.status >= 400:
+                update_interval = min(entity.update_interval * 2, entity.base_update_interval * 10)
+                if entity.update_interval != update_interval:
+                    entity.update_interval = update_interval
+                    logging.warning(f'update interval set to {entity.update_interval} seconds for {entity.name} ({entity.url})')
+                return None
+        update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
+        entity.update_interval = max(update_interval, entity.base_update_interval)
+        logging.debug(f'{entity.name}: next update in {entity.update_interval}')
         try:
             feed = feedparser.parse(text, response_headers=response.headers)
             if feed.get('entries') is not None:
@@ -170,9 +183,8 @@ class RSS2MSG:
         else:
             return None
 
-    def get_records(self, feedname):
-        link = self.feeds[feedname]
-        feed = self.get_feed(link)
+    async def get_records(self, entity: FeedMonitorEntity, session: Optional[aiohttp.ClientSession] = None):
+        feed = await self.get_feed(entity, session)
         if feed is None:
             return []
         records = self.parse_entries(feed)
@@ -183,7 +195,7 @@ class RSS2MSG:
                 record.check_scheduled()
                 new_records.append(record)
                 template = '{} {:<8} [{}] {}'
-                logging.info(template.format(record.format_date(record.published), feedname, record.video_id, record.title))
+                logging.info(template.format(record.format_date(record.published), entity.name, record.video_id, record.title))
             if not self.db.row_exists(record.video_id, record.updated):
                 # every new record for given video_id will be stored in db
                 previous = self.get_latest_record(record.video_id)
@@ -194,12 +206,12 @@ class RSS2MSG:
                         if record.scheduled < previous.scheduled:
                             msg = 'In feed {} record [{}] {} rescheduled back from {} to {}'
                             logging.warning(
-                                msg.format(feedname, record.video_id, record.title, previous.scheduled, record.scheduled))
+                                msg.format(entity.name, record.video_id, record.title, previous.scheduled, record.scheduled))
                             # treat rescheduled records as new if scheduled time is earlier than before
                             # to allow action run on time, though it will run second time later
                             new_records.append(record)
                 now = datetime.datetime.now(tz=datetime.timezone.utc).isoformat(timespec='seconds')
-                additional_fields = {'feed_name': feedname, 'parsed_at': now}
+                additional_fields = {'feed_name': entity.name, 'parsed_at': now}
                 row = record.as_dict(additional_fields)
                 self.db.insert_row(row)
 
@@ -236,7 +248,12 @@ class RecordDB:
         self.cursor.execute(sql, keys)
         return self.cursor.fetchone()
 
-    def get_size(self):
-        sql = 'SELECT COUNT(1) FROM records'
-        self.cursor.execute(sql)
+    def get_size(self, feed_name: Optional[str] = None):
+        '''return number of records, total or for specified feed, are stored in db'''
+        if feed_name is None:
+            sql = 'SELECT COUNT(1) FROM records'
+        else:
+            sql = 'SELECT COUNT(1) FROM records WHERE feed_name=:feed_name'
+        keys = {'feed_name': feed_name}
+        self.cursor.execute(sql, keys)
         return int(self.cursor.fetchone()[0])
