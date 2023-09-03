@@ -21,7 +21,7 @@ PLAYABLE_UNPLAYABLE = "UNPLAYABLE"
 PLAYABLE_ERROR = "ERROR"
 
 def logwarn(msg):
-    logging.debug('[yt_info]: {}'.format(msg))
+    logging.getLogger('yt_info').debug(f'{msg}')
 
 # Download data from the given URL and return it as unicode text
 def download_as_text(url):

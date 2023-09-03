@@ -1,5 +1,4 @@
 import json
-import logging
 from json import JSONDecodeError
 from typing import Sequence, Optional
 
@@ -32,22 +31,21 @@ class FC2Monitor(HttpTaskMonitor):
         record = await self.check_channel(entity, session)
         return [record] if record else []
 
-    @classmethod
-    async def check_channel(cls, entity: FC2MonitorEntity, session: aiohttp.ClientSession) -> Optional[FC2Record]:
+    async def check_channel(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession) -> Optional[FC2Record]:
         try:
-            data = await cls.get_metadata(entity, session)
+            data = await self.get_metadata(entity, session)
         except Exception as e:
-            logging.exception(f'FC2Monitor for {entity.name}: failed to check if channel {entity.user_id} is live: {e}')
+            self.logger.exception(f'FC2Monitor for {entity.name}: failed to check if channel {entity.user_id} is live: {e}')
             return None
         try:
-            record = cls.parse_metadata(data)
+            record = self.parse_metadata(data)
             if record is None:
                 return None
         except (KeyError, TypeError, JSONDecodeError, pydantic.ValidationError) as e:
-            logging.exception(f'FC2Monitor for {entity.name}: failed to parse channel info. Raw response: {data}')
+            self.logger.exception(f'FC2Monitor for {entity.name}: failed to parse channel info. Raw response: {data}')
             return None
         if record.start == entity.latest_live_start:
-            logging.debug(f'FC2Monitor for {entity.name}: user {entity.user_id} is live since {entity.latest_live_start}, but record was already created')
+            self.logger.debug(f'FC2Monitor for {entity.name}: user {entity.user_id} is live since {entity.latest_live_start}, but record was already created')
             return None
         entity.latest_live_start = record.start
         return record

@@ -55,11 +55,11 @@ class MessageBus:
         self.logger = logging.getLogger('bus')
 
     def sub(self, topic: str, callback: Callable[[str, Record], None]):
-        self.logger.debug(f'[bus] subscription on topic {topic} by {callback!r}')
+        self.logger.debug(f'subscription on topic {topic} by {callback!r}')
         self.subscriptions[topic].append(callback)
 
     def pub(self, topic: str, message: Record):
-        self.logger.debug(f'[bus] on topic {topic} message "{message}"')
+        self.logger.debug(f'on topic {topic} message "{message}"')
         for cb in self.subscriptions[topic]:
             cb(topic, message)
 
@@ -104,6 +104,7 @@ class Actor(ABC):
 
     def __init__(self, conf: ActorConfig, entities: Sequence[ActorEntity]):
         self.conf = conf
+        self.logger = logging.getLogger(f'actor.{conf.name}')
         self.bus = MessageBus()
         self.entities = {entity.name: entity for entity in entities}
 
@@ -117,8 +118,7 @@ class Actor(ABC):
             if isinstance(record, record_type):
                 break
         else:
-            logging.debug(
-                f'{self.conf.name}: forwarding record with unsupported type "{record.__class__.__name__}" down the chain: {record}')
+            self.logger.debug(f'forwarding record with unsupported type "{record.__class__.__name__}" down the chain: {record}')
             self.on_record(entity, record)
         self.handle(entity, record)
 
@@ -149,7 +149,7 @@ class BaseTaskMonitor(Actor):
         self.tasks: Dict[str, asyncio.Task] = {}
 
     def handle(self, entity_name: str, record: Record) -> None:
-        logging.warning(f'TaskMonitor({self.conf.name}, {entity_name}) got Record despite not expecting any, might be sign of possible misconfiguration. Record: {record}')
+        self.logger.warning(f'TaskMonitor({self.conf.name}, {entity_name}) got Record despite not expecting any, might be sign of possible misconfiguration. Record: {record}')
 
     async def run(self):
         # start cyclic tasks
@@ -167,13 +167,14 @@ class BaseTaskMonitor(Actor):
             asyncio.create_task(self.start_tasks_for(entities, interval))
 
     async def start_tasks_for(self, entities, interval):
+        logger = self.logger.getChild('scheduler')
         names = ', '.join([f'{self.conf.name}.{entity.name}' for entity in entities])
-        logging.debug(f'[start_tasks_for] will start {len(entities)} tasks with {interval} offset for {names}')
+        logger.debug(f'will start {len(entities)} tasks with {interval} offset for {names}')
         for entity in entities:
-            logging.debug(f'[start_tasks_for] starting task {entity.name} with {entity.update_interval} update interval')
+            logger.debug(f'starting task {entity.name} with {entity.update_interval} update interval')
             self.tasks[entity.name] = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
             await asyncio.sleep(interval)
-        logging.debug(f'[start_tasks_for] done starting tasks for: {names}')
+        logger.debug(f'done starting tasks for: {names}')
 
     @abstractmethod
     async def run_for(self, entity: TaskMonitorEntity):
@@ -187,7 +188,7 @@ class TaskMonitor(BaseTaskMonitor):
             try:
                 await self.run_once(entity)
             except Exception:
-                logging.exception(f'{self.conf.name}: task for entity {entity} failed, terminating')
+                self.logger.exception(f'{self.conf.name}: task for entity {entity} failed, terminating')
                 break
             await asyncio.sleep(entity.update_interval)
 
@@ -227,7 +228,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
                 try:
                     await self.run_once(entity, session)
                 except Exception:
-                    logging.exception(f'{self.conf.name}: task for entity {entity} failed, terminating')
+                    self.logger.exception(f'{self.conf.name}: task for entity {entity} failed, terminating')
                     break
                 await asyncio.sleep(entity.update_interval)
 
@@ -249,13 +250,14 @@ class Filter(Actor):
 
     def __init__(self, conf: ActorConfig, entities: Sequence[FilterEntity]):
         super().__init__(conf, entities)
+        self.logger = logging.getLogger(f'filters.{self.conf.name}')
 
     def handle(self, entity_name: str, record: Record):
         filtered = self.match(entity_name, record)
         if filtered is not None:
             self.on_record(entity_name, record)
         else:
-            logging.debug(f'filter {self.conf.name}: record "{record}" dropped on filter {self.entities[entity_name]}')
+            self.logger.debug(f'record "{record}" dropped on filter {self.entities[entity_name]}')
 
     @abstractmethod
     def match(self, entity_name: str, record: Record) -> Optional[Record]:

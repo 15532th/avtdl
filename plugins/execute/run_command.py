@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import re
 from typing import Dict, List, Sequence, Optional
@@ -41,7 +40,7 @@ class Command(Actor):
         try:
             args = shlex.split(entity.command)
         except ValueError as e:
-            logging.error(f'Error parsing "download_command" string {entity.command}: {e}')
+            self.logger.error(f'Error parsing "download_command" string {entity.command}: {e}')
             raise
         # need a copy of template arguments list anyway, since it gets changed
         new_args = []
@@ -67,26 +66,26 @@ class Command(Actor):
             working_dir = os.getcwd()
         else:
             if not os.path.exists(working_dir):
-                logging.warning('download directory {} does not exist, creating'.format(working_dir))
+                self.logger.warning('download directory {} does not exist, creating'.format(working_dir))
                 os.makedirs(working_dir)
 
         command_line = self.shell_for(args)
         task_id = f'Task for {entity.name}: on record {record} executing {command_line}'
         if task_id in self.running_commands:
             msg = f'Task for {entity.name} is already processing record {record}'
-            logging.info(msg)
+            self.logger.info(msg)
             return
         task = self.run_subprocess(args, working_dir, entity.name, task_id)
         self.running_commands[task_id] = asyncio.get_event_loop().create_task(task)
 
     async def run_subprocess(self, args, working_dir, entity_name, task_id):
         command_line = self.shell_for(args)
-        logging.info(f'For {entity_name} executing command {command_line}')
+        self.logger.info(f'For {entity_name} executing command {command_line}')
         event = Event(event_type=EventType.started, url='', title=f'Running command: {command_line}')
         self.on_record(entity_name, event)
         process = await asyncio.create_subprocess_exec(*args, cwd=working_dir)
         await process.wait()
-        logging.debug('subprocess for {} finished with exit code {}'.format(command_line, process.returncode))
+        self.logger.debug('subprocess for {} finished with exit code {}'.format(command_line, process.returncode))
         self.running_commands.pop(task_id)
         if process.returncode == 0:
             event = Event(event_type=EventType.finished, url='', title=f'command finished successfully: {command_line}')

@@ -58,12 +58,13 @@ class MSG2JBR:
         '''send blocking'''
         asyncio.get_event_loop().run_until_complete(MSG2JBR.asend(msg, user, passwd, recepient))
 
-    def __init__(self, username, passwd):
+    def __init__(self, username, passwd, logger=None):
         self.user = username
         self.passwd = passwd
         self.send_query = []
         self.can_send = (username is not None and passwd is not None and 'aioxmpp' in sys.modules)
         instantiate_loggers(['aioopenssl', 'aiosasl', 'aioxmpp'], logging.ERROR)
+        self.logger = logger or logging.getLogger('msg2jbr.aioxmpp')
 
     def to_be_send(self, recepient, message):
         line = Line(recepient, message)
@@ -73,7 +74,7 @@ class MSG2JBR:
         if not self.can_send:
             for line in self.send_query:
                 warning = 'jabber module required but unable to send message to {}: {}'
-                logging.debug(warning.format(line.recepient, line.message))
+                self.logger.debug(warning.format(line.recepient, line.message))
             self.send_query = []
             return
         if not self.send_query:
@@ -91,6 +92,6 @@ class MSG2JBR:
             try:
                 await self.asend_pending()
             except Exception:
-                logging.exception(f'failed to send jabber messages')
+                self.logger.exception(f'failed to send jabber messages')
                 await asyncio.sleep(ON_ERROR_RETRY_DELAY)
             await asyncio.sleep(1)
