@@ -12,7 +12,7 @@ from pydantic import ConfigDict, ValidationError
 
 from core import interfaces
 from core.config import Plugins
-from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, TaskMonitor
+from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, TaskMonitor, BaseTaskMonitor
 from core.utils import get_cache_ttl
 from plugins.rss import yt_info
 
@@ -90,9 +90,10 @@ class FeedMonitor(HttpTaskMonitor):
         self.feedparser = RSS2MSG(conf.db_path)
 
     async def run(self):
-        for entity in self.entities.items():
-            await self.feedparser.prime_db(entity)
-        await super(TaskMonitor).run()
+        async with aiohttp.ClientSession() as session:
+            for entity in self.entities.values():
+                await self.feedparser.prime_db(entity, session)
+        await super().run()
 
     async def get_new_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
         return await self.feedparser.get_records(entity, session)
@@ -106,16 +107,13 @@ class RSS2MSG:
         db_size = self.db.get_size()
         logging.info('{} records in DB'.format(db_size))
 
-    async def prime_db(self, entity: FeedMonitorEntity, session: Optional[aiohttp.ClientSession] = None):
+    async def prime_db(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
         '''if feed has no prior records fetch it once and mark all entries as old
         in order to not produce ten messages at once when feed first added'''
         if self.db.get_size(entity.name) == 0:
             await self.get_records(entity, session)
-        else:
-            await asyncio.sleep(0)
 
-    async def get_feed(self, entity: FeedMonitorEntity, session: Optional[aiohttp.ClientSession] = None):
-        session = session or aiohttp.ClientSession()
+    async def get_feed(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
         async with session.get(entity.url) as response:
             text = await response.text()
         if response.status != 200:
@@ -188,7 +186,7 @@ class RSS2MSG:
         else:
             return None
 
-    async def get_records(self, entity: FeedMonitorEntity, session: Optional[aiohttp.ClientSession] = None):
+    async def get_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
         feed = await self.get_feed(entity, session)
         if feed is None:
             return []
