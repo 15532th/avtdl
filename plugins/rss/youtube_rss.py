@@ -87,7 +87,7 @@ class FeedMonitor(HttpTaskMonitor):
 
     def __init__(self, conf: FeedMonitorConfig, entities: Sequence[FeedMonitorEntity]):
         super().__init__(conf, entities)
-        self.feedparser = RSS2MSG(conf.db_path)
+        self.feedparser = RSS2MSG(conf.db_path, self.logger)
 
     async def run(self):
         async with aiohttp.ClientSession() as session:
@@ -101,11 +101,10 @@ class FeedMonitor(HttpTaskMonitor):
 
 class RSS2MSG:
 
-    def __init__(self, db_path=':memory:'):
+    def __init__(self, db_path=':memory:', logger=None):
         '''entries parsed from `feed_links` in `feeds` will be put in table `records`'''
         self.db = RecordDB(db_path)
-        db_size = self.db.get_size()
-        logging.info('{} records in DB'.format(db_size))
+        self.logger = logger or logging.getLogger('rss2msg')
 
     async def prime_db(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
         '''if feed has no prior records fetch it once and mark all entries as old
@@ -117,17 +116,17 @@ class RSS2MSG:
         async with session.get(entity.url) as response:
             text = await response.text()
         if response.status != 200:
-            logging.warning(f'got code {response.status} while fetching {entity.url}')
+            self.logger.warning(f'got code {response.status} while fetching {entity.url}')
             if response.status >= 400:
                 update_interval = min(entity.update_interval * 2, entity.base_update_interval * 10)
                 if entity.update_interval != update_interval:
                     entity.update_interval = update_interval
-                    logging.warning(f'update interval set to {entity.update_interval} seconds for {entity.name} ({entity.url})')
+                    self.logger.warning(f'update interval set to {entity.update_interval} seconds for {entity.name} ({entity.url})')
                 return None
         if entity.adjust_update_interval:
             update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
             entity.update_interval = max(update_interval, entity.base_update_interval)
-            logging.debug(f'{entity.name}: next update in {entity.update_interval}')
+            self.logger.debug(f'{entity.name}: next update in {entity.update_interval}')
         else:
             # restore update interval after backoff on failure
             entity.update_interval = entity.base_update_interval
@@ -137,11 +136,11 @@ class RSS2MSG:
                 return feed
             else:
                 from pprint import pformat
-                logging.debug(f'feed for {entity.url} has no entries, probably broken:')
-                logging.debug(pformat(feed))
+                self.logger.debug(f'feed for {entity.url} has no entries, probably broken:')
+                self.logger.debug(pformat(feed))
                 raise Exception(f'got broken feed while fetching {entity.url}')
         except Exception as e:
-            logging.warning('Exception while updating rss feed: {}'.format(e))
+            self.logger.warning('Exception while updating rss feed: {}'.format(e))
             return None
 
 
@@ -169,10 +168,10 @@ class RSS2MSG:
             try:
                 record = self.parse_entry(entry)
             except KeyError as e:
-                logging.warning(f'Youtube rss parser failed to construct record from rss entry {entry}: missing  necessarily field {e}')
+                self.logger.warning(f'Youtube rss parser failed to construct record from rss entry {entry}: missing  necessarily field {e}')
                 continue
             except ValidationError as e:
-                logging.warning(f'Youtube rss parser failed to construct record from rss entry {entry}: {e}')
+                self.logger.warning(f'Youtube rss parser failed to construct record from rss entry {entry}: {e}')
                 continue
             records.append(record)
         return records
@@ -198,18 +197,18 @@ class RSS2MSG:
                 record.check_scheduled()
                 new_records.append(record)
                 template = '{} {:<8} [{}] {}'
-                logging.info(template.format(record.format_date(record.published), entity.name, record.video_id, record.title))
+                self.logger.info(template.format(record.format_date(record.published), entity.name, record.video_id, record.title))
             if not self.db.row_exists(record.video_id, record.updated):
                 # every new record for given video_id will be stored in db
                 previous = self.get_latest_record(record.video_id)
                 if previous is not None and previous.scheduled is not None:
-                    logging.debug(f'{record.video_id=} has last {previous.scheduled=}, updating')
+                    self.logger.debug(f'{record.video_id=} has last {previous.scheduled=}, updating')
                     record.check_scheduled()
                     if record.scheduled is not None:
                         if record.scheduled < previous.scheduled:
                             msg = 'In feed {} record [{}] {} rescheduled back from {} to {}'
-                            logging.warning(
-                                msg.format(entity.name, record.video_id, record.title, previous.scheduled, record.scheduled))
+                            msg = msg.format(entity.name, record.video_id, record.title, previous.scheduled, record.scheduled)
+                            self.logger.warning(msg)
                             # treat rescheduled records as new if scheduled time is earlier than before
                             # to allow action run on time, though it will run second time later
                             new_records.append(record)

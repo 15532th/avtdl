@@ -14,6 +14,7 @@ class Plugins:
         ACTOR_ENTITY = 'actor_entity'
 
     known: Dict[kind, Dict] = {k: {} for k in kind}
+    logger = logging.getLogger('plugins')
 
     @classmethod
     def _register(cls, name: str, kind: kind, factory: Union[Actor, ActorConfig, ActorEntity]):
@@ -49,7 +50,7 @@ class Plugins:
                 m = importlib.import_module(module_name)
                 __import__(module_name, fromlist=m.__all__)
             except Exception:
-                logging.exception(f'while trying to import {module_name}:')
+                cls.logger.exception(f'while trying to import {module_name}:')
                 continue
             else:
-                logging.info('from {} imported {}'.format(module_name, ', '.join(m.__all__)))
+                cls.logger.info('from {} imported {}'.format(module_name, ', '.join(m.__all__)))

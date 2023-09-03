@@ -29,7 +29,7 @@ class Chain:
         self.logger = logging.getLogger('chain')
 
         if len(actors) < 2:
-            self.logger.warning(f'[chain {name}]: need at least two actors to create a chain')
+            self.logger.warning(f'chain {name}: need at least two actors to create a chain')
             return
 
         producer_name, producer = actors[0]
@@ -43,10 +43,18 @@ class Chain:
             producer_name, producer = consumer_name, consumer
 
     def get_handler(self, topic) -> Callable[[str, Record], None]:
-        def handle(producer_topic: str, record: Record):
-            self.logger.debug(f'Chain {self.name}: forwarding record {record} from {producer_topic} to {topic}')
-            self.bus.pub(topic, record)
-        return handle
+        class Handler:
+            def __init__(this):
+                this.logger = self.logger.getChild('handler')
+
+            def __call__(this, producer_topic: str, record: Record):
+                this.logger.debug(f'Chain({self.name}): from {producer_topic} to {topic} forwarding record "{record}"')
+                self.bus.pub(topic, record)
+
+            def __repr__(this):
+                return f'Chain({self.name}).handler({topic})'
+
+        return Handler()
 
     def __repr__(self):
         return f'Chain("{self.name}", {self.monitors}, {self.filters!r}, {self.actions})'

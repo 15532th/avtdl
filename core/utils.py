@@ -10,12 +10,13 @@ import multidict
 
 
 def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional[cookiejar.CookieJar]:
+    logger = logging.getLogger('cookies')
     if path is None:
         return None
     cookie_jar = cookiejar.MozillaCookieJar(path)
     try:
         cookie_jar.load()
-        logging.info(f"Successfully loaded cookies from {path}")
+        logger.info(f"Successfully loaded cookies from {path}")
     except FileNotFoundError:
         if raise_on_error:
             raise
@@ -23,7 +24,7 @@ def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional
     except (cookiejar.LoadError, OSError) as e:
         if raise_on_error:
             raise
-        logging.exception(f'Failed to load cookies from {path}: {e}')
+        logger.exception(f'Failed to load cookies from {path}: {e}')
         return None
     return cookie_jar
 

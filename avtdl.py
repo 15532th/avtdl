@@ -31,7 +31,7 @@ def set_logger(name, level, propagate=True):
 
 
 def set_logging(level):
-    log_format = '%(asctime)s.%(msecs)03d [%(name)s] [%(levelname)s] %(message)s'
+    log_format = '%(asctime)s.%(msecs)03d [%(levelname)s] [%(name)s] %(message)s'
     datefmt = '%Y/%m/%d %H:%M:%S'
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
@@ -50,7 +50,7 @@ async def run(runnables):
         if not pending:
             break
         tasks = pending
-    logging.info('all tasks are finished in a main loop')
+    logging.info('all tasks are finished in the main loop')
 
 def main(config_path: Path):
     set_logger('asyncio', logging.INFO, propagate=False)
@@ -73,12 +73,12 @@ if __name__ == "__main__":
     description = '''Tool for monitoring rss feeds and other sources and running commands for new entries'''
     parser = argparse.ArgumentParser(description=description)
     help_v = 'set loglevel to DEBUG regardless of configuration setting'
-    parser.add_argument('-v', '--verbose', action='count', default=0, help=help_v)
+    parser.add_argument('-v', '--verbose', action='store_true', default=False, help=help_v)
     help_c = 'specify path to configuration file to use instead of default'
     parser.add_argument('-c', '--config', type=Path, default='config.yml', help=help_c)
     args = parser.parse_args()
 
-    log_level = args.verbose or getattr(logging, args.config['loglevel'])
+    log_level = logging.DEBUG if args.verbose else logging.INFO
     set_logging(log_level)
 
     main(args.config)

@@ -40,7 +40,7 @@ class JabberEntity(ActorEntity):
 class SendJabber(Actor):
     def __init__(self, conf: JabberConfig, entities: Sequence[JabberEntity]):
         super().__init__(conf, entities)
-        self.jbr = MSG2JBR(conf.xmpp_username, conf.xmpp_pass)
+        self.jbr = MSG2JBR(conf.xmpp_username, conf.xmpp_pass, self.logger)
 
     def handle(self, entity_name: str, record: Record):
         if entity_name not in self.entities:

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import datetime
-import logging
 import os
 from enum import Enum
 from hashlib import sha1
@@ -89,7 +88,7 @@ class FileAction(Actor):
         except Exception as e:
             message = f'error in {self.conf.name}.{entity_name}: {e}'
             self.on_record(entity_name, Event(event_type='error', title=message, url=record.url))
-            logging.exception(message)
+            self.logger.exception(message)
 
 class SuffixType(str, Enum):
     timestamp = 'timestamp'
@@ -135,7 +134,7 @@ class SaveAsFileAction(Actor):
     def handle(self, entity_name: str, record: Record):
         entity = self.entities[entity_name]
         if entity.only_save_changed and not self.has_changed(entity, record):
-            logging.debug(f'{self.conf.name}.{entity_name}: record did not change since last time, not saving')
+            self.logger.debug(f'{self.conf.name}.{entity_name}: record did not change since last time, not saving')
             return
         path = self.get_filename(entity)
         try:
@@ -144,4 +143,4 @@ class SaveAsFileAction(Actor):
         except Exception as e:
             message = f'error in {self.conf.name}.{entity_name}: {e}'
             self.on_record(entity_name, Event(event_type='error', title=message, url=record.url))
-            logging.exception(message)
+            self.logger.exception(message)

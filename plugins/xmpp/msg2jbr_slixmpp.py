@@ -14,10 +14,11 @@ class Line:
 
 class MSG2JBR:
 
-    def __init__(self, username, passwd):
+    def __init__(self, username, passwd, logger=None):
         self.user = username
         self.passwd = passwd
         self.send_query = []
+        self.logger = logger or logging.getLogger('msg2jbr')
 
     def to_be_send(self, recipient, message):
         line = Line(recipient, message)
@@ -36,7 +37,7 @@ class MSG2JBR:
             try:
                 await self.asend_pending()
             except Exception:
-                logging.exception(f'failed to send jabber messages')
+                self.logger.exception(f'failed to send jabber messages')
                 await asyncio.sleep(ON_ERROR_RETRY_DELAY)
             await asyncio.sleep(1)
 
