@@ -72,6 +72,7 @@ class FeedMonitorEntity(HttpTaskMonitorEntity):
     name: str
     url: str
     update_interval: int = 900
+    adjust_update_interval: bool = True
     base_update_interval: pydantic.PrivateAttr = None
 
     def model_post_init(self, __context: Any) -> None:
@@ -125,9 +126,13 @@ class RSS2MSG:
                     entity.update_interval = update_interval
                     logging.warning(f'update interval set to {entity.update_interval} seconds for {entity.name} ({entity.url})')
                 return None
-        update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
-        entity.update_interval = max(update_interval, entity.base_update_interval)
-        logging.debug(f'{entity.name}: next update in {entity.update_interval}')
+        if entity.adjust_update_interval:
+            update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
+            entity.update_interval = max(update_interval, entity.base_update_interval)
+            logging.debug(f'{entity.name}: next update in {entity.update_interval}')
+        else:
+            # restore update interval after backoff on failure
+            entity.update_interval = entity.base_update_interval
         try:
             feed = feedparser.parse(text, response_headers=response.headers)
             if feed.get('entries') is not None:
