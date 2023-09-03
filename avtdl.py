@@ -40,7 +40,17 @@ async def run(runnables):
     for runnable in runnables:
         task = asyncio.create_task(runnable.run(), name=runnable.__class__.__name__)
         tasks.append(task)
-    await asyncio.Future()
+    while True:
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        for task in done:
+            if not task.done():
+                continue
+            if task.exception() is not None:
+                logging.warning(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
+        if not pending:
+            break
+        tasks = pending
+    logging.info('all tasks are finished in a main loop')
 
 def main(config_path: Path):
     set_logger('asyncio', logging.INFO, propagate=False)
