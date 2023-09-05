@@ -53,4 +53,4 @@ class Plugins:
                 cls.logger.exception(f'while trying to import {module_name}:')
                 continue
             else:
-                cls.logger.info('from {} imported {}'.format(module_name, ', '.join(m.__all__)))
+                cls.logger.info('from {} loaded {}'.format(module_name, ', '.join(m.__all__)))
