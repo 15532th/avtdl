@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import logging
 import sqlite3
@@ -12,9 +11,9 @@ from pydantic import ConfigDict, ValidationError
 
 from core import interfaces
 from core.config import Plugins
-from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, TaskMonitor, BaseTaskMonitor
+from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor
 from core.utils import get_cache_ttl
-from plugins.rss import yt_info
+from plugins.rss import video_info
 
 
 class Record(interfaces.Record):
@@ -30,10 +29,11 @@ class Record(interfaces.Record):
     views: Optional[int]
     scheduled: Optional[str] = None
 
-    def check_scheduled(self):
+    async def check_scheduled(self, session: Optional[aiohttp.ClientSession] = None):
         if self.views == 0:
             try:
-                scheduled = yt_info.get_sched_isoformat(self.video_id)
+                info = await video_info.aget_video_info(self.url, session)
+                scheduled = info.scheduled.isoformat(timespec='seconds')
             except Exception:
                 logging.exception('Exception while trying to get "scheduled" field, skipping')
                 scheduled = None
@@ -48,8 +48,10 @@ class Record(interfaces.Record):
         return f'Record({self.updated=}, {self.author=}, {self.title=})'
 
     @staticmethod
-    def format_date(datestring, timezone: Optional[datetime.timezone] = None) -> str:
-        dt = datetime.datetime.fromisoformat(datestring).astimezone(timezone)
+    def format_date(date: Union[str, datetime.datetime], timezone: Optional[datetime.timezone] = None) -> str:
+        if isinstance(date, str):
+            date = datetime.datetime.fromisoformat(date)
+        dt = date.astimezone(timezone)
         return dt.strftime('%Y-%m-%d %H:%M')
 
     def format_record(self, timezone: Optional[datetime.timezone] = None):
@@ -194,7 +196,7 @@ class RSS2MSG:
         for record in records:
             if not self.db.row_exists(record.video_id):
                 # only first record for given video_id is send to actions
-                record.check_scheduled()
+                await record.check_scheduled(session)
                 new_records.append(record)
                 template = '{} {:<8} [{}] {}'
                 self.logger.info(template.format(record.format_date(record.published), entity.name, record.video_id, record.title))
@@ -203,7 +205,7 @@ class RSS2MSG:
                 previous = self.get_latest_record(record.video_id)
                 if previous is not None and previous.scheduled is not None:
                     self.logger.debug(f'{record.video_id=} has last {previous.scheduled=}, updating')
-                    record.check_scheduled()
+                    await record.check_scheduled(session)
                     if record.scheduled is not None:
                         if record.scheduled < previous.scheduled:
                             msg = 'In feed {} record [{}] {} rescheduled back from {} to {}'
