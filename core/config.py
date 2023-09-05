@@ -1,17 +1,12 @@
-import importlib.util
-import logging
-import re
-from collections import defaultdict
-from dataclasses import dataclass
-from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Callable, Dict, List, Tuple, Union, Any, Generic, TypeVar, Type, OrderedDict
+from typing import Dict, List, Tuple, Generic, TypeVar, Type
 
-from pydantic import BaseModel, RootModel, ValidationError, field_validator, model_validator, create_model
+from pydantic import BaseModel, ValidationError, create_model
 
 from core.chain import Chain, ChainConfigSection
-from core.interfaces import (Actor, ActorConfig, ActorEntity)
+from core.interfaces import (Actor)
+from core.loggers import blacklist_loggers, set_file_logger
 from core.plugins import Plugins
 
 
@@ -37,12 +32,23 @@ def try_parsing(func):
             raise ConfigurationError(error) from e
     return wrapper
 
+class Settings(BaseModel):
+    plugins_directory: str = 'plugins'
+    log_directory: Path = Path('logs')
+    logfile_size: int = 1000000
+    log_blacklist: List[str] = ['bus', 'chain', 'filters']
+
+def configure_loggers(settings: Settings):
+    blacklist_loggers(settings.log_blacklist)
+    set_file_logger(path=settings.log_directory, max_size=settings.logfile_size)
+
 class ActorConfigSection(BaseModel):
     config: dict = {}
     defaults: dict = {}
     entities: List[dict]
 
 class Config(BaseModel):
+    Settings: Settings = Settings()
     Actors: Dict[str, ActorConfigSection]
     Chains: Dict[str, ChainConfigSection]
 
@@ -116,6 +122,10 @@ class ConfigParser:
     def parse(cls, conf) -> Tuple[Dict[str, Actor], Dict[str, Chain]]:
         # do basic structural validation of config file
         config = Config(**conf)
+
+        configure_loggers(config.Settings)
+        Plugins.load(config.Settings.plugins_directory)
+
         # after that entities transformation and specific plugins validation can be safely performed
         flatted_conf = cls.flatten_config(config)
         SpecificConfig = cls.load_models(config)

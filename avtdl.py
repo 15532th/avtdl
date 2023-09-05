@@ -8,7 +8,8 @@ from pathlib import Path
 
 import yaml
 
-from core.config import Plugins, ConfigParser
+from core.config import ConfigParser
+from core.loggers import set_logging_format, silence_library_loggers
 
 
 def load_config(path):
@@ -24,16 +25,6 @@ def load_config(path):
         raise SystemExit from e
     return config
 
-def set_logger(name, level, propagate=True):
-    logger = logging.getLogger(name)
-    logger.propagate = propagate
-    logger.setLevel(level)
-
-
-def set_logging(level):
-    log_format = '%(asctime)s.%(msecs)03d [%(levelname)s] [%(name)s] %(message)s'
-    datefmt = '%Y/%m/%d %H:%M:%S'
-    logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
 
 async def run(runnables):
     tasks = []
@@ -53,12 +44,6 @@ async def run(runnables):
     logging.info('all tasks are finished in the main loop')
 
 def main(config_path: Path):
-    set_logger('asyncio', logging.INFO, propagate=False)
-    set_logger('charset_normalizer', logging.INFO, propagate=False)
-    set_logger('slixmpp', logging.ERROR, propagate=False)
-
-    Plugins.load('plugins')
-
     conf = load_config(config_path)
     try:
         actors, chains = ConfigParser.parse(conf)
@@ -79,6 +64,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     log_level = logging.DEBUG if args.verbose else logging.INFO
-    set_logging(log_level)
-
+    log_level = logging.INFO
+    set_logging_format(log_level)
+    silence_library_loggers()
     main(args.config)
