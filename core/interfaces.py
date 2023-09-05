@@ -168,13 +168,18 @@ class BaseTaskMonitor(Actor):
 
     async def start_tasks_for(self, entities, interval):
         logger = self.logger.getChild('scheduler')
+        if len(entities) == 0:
+            logger.debug(f'called with no entities and {interval} interval')
+            return
         names = ', '.join([f'{self.conf.name}.{entity.name}' for entity in entities])
-        logger.debug(f'will start {len(entities)} tasks with {interval} offset for {names}')
+        logger.info(f'will start {len(entities)} tasks with {entities[0].update_interval} update interval and {interval} offset for {names}')
         for entity in entities:
             logger.debug(f'starting task {entity.name} with {entity.update_interval} update interval')
             self.tasks[entity.name] = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
+            if entity == entities[-1]: # skip sleeping after last
+                continue
             await asyncio.sleep(interval)
-        logger.debug(f'done starting tasks for: {names}')
+        logger.info(f'done starting tasks for {names}')
 
     @abstractmethod
     async def run_for(self, entity: TaskMonitorEntity):
