@@ -1,5 +1,6 @@
 import datetime
 from email.utils import parsedate_tz, parsedate_to_datetime
+import os
 import logging
 import re
 from http import cookiejar
@@ -67,3 +68,18 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
         return None
 
     return int(delta)
+
+def check_dir(path: Path, create=True) -> bool:
+    '''check if directory exists and writable, create if asked'''
+    if path.is_dir() and os.access(path, mode=os.W_OK):
+        return True
+    elif create:
+        logging.warning(f'directory {path} does not exists, creating')
+        try:
+            os.mkdir(path)
+            return True
+        except OSError as e:
+            logging.warning(f'failed to create directory at {path}: {e}')
+            return False
+    else:
+        return False
