@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 import yaml
+from pydantic import ValidationError
 
 from core.config import ConfigParser
 from core.loggers import set_logging_format, silence_library_loggers
@@ -47,6 +48,9 @@ def main(config_path: Path):
     conf = load_config(config_path)
     try:
         actors, chains = ConfigParser.parse(conf)
+    except ValidationError as e:
+        logging.error(e)
+        raise SystemExit from e
     except Exception as e:
         logging.exception(e)
         raise SystemExit from e
