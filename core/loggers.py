@@ -10,6 +10,7 @@ def set_logging_format(level):
     log_format = '%(asctime)s.%(msecs)03d [%(levelname)-7s] [%(name)s] %(message)s'
     datefmt = '%Y/%m/%d %H:%M:%S'
     logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
+    logging.getLogger().name = 'avtdl'
 
 def set_file_logger(path: Path, name: str = 'avtdl.log', max_size=1000000):
     check_dir(path, create=True)
