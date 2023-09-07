@@ -1,9 +1,13 @@
 import asyncio
 import os
 import re
+from pathlib import Path
 from typing import Dict, List, Sequence, Optional
 import shlex
 
+from pydantic import field_validator
+
+from core import utils
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record, Event, EventType
 from core.config import Plugins
 
@@ -19,7 +23,14 @@ class CommandConfig(ActorConfig):
 class CommandEntity(ActorEntity):
     name: str
     command: str
-    working_dir: Optional[str] = None
+    working_dir: Optional[Path] = None
+
+    @field_validator('working_dir')
+    @classmethod
+    def check_dir(cls, path: Optional[Path]):
+        if path is None:
+            return path
+        return utils.check_dir(path)
 
 
 @Plugins.register('execute', Plugins.kind.ACTOR)
