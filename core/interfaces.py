@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Sequence, Tuple, Type, Optional
 
 import aiohttp
-from pydantic import BaseModel
+from pydantic import BaseModel, FilePath
 
 from core import utils
 
@@ -207,7 +207,7 @@ class TaskMonitor(BaseTaskMonitor):
         '''Produce new records, optionally adjust update_interval'''
 
 class HttpTaskMonitorEntity(TaskMonitorEntity):
-    cookies_file: Optional[Path] = None
+    cookies_file: Optional[FilePath] = None
 
 class HttpTaskMonitor(BaseTaskMonitor):
     '''Maintain and provide for records update tasks aiohttp.ClientSession objects

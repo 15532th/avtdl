@@ -7,6 +7,9 @@ from hashlib import sha1
 from pathlib import Path
 from typing import List, Optional
 
+from pydantic import field_validator
+
+from core import utils
 from core.config import Plugins
 from core.interfaces import ActorConfig, TaskMonitor, TaskMonitorEntity, Record, TextRecord, Event, ActorEntity, Actor
 
@@ -105,6 +108,13 @@ class SaveAsFileActionEntity(ActorEntity):
     suffix_type: SuffixType = SuffixType.timestamp
     only_save_changed: bool = True
     hash: Optional[str] = None
+
+    @field_validator('save_path')
+    @classmethod
+    def check_dir(cls, path: Path):
+        if utils.check_dir(path):
+            return path
+        raise ValueError(f'check if provided path points to a writeable directory')
 
 @Plugins.register('as_file', Plugins.kind.ACTOR)
 class SaveAsFileAction(Actor):

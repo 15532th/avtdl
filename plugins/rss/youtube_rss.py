@@ -105,8 +105,14 @@ class RSS2MSG:
 
     def __init__(self, db_path=':memory:', logger=None):
         '''entries parsed from `feed_links` in `feeds` will be put in table `records`'''
-        self.db = RecordDB(db_path)
         self.logger = logger or logging.getLogger('rss2msg')
+        try:
+            self.db = RecordDB(db_path)
+        except sqlite3.OperationalError as e:
+            self.logger.error(f'error opening sqlite database at path "{db_path}", specified in "db_path" config variable: {e}. If file exists make sure it was produced by this application, otherwise check if new file can be created at specified location. Alternatively use special value ":memory:" to use in-memory database instead.')
+            raise
+        else:
+            self.logger.debug(f'successfully connected to sqlite database at "{db_path}"')
 
     async def prime_db(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
         '''if feed has no prior records fetch it once and mark all entries as old
