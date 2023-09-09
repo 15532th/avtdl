@@ -137,7 +137,9 @@ class RSS2MSG:
             self.logger.debug(f'Youtube RSS for {entity.name}: next update in {entity.update_interval}')
         else:
             # restore update interval after backoff on failure
-            entity.update_interval = entity.base_update_interval
+            if entity.update_interval != entity.base_update_interval:
+                self.logger.info(f'restoring update interval {entity.update_interval} seconds for {entity.name} ({entity.url})')
+                entity.update_interval = entity.base_update_interval
         try:
             feed = feedparser.parse(text, response_headers=response.headers)
             if feed.get('entries') is not None:
