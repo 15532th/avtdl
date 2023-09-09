@@ -11,19 +11,18 @@ from core import utils
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record, Event, EventType
 from core.config import Plugins
 
-URL_PLACEHOLDER = '{url}'
-TEXT_PLACEHOLDER = '{text}'
-
 @Plugins.register('execute', Plugins.kind.ACTOR_CONFIG)
 class CommandConfig(ActorConfig):
-    url_placeholder: str = URL_PLACEHOLDER
-    text_placeholder: str = TEXT_PLACEHOLDER
+    pass
 
 @Plugins.register('execute', Plugins.kind.ACTOR_ENTITY)
 class CommandEntity(ActorEntity):
     name: str
     command: str
     working_dir: Optional[Path] = None
+    placeholders: Dict[str, str] = {'{url}': 'url', '{title}': 'title', '{text}': 'text'} # format {'placeholder': 'record property name'}
+    static_placeholders: Dict[str, str] = {} # set in config in format {'placeholder': 'value'}
+    forward_failed: bool = True # emit record down the chain if subprocess returned non-zero exit code
 
     @field_validator('working_dir')
     @classmethod
@@ -43,7 +42,7 @@ class Command(Actor):
 
     def handle(self, entity_name: str, record: Record):
         if entity_name not in self.entities:
-            raise ValueError(f'Unable run command for {entity_name}: no entity found')
+            raise ValueError(f'{self.conf.name}: unable run command for {entity_name}: no entity found')
         entity = self.entities[entity_name]
         self.add(entity, record)
 
@@ -51,19 +50,19 @@ class Command(Actor):
         try:
             args = shlex.split(entity.command)
         except ValueError as e:
-            self.logger.error(f'Error parsing "download_command" string {entity.command}: {e}')
+            self.logger.error(f'{self.conf.name}: error parsing "command" field of entity "{entity.name}" with value "{entity.command}": {e}')
             raise
-        # need a copy of template arguments list anyway, since it gets changed
+        record_as_dict = record.model_dump()
         new_args = []
         for arg in args:
-            if arg.find(self.conf.url_placeholder) > -1:
-                new_arg = re.sub(self.conf.url_placeholder, record.url, arg)
-                new_args.append(new_arg)
-            elif arg.find(self.conf.text_placeholder) > -1:
-                new_arg = re.sub(self.conf.text_placeholder, str(record), arg)
-                new_args.append(new_arg)
-            else:
-                new_args.append(arg)
+            new_arg = arg
+            for placeholder, field in entity.placeholders.items():
+                value = record_as_dict.get(field)
+                if value is not None:
+                    new_arg = re.sub(placeholder, value, new_arg)
+            for placeholder, value in entity.static_placeholders.items():
+                new_arg = re.sub(placeholder, value, new_arg)
+            new_args.append(new_arg)
         return new_args
 
     @staticmethod
@@ -86,21 +85,23 @@ class Command(Actor):
             msg = f'Task for {entity.name} is already processing record {record}'
             self.logger.info(msg)
             return
-        task = self.run_subprocess(args, working_dir, entity.name, task_id)
+        task = self.run_subprocess(args, task_id, entity, record)
         self.running_commands[task_id] = asyncio.get_event_loop().create_task(task)
 
-    async def run_subprocess(self, args, working_dir, entity_name, task_id):
+    async def run_subprocess(self, args: List[str], task_id: str, entity: CommandEntity, record: Record):
         command_line = self.shell_for(args)
-        self.logger.info(f'For {entity_name} executing command {command_line}')
+        self.logger.info(f'For {entity.name} executing command {command_line}')
         event = Event(event_type=EventType.started, url='', title=f'Running command: {command_line}')
-        self.on_record(entity_name, event)
-        process = await asyncio.create_subprocess_exec(*args, cwd=working_dir)
+        self.on_record(entity.name, event)
+        process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
         await process.wait()
         self.logger.debug('subprocess for {} finished with exit code {}'.format(command_line, process.returncode))
         self.running_commands.pop(task_id)
         if process.returncode == 0:
             event = Event(event_type=EventType.finished, url='', title=f'command finished successfully: {command_line}')
-            self.on_record(entity_name, event)
+            self.on_record(entity.name, event)
         else:
             event = Event(event_type=EventType.error, url='', title=f'command failed: {command_line}')
-            self.on_record(entity_name, event)
+            self.on_record(entity.name, event)
+            if entity.forward_failed:
+                self.on_record(entity.name, record)
