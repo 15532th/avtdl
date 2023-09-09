@@ -120,7 +120,10 @@ class Actor(ABC):
         else:
             self.logger.debug(f'forwarding record with unsupported type "{record.__class__.__name__}" down the chain: {record}')
             self.on_record(entity, record)
-        self.handle(entity, record)
+        try:
+            self.handle(entity, record)
+        except Exception as e:
+            self.logger.exception(f'{self.conf.name}.{entity}: error while processing record "{record!r}"')
 
     @abstractmethod
     def handle(self, entity_name: str, record: Record) -> None:
