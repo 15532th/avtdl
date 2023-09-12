@@ -2,7 +2,6 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from pathlib import Path
 from typing import Callable, Dict, List, Sequence, Tuple, Type, Optional
 
 import aiohttp
@@ -106,14 +105,18 @@ class Actor(ABC):
         self.conf = conf
         self.logger = logging.getLogger(f'actor.{conf.name}')
         self.bus = MessageBus()
-        self.entities = {entity.name: entity for entity in entities}
+        self.entities: Dict[str, ActorEntity] = {entity.name: entity for entity in entities}
 
         for entity_name in self.entities:
             topic = self.bus.incoming_topic_for(self.conf.name, entity_name)
             self.bus.sub(topic, self._handle)
 
     def _handle(self, topic: str, record: Record) -> None:
-        _, entity = self.bus.split_message_topic(topic)
+        _, entity_name = self.bus.split_message_topic(topic)
+        if not entity_name in self.entities:
+            logging.warning(f'received record on topic {topic}, but have no entity with name {entity_name} configured, dropping record {record}')
+            return
+        entity = self.entities[entity_name]
         for record_type in self.supported_record_types:
             if isinstance(record, record_type):
                 break
@@ -122,16 +125,16 @@ class Actor(ABC):
             self.on_record(entity, record)
         try:
             self.handle(entity, record)
-        except Exception as e:
-            self.logger.exception(f'{self.conf.name}.{entity}: error while processing record "{record!r}"')
+        except Exception:
+            self.logger.exception(f'{self.conf.name}.{entity_name}: error while processing record "{record!r}"')
 
     @abstractmethod
-    def handle(self, entity_name: str, record: Record) -> None:
+    def handle(self, entity: ActorEntity, record: Record) -> None:
         '''Perform action on record if entity in self.entities'''
 
-    def on_record(self, entity_name: str, record: Record):
+    def on_record(self, entity: ActorEntity, record: Record):
         '''Implementation should call it for every new Record it produces'''
-        topic = self.bus.outgoing_topic_for(self.conf.name, entity_name)
+        topic = self.bus.outgoing_topic_for(self.conf.name, entity.name)
         self.bus.pub(topic, record)
 
     def __repr__(self):
@@ -151,8 +154,8 @@ class BaseTaskMonitor(Actor):
         super().__init__(conf, entities)
         self.tasks: Dict[str, asyncio.Task] = {}
 
-    def handle(self, entity_name: str, record: Record) -> None:
-        self.logger.warning(f'TaskMonitor({self.conf.name}, {entity_name}) got Record despite not expecting any, might be sign of possible misconfiguration. Record: {record}')
+    def handle(self, entity: ActorEntity, record: Record) -> None:
+        self.logger.warning(f'TaskMonitor({self.conf.name}, {entity.name}) got Record despite not expecting any, might be sign of possible misconfiguration. Record: {record}')
 
     async def run(self):
         # start cyclic tasks
@@ -203,7 +206,7 @@ class TaskMonitor(BaseTaskMonitor):
     async def run_once(self, entity: TaskMonitorEntity):
         records = await self.get_new_records(entity)
         for record in records:
-            self.on_record(entity.name, record)
+            self.on_record(entity, record)
 
     @abstractmethod
     async def get_new_records(self, entity: TaskMonitorEntity) -> Sequence[Record]:
@@ -243,7 +246,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
     async def run_once(self, entity: TaskMonitorEntity, session: aiohttp.ClientSession):
         records = await self.get_new_records(entity, session)
         for record in records:
-            self.on_record(entity.name, record)
+            self.on_record(entity, record)
 
     @abstractmethod
     async def get_new_records(self, entity: TaskMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
@@ -260,15 +263,15 @@ class Filter(Actor):
         super().__init__(conf, entities)
         self.logger = logging.getLogger(f'filters.{self.conf.name}')
 
-    def handle(self, entity_name: str, record: Record):
-        filtered = self.match(entity_name, record)
+    def handle(self, entity: FilterEntity, record: Record):
+        filtered = self.match(entity, record)
         if filtered is not None:
-            self.on_record(entity_name, record)
+            self.on_record(entity, filtered)
         else:
-            self.logger.debug(f'record "{record}" dropped on filter {self.entities[entity_name]}')
+            self.logger.debug(f'record "{record}" dropped on filter {entity}')
 
     @abstractmethod
-    def match(self, entity_name: str, record: Record) -> Optional[Record]:
+    def match(self, entity: FilterEntity, record: Record) -> Optional[Record]:
         '''Take record and return it if it matches some condition
         or otherwise process it, else return None'''
 
