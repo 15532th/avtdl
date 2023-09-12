@@ -40,10 +40,7 @@ class Command(Actor):
         super().__init__(conf, entities)
         self.running_commands: Dict[str, asyncio.Task] = {}
 
-    def handle(self, entity_name: str, record: Record):
-        if entity_name not in self.entities:
-            raise ValueError(f'{self.conf.name}: unable run command for {entity_name}: no entity found')
-        entity = self.entities[entity_name]
+    def handle(self, entity: CommandEntity, record: Record):
         self.add(entity, record)
 
     def args_for(self, entity: CommandEntity, record: Record):
@@ -92,16 +89,16 @@ class Command(Actor):
         command_line = self.shell_for(args)
         self.logger.info(f'For {entity.name} executing command {command_line}')
         event = Event(event_type=EventType.started, url='', title=f'Running command: {command_line}')
-        self.on_record(entity.name, event)
+        self.on_record(entity, event)
         process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
         await process.wait()
         self.logger.debug('subprocess for {} finished with exit code {}'.format(command_line, process.returncode))
         self.running_commands.pop(task_id)
         if process.returncode == 0:
             event = Event(event_type=EventType.finished, url='', title=f'command finished successfully: {command_line}')
-            self.on_record(entity.name, event)
+            self.on_record(entity, event)
         else:
             event = Event(event_type=EventType.error, url='', title=f'command failed: {command_line}')
-            self.on_record(entity.name, event)
+            self.on_record(entity, event)
             if entity.forward_failed:
-                self.on_record(entity.name, record)
+                self.on_record(entity, record)

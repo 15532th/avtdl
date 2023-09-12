@@ -19,7 +19,7 @@ class NoopFilter(Filter):
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity]):
         super().__init__(config, entities)
 
-    def match(self, entity: str, record: Record) -> Optional[Record]:
+    def match(self, entity: FilterEntity, record: Record) -> Optional[Record]:
         return record
 
 @Plugins.register('filter.match', Plugins.kind.ACTOR_ENTITY)
@@ -34,8 +34,8 @@ class MatchFilter(Filter):
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity]):
         super().__init__(config, entities)
 
-    def match(self, entity: str, record: Record) -> Optional[Record]:
-        for pattern in self.entities[entity].patterns:
+    def match(self, entity: MatchFilterEntity, record: Record) -> Optional[Record]:
+        for pattern in entity.patterns:
             if str(record).find(pattern) > -1:
                 return record
         return None
@@ -46,8 +46,8 @@ class ExcludeFilter(Filter):
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity]):
         super().__init__(config, entities)
 
-    def match(self, entity: str, record: Record) -> Optional[Record]:
-        for pattern in self.entities[entity].patterns:
+    def match(self, entity: MatchFilterEntity, record: Record) -> Optional[Record]:
+        for pattern in entity.patterns:
             if str(record).find(pattern) > -1:
                 return None
         return record
@@ -62,12 +62,12 @@ class EventFilter(Filter):
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity]):
         super().__init__(config, entities)
 
-    def match(self, entity: str, record: Record) -> Optional[Record]:
+    def match(self, entity: EventFilterEntity, record: Record) -> Optional[Record]:
         if isinstance(record, Event):
-            filter_type = self.entities[entity].filter_type
-            if filter_type is None:
+            filter_types = entity.filter_type
+            if filter_types is None:
                 return record
-            for filter_type in self.entities[entity].filter_type:
+            for filter_type in filter_types:
                 if record.filter_type == filter_type:
                     return record
         else:

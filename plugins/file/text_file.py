@@ -83,14 +83,13 @@ class FileActionEntity(ActorEntity):
 class FileAction(Actor):
     supported_record_types = [Record, TextRecord, Event]
 
-    def handle(self, entity_name: str, record: Record):
-        entity = self.entities[entity_name]
+    def handle(self, entity: FileActionEntity, record: Record):
         try:
             with open(entity.path, 'at', encoding='utf8') as fp:
                 fp.write(str(record) + '\n')
         except Exception as e:
-            message = f'error in {self.conf.name}.{entity_name}: {e}'
-            self.on_record(entity_name, Event(event_type='error', title=message, url=record.url))
+            message = f'error in {self.conf.name}.{entity}: {e}'
+            self.on_record(entity, Event(event_type='error', title=message, url=record.url))
             self.logger.exception(message)
 
 class SuffixType(str, Enum):
@@ -141,16 +140,15 @@ class SaveAsFileAction(Actor):
         path = path.with_suffix(f'.{suffix}{path.suffix}')
         return path
 
-    def handle(self, entity_name: str, record: Record):
-        entity = self.entities[entity_name]
+    def handle(self, entity: SaveAsFileActionEntity, record: Record):
         if entity.only_save_changed and not self.has_changed(entity, record):
-            self.logger.debug(f'{self.conf.name}.{entity_name}: record did not change since last time, not saving')
+            self.logger.debug(f'{self.conf.name}.{entity}: record did not change since last time, not saving')
             return
         path = self.get_filename(entity)
         try:
             with open(path, 'wt', encoding='utf8') as fp:
                 fp.write(str(record) + '\n')
         except Exception as e:
-            message = f'error in {self.conf.name}.{entity_name}: {e}'
-            self.on_record(entity_name, Event(event_type='error', title=message, url=record.url))
+            message = f'error in {self.conf.name}.{entity}: {e}'
+            self.on_record(entity, Event(event_type='error', title=message, url=record.url))
             self.logger.exception(message)
