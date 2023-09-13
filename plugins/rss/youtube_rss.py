@@ -9,14 +9,13 @@ import feedparser
 import pydantic
 from pydantic import ConfigDict, ValidationError
 
-from core import interfaces
 from core.config import Plugins
-from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor
+from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, Record
 from core.utils import get_cache_ttl
 from plugins.rss import video_info
 
 
-class Record(interfaces.Record):
+class YoutubeFeedRecord(Record):
     model_config = ConfigDict(extra='allow')
 
     url: str
@@ -97,7 +96,7 @@ class FeedMonitor(HttpTaskMonitor):
                 await self.feedparser.prime_db(entity, session)
         await super().run()
 
-    async def get_new_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
+    async def get_new_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeFeedRecord]:
         return await self.feedparser.get_records(entity, session)
 
 
@@ -114,7 +113,7 @@ class RSS2MSG:
         else:
             self.logger.debug(f'successfully connected to sqlite database at "{db_path}"')
 
-    async def prime_db(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
+    async def prime_db(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession) -> None:
         '''if feed has no prior records fetch it once and mark all entries as old
         in order to not produce ten messages at once when feed first added'''
         if self.db.get_size(entity.name) == 0:
@@ -154,7 +153,8 @@ class RSS2MSG:
             return None
 
 
-    def parse_entry(self, entry: Union[dict, feedparser.FeedParserDict]) -> Record:
+    @staticmethod
+    def parse_entry(entry: Union[dict, feedparser.FeedParserDict]) -> YoutubeFeedRecord:
         parsed = {}
         parsed['url'] = entry['link']
         parsed['title'] = entry['title']
@@ -169,10 +169,10 @@ class RSS2MSG:
         except (ValueError, KeyError, TypeError):
             views = None
         parsed['views'] = views
-        record = Record(**parsed)
+        record = YoutubeFeedRecord(**parsed)
         return record
 
-    def parse_entries(self, feed):
+    def parse_entries(self, feed) -> Sequence[YoutubeFeedRecord]:
         records = []
         for entry in feed['entries']:
             try:
@@ -186,16 +186,16 @@ class RSS2MSG:
             records.append(record)
         return records
 
-    def get_latest_record(self, video_id) -> Optional[Record]:
+    def get_latest_record(self, video_id) -> Optional[YoutubeFeedRecord]:
         latest_row = self.db.select_latest(video_id)
         if latest_row is not None:
             latest_row = dict(latest_row)
             latest_row['url'] = latest_row.pop('link')
-            return Record(**latest_row)
+            return YoutubeFeedRecord(**latest_row)
         else:
             return None
 
-    async def get_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession):
+    async def get_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeFeedRecord]:
         feed = await self.get_feed(entity, session)
         if feed is None:
             return []
@@ -235,7 +235,7 @@ class RecordDB:
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
         self.cursor = self.db.cursor()
-        record_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views intefer, PRIMARY KEY(video_id, updated)'
+        record_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views integer, PRIMARY KEY(video_id, updated)'
         self.cursor.execute('CREATE TABLE IF NOT EXISTS records ({})'.format(record_structure))
         self.db.commit()
 
@@ -260,7 +260,7 @@ class RecordDB:
         self.cursor.execute(sql, keys)
         return self.cursor.fetchone()
 
-    def get_size(self, feed_name: Optional[str] = None):
+    def get_size(self, feed_name: Optional[str] = None) -> int:
         '''return number of records, total or for specified feed, are stored in db'''
         if feed_name is None:
             sql = 'SELECT COUNT(1) FROM records'

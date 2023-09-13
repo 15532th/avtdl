@@ -1,5 +1,6 @@
 import json
 from json import JSONDecodeError
+from textwrap import shorten
 from typing import Sequence, Optional
 
 import aiohttp
@@ -7,12 +8,21 @@ import pydantic
 from pydantic import PrivateAttr
 
 from core.config import Plugins
-from core.interfaces import ActorConfig, Record, HttpTaskMonitorEntity, HttpTaskMonitor
+from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, LivestreamRecord, MAX_REPR_LEN
 
 
-class FC2Record(Record):
+class FC2Record(LivestreamRecord):
+
     user_id: str
+    title: str
     start: str
+
+    def __str__(self):
+        f'{self.url}\n{self.title}'
+
+    def __repr__(self):
+        title = shorten(self.title, MAX_REPR_LEN)
+        return f'FC2Record(user_id={self.user_id}, start={self.start}, title={title})'
 
 @Plugins.register('fc2', Plugins.kind.ACTOR_ENTITY)
 class FC2MonitorEntity(HttpTaskMonitorEntity):

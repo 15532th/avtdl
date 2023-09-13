@@ -9,6 +9,7 @@ from core.config import Plugins
 @Plugins.register('filter.event', Plugins.kind.ACTOR_CONFIG)
 class EmptyFilterConfig(ActorConfig):
     pass
+
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_ENTITY)
 class EmptyFilterEntity(FilterEntity):
     name: str
@@ -25,7 +26,6 @@ class NoopFilter(Filter):
 @Plugins.register('filter.match', Plugins.kind.ACTOR_ENTITY)
 @Plugins.register('filter.exclude', Plugins.kind.ACTOR_ENTITY)
 class MatchFilterEntity(FilterEntity):
-    name: str
     patterns: List[str]
 
 @Plugins.register('filter.match', Plugins.kind.ACTOR)
