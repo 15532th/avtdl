@@ -68,13 +68,12 @@ class Command(Actor):
 
     def add(self, entity: CommandEntity, record: Record):
         args = self.args_for(entity, record)
-        working_dir = entity.working_dir
-        if working_dir is None:
-            working_dir = os.getcwd()
+        if entity.working_dir is None:
+            entity.working_dir = os.getcwd()
         else:
-            if not os.path.exists(working_dir):
-                self.logger.warning('download directory {} does not exist, creating'.format(working_dir))
-                os.makedirs(working_dir)
+            if not os.path.exists(entity.working_dir):
+                self.logger.warning('download directory {} does not exist, creating'.format(entity.working_dir))
+                os.makedirs(entity.working_dir)
 
         command_line = self.shell_for(args)
         task_id = f'Task for {entity.name}: on record {record} executing {command_line}'
