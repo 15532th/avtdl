@@ -88,17 +88,17 @@ class Command(Actor):
     async def run_subprocess(self, args: List[str], task_id: str, entity: CommandEntity, record: Record):
         command_line = self.shell_for(args)
         self.logger.info(f'For {entity.name} executing command {command_line}')
-        event = Event(event_type=EventType.started, url='', title=f'Running command: {command_line}')
+        event = Event(event_type=EventType.started, text=f'Running command: {command_line}')
         self.on_record(entity, event)
         process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
         await process.wait()
         self.logger.debug('subprocess for {} finished with exit code {}'.format(command_line, process.returncode))
         self.running_commands.pop(task_id)
         if process.returncode == 0:
-            event = Event(event_type=EventType.finished, url='', title=f'command finished successfully: {command_line}')
+            event = Event(event_type=EventType.finished, text=f'command finished successfully: {command_line}')
             self.on_record(entity, event)
         else:
-            event = Event(event_type=EventType.error, url='', title=f'command failed: {command_line}')
+            event = Event(event_type=EventType.error, text=f'command failed: {command_line}')
             self.on_record(entity, event)
             if entity.forward_failed:
                 self.on_record(entity, record)

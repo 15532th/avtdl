@@ -8,8 +8,16 @@ from core.interfaces import ActorConfig, Record, HttpTaskMonitorEntity, HttpTask
 
 
 class TwitcastRecord(Record):
+
     user_id: str
     movie_id: str
+    movie_url: str
+
+    def __str__(self):
+        return f'{self.url}\n{self.title} ({self.movie_id})'
+
+    def __repr__(self):
+        pass
 
 @Plugins.register('twitcast', Plugins.kind.ACTOR_ENTITY)
 class TwitcastMonitorEntity(HttpTaskMonitorEntity):
@@ -39,8 +47,9 @@ class TwitcastMonitor(HttpTaskMonitor):
         entity.most_recent_movie = movie_id
 
         channel_url = f'https://twitcasting.tv/{entity.user_id}/'
-        title = f'{entity.name} is live on Twitcasting at {channel_url}'
-        record = TwitcastRecord(url=channel_url, title=title, user_id=entity.user_id, movie_id=movie_id)
+        movie_url = f'{channel_url}/movie/{movie_id}'
+        title = f'{entity.name} is live on Twitcasting'
+        record = TwitcastRecord(url=channel_url, user_id=entity.user_id, movie_id=movie_id, movie_url=movie_url, title=title)
         return record
 
     async def is_live(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> bool:

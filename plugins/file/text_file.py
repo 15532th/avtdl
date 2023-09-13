@@ -11,7 +11,8 @@ from pydantic import field_validator
 
 from core import utils
 from core.config import Plugins
-from core.interfaces import ActorConfig, TaskMonitor, TaskMonitorEntity, Record, TextRecord, Event, ActorEntity, Actor
+from core.interfaces import ActorConfig, TaskMonitor, TaskMonitorEntity, Record, TextRecord, Event, ActorEntity, Actor, \
+    EventType
 
 
 @Plugins.register('from_file', Plugins.kind.ACTOR_CONFIG)
@@ -56,7 +57,7 @@ class FileMonitorEntity(TaskMonitorEntity):
                 else:
                     lines = [fp.read()]
                 for line in lines:
-                    record = TextRecord(title=line.strip(), url=str(self.path))
+                    record = TextRecord(text=line.strip())
                     records.append(record)
         return records
 
@@ -89,7 +90,7 @@ class FileAction(Actor):
                 fp.write(str(record) + '\n')
         except Exception as e:
             message = f'error in {self.conf.name}.{entity}: {e}'
-            self.on_record(entity, Event(event_type='error', title=message, url=record.url))
+            self.on_record(entity, Event(event_type=EventType.error, text=message))
             self.logger.exception(message)
 
 class SuffixType(str, Enum):
@@ -150,5 +151,5 @@ class SaveAsFileAction(Actor):
                 fp.write(str(record) + '\n')
         except Exception as e:
             message = f'error in {self.conf.name}.{entity}: {e}'
-            self.on_record(entity, Event(event_type='error', title=message, url=record.url))
+            self.on_record(entity, Event(event_type=EventType.error, text=message))
             self.logger.exception(message)

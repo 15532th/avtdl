@@ -2,6 +2,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from textwrap import shorten
 from typing import Callable, Dict, List, Sequence, Tuple, Type, Optional
 
 import aiohttp
@@ -10,14 +11,18 @@ from pydantic import BaseModel, FilePath
 from core import utils
 
 
+MAX_REPR_LEN = 60
+
 class Record(BaseModel):
     '''Data entry, passed around from Monitors to Actions through Filters'''
-    title: str
-    url: str
 
+    @abstractmethod
     def __str__(self):
-        text = self.title.strip()
-        return f'{text} ({self.url})'
+        '''Text representation of the record to be sent in message, written to file etc.'''
+
+    @abstractmethod
+    def __repr__(self):
+        '''Short text representation of the record to be printed in logs'''
 
     def format_record(self, timezone=None):
         '''If implementation contains datetime objects it should overwrite this
@@ -29,19 +34,38 @@ class Record(BaseModel):
         return self.__str__()
 
 class TextRecord(Record):
+
+    text: str
+
     def __str__(self):
-        return self.title
+        return self.text
+
+    def __repr__(self):
+        return f'TextRecord("{shorten(self.text, MAX_REPR_LEN)}")'
+
+
+class LivestreamRecord(Record, ABC):
+    '''Record that has a downloadable url'''
+    url: str
 
 class EventType:
     generic: str = 'generic'
     error: str = 'error'
     started: str = 'started'
     finished: str = 'finished'
+
 class Event(Record):
+
     event_type: str = EventType.generic
+    text: str
 
     def __str__(self):
-        return self.title
+        return self.text
+
+    def __repr__(self):
+        text = shorten(self.text, MAX_REPR_LEN)
+        return f'Event(event_type="{self.event_type}", text="{text}")'
+
 class MessageBus:
     PREFIX_IN = 'inputs'
     PREFIX_OUT = 'output'
@@ -114,14 +138,14 @@ class Actor(ABC):
     def _handle(self, topic: str, record: Record) -> None:
         _, entity_name = self.bus.split_message_topic(topic)
         if not entity_name in self.entities:
-            logging.warning(f'received record on topic {topic}, but have no entity with name {entity_name} configured, dropping record {record}')
+            logging.warning(f'received record on topic {topic}, but have no entity with name {entity_name} configured, dropping record {record!r}')
             return
         entity = self.entities[entity_name]
         for record_type in self.supported_record_types:
             if isinstance(record, record_type):
                 break
         else:
-            self.logger.debug(f'forwarding record with unsupported type "{record.__class__.__name__}" down the chain: {record}')
+            self.logger.debug(f'forwarding record with unsupported type "{record.__class__.__name__}" down the chain: {record!r}')
             self.on_record(entity, record)
         try:
             self.handle(entity, record)

@@ -48,7 +48,7 @@ class Chain:
                 this.logger = self.logger.getChild('handler')
 
             def __call__(this, producer_topic: str, record: Record):
-                this.logger.debug(f'Chain({self.name}): from {producer_topic} to {topic} forwarding record "{record}"')
+                this.logger.debug(f'Chain({self.name}): from {producer_topic} to {topic} forwarding record "{record!r}"')
                 self.bus.pub(topic, record)
 
             def __repr__(this):
