@@ -16,8 +16,6 @@ MAX_REPR_LEN = 60
 class Record(BaseModel):
     '''Data entry, passed around from Monitors to Actions through Filters'''
 
-    origin: str = ''
-
     @abstractmethod
     def __str__(self):
         '''Text representation of the record to be sent in message, written to file etc.'''
@@ -143,10 +141,6 @@ class Actor(ABC):
             logging.warning(f'received record on topic {topic}, but have no entity with name {entity_name} configured, dropping record {record!r}')
             return
         entity = self.entities[entity_name]
-        if self._same_origin(entity, record):
-            msg = f'Entity "{entity.name}" got record produced by itself, dropping to prevent possible infinite recursion. Check chains for multiple use of "{record.origin}" entity. Dropped record was "{record!r}"'
-            self.logger.warning(msg)
-            return
         for record_type in self.supported_record_types:
             if isinstance(record, record_type):
                 break
@@ -162,19 +156,10 @@ class Actor(ABC):
     def handle(self, entity: ActorEntity, record: Record) -> None:
         '''Perform action on record if entity in self.entities'''
 
-    def on_record(self, entity: ActorEntity, record: Record) -> None:
+    def on_record(self, entity: ActorEntity, record: Record):
         '''Implementation should call it for every new Record it produces'''
-        self._set_origin(entity, record)
         topic = self.bus.outgoing_topic_for(self.conf.name, entity.name)
         self.bus.pub(topic, record)
-
-    def _set_origin(self, entity: ActorEntity, record: Record) -> None:
-        record.origin = f'{self.conf.name}.{entity.name}'
-
-    def _same_origin(self, entity: ActorEntity, record: Record) -> bool:
-        origin = f'{self.conf.name}.{entity.name}'
-        return origin == record.origin
-
 
     def __repr__(self):
         return f'{self.__class__.__name__}({list(self.entities)})'
@@ -303,10 +288,6 @@ class Filter(Actor):
         self.logger = logging.getLogger(f'filters.{self.conf.name}')
 
     def handle(self, entity: FilterEntity, record: Record):
-        if self._same_origin(entity, record):
-            msg = f'Entity "{entity.name}" got record produced by itself, dropping to prevent possible infinite recursion. Check chains for multiple use of "{record.origin}" entity. Dropped record was "{record!r}"'
-            self.logger.warning(msg)
-            return
         filtered = self.match(entity, record)
         if filtered is not None:
             self.on_record(entity, filtered)
