@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict, Counter
 from typing import List, OrderedDict, Callable
 
 from pydantic import RootModel
@@ -24,6 +25,7 @@ class ChainConfigSection(RootModel):
         return value.popitem()
 
 class Chain:
+
     def __init__(self, name: str, actors: ChainConfigSection):
         self.name = name
         self.bus = MessageBus()
@@ -32,6 +34,8 @@ class Chain:
         if len(actors) < 2:
             self.logger.warning(f'chain {name}: need at least two actors to create a chain')
             return
+
+        self.check_for_duplicated_entities(name, actors)
 
         producer_name, producer = actors[0]
         for consumer_name, consumer in actors[1:]:
@@ -42,6 +46,19 @@ class Chain:
                     handler = self.get_handler(consumer_topic)
                     self.bus.sub(producer_topic, handler)
             producer_name, producer = consumer_name, consumer
+
+    def check_for_duplicated_entities(self, chain_name, actors: ChainConfigSection) -> None:
+        flattened_actors = defaultdict(list)
+        for name, entities in actors:
+            flattened_actors[name].extend(entities)
+        counted_actors = {}
+        for name, entities in flattened_actors.items():
+            counted_actors[name] = Counter(entities)
+        for name, counter in counted_actors.items():
+            for entity_name, times in counter.most_common():
+                if times > 1:
+                    msg = f'Chain {chain_name}: {name}: {entity_name} is used multiple times. It might lead to infinite recursion (WILL lead for filters), causing crash or triggering OOM killer. Remove duplicates from the chain or make each of them a separate entity with different name'
+                    raise ValueError(msg)
 
     def get_handler(self, topic) -> Callable[[str, Record], None]:
         class Handler:
