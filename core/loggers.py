@@ -1,9 +1,17 @@
 import logging
 import logging.handlers
+from enum import Enum
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from core.utils import check_dir
+
+
+class LogLevel(str, Enum):
+    debug = 'DEBUG'
+    info = 'INFO'
+    warning = 'WARNING'
+    error = 'ERROR'
 
 
 def set_logging_format(level):
@@ -28,7 +36,12 @@ def set_file_logger(path: Path, name: str = 'avtdl.log', max_size=1000000):
     logging.getLogger('').addHandler(handler)
     logging.info(f'writing verbose log to file {path.absolute()}')
 
-def set_logger(name, level, propagate=True):
+def set_logger(name: str, level: Union[LogLevel, int], propagate=True):
+    if isinstance(level, LogLevel):
+        # since LogLevel itself should only contain valid log level names
+        # it should never raise AttributeError, but if it does let it crash
+        # so it can get noticed
+        level = getattr(logging, level)
     logger = logging.getLogger(name)
     logger.propagate = propagate
     logger.setLevel(level)
@@ -50,7 +63,6 @@ class LogFilter(logging.Filter):
                 return False
         return True
 
-def blacklist_loggers(loggers_names: List[str]):
-    root = logging.getLogger('')
-    for handler in root.handlers:
-        handler.addFilter(LogFilter(loggers_names))
+def override_loglevel(loggers: Dict[str, LogLevel]):
+        for name, level in loggers.items():
+            set_logger(name, level, propagate=True)

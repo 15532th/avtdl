@@ -6,7 +6,7 @@ from pydantic import BaseModel, ValidationError, create_model
 
 from core.chain import Chain, ChainConfigSection
 from core.interfaces import (Actor)
-from core.loggers import blacklist_loggers, set_file_logger
+from core.loggers import override_loglevel, set_file_logger, LogLevel
 from core.plugins import Plugins
 
 
@@ -36,10 +36,10 @@ class Settings(BaseModel):
     plugins_directory: str = 'plugins'
     log_directory: Path = Path('logs')
     logfile_size: int = 1000000
-    log_blacklist: List[str] = ['bus', 'chain', 'filters']
+    loglevel_override: Dict[str, LogLevel] = {'bus': 'INFO', 'chain': 'INFO'}
 
 def configure_loggers(settings: Settings):
-    blacklist_loggers(settings.log_blacklist)
+    override_loglevel(settings.loglevel_override)
     set_file_logger(path=settings.log_directory, max_size=settings.logfile_size)
 
 class ActorConfigSection(BaseModel):
