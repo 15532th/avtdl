@@ -68,7 +68,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     log_level = logging.DEBUG if args.verbose else logging.INFO
-    log_level = logging.INFO
     set_logging_format(log_level)
     silence_library_loggers()
     main(args.config)
