@@ -1,15 +1,16 @@
 import asyncio
 import os
-import re
+import shlex
+from hashlib import sha1
 from pathlib import Path
 from typing import Dict, List, Sequence, Optional
-import shlex
 
 from pydantic import field_validator
 
 from core import utils
-from core.interfaces import Actor, ActorConfig, ActorEntity, Record, Event, EventType
 from core.config import Plugins
+from core.interfaces import Actor, ActorConfig, ActorEntity, Record, Event, EventType
+
 
 @Plugins.register('execute', Plugins.kind.ACTOR_CONFIG)
 class CommandConfig(ActorConfig):
@@ -69,6 +70,12 @@ class Command(Actor):
     def shell_for(args: List[str]) -> str:
         return ' '.join(args)
 
+    def _generate_task_id(self, entity: CommandEntity, record: Record, command_line: str) -> str:
+        record_hash = sha1(str(record.model_dump_json()).encode())
+        record_hash = record_hash.hexdigest()
+        task_id = f'Task for {entity.name}: on record {record!r} ({record_hash}) executing "{command_line}"'
+        return task_id
+
     def add(self, entity: CommandEntity, record: Record):
         args = self.args_for(entity, record)
         if entity.working_dir is None:
@@ -79,9 +86,9 @@ class Command(Actor):
                 os.makedirs(entity.working_dir)
 
         command_line = self.shell_for(args)
-        task_id = f'Task for {entity.name}: on record {record} executing {command_line}'
+        task_id = self._generate_task_id(entity, record, command_line)
         if task_id in self.running_commands:
-            msg = f'Task for {entity.name} is already processing record {record}'
+            msg = f'[{entity.name}] command "{command_line}" for record {record!r} is already running, will not call again'
             self.logger.info(msg)
             return
         task = self.run_subprocess(args, task_id, entity, record)
