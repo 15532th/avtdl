@@ -56,9 +56,9 @@ class Command(Actor):
             for placeholder, field in entity.placeholders.items():
                 value = record_as_dict.get(field)
                 if value is not None:
-                    new_arg = re.sub(placeholder, value, new_arg)
+                    new_arg = new_arg.replace(placeholder, value)
             for placeholder, value in entity.static_placeholders.items():
-                new_arg = re.sub(placeholder, value, new_arg)
+                new_arg = new_arg.replace(placeholder, value)
             new_args.append(new_arg)
         return new_args
 
