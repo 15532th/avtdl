@@ -1,6 +1,6 @@
 from typing import List, Sequence, Optional
 
-from core.interfaces import Filter, Record, FilterEntity, ActorConfig, Event
+from core.interfaces import Filter, Record, FilterEntity, ActorConfig, Event, EventType
 from core.config import Plugins
 
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_CONFIG)
@@ -54,7 +54,7 @@ class ExcludeFilter(Filter):
 
 @Plugins.register('filter.event', Plugins.kind.ACTOR_ENTITY)
 class EventFilterEntity(FilterEntity):
-    filter_type: Optional[List[str]] = None
+    event_types: Optional[List[str]] = None
 
 @Plugins.register('filter.event', Plugins.kind.ACTOR)
 class EventFilter(Filter):
@@ -64,11 +64,11 @@ class EventFilter(Filter):
 
     def match(self, entity: EventFilterEntity, record: Record) -> Optional[Record]:
         if isinstance(record, Event):
-            filter_types = entity.filter_type
-            if filter_types is None:
+            event_types = entity.event_types
+            if event_types is None:
                 return record
-            for filter_type in filter_types:
-                if record.filter_type == filter_type:
+            for event_type in event_types:
+                if record.event_type == event_type:
                     return record
         else:
             return None
