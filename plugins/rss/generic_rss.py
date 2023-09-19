@@ -165,7 +165,7 @@ class RecordDB:
     def __init__(self, db_path):
         self.db = sqlite3.connect(db_path)
         self.cursor = self.db.cursor()
-        record_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views intefer, PRIMARY KEY(video_id, updated)'
+        record_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views integer, PRIMARY KEY(video_id, updated)'
         self.cursor.execute('CREATE TABLE IF NOT EXISTS records ({})'.format(record_structure))
         self.db.commit()
 
