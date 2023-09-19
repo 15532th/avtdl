@@ -1,6 +1,7 @@
 import asyncio
 import os
 import shlex
+import time
 from hashlib import sha1
 from pathlib import Path
 from typing import Dict, List, Sequence, Optional
@@ -10,6 +11,7 @@ from pydantic import field_validator
 from core import utils
 from core.config import Plugins
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record, Event, EventType
+from core.utils import check_dir
 
 
 @Plugins.register('execute', Plugins.kind.ACTOR_CONFIG)
@@ -27,13 +29,18 @@ class CommandEntity(ActorEntity):
     report_failed: bool = True # emit Event(type="error") if subprocess returned non-zero exit code or raised exception
     report_finished: bool = False # emit Event(type="finished") if subprocess returned zero as exit code
     report_started: bool = False # emit Event(type="started") before starting subprocess
+    output_dir: Optional[Path] = None # write stdout to a file in this directory if set
 
     @field_validator('working_dir')
     @classmethod
     def check_dir(cls, path: Optional[Path]):
         if path is None:
             return path
-        return utils.check_dir(path)
+        ok = utils.check_dir(path)
+        if ok:
+            return path
+        else:
+            raise ValueError(f'check path "{path}" exists and is a writeable directory')
 
 
 @Plugins.register('execute', Plugins.kind.ACTOR)
@@ -79,11 +86,12 @@ class Command(Actor):
     def add(self, entity: CommandEntity, record: Record):
         args = self.args_for(entity, record)
         if entity.working_dir is None:
-            entity.working_dir = os.getcwd()
+            entity.working_dir = Path.cwd()
+            self.logger.info(f'[{entity.name}] working directory is not specified, using current directory instead: {entity.working_dir}')
         else:
-            if not os.path.exists(entity.working_dir):
-                self.logger.warning('download directory {} does not exist, creating'.format(entity.working_dir))
-                os.makedirs(entity.working_dir)
+            ok = check_dir(entity.working_dir)
+            if not ok:
+                self.logger.warning(f'[{entity.name}] check if working directory "{entity.working_dir}" exists and is a writeable directory')
 
         command_line = self.shell_for(args)
         task_id = self._generate_task_id(entity, record, command_line)
@@ -94,14 +102,33 @@ class Command(Actor):
         task = self.run_subprocess(args, task_id, entity, record)
         self.running_commands[task_id] = asyncio.get_event_loop().create_task(task)
 
+    def _get_output_file(self, entity: CommandEntity, task_id: str) -> Optional[Path]:
+        if entity.output_dir is None:
+            return None
+        ok = check_dir(entity.output_dir)
+        if not ok:
+            self.logger.warning(f'[{entity.name}] check if directory specified in "output_dir" value "{entity.output_dir}" exists and is a writeable directory')
+            self.logger.warning(f'[{entity.name}] output of running command will be redirected to stdout')
+            return None
+        timestamp = int(time.time() * 1000)
+        command_hash = sha1(task_id.encode())
+        command_hash = command_hash.hexdigest()
+        filename = f'command_{entity.name}_{timestamp}_{command_hash}_stdout.log'
+        return entity.output_dir / filename
+
     async def run_subprocess(self, args: List[str], task_id: str, entity: CommandEntity, record: Record):
         command_line = self.shell_for(args)
         self.logger.info(f'[{entity.name}] executing command {command_line}')
         if entity.report_started:
             event = Event(event_type=EventType.started, text=f'Running command: {command_line}')
             self.on_record(entity, event)
+        stdout_path = self._get_output_file(entity, task_id)
         try:
-            process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
+            if stdout_path is None:
+                process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
+            else:
+                with open(stdout_path, 'at') as stdout:
+                    process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir, stdout=stdout, stderr=asyncio.subprocess.STDOUT)
         except Exception as e:
             self.logger.warning(f'[{entity.name}] failed to execute command "{command_line}": {e}')
             if entity.report_failed:
