@@ -7,11 +7,12 @@ from core.interfaces import Record, MessageBus
 
 
 class ChainConfigSection(RootModel):
+
     root: List[OrderedDict[str, List[str]]]
 
     def __iter__(self):
         for item in self.root:
-            yield item.popitem()
+            yield item.copy().popitem()
 
     def __len__(self):
         return self.root.__len__()
