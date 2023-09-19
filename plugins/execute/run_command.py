@@ -22,7 +22,10 @@ class CommandEntity(ActorEntity):
     working_dir: Optional[Path] = None
     placeholders: Dict[str, str] = {'{url}': 'url', '{title}': 'title', '{text}': 'text'} # format {'placeholder': 'record property name'}
     static_placeholders: Dict[str, str] = {} # set in config in format {'placeholder': 'value'}
-    forward_failed: bool = True # emit record down the chain if subprocess returned non-zero exit code
+    forward_failed: bool = False # emit record down the chain if subprocess returned non-zero exit code
+    report_failed: bool = True # emit Event(type="error") if subprocess returned non-zero exit code or raised exception
+    report_finished: bool = False # emit Event(type="finished") if subprocess returned zero as exit code
+    report_started: bool = False # emit Event(type="started") before starting subprocess
 
     @field_validator('working_dir')
     @classmethod
@@ -86,18 +89,37 @@ class Command(Actor):
 
     async def run_subprocess(self, args: List[str], task_id: str, entity: CommandEntity, record: Record):
         command_line = self.shell_for(args)
-        self.logger.info(f'For {entity.name} executing command {command_line}')
-        event = Event(event_type=EventType.started, text=f'Running command: {command_line}')
-        self.on_record(entity, event)
-        process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
-        await process.wait()
-        self.logger.debug('subprocess for {} finished with exit code {}'.format(command_line, process.returncode))
+        self.logger.info(f'[{entity.name}] executing command {command_line}')
+        if entity.report_started:
+            event = Event(event_type=EventType.started, text=f'Running command: {command_line}')
+            self.on_record(entity, event)
+        try:
+            process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
+        except Exception as e:
+            self.logger.warning(f'[{entity.name}] failed to execute command "{command_line}": {e}')
+            if entity.report_failed:
+                event = Event(event_type=EventType.error, text=f'[{entity.name}] failed to execute command: {command_line}')
+                self.on_record(entity, event)
+            if entity.forward_failed:
+                self.on_record(entity, record)
+            return
+        try:
+            await process.wait()
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            self.logger.warning(f'[{entity.name}] application is terminating before running command has completed. Check on it and restart manually if needed. Process PID: {process.pid}. Exact command line:\n{command_line}')
+            raise
+
         self.running_commands.pop(task_id)
+
+        self.logger.debug(f'[{entity.name}] subprocess for {command_line} finished with exit code {process.returncode}')
+
         if process.returncode == 0:
-            event = Event(event_type=EventType.finished, text=f'command finished successfully: {command_line}')
-            self.on_record(entity, event)
+            if entity.report_finished:
+                event = Event(event_type=EventType.finished, text=f'[{entity.name}] command finished successfully: {command_line}')
+                self.on_record(entity, event)
         else:
-            event = Event(event_type=EventType.error, text=f'command failed: {command_line}')
-            self.on_record(entity, event)
+            if entity.report_failed:
+                event = Event(event_type=EventType.error, text=f'[{entity.name}] command finished with error: {command_line}')
+                self.on_record(entity, event)
             if entity.forward_failed:
                 self.on_record(entity, record)
