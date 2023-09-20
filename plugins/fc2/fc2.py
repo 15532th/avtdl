@@ -8,7 +8,8 @@ import pydantic
 from pydantic import PrivateAttr
 
 from core.config import Plugins
-from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, LivestreamRecord, MAX_REPR_LEN
+from core.interfaces import ActorConfig, LivestreamRecord, MAX_REPR_LEN
+from core.monitors import HttpTaskMonitorEntity, HttpTaskMonitor
 
 
 class FC2Record(LivestreamRecord):

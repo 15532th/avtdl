@@ -11,8 +11,9 @@ from pydantic import field_validator
 
 from core import utils
 from core.config import Plugins
-from core.interfaces import ActorConfig, TaskMonitor, TaskMonitorEntity, Record, TextRecord, Event, ActorEntity, Actor, \
+from core.interfaces import ActorConfig, Record, TextRecord, Event, ActorEntity, Actor, \
     EventType
+from core.monitors import TaskMonitorEntity, TaskMonitor
 
 
 @Plugins.register('from_file', Plugins.kind.ACTOR_CONFIG)
