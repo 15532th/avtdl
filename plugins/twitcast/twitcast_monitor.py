@@ -4,7 +4,8 @@ import aiohttp
 from pydantic import PrivateAttr
 
 from core.config import Plugins
-from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, LivestreamRecord
+from core.interfaces import ActorConfig, LivestreamRecord
+from core.monitors import HttpTaskMonitorEntity, HttpTaskMonitor
 
 
 class TwitcastRecord(LivestreamRecord):

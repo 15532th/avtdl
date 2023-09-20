@@ -5,7 +5,8 @@ from dataclasses import dataclass
 import aiohttp
 
 from core.config import Plugins
-from core.interfaces import TaskMonitor, TaskMonitorEntity, Record, ActorEntity, TextRecord
+from core.interfaces import Record, ActorEntity, TextRecord
+from core.monitors import TaskMonitorEntity, TaskMonitor
 
 
 @Plugins.register('get_url', Plugins.kind.ACTOR_CONFIG)
