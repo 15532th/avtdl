@@ -4,8 +4,7 @@ from typing import List, OrderedDict, Callable
 
 from pydantic import RootModel
 
-from core.interfaces import Record
-from core.bus import MessageBus
+from core.interfaces import Record, MessageBus
 
 
 class ChainConfigSection(RootModel):
