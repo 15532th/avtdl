@@ -10,12 +10,12 @@ import pydantic
 from pydantic import ConfigDict, ValidationError
 
 from core.config import Plugins
-from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, Record
+from core.interfaces import ActorConfig, HttpTaskMonitorEntity, HttpTaskMonitor, LivestreamRecord
 from core.utils import get_cache_ttl
 from plugins.rss import video_info
 
 
-class YoutubeFeedRecord(Record):
+class YoutubeFeedRecord(LivestreamRecord):
     model_config = ConfigDict(extra='allow')
 
     url: str
