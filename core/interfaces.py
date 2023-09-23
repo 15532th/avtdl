@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from hashlib import sha1
 from textwrap import shorten
 from typing import Callable, Dict, List, Sequence, Tuple, Type, Optional
 
@@ -27,6 +28,11 @@ class Record(BaseModel):
         Client code that wants to present Records in specific timezone should
         call this method instead of str()'''
         return self.__str__()
+
+    def hash(self) -> str:
+        record_hash = sha1(str(self.model_dump_json()).encode())
+        return record_hash.hexdigest()
+
 
 class TextRecord(Record):
 

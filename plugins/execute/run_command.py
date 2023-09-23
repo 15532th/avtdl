@@ -1,5 +1,4 @@
 import asyncio
-import os
 import shlex
 import time
 from hashlib import sha1
@@ -78,8 +77,7 @@ class Command(Actor):
         return ' '.join(args)
 
     def _generate_task_id(self, entity: CommandEntity, record: Record, command_line: str) -> str:
-        record_hash = sha1(str(record.model_dump_json()).encode())
-        record_hash = record_hash.hexdigest()
+        record_hash = record.hash()
         task_id = f'Task for {entity.name}: on record {record!r} ({record_hash}) executing "{command_line}"'
         return task_id
 

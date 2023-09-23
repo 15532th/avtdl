@@ -3,7 +3,6 @@
 import datetime
 import os
 from enum import Enum
-from hashlib import sha1
 from pathlib import Path
 from typing import List, Optional
 
@@ -123,8 +122,7 @@ class SaveAsFileAction(Actor):
 
     @staticmethod
     def has_changed(entity: SaveAsFileActionEntity, record: Record) -> bool:
-        record_hash = sha1(str(record).encode())
-        record_hash = record_hash.hexdigest()
+        record_hash = record.hash()
         changed = record_hash != entity.hash
         entity.hash = record_hash
         return changed
