@@ -1,10 +1,11 @@
+from textwrap import shorten
 from typing import Sequence, Optional
 
 import aiohttp
 from pydantic import PrivateAttr
 
 from core.config import Plugins
-from core.interfaces import ActorConfig, LivestreamRecord
+from core.interfaces import ActorConfig, LivestreamRecord, MAX_REPR_LEN
 from core.monitors import HttpTaskMonitorEntity, HttpTaskMonitor
 
 
@@ -18,7 +19,8 @@ class TwitcastRecord(LivestreamRecord):
         return f'{self.url}\n{self.title} ({self.movie_id})'
 
     def __repr__(self):
-        pass
+        title = shorten(self.title, MAX_REPR_LEN)
+        return f'TwitcastRecord(user_id={self.user_id}, movie_id={self.movie_id}, title="{title}")'
 
 @Plugins.register('twitcast', Plugins.kind.ACTOR_ENTITY)
 class TwitcastMonitorEntity(HttpTaskMonitorEntity):
