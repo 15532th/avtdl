@@ -21,9 +21,7 @@ class FileMonitorConfig(ActorConfig):
 
 @Plugins.register('from_file', Plugins.kind.ACTOR_ENTITY)
 class FileMonitorEntity(TaskMonitorEntity):
-    name: str
     encoding: Optional[str] = None
-    update_interval: float
     path: Path
     split_lines: bool = False
     mtime: float = -1

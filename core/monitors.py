@@ -11,7 +11,7 @@ from core.interfaces import ActorEntity, Actor, ActorConfig, Record
 
 
 class TaskMonitorEntity(ActorEntity):
-    update_interval: int
+    update_interval: float
 
 
 class BaseTaskMonitor(Actor):
