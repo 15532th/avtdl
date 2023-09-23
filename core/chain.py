@@ -61,6 +61,7 @@ class Chain:
                     raise ValueError(msg)
 
     def get_handler(self, topic) -> Callable[[str, Record], None]:
+        # noinspection PyMethodParameters
         class Handler:
             def __init__(this):
                 this.logger = self.logger.getChild('handler')
