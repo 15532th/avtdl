@@ -201,9 +201,12 @@ class BaseFeedMonitor(HttpTaskMonitor):
     def record_is_new(self, record: Record, entity: BaseFeedMonitorEntity) -> bool:
         uid = self.get_record_id(record)
         record_hash = record.hash()
+        stored_record = self.db.fetch_row(uid)
+        exists = stored_record is not None
+        if exists:
+            stored_record_instance = type(record).model_validate_json(stored_record['as_json'])
         if not self.db.row_exists(uid, record_hash):
             self.store_record(record, entity)
-        exists = self.db.row_exists(uid)
         return not exists
 
     def filter_new_records(self, records: Sequence[Record], entity: BaseFeedMonitorEntity) -> Sequence[Record]:
@@ -242,14 +245,17 @@ class RecordDB:
         self.cursor.execute(sql, row)
         self.db.commit()
 
-    def row_exists(self, uid: str, hashsum: Optional[str] = None) -> bool:
+    def fetch_row(self, uid: str, hashsum: Optional[str] = None) -> Optional[sqlite3.Row]:
         if hashsum is not None:
-            sql = "SELECT 1 FROM records WHERE uid=:uid AND hashsum=:hashsum LIMIT 1"
+            sql = "SELECT * FROM records WHERE uid=:uid AND hashsum=:hashsum LIMIT 1"
         else:
-            sql = "SELECT 1 FROM records WHERE uid=:uid LIMIT 1"
+            sql = "SELECT * FROM records WHERE uid=:uid LIMIT 1"
         keys = {'uid': uid, 'hashsum': hashsum}
         self.cursor.execute(sql, keys)
-        return bool(self.cursor.fetchone())
+        return self.cursor.fetchone()
+
+    def row_exists(self, uid: str, hashsum: Optional[str] = None) -> bool:
+        return self.fetch_row(uid, hashsum) is not None
 
     def get_size(self, feed_name: Optional[str] = None) -> int:
         '''return number of records, total or for specified feed, are stored in db'''
