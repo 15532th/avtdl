@@ -13,11 +13,11 @@ class Record(BaseModel):
     '''Data entry, passed around from Monitors to Actions through Filters'''
 
     @abstractmethod
-    def __str__(self):
+    def __str__(self) -> str:
         '''Text representation of the record to be sent in message, written to file etc.'''
 
     @abstractmethod
-    def __repr__(self):
+    def __repr__(self) -> str:
         '''Short text representation of the record to be printed in logs'''
 
     def format_record(self, timezone=None):
