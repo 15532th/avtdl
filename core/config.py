@@ -1,11 +1,10 @@
 from functools import wraps
 from pathlib import Path
-from typing import Dict, List, Tuple, Generic, TypeVar, Type
+from typing import Dict, List, Tuple, Generic, TypeVar, Type, Any
 
 from pydantic import BaseModel, ValidationError, create_model
 
 from core.chain import Chain, ChainConfigSection
-from core.interfaces import (Actor)
 from core.loggers import override_loglevel, set_file_logger, LogLevel
 from core.plugins import Plugins
 
@@ -36,7 +35,7 @@ class Settings(BaseModel):
     plugins_directory: str = 'plugins'
     log_directory: Path = Path('logs')
     logfile_size: int = 1000000
-    loglevel_override: Dict[str, LogLevel] = {'bus': 'INFO', 'chain': 'INFO'}
+    loglevel_override: Dict[str, LogLevel] = {'bus': LogLevel.info, 'chain': LogLevel.info}
 
 def configure_loggers(settings: Settings):
     override_loglevel(settings.loglevel_override)
@@ -63,9 +62,9 @@ class SpecificActorConfigSection(BaseModel, Generic[TConfig, TEntity]):
 class ActorParser:
 
     @staticmethod
-    def flatten_actor_section(name: str, section: ActorConfigSection) -> dict:
+    def flatten_actor_section(name: str, section: ActorConfigSection) -> Dict[str, Any]:
         config = {**section.config, **{'name': name}}
-        data = {'name': name, 'config': config, 'entities': []}
+        data: Dict[str, Any] = {'name': name, 'config': config, 'entities': []}
         for entity in section.entities:
             data['entities'].append({**section.defaults, **entity})
         return data
@@ -75,8 +74,8 @@ class ActorParser:
         return {n: cls.flatten_actor_section(n, s) for n, s in section.items()}
 
     @staticmethod
-    def load_actors_plugins_model(actor_section: dict) -> Type[BaseModel]:
-        actors_models = {}
+    def load_actors_plugins_model(actor_section: dict) -> Dict[str, SpecificActorConfigSection]:
+        actors_models: Dict[str, Any] = {}
         for name, section in actor_section.items():
             _, ConfigFactory, EntityFactory = Plugins.get_actor_factories(name)
             model = SpecificActorConfigSection[ConfigFactory, EntityFactory]
@@ -85,7 +84,7 @@ class ActorParser:
         return actors_section_model
 
     @classmethod
-    def create_actors(cls, config_section: Dict[str, SpecificActorConfigSection]):
+    def create_actors(cls, config_section: 'SpecificActors') -> Dict[str, Type]:
         actors = {}
         for name, actor_section in config_section:
             ActorFactory, _, _ = Plugins.get_actor_factories(name)
@@ -95,14 +94,14 @@ class ActorParser:
 
 class ConfigParser:
 
-    @classmethod
-    def flatten_config(cls, config: Config) -> Config:
+    @staticmethod
+    def flatten_config(config: Config) -> Config:
         conf = config.model_dump()
         conf['Actors'] = ActorParser.flatten_actors_section(config.Actors)
         return Config(**conf)
 
-    @classmethod
-    def load_models(cls, config: Config) -> Type[BaseModel]:
+    @staticmethod
+    def load_models(config: Config) -> Type['SpecificConfig']:
         actors_model = ActorParser.load_actors_plugins_model(config.Actors)
         SpecificConfigModel = create_model('SpecificConfig',
                                      Actors=(actors_model, ...),
@@ -119,7 +118,7 @@ class ConfigParser:
 
     @classmethod
     @try_parsing
-    def parse(cls, conf) -> Tuple[Dict[str, Actor], Dict[str, Chain]]:
+    def parse(cls, conf) -> Tuple[Dict[str, Any], Dict[str, Chain]]:
         # do basic structural validation of config file
         config = Config(**conf)
 
