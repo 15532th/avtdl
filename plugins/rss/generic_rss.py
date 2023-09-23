@@ -1,190 +1,136 @@
 import datetime
-import logging
-from typing import Dict
-import sqlite3
+from textwrap import shorten
+from typing import Sequence, Optional
 
+import aiohttp
 import feedparser
+from pydantic import ValidationError, ConfigDict
 
-from plugins.rss import yt_info
+from core.interfaces import Record, MAX_REPR_LEN
+from core.monitors import BaseFeedMonitor, BaseFeedMonitorEntity, BaseFeedMonitorConfig
+from core.plugins import Plugins
+from core.utils import get_cache_ttl, make_datetime
 
 
-class Record:
+class GenericRSSRecord(Record):
+    model_config = ConfigDict(extra='allow')
 
-    def __init__(self, **attrs):
-        # attrs.get() used for youtube-specific fields
-        self.url = attrs.get('link')
-        self.title = attrs['title']
-        self.published = attrs['published']
-        self.updated = attrs['updated']
-        self.author = attrs['author']
-        self.video_id = attrs.get('yt_videoid')
-        self.summary = attrs['summary']
-        try:
-            self.views = int(attrs['media_statistics']['views'])
-        except (ValueError, KeyError, TypeError):
-            self.views = None
-
-    def get_scheduled(self):
-        if self.views == 0:
-            try:
-                scheduled = yt_info.get_sched_isoformat(self.video_id)
-            except Exception:
-                logging.exception('Exception while trying to get "scheduled" field, skipping')
-                scheduled = None
-        else:
-            scheduled = None
-        self.scheduled = scheduled
-        return scheduled
-
-    def __eq__(self, other):
-        return self.url == other.url
+    uid: str
+    summary: str
+    url: str
+    published: datetime.datetime
+    updated: datetime.datetime
 
     def __str__(self):
-        return self.format_record()
+        return f'[{self.published}({self.updated})] {self.url}\n{self.url}\n{self.summary}'
 
     def __repr__(self):
-        return f'Record({self.updated=}, {self.author=}, {self.title=})'
+        summary = shorten(self.summary, MAX_REPR_LEN)
+        return f'GenericRSSRecord(updated="{self.updated.isoformat()}", url="{self.url}", title="{summary}")'
 
-    def has_text(self, patterns, field='all'):
-        if isinstance(patterns, str):
-            patterns = [patterns]
-        fields = []
-        if field == 'all':
-            for text in self.__dict__.values():
-                if isinstance(text, str):
-                    fields.append(text)
+
+@Plugins.register('generic_rss', Plugins.kind.ACTOR_CONFIG)
+class GenericRSSMonitorConfig(BaseFeedMonitorConfig):
+    pass
+
+@Plugins.register('generic_rss', Plugins.kind.ACTOR_ENTITY)
+class GenericRSSMonitorEntity(BaseFeedMonitorEntity):
+    pass
+
+@Plugins.register('generic_rss', Plugins.kind.ACTOR)
+class GenericRSSMonitor(BaseFeedMonitor):
+    async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
+        raw_feed = await self._get_feed(entity, session)
+        records = self._parse_entries(raw_feed)
+        return records
+
+    def get_record_id(self, record: GenericRSSRecord) -> str:
+        return record.uid
+
+    async def _get_feed(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Optional[feedparser.FeedParserDict]:
+        async with session.get(entity.url) as response:
+            text = await response.text()
+        if response.status != 200:
+            self.logger.warning(f'got code {response.status} while fetching {entity.url}')
+            if response.status >= 400:
+                update_interval = min(entity.update_interval * 2, entity.base_update_interval * 10)
+                if entity.update_interval != update_interval:
+                    entity.update_interval = update_interval
+                    self.logger.warning(
+                        f'update interval set to {entity.update_interval} seconds for {entity.name} ({entity.url})')
+                return None
+        if entity.adjust_update_interval:
+            update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
+            entity.update_interval = max(update_interval, entity.base_update_interval)
+            self.logger.debug(f'Generic RSS for {entity.name}: next update in {entity.update_interval}')
         else:
-            text = getattr(self, field, None)
-            if text is None:
-                logging.warning(f'attempt to search for text in non-existingfield {field} in rss feed entry')
-                return False
-            if not isinstance(text, str):
-                logging.warning(f'attempt to search in not-text field {field} of rss feed entry')
-                return False
-            fields.append(text)
-        for text in fields:
-            for pattern in patterns:
-                if str(pattern).lower() in text.lower():
-                    return True
-        else:
-            return False
-
-    @staticmethod
-    def format_date(datestring, timezone_offset=0):
-        # remove semicolon from timezone part of string because %z doesn't have it
-        datestring = ''.join([datestring[i] for i in range(len(datestring)) if i != 22])
-        tz = datetime.timezone(datetime.timedelta(hours=timezone_offset))
-        dt = datetime.datetime.strptime(datestring, '%Y-%m-%dT%H:%M:%S%z').astimezone(tz)
-        return dt.strftime('%Y-%m-%d %H:%M')
-
-    def format_record(self, timezone_offset=0):
-        scheduled = self.scheduled
-        if scheduled:
-            scheduled_time = '\nscheduled to {}'.format(self.format_date(scheduled, timezone_offset))
-        else:
-            scheduled_time = ''
-        template = '{}\n{}\npublished by {} at {}'
-        return template.format(self.url, self.title, self.author, self.format_date(self.published, timezone_offset)) + scheduled_time
-
-    def convert_to_row(self, additional_fields):
-        row = {}
-        row.update(self.__dict__)
-        row.update(additional_fields)
-        return row
-
-
-class RSS2MSG:
-
-    def __init__(self, feeds: Dict[str, str], db_path=':memory:', ua=''):
-        '''entries parsed from `feed_links` in `feeds` will be put in table `records`'''
-        self.feeds = feeds
-        self.ua = ua
-        self.db = RecordDB(db_path)
-        db_size = self.db.get_size()
-        logging.info('{} records in DB'.format(db_size))
-        if db_size == 0:
-            self.get_new_records()
-
-    def get_feed(self, link):
+            # restore update interval after backoff on failure
+            if entity.update_interval != entity.base_update_interval:
+                self.logger.info(f'restoring update interval {entity.update_interval} seconds for {entity.name} ({entity.url})')
+                entity.update_interval = entity.base_update_interval
         try:
-            feed = feedparser.parse(link, agent=self.ua)
-            if feed.get('status') is not None:
-                if str(feed.status) != '200':
-                    logging.warning(f'got code {feed.status} while fetching {link}')
+            feed = feedparser.parse(text, response_headers=response.headers)
             if feed.get('entries') is not None:
                 return feed
             else:
                 from pprint import pformat
-                logging.debug(f'feed for {link} has no entries, probably broken:')
-                logging.debug(pformat(feed))
-                raise Exception(f'got broken feed while fetching {link}')
+
+                self.logger.debug(f'feed for {entity.url} has no entries, probably broken:')
+                self.logger.debug(pformat(feed))
+                raise Exception(f'got broken feed while fetching {entity.url}')
         except Exception as e:
-            logging.warning('Exception while updating rss feed: {}'.format(e))
+            self.logger.warning('Exception while updating rss feed: {}'.format(e))
             return None
 
     @staticmethod
-    def parse_entries(feed):
+    def _parse_entry(entry: feedparser.FeedParserDict) -> GenericRSSRecord:
+        # base properties with substitutions defined for feedparser.FeedParserDict
+        # keymap = {
+        #     'channel': 'feed',
+        #     'items': 'entries',
+        #     'guid': 'id',
+        #     'date': 'updated',
+        #     'date_parsed': 'updated_parsed',
+        #     'description': ['summary', 'subtitle'],
+        #     'description_detail': ['summary_detail', 'subtitle_detail'],
+        #     'url': ['href'],
+        #     'modified': 'updated',
+        #     'modified_parsed': 'updated_parsed',
+        #     'issued': 'published',
+        #     'issued_parsed': 'published_parsed',
+        #     'copyright': 'rights',
+        #     'copyright_detail': 'rights_detail',
+        #     'tagline': 'subtitle',
+        #     'tagline_detail': 'subtitle_detail',
+        # }
+
+        parsed = {}
+
+        parsed['uid'] = entry.pop('id')
+        parsed['url'] = entry.pop('href', '') or entry.pop('link', '')
+        parsed['summary'] = entry.get('summary')
+
+        parsed['updated'] = make_datetime(entry.pop('updated_parsed'))
+        entry.pop('updated')
+        parsed['published'] = make_datetime(entry.pop('published_parsed'))
+        entry.pop('published')
+
+        for key, value in entry.items():
+            parsed[key] = value
+
+        record = GenericRSSRecord(**parsed)
+        return record
+
+    def _parse_entries(self, feed: feedparser.FeedParserDict) -> Sequence[GenericRSSRecord]:
         records = []
         for entry in feed['entries']:
-            records.append(Record(**entry))
+            try:
+                record = self._parse_entry(entry)
+            except KeyError as e:
+                self.logger.warning(f'rss parser failed to construct record from rss entry {entry}: missing  necessarily field {e}')
+                continue
+            except ValidationError as e:
+                self.logger.warning(f'rss parser failed to construct record from rss entry {entry}: {e}')
+                continue
+            records.append(record)
         return records
-
-    def get_new_records(self):
-        records_by_feed = {x: list() for x in self.feeds.keys()}
-        for feedname in self.feeds:
-            records = self.get_records(feedname)
-            records_by_feed[feedname].append(records)
-        return records_by_feed
-
-    def get_records(self, feedname):
-        link = self.feeds[feedname]
-        feed = self.get_feed(link)
-        if feed is None:
-            return []
-        records = self.parse_entries(feed)
-        new_records = []
-        for record in records:
-            if not self.db.row_exists(record.video_id):
-                # only first record for given video_id is send to actions
-                record.get_scheduled()
-                template = '{} {:<8} [{}] {}'
-                logging.info(template.format(record.format_date(record.published), feedname, record.video_id, record.title))
-                new_records.append(record)
-            if not self.db.row_exists(record.video_id, record.updated):
-                # every new record for given video_id will be stored in db
-                record.get_scheduled()
-                now = datetime.datetime.now(tz=datetime.timezone.utc).isoformat(timespec='seconds')
-                additional_fields = {'feed_name': feedname, 'parsed_at': now}
-                row = record.convert_to_row(additional_fields)
-                self.db.insert_row(row)
-        return new_records
-
-
-class RecordDB:
-
-    def __init__(self, db_path):
-        self.db = sqlite3.connect(db_path)
-        self.cursor = self.db.cursor()
-        record_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views integer, PRIMARY KEY(video_id, updated)'
-        self.cursor.execute('CREATE TABLE IF NOT EXISTS records ({})'.format(record_structure))
-        self.db.commit()
-
-    def insert_row(self, row):
-        row_structure = ':parsed_at, :feed_name, :author, :video_id, :url, :title, :summary, :published, :updated, :scheduled, :views'
-        sql = "INSERT INTO records VALUES({})".format(row_structure)
-        self.cursor.execute(sql, row)
-        self.db.commit()
-
-    def row_exists(self, video_id, updated=None):
-        if updated is not None:
-            sql = "SELECT 1 FROM records WHERE video_id=:video_id AND updated=:updated LIMIT 1"
-        else:
-            sql = "SELECT 1 FROM records WHERE video_id=:video_id LIMIT 1"
-        keys = {'video_id': video_id, 'updated': updated}
-        self.cursor.execute(sql, keys)
-        return bool(self.cursor.fetchone())
-
-    def get_size(self):
-        sql = 'SELECT COUNT(1) FROM records'
-        self.cursor.execute(sql)
-        return int(self.cursor.fetchone()[0])
