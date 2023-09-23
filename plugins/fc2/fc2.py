@@ -71,8 +71,8 @@ class FC2Monitor(HttpTaskMonitor):
             return data
 
     @staticmethod
-    def parse_metadata(data: str) -> Optional[FC2Record]:
-        data = json.loads(data)
+    def parse_metadata(raw_data: str) -> Optional[FC2Record]:
+        data = json.loads(raw_data)
         data = data['data']['channel_data']
         is_live = data['is_publish']
         if not is_live:
