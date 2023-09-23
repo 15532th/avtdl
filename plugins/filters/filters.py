@@ -71,6 +71,5 @@ class EventFilter(Filter):
             for event_type in event_types:
                 if record.event_type == event_type:
                     return record
-        else:
-            return None
+        return None
 
