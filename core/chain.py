@@ -30,6 +30,7 @@ class Chain:
         self.name = name
         self.bus = MessageBus()
         self.logger = logging.getLogger('chain')
+        self.actors_names = [name for name, _ in actors]
 
         if len(actors) < 2:
             self.logger.warning(f'chain {name}: need at least two actors to create a chain')
@@ -76,4 +77,4 @@ class Chain:
         return Handler()
 
     def __repr__(self):
-        return f'Chain("{self.name}", {self.monitors}, {self.filters!r}, {self.actions})'
+        return f'Chain("{self.name}", {self.actors_names})'
