@@ -14,6 +14,7 @@ class TwitcastRecord(LivestreamRecord):
     user_id: str
     movie_id: str
     movie_url: str
+    title: str
 
     def __str__(self):
         return f'{self.url}\n{self.title} ({self.movie_id})'
@@ -44,6 +45,9 @@ class TwitcastMonitor(HttpTaskMonitor):
             return None
 
         movie_id = await self.get_movie_id(entity, session)
+        if movie_id is None:
+            self.logger.warning(f'TwitcastMonitor for {entity.name}: failed to get movie id, will report this record again if it was temporarily error, will never report new records if it is permanent')
+            movie_id = 'movie id is unknown'
         if movie_id == entity.most_recent_movie:
             self.logger.debug(f'TwitcastMonitor for {entity.name}: user {entity.user_id} is live with movie {entity.most_recent_movie}, but record was already created')
             return None
