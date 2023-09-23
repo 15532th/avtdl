@@ -16,17 +16,19 @@ class GenericRSSRecord(Record):
     model_config = ConfigDict(extra='allow')
 
     uid: str
-    summary: str
     url: str
+    summary: str
+    author: str = ''
+    title: str = ''
     published: datetime.datetime
-    updated: datetime.datetime
 
     def __str__(self):
-        return f'[{self.published}({self.updated})] {self.url}\n{self.url}\n{self.summary}'
+        second_line = f'{self.author}: {self.title}\n' if self.author and self.title else ''
+        return f'[{self.published}] {self.url}\n{second_line}{self.summary}'
 
     def __repr__(self):
         summary = shorten(self.summary, MAX_REPR_LEN)
-        return f'GenericRSSRecord(updated="{self.updated.isoformat()}", url="{self.url}", title="{summary}")'
+        return f'GenericRSSRecord(updated="{self.published.isoformat()}", url="{self.url}", title="{summary}")'
 
 
 @Plugins.register('generic_rss', Plugins.kind.ACTOR_CONFIG)
@@ -108,13 +110,17 @@ class GenericRSSMonitor(BaseFeedMonitor):
         parsed = {}
 
         parsed['uid'] = entry.pop('id')
-        parsed['url'] = entry.pop('href', '') or entry.pop('link', '')
-        parsed['summary'] = entry.get('summary')
+        parsed['url'] = entry.pop('link', '') or entry.pop('href', '') or entry.pop('url', '')
+        parsed['summary'] = entry.pop('summary', '')
+        parsed['author'] = entry.pop('author', '')
+        parsed['title'] = entry.pop('title', '')
 
-        parsed['updated'] = make_datetime(entry.pop('updated_parsed'))
-        entry.pop('updated')
         parsed['published'] = make_datetime(entry.pop('published_parsed'))
         entry.pop('published')
+        updated = entry.pop('updated_parsed', None)
+        if updated is not None:
+            parsed['updated'] = make_datetime(updated)
+            entry.pop('updated', '')
 
         for key, value in entry.items():
             parsed[key] = value
