@@ -1,8 +1,8 @@
 import datetime
-from email.utils import parsedate_tz, parsedate_to_datetime
-import os
 import logging
+import os
 import re
+from email.utils import parsedate_to_datetime
 from http import cookiejar
 from pathlib import Path
 from typing import Optional

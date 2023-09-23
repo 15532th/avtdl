@@ -1,7 +1,8 @@
 from typing import List, Sequence, Optional
 
-from core.interfaces import Filter, Record, FilterEntity, ActorConfig, Event, EventType
 from core.config import Plugins
+from core.interfaces import Filter, Record, FilterEntity, ActorConfig, Event
+
 
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('filter.match', Plugins.kind.ACTOR_CONFIG)
