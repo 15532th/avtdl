@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import aiohttp
 
 from core.config import Plugins
-from core.interfaces import Record, ActorEntity, TextRecord
+from core.interfaces import ActorEntity, TextRecord
 from core.monitors import TaskMonitorEntity, TaskMonitor
 
 
