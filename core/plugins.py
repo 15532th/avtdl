@@ -2,9 +2,7 @@ import importlib.util
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Union
-
-from core.interfaces import Actor, ActorConfig, ActorEntity
+from typing import Dict, Any, Callable
 
 
 class Plugins:
@@ -13,11 +11,11 @@ class Plugins:
         ACTOR_CONFIG = 'actor_config'
         ACTOR_ENTITY = 'actor_entity'
 
-    known: Dict[kind, Dict] = {k: {} for k in kind}
+    known: Dict[kind, Dict[str, Any]] = {k: {} for k in kind}
     logger = logging.getLogger('plugins')
 
     @classmethod
-    def _register(cls, name: str, kind: kind, factory: Union[Actor, ActorConfig, ActorEntity]):
+    def _register(cls, name: str, kind: kind, factory: Callable):
         cls.known[kind][name] = factory
 
     @classmethod
