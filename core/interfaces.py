@@ -1,3 +1,4 @@
+import json
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -30,7 +31,8 @@ class Record(BaseModel):
         return self.__str__()
 
     def hash(self) -> str:
-        record_hash = sha1(str(self.model_dump_json()).encode())
+        as_json = json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False, default=str)
+        record_hash = sha1(as_json.encode())
         return record_hash.hexdigest()
 
 
