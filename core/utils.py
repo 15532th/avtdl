@@ -2,7 +2,7 @@ import datetime
 import logging
 import os
 import re
-from email.utils import parsedate_to_datetime
+from email.utils import parsedate_to_datetime, mktime_tz
 from http import cookiejar
 from pathlib import Path
 from typing import Optional
@@ -83,3 +83,12 @@ def check_dir(path: Path, create=True) -> bool:
             return False
     else:
         return False
+
+def make_datetime(items) -> datetime.datetime:
+    '''take 10-tuple and return datetime object with UTC timezone'''
+    if len(items) == 9:
+       items = *items, None
+    if len(items) != 10:
+        raise ValueError(f'Expected tuple with 10 elements, got {len(items)}')
+    timestamp = mktime_tz(items)
+    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
