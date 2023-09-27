@@ -47,9 +47,9 @@ def set_logger(name: str, level: Union[LogLevel, int], propagate=True):
     logger.setLevel(level)
 
 def silence_library_loggers():
-    set_logger('asyncio', logging.INFO, propagate=False)
-    set_logger('charset_normalizer', logging.INFO, propagate=False)
-    set_logger('slixmpp', logging.ERROR, propagate=False)
+    set_logger('asyncio', logging.WARNING)
+    set_logger('charset_normalizer', logging.WARNING)
+    set_logger('slixmpp', logging.ERROR)
 
 class LogFilter(logging.Filter):
 
