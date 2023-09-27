@@ -1,11 +1,12 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import slixmpp
 
 ON_ERROR_RETRY_DELAY = 60
+DISCONNECT_AFTER_DONE_DELAY = 30
 
 @dataclass
 class Line:
@@ -13,66 +14,82 @@ class Line:
     message: str
 
 class MSG2JBR:
-
     def __init__(self, username, passwd, logger=None):
         self.user = username
         self.passwd = passwd
-        self.send_query = []
         self.logger = logger or logging.getLogger('msg2jbr')
+        # JabberClient gets initialized in async run() instead of __init__
+        # to make sure it uses same event loop as run() instead of making its own,
+        # making it possible to await JabberClient.disconnected there
+        self.jabber: Optional[JabberClient] = None
 
     def to_be_send(self, recipient, message):
-        line = Line(recipient, message)
-        self.send_query.append(line)
-
-    async def asend_pending(self):
-        if len(self.send_query) == 0:
+        if self.jabber is None:
+            self.logger.debug(f'not running yet, message discarded: (to: {recipient}) "{message[:50]}"')
             return
-        client = SendMsgBot(self.user, self.passwd, messages=self.send_query, logger=self.logger.getChild('slixmmp'))
-        client.connect()
-        await client.disconnected
-        self.send_query = []
+        line = Line(recipient, message)
+        self.jabber.send_query.put_nowait(line)
 
     async def run(self):
+        self.jabber = JabberClient(self.user, self.passwd, self.logger.getChild('slixmpp'))
         while True:
-            try:
-                await self.asend_pending()
-            except Exception as e:
-                self.logger.exception(f'failed to send jabber messages: {e}')
+            pending = self.jabber.send_query.qsize()
+            if  pending > 0:
+                self.logger.debug(f'connecting to send {pending} pending messages')
+                self.jabber.connect()
+                await self.jabber.disconnected
+                self.logger.debug(f'done sending messages, disconnected')
+            pending = self.jabber.send_query.qsize()
+            if self.jabber.fatal_error is not None:
+                self.logger.warning(f'{self.jabber.fatal_error}, terminating')
+                break
+            if pending > 0:
+                self.logger.debug(f'{pending} messages left after disconnect, delaying next attempt')
                 await asyncio.sleep(ON_ERROR_RETRY_DELAY)
             await asyncio.sleep(1)
 
+class JabberClient(slixmpp.ClientXMPP):  # type: ignore
 
-class SendMsgBot(slixmpp.ClientXMPP):
+    def __init__(self, username, passwd, logger=None):
+        super().__init__(username, passwd)
+        self.logger = logger or logging.getLogger('slixmppClient')
+        self.send_query: asyncio.Queue = asyncio.Queue()
+        self.fatal_error: Optional[str] = None
+        self.add_event_handler('session_start', self.send_pending)
+        self.add_event_handler('failed_all_auth', self.on_bad_auth)
+        self.add_error_handlers()
 
-    def __init__(self, jid: str, password: str, messages: List[Line], logger=None):
-        super().__init__(jid, password)
-        self.logger = logger or logging.getLogger('SendMsgBot')
-        self.messages = messages
-        self.register_plugin('xep_0333')
-        self.add_event_handler('session_start', self.start)
-        self.set_error_messages()
+    async def send_pending(self, _):
+        self.logger.debug('got session_start event')
+        try:
+            self.send_presence()
+            await self.get_roster()
+            while True:
+                line: Line = await asyncio.wait_for(self.send_query.get(), DISCONNECT_AFTER_DONE_DELAY)
+                recipient = slixmpp.JID(line.recipient)  # type: ignore
+                self.send_message(mto=recipient, mbody=line.message, mtype='chat')
+                self.logger.debug(f'sending message: {str(line)[:90]}')
+                if self.send_query.empty():
+                    self.logger.debug('put all pending messages in internal queue, waiting a bit for new ones')
+        except asyncio.TimeoutError:
+            await self.disconnect()
+        except Exception as e:
+            self.logger.exception(f'got error while sending messages: {e}')
 
-    async def start(self, event):
-        self.send_presence()
-        await self.get_roster()
-        for line in self.messages:
-            recipient = slixmpp.JID(line.recipient)
-            self.send_message(mto=recipient, mbody=line.message, mtype='chat')
-        await self.disconnect()
+    def on_bad_auth(self, _):
+        self.fatal_error = f'authentication failed for {self.boundjid.bare}'
 
-    def set_error_messages(self):
+    def add_error_handlers(self):
         error_messages = {'connection_failed': 'failed to connect',
                           'reconnect_delay': 'next connection attempt in',
-                          'failed_all_auth': f'authentication failed for {self.boundjid.bare}',
-                          'stream_error': 'sending messages failed',
+                          'stream_error': 'stream error',
                           'message_error': 'got error message from jabber server',
                           'message': 'got message',
-                          'marker': 'marker'
                           }
         for event, message in error_messages.items():
-            self.add_event_handler(event, self.get_error_handler(message))
+            self.add_event_handler(event, self.make_error_handler(message))
 
-    def get_error_handler(self, message):
+    def make_error_handler(self, message):
         def error_handler(event):
             msg = f'{message}: {event}' if event else f'{message}'
             self.logger.debug(msg)
