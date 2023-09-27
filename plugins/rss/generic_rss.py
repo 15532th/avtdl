@@ -24,11 +24,12 @@ class GenericRSSRecord(Record):
 
     def __str__(self):
         second_line = f'{self.author}: {self.title}\n' if self.author and self.title else ''
-        return f'[{self.published}] {self.url}\n{second_line}{self.summary}'
+        summary = shorten(self.summary, MAX_REPR_LEN)
+        return f'[{self.published}] {self.url}\n{second_line}{summary}'
 
     def __repr__(self):
-        summary = shorten(self.summary, MAX_REPR_LEN)
-        return f'GenericRSSRecord(updated="{self.published.isoformat()}", url="{self.url}", title="{summary}")'
+        title = shorten(self.title, MAX_REPR_LEN)
+        return f'GenericRSSRecord(updated="{self.published.isoformat()}", url="{self.url}", title="{title}")'
 
 
 @Plugins.register('generic_rss', Plugins.kind.ACTOR_CONFIG)
