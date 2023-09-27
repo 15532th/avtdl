@@ -195,7 +195,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
         hashsum = record.hash()
         feed_name = entity.name
         class_name = record.__class__.__name__
-        as_json = json.dumps(record.model_dump(), sort_keys=True, ensure_ascii=False, default=str)
+        as_json = record.as_json()
         self.db.store(parsed_at, feed_name, uid, hashsum, class_name, as_json)
 
     def record_is_new(self, record: Record, entity: BaseFeedMonitorEntity) -> bool:
