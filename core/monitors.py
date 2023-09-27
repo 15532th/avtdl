@@ -164,8 +164,10 @@ class BaseFeedMonitor(HttpTaskMonitor):
 
         if entity.adjust_update_interval:
             update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
-            entity.update_interval = max(update_interval, entity.base_update_interval)
-            self.logger.debug(f'Youtube RSS for {entity.name}: next update in {entity.update_interval}')
+            new_update_interval = max(update_interval, entity.base_update_interval)
+            if entity.update_interval != new_update_interval:
+                self.logger.debug(f'[{entity.name}] next update in {entity.update_interval}')
+                entity.update_interval = new_update_interval
         else:
             # restore update interval after backoff on failure
             if entity.update_interval != entity.base_update_interval:
