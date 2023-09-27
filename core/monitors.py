@@ -143,13 +143,15 @@ class BaseFeedMonitor(HttpTaskMonitor):
         super().__init__(conf, entities)
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
-    async def retrieve_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession, method='GET') -> Optional[str]:
-        '''Make http request to get raw data
-        Implementation might call this method or implement it itself'''
+    async def request(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession, method='GET') -> Optional[aiohttp.ClientResponse]:
+        '''Helper method to make http request. Does not retry, adjust entity.update_interval instead'''
         try:
             async with session.request(method, entity.url) as response:
                 response.raise_for_status()
-                text = await response.text()
+                # fully read http response to get it cached inside ClientResponse object
+                # client code can then use it by awaiting .text() again without causing
+                # network activity and potentially triggering associated errors
+                _ = await response.text()
         except Exception as e:
             if isinstance(e, aiohttp.ClientResponseError):
                 self.logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {entity.url}')
@@ -174,7 +176,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
                 self.logger.info(f'restoring update interval {entity.update_interval} seconds for {entity.name} ({entity.url})')
                 entity.update_interval = entity.base_update_interval
 
-        return text
+        return response
 
     @abstractmethod
     async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:

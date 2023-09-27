@@ -53,27 +53,10 @@ class GenericRSSMonitor(BaseFeedMonitor):
         return record.uid
 
     async def _get_feed(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Optional[feedparser.FeedParserDict]:
-        async with session.get(entity.url) as response:
-            text = await response.text()
-        if response.status != 200:
-            self.logger.warning(f'got code {response.status} while fetching {entity.url}')
-            if response.status >= 400:
-                update_interval = min(entity.update_interval * 2, entity.base_update_interval * 10)
-                if entity.update_interval != update_interval:
-                    entity.update_interval = update_interval
-                    self.logger.warning(
-                        f'update interval set to {entity.update_interval} seconds for {entity.name} ({entity.url})')
-                return None
-        if entity.adjust_update_interval:
-            update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
-            if entity.update_interval != update_interval:
-                entity.update_interval = max(update_interval, entity.base_update_interval)
-                self.logger.debug(f'Generic RSS for {entity.name}: next update in {entity.update_interval}')
-        else:
-            # restore update interval after backoff on failure
-            if entity.update_interval != entity.base_update_interval:
-                self.logger.info(f'restoring update interval {entity.update_interval} seconds for {entity.name} ({entity.url})')
-                entity.update_interval = entity.base_update_interval
+        response = await self.request(entity, session)
+        if response is None:
+            return None
+        text = await response.text()
         try:
             feed = feedparser.parse(text, response_headers=response.headers)
             if feed.get('entries') is not None:
