@@ -43,6 +43,8 @@ class GenericRSSMonitorEntity(BaseFeedMonitorEntity):
 class GenericRSSMonitor(BaseFeedMonitor):
     async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
         raw_feed = await self._get_feed(entity, session)
+        if raw_feed is None:
+            return []
         records = self._parse_entries(raw_feed)
         return records
 
