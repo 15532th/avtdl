@@ -37,12 +37,16 @@ class MSG2JBR:
             if  pending > 0:
                 self.logger.debug(f'connecting to send {pending} pending messages')
                 self.jabber.connect()
-                await self.jabber.disconnected
-                self.logger.debug(f'done sending messages, disconnected')
-            pending = self.jabber.send_query.qsize()
+                try:
+                    await asyncio.wait_for(self.jabber.disconnected, DISCONNECT_AFTER_DONE_DELAY * 10)
+                except asyncio.TimeoutError:
+                    logging.warning(f'sending messages takes too long, aborting wait to retry later')
+                else:
+                    self.logger.debug(f'done sending messages, disconnected')
             if self.jabber.fatal_error is not None:
                 self.logger.warning(f'{self.jabber.fatal_error}, terminating')
                 break
+            pending = self.jabber.send_query.qsize()
             if pending > 0:
                 self.logger.debug(f'{pending} messages left after disconnect, delaying next attempt')
                 await asyncio.sleep(ON_ERROR_RETRY_DELAY)
