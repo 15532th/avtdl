@@ -12,7 +12,7 @@ from pydantic import FilePath, PrivateAttr
 
 from core import utils
 from core.interfaces import ActorEntity, Actor, ActorConfig, Record
-from core.utils import get_cache_ttl
+from core.utils import get_cache_ttl, show_diff
 
 
 class TaskMonitorEntity(ActorEntity):
@@ -204,13 +204,19 @@ class BaseFeedMonitor(HttpTaskMonitor):
 
     def record_is_new(self, record: Record, entity: BaseFeedMonitorEntity) -> bool:
         uid = self.get_record_id(record)
-        record_hash = record.hash()
         stored_record = self.db.fetch_row(uid)
         exists = stored_record is not None
-        if exists:
-            stored_record_instance = type(record).model_validate_json(stored_record['as_json'])
-        if not self.db.row_exists(uid, record_hash):
+        if not exists:
             self.store_record(record, entity)
+            self.logger.debug(f'fetched record is new: "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
+        if exists and not self.db.row_exists(uid, record.hash()):
+            normalized_record = type(record).model_validate_json(record.as_json())
+            stored_record_instance = type(record).model_validate_json(stored_record['as_json'])
+            msg = f'[{entity.name}] fetched record "{self.get_record_id(record)}" (new: {record.hash()[:5]}, old: {stored_record_instance.hash()[:5]}) already exists but has changed:\n'
+            self.logger.debug(msg + show_diff(normalized_record.model_dump(), stored_record_instance.model_dump()))
+
+            self.store_record(record, entity)
+            self.logger.debug(f'[{entity.name}] storing new version of record "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
         return not exists
 
     def filter_new_records(self, records: Sequence[Record], entity: BaseFeedMonitorEntity) -> Sequence[Record]:

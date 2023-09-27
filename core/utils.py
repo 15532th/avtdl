@@ -5,7 +5,8 @@ import re
 from email.utils import parsedate_to_datetime, mktime_tz
 from http import cookiejar
 from pathlib import Path
-from typing import Optional
+from textwrap import shorten
+from typing import Optional, Dict, Any
 
 import multidict
 
@@ -92,3 +93,20 @@ def make_datetime(items) -> datetime.datetime:
         raise ValueError(f'Expected tuple with 10 elements, got {len(items)}')
     timestamp = mktime_tz(items)
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
+
+def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
+    keys = {*dict1.keys(), *dict2.keys()}
+    diff = []
+    for k in keys:
+        v1 = str(dict1.get(k, ''))
+        repr_v1 = shorten(v1, 60)
+        v2 = str(dict2.get(k, ''))
+        repr_v2 = shorten(v2, 60)
+        if v1 != v2:
+            diff.append(f'[{k[:12]:12}]: {repr_v2:60} |->| {repr_v1:60}')
+    return '\n'.join(diff)
+
+if __name__ == '__main__':
+    d1 = {1:1, 2:2, 3:'b'}
+    d2 = {2:2, 3:'a', 4:4}
+    print(show_diff(d1, d2))
