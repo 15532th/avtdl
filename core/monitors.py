@@ -247,9 +247,9 @@ class RecordDB:
 
     def fetch_row(self, uid: str, hashsum: Optional[str] = None) -> Optional[sqlite3.Row]:
         if hashsum is not None:
-            sql = "SELECT * FROM records WHERE uid=:uid AND hashsum=:hashsum LIMIT 1"
+            sql = "SELECT * FROM records WHERE uid=:uid AND hashsum=:hashsum ORDER BY parsed_at DESC LIMIT 1"
         else:
-            sql = "SELECT * FROM records WHERE uid=:uid LIMIT 1"
+            sql = "SELECT * FROM records WHERE uid=:uid ORDER BY parsed_at DESC LIMIT 1"
         keys = {'uid': uid, 'hashsum': hashsum}
         self.cursor.execute(sql, keys)
         return self.cursor.fetchone()
