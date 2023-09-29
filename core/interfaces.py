@@ -87,7 +87,7 @@ class MessageBus:
         self.subscriptions[topic].append(callback)
 
     def pub(self, topic: str, message: Record):
-        self.logger.debug(f'on topic {topic} message "{message}"')
+        self.logger.debug(f'on topic {topic} message "{message!r}"')
         for cb in self.subscriptions[topic]:
             cb(topic, message)
 
