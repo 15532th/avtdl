@@ -105,8 +105,3 @@ def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
         if v1 != v2:
             diff.append(f'[{k[:12]:12}]: {repr_v2:60} |->| {repr_v1:60}')
     return '\n'.join(diff)
-
-if __name__ == '__main__':
-    d1 = {1:1, 2:2, 3:'b'}
-    d2 = {2:2, 3:'a', 4:4}
-    print(show_diff(d1, d2))
