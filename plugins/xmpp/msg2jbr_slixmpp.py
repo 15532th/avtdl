@@ -76,6 +76,7 @@ class JabberClient(slixmpp.ClientXMPP):  # type: ignore
                 if self.send_query.empty():
                     self.logger.debug('put all pending messages in internal queue, waiting a bit for new ones')
         except asyncio.TimeoutError:
+            self.logger.debug('disconnecting')
             await self.disconnect()
         except Exception as e:
             self.logger.exception(f'got error while sending messages: {e}')
