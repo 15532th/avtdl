@@ -30,8 +30,8 @@ class Record(BaseModel):
         call this method instead of str()'''
         return self.__str__()
 
-    def as_json(self) -> str:
-        return json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False, default=str)
+    def as_json(self, indent=None) -> str:
+        return json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False, default=str, indent=indent)
 
     def hash(self) -> str:
         record_hash = sha1(self.as_json().encode())
