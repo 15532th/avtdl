@@ -6,7 +6,7 @@ import aiohttp
 import feedparser
 from pydantic import ValidationError, ConfigDict
 
-from core.interfaces import Record, MAX_REPR_LEN
+from core.interfaces import Record, MAX_REPR_LEN, TextRecord
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorEntity, BaseFeedMonitorConfig
 from core.plugins import Plugins
 from core.utils import get_cache_ttl, make_datetime
@@ -72,7 +72,20 @@ class GenericRSSMonitor(BaseFeedMonitor):
             return None
 
     @staticmethod
-    def _parse_entry(entry: feedparser.FeedParserDict) -> GenericRSSRecord:
+    def _get_uid(entry: feedparser.FeedParserDict) -> str:
+        # https://www.詹姆斯.com/blog/2006/08/rss-dup-detection
+        guid = entry.get('guid') or entry.get('id')
+        if guid is not None:
+            return guid
+        link = entry.get('link') or entry.get('href', '')
+        title = entry.get('title', '')
+        summary = entry.get('summary', '')
+        if any([link, title, summary]):
+            return link + (title or summary)
+        return TextRecord(text=str(entry)).hash() #short way to write sha1(str(entry))
+
+    @classmethod
+    def _parse_entry(cls, entry: feedparser.FeedParserDict) -> GenericRSSRecord:
         # base properties with substitutions defined for feedparser.FeedParserDict
         # keymap = {
         #     'channel': 'feed',
@@ -95,7 +108,7 @@ class GenericRSSMonitor(BaseFeedMonitor):
 
         parsed = {}
 
-        parsed['uid'] = entry.pop('id')
+        parsed['uid'] = cls._get_uid(entry)
         parsed['url'] = entry.pop('link', '') or entry.pop('href', '') or entry.pop('url', '')
         parsed['summary'] = entry.pop('summary', '')
         parsed['author'] = entry.pop('author', '')
