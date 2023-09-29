@@ -186,12 +186,21 @@ class BaseFeedMonitor(HttpTaskMonitor):
     def get_record_id(self, record: Record) -> str:
         '''A string that unique identifies a record even if it has changed'''
 
+    async def run(self):
+        async with aiohttp.ClientSession() as session:
+            for entity in self.entities.values():
+                await self.prime_db(entity, session)
+        await super().run()
+
     async def prime_db(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> None:
         '''if feed has no prior records fetch it once and mark all entries as old
         in order to not produce ten messages at once when feed first added'''
-        if self.db.get_size(entity.name) == 0:
-            self.logger.debug(f'[{entity.name}] database at "{self.conf.db_path}" has no records for "{entity.name}", assuming first run')
+        size = self.db.get_size(entity.name)
+        if size == 0:
+            self.logger.info(f'[{entity.name}] database at "{self.conf.db_path}" has no records for "{entity.name}", assuming first run')
             await self.get_new_records(entity, session)
+        else:
+            self.logger.info(f'[{entity.name}] {size} records stored in database')
 
     def store_record(self, record: Record, entity: BaseFeedMonitorEntity):
         uid = self.get_record_id(record)
