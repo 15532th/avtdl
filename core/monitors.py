@@ -1,10 +1,9 @@
 import asyncio
-from datetime import datetime
-import json
+import logging
 import sqlite3
 from abc import abstractmethod
 from collections import defaultdict
-import logging
+from datetime import datetime
 from typing import Sequence, Dict, Optional, Any
 
 import aiohttp
@@ -26,7 +25,7 @@ class BaseTaskMonitor(Actor):
         self.tasks: Dict[str, asyncio.Task] = {}
 
     def handle(self, entity: ActorEntity, record: Record) -> None:
-        self.logger.warning(f'TaskMonitor({self.conf.name}, {entity.name}) got Record despite not expecting any, might be sign of possible misconfiguration. Record: {record}')
+        self.on_record(entity, record)
 
     async def run(self):
         # start cyclic tasks
@@ -133,6 +132,8 @@ class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     url: str
     adjust_update_interval: bool = True
     base_update_interval: PrivateAttr = None
+    last_modified: PrivateAttr = None
+    etag: PrivateAttr = None
 
     def model_post_init(self, __context: Any) -> None:
         self.base_update_interval = self.update_interval
@@ -145,8 +146,13 @@ class BaseFeedMonitor(HttpTaskMonitor):
 
     async def request(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession, method='GET') -> Optional[aiohttp.ClientResponse]:
         '''Helper method to make http request. Does not retry, adjust entity.update_interval instead'''
+        request_headers: Dict[str, Any] = {}
+        if entity.last_modified is not None and method in ['GET', 'HEAD']:
+            request_headers['If-Modified-Since'] = entity.last_modified
+        if entity.etag is not None:
+            request_headers['If-None-Match'] = entity.etag
         try:
-            async with session.request(method, entity.url) as response:
+            async with session.request(method, entity.url, headers=request_headers) as response:
                 response.raise_for_status()
                 # fully read http response to get it cached inside ClientResponse object
                 # client code can then use it by awaiting .text() again without causing
@@ -163,6 +169,17 @@ class BaseFeedMonitor(HttpTaskMonitor):
                 entity.update_interval = update_interval
                 self.logger.warning(f'update interval set to {entity.update_interval} seconds for {entity.name} ({entity.url})')
             return None
+
+        if response.status == 304:
+            self.logger.debug(f'[{entity.name}] got {response.status} ({response.reason}) from {entity.url}')
+            return None
+        # some servers do not have cache headers in 304 response, so only updating on 200
+        entity.last_modified = response.headers.get('Last-Modified', None)
+        entity.etag = response.headers.get('Etag', None)
+
+        # TODO: only for debug, remove once stable
+        cache_control = response.headers.get('Cache-control')
+        logging.debug(f'[{entity.name}]: Last-Modified={entity.last_modified}, ETAG={entity.etag}, Cache-control={cache_control}')
 
         if entity.adjust_update_interval:
             update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
