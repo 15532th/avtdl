@@ -24,7 +24,7 @@ class GenericRSSRecord(Record):
 
     def __str__(self):
         second_line = f'{self.author}: {self.title}\n' if self.author and self.title else ''
-        summary = shorten(self.summary, MAX_REPR_LEN)
+        summary = shorten(self.summary, MAX_REPR_LEN * 2)
         return f'[{self.published}] {self.url}\n{second_line}{summary}'
 
     def __repr__(self):
