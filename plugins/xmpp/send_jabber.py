@@ -43,7 +43,7 @@ class SendJabber(Actor):
         self.jbr = MSG2JBR(conf.xmpp_username, conf.xmpp_pass, self.logger)
 
     def handle(self, entity: JabberEntity, record: Record):
-        self.jbr.to_be_send(entity.jid, record.format_record(entity.timezone))
+        self.jbr.to_be_send(entity.jid, str(record.as_timezone(entity.timezone)))
 
     async def run(self):
         await self.jbr.run()
