@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 from abc import ABC, abstractmethod
@@ -21,14 +22,14 @@ class Record(BaseModel):
     def __repr__(self) -> str:
         '''Short text representation of the record to be printed in logs'''
 
-    def format_record(self, timezone=None):
-        '''If implementation contains datetime objects it should overwrite this
-        method to allow representation in specific user-defined timezone.
-        If timezone is None, record should be formatted in local time.
-
-        Client code that wants to present Records in specific timezone should
-        call this method instead of str()'''
-        return self.__str__()
+    def as_timezone(self, timezone: Optional[datetime.timezone]=None) -> 'Record':
+        if timezone is None:
+            return self
+        fields = self.model_dump()
+        for k, v in fields.items():
+            if isinstance(v, datetime.datetime):
+                fields[k] = v.astimezone(timezone)
+        return self.model_validate(fields)
 
     def as_json(self, indent=None) -> str:
         return json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False, default=str, indent=indent)
