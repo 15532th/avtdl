@@ -13,7 +13,10 @@ class ChainConfigSection(RootModel):
 
     def __iter__(self):
         for item in self.root:
-            yield item.copy().popitem()
+            try:
+                yield item.copy().popitem()
+            except KeyError:
+                continue
 
     def __len__(self):
         return self.root.__len__()
@@ -21,7 +24,7 @@ class ChainConfigSection(RootModel):
     def __getitem__(self, item):
         value = self.root.__getitem__(item)
         if isinstance(value, list):
-            return [x.popitem() for x in value]
+            return [x.copy().popitem() for x in value if x]
         return value.popitem()
 
 class Chain:
