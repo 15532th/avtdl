@@ -1,6 +1,6 @@
 import datetime
 from textwrap import shorten
-from typing import Sequence, Optional
+from typing import Sequence, Optional, Any, Dict
 
 import aiohttp
 import feedparser
@@ -106,7 +106,7 @@ class GenericRSSMonitor(BaseFeedMonitor):
         #     'tagline_detail': 'subtitle_detail',
         # }
 
-        parsed = {}
+        parsed: Dict[str, Any] = {}
 
         parsed['uid'] = cls._get_uid(entry)
         parsed['url'] = entry.pop('link', '') or entry.pop('href', '') or entry.pop('url', '')
