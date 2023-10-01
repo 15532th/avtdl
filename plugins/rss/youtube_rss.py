@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timezone
 import logging
 import sqlite3
 from typing import Optional, Union
@@ -12,7 +12,7 @@ from pydantic import ConfigDict, ValidationError
 from core.config import Plugins
 from core.interfaces import ActorConfig, LivestreamRecord
 from core.monitors import HttpTaskMonitorEntity, HttpTaskMonitor
-from core.utils import get_cache_ttl
+from core.utils import get_cache_ttl, make_datetime
 from plugins.rss import video_info
 
 
@@ -21,19 +21,19 @@ class YoutubeFeedRecord(LivestreamRecord):
 
     url: str
     title: str
-    published: str
-    updated: str
+    published: datetime
+    updated: datetime
     author: str
     video_id: str
     summary: str
     views: Optional[int]
-    scheduled: Optional[str] = None
+    scheduled: Optional[datetime] = None
 
     async def check_scheduled(self, session: Optional[aiohttp.ClientSession] = None):
         if self.views == 0:
             try:
                 info = await video_info.aget_video_info(self.url, session)
-                scheduled = info.scheduled.isoformat(timespec='seconds')
+                scheduled = info.scheduled
             except Exception:
                 logging.exception('Exception while trying to get "scheduled" field, skipping')
                 scheduled = None
@@ -45,23 +45,23 @@ class YoutubeFeedRecord(LivestreamRecord):
         return self.format_record()
 
     def __repr__(self):
-        return f'Record({self.updated=}, {self.author=}, {self.title=})'
+        template = '{} {:<8} [{}] {}'
+        return template.format(self.format_date(self.published), self.author, self.video_id, self.title[:60])
 
     @staticmethod
-    def format_date(date: Union[str, datetime.datetime], timezone: Optional[datetime.timezone] = None) -> str:
+    def format_date(date: Union[str, datetime]) -> str:
         if isinstance(date, str):
-            date = datetime.datetime.fromisoformat(date)
-        dt = date.astimezone(timezone)
-        return dt.strftime('%Y-%m-%d %H:%M')
+            date = datetime.fromisoformat(date)
+        return date.strftime('%Y-%m-%d %H:%M')
 
-    def format_record(self, timezone: Optional[datetime.timezone] = None):
+    def format_record(self):
         scheduled = self.scheduled
         if scheduled:
-            scheduled_time = '\nscheduled to {}'.format(self.format_date(scheduled, timezone))
+            scheduled_time = '\nscheduled to {}'.format(self.format_date(scheduled))
         else:
             scheduled_time = ''
         template = '{}\n{}\npublished by {} at {}'
-        return template.format(self.url, self.title, self.author, self.format_date(self.published, timezone)) + scheduled_time
+        return template.format(self.url, self.title, self.author, self.format_date(self.published)) + scheduled_time
 
     def as_dict(self, additional_fields):
         record_dict = {}
@@ -159,9 +159,9 @@ class RSS2MSG:
         parsed = {}
         parsed['url'] = entry['link']
         parsed['title'] = entry['title']
-        parsed['updated'] = entry['updated']
+        parsed['updated'] = make_datetime(entry['updated_parsed'])
 
-        parsed['published'] = entry.get('published')
+        parsed['published'] = make_datetime(entry['published_parsed'])
         parsed['author'] = entry.get('author')
         parsed['summary'] = entry.get('summary')
         parsed['video_id'] = entry.get('yt_videoid', 'video_id missing')
@@ -188,10 +188,16 @@ class RSS2MSG:
         return records
 
     def get_latest_record(self, video_id) -> Optional[YoutubeFeedRecord]:
-        latest_row = self.db.select_latest(video_id)
-        if latest_row is not None:
-            latest_row = dict(latest_row)
+        raw_latest_row = self.db.select_latest(video_id)
+        if raw_latest_row is not None:
+            latest_row = dict(raw_latest_row)
             latest_row['url'] = latest_row.pop('link')
+            for field in ['published', 'updated', 'scheduled']:
+                value = latest_row[field]
+                # handle db records with old format
+                if isinstance(value, str):
+                    latest_row[field] = datetime.fromisoformat(value)
+
             return YoutubeFeedRecord(**latest_row)
         else:
             return None
@@ -207,8 +213,7 @@ class RSS2MSG:
                 # only first record for given video_id is send to actions
                 await record.check_scheduled(session)
                 new_records.append(record)
-                template = '{} {:<8} [{}] {}'
-                self.logger.info(template.format(record.format_date(record.published), entity.name, record.video_id, record.title))
+                self.logger.info(f'{record!r}')
             if not self.db.row_exists(record.video_id, record.updated):
                 # every new record for given video_id will be stored in db
                 previous = self.get_latest_record(record.video_id)
@@ -223,7 +228,7 @@ class RSS2MSG:
                             # treat rescheduled records as new if scheduled time is earlier than before
                             # to allow action run on time, though it will run second time later
                             new_records.append(record)
-                now = datetime.datetime.now(tz=datetime.timezone.utc).isoformat(timespec='seconds')
+                now = datetime.now(tz=timezone.utc).isoformat(timespec='seconds')
                 additional_fields = {'feed_name': entity.name, 'parsed_at': now}
                 row = record.as_dict(additional_fields)
                 self.db.insert_row(row)
@@ -246,7 +251,7 @@ class RecordDB:
         self.cursor.execute(sql, row)
         self.db.commit()
 
-    def row_exists(self, video_id: str, updated: Optional[str] = None) -> bool:
+    def row_exists(self, video_id: str, updated: Optional[datetime] = None) -> bool:
         if updated is not None:
             sql = "SELECT 1 FROM records WHERE video_id=:video_id AND updated=:updated LIMIT 1"
         else:
