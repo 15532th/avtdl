@@ -9,7 +9,7 @@ from pydantic import ValidationError, ConfigDict
 from core.interfaces import Record, MAX_REPR_LEN, TextRecord
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorEntity, BaseFeedMonitorConfig
 from core.plugins import Plugins
-from core.utils import get_cache_ttl, make_datetime
+from core.utils import make_datetime
 
 
 class GenericRSSRecord(Record):
