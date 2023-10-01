@@ -48,7 +48,7 @@ class BaseTaskMonitor(Actor):
             logger.debug(f'called with no entities and {interval} interval')
             return
         names = ', '.join([f'{self.conf.name}.{entity.name}' for entity in entities])
-        logger.info(f'will start {len(entities)} tasks with {entities[0].update_interval} update interval and {interval} offset for {names}')
+        logger.info(f'will start {len(entities)} tasks with {entities[0].update_interval:.1f} update interval and {interval:.1f} offset for {names}')
         for entity in entities:
             logger.debug(f'starting task {entity.name} with {entity.update_interval} update interval')
             self.tasks[entity.name] = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
@@ -146,6 +146,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
 
     async def request(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession, method='GET') -> Optional[aiohttp.ClientResponse]:
         '''Helper method to make http request. Does not retry, adjust entity.update_interval instead'''
+        logger = self.logger.getChild('request')
         request_headers: Dict[str, Any] = {}
         if entity.last_modified is not None and method in ['GET', 'HEAD']:
             request_headers['If-Modified-Since'] = entity.last_modified
@@ -160,37 +161,36 @@ class BaseFeedMonitor(HttpTaskMonitor):
                 _ = await response.text()
         except Exception as e:
             if isinstance(e, aiohttp.ClientResponseError):
-                self.logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {entity.url}')
+                logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {entity.url}')
             else:
-                self.logger.warning(f'[{entity.name}] error while fetching {entity.url}: {e}')
+                logger.warning(f'[{entity.name}] error while fetching {entity.url}: {e}')
 
             update_interval = min(entity.update_interval * 2, entity.base_update_interval * 10, 4*3600)
             if entity.update_interval != update_interval:
                 entity.update_interval = update_interval
-                self.logger.warning(f'update interval set to {entity.update_interval} seconds for {entity.name} ({entity.url})')
+                logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {entity.url}')
             return None
 
         if response.status == 304:
-            self.logger.debug(f'[{entity.name}] got {response.status} ({response.reason}) from {entity.url}')
+            logger.debug(f'[{entity.name}] got {response.status} ({response.reason}) from {entity.url}')
             return None
         # some servers do not have cache headers in 304 response, so only updating on 200
         entity.last_modified = response.headers.get('Last-Modified', None)
         entity.etag = response.headers.get('Etag', None)
 
-        # TODO: only for debug, remove once stable
         cache_control = response.headers.get('Cache-control')
-        logging.debug(f'[{entity.name}]: Last-Modified={entity.last_modified}, ETAG={entity.etag}, Cache-control={cache_control}')
+        logger.debug(f'[{entity.name}] Last-Modified={entity.last_modified or "absent"}, ETAG={entity.etag or "absent"}, Cache-control="{cache_control or "absent"}"')
 
         if entity.adjust_update_interval:
             update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
             new_update_interval = max(update_interval, entity.base_update_interval)
             if entity.update_interval != new_update_interval:
-                self.logger.debug(f'[{entity.name}] next update in {entity.update_interval}')
+                logger.info(f'[{entity.name}] next update in {entity.update_interval}')
                 entity.update_interval = new_update_interval
         else:
             # restore update interval after backoff on failure
             if entity.update_interval != entity.base_update_interval:
-                self.logger.info(f'restoring update interval {entity.update_interval} seconds for {entity.name} ({entity.url})')
+                logger.info(f'[{entity.name}] restoring update interval {entity.update_interval} seconds for {entity.url}')
                 entity.update_interval = entity.base_update_interval
 
         return response
