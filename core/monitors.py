@@ -177,10 +177,6 @@ class BaseFeedMonitor(HttpTaskMonitor):
         entity.last_modified = response.headers.get('Last-Modified', None)
         entity.etag = response.headers.get('Etag', None)
 
-        # TODO: only for debug, remove once stable
-        cache_control = response.headers.get('Cache-control')
-        logging.debug(f'[{entity.name}]: Last-Modified={entity.last_modified}, ETAG={entity.etag}, Cache-control={cache_control}')
-
         if entity.adjust_update_interval:
             update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
             new_update_interval = max(update_interval, entity.base_update_interval)
