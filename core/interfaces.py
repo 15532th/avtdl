@@ -92,6 +92,14 @@ class MessageBus:
         for cb in self.subscriptions[topic]:
             cb(topic, message)
 
+    def get_subscribed(self) -> Dict[str, List[str]]:
+        '''return list of pairs [actor, entity] present in subscriptions'''
+        subscribed: Dict[str, List[str]] = defaultdict(list)
+        for topic in self._subscriptions.keys():
+            actor, entity = self.split_message_topic(topic)
+            subscribed[actor].append(entity)
+        return subscribed
+
     def make_topic(self, *args: str):
         return self.SEPARATOR.join(args)
 
