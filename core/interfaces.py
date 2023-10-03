@@ -112,14 +112,6 @@ class MessageBus:
             raise
         return actor, entity
 
-    def split_event_topic(self, topic) -> Tuple[str, str, str]:
-        try:
-            _, event_type, action, entity = self.split_topic(topic)
-        except ValueError:
-            self.logger.error(f'failed to split event topic "{topic}"')
-            raise
-        return event_type, action, entity
-
 
 class ActorConfig(BaseModel):
     name: str
