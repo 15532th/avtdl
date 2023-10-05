@@ -25,7 +25,7 @@ class ChainConfigSection(RootModel):
         value = self.root.__getitem__(item)
         if isinstance(value, list):
             return [x.copy().popitem() for x in value if x]
-        return value.popitem()
+        return value.copy().popitem()
 
 class Chain:
 
