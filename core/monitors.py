@@ -226,7 +226,8 @@ class BaseFeedMonitor(HttpTaskMonitor):
         feed_name = entity.name
         class_name = record.__class__.__name__
         as_json = record.as_json()
-        self.db.store(parsed_at, feed_name, uid, hashsum, class_name, as_json)
+        row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum, 'class_name': class_name, 'as_json': as_json}
+        self.db.store(row)
 
     def record_is_new(self, record: Record, entity: BaseFeedMonitorEntity) -> bool:
         uid = self.get_record_id(record)
@@ -257,49 +258,24 @@ class BaseFeedMonitor(HttpTaskMonitor):
         new_records = self.filter_new_records(records, entity)
         return new_records
 
-class RecordDB:
+class RecordDB(utils.RecordDB):
+    table_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
+    row_structure = ':parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json'
+    id_field = 'uid'
+    exact_id_field = 'hashsum'
+    group_id_field = 'feed_name'
+    sorting_field = 'parsed_at'
 
-    def __init__(self, db_path, logger: Optional[logging.Logger] = None):
-        self.logger = logger or logging.getLogger('RecordDB')
-        try:
-            self.db = sqlite3.connect(db_path)
-            self.db.row_factory = sqlite3.Row
-            self.cursor = self.db.cursor()
-            record_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
-            self.cursor.execute('CREATE TABLE IF NOT EXISTS records ({})'.format(record_structure))
-            self.db.commit()
-        except sqlite3.OperationalError as e:
-            self.logger.error(
-                f'error opening sqlite database at path "{db_path}", specified in "db_path" config variable: {e}. If file exists make sure it was produced by this application, otherwise check if new file can be created at specified location. Alternatively use special value ":memory:" to use in-memory database instead.')
-            raise
-        else:
-            self.logger.debug(f'successfully connected to sqlite database at "{db_path}"')
-
-    def store(self, parsed_at: datetime, feed_name: str, uid: str, hashsum: str, class_name: str, as_json: str) -> None:
-        sql = 'INSERT INTO records VALUES(:parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json)'
-        row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum, 'class_name': class_name, 'as_json': as_json}
-        self.cursor.execute(sql, row)
-        self.db.commit()
+    def store(self, row: Dict[str, Any]) -> None:
+        return super().store(row)
 
     def fetch_row(self, uid: str, hashsum: Optional[str] = None) -> Optional[sqlite3.Row]:
-        if hashsum is not None:
-            sql = "SELECT * FROM records WHERE uid=:uid AND hashsum=:hashsum ORDER BY parsed_at DESC LIMIT 1"
-        else:
-            sql = "SELECT * FROM records WHERE uid=:uid ORDER BY parsed_at DESC LIMIT 1"
-        keys = {'uid': uid, 'hashsum': hashsum}
-        self.cursor.execute(sql, keys)
-        return self.cursor.fetchone()
+        return super().fetch_row(uid, hashsum)
 
     def row_exists(self, uid: str, hashsum: Optional[str] = None) -> bool:
-        return self.fetch_row(uid, hashsum) is not None
+        return super().row_exists(uid, hashsum)
 
     def get_size(self, feed_name: Optional[str] = None) -> int:
         '''return number of records, total or for specified feed, are stored in db'''
-        if feed_name is None:
-            sql = 'SELECT COUNT(1) FROM records'
-        else:
-            sql = 'SELECT COUNT(1) FROM records WHERE feed_name=:feed_name'
-        keys = {'feed_name': feed_name}
-        self.cursor.execute(sql, keys)
-        return int(self.cursor.fetchone()[0])
+        return super().get_size(feed_name)
 
