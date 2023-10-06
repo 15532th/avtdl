@@ -88,6 +88,7 @@ class JabberClient(slixmpp.ClientXMPP):  # type: ignore
         error_messages = {'connection_failed': 'failed to connect',
                           'reconnect_delay': 'next connection attempt in',
                           'stream_error': 'stream error',
+                          'killed': 'XML stream got aborted',
                           'message_error': 'got error message from jabber server',
                           'message': 'got message',
                           }
