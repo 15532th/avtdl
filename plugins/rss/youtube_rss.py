@@ -9,6 +9,7 @@ import feedparser
 import pydantic
 from pydantic import ConfigDict, ValidationError
 
+from core import utils
 from core.config import Plugins
 from core.interfaces import ActorConfig, LivestreamRecord
 from core.monitors import HttpTaskMonitorEntity, HttpTaskMonitor
@@ -188,7 +189,7 @@ class RSS2MSG:
         return records
 
     def get_latest_record(self, video_id) -> Optional[YoutubeFeedRecord]:
-        raw_latest_row = self.db.select_latest(video_id)
+        raw_latest_row = self.db.fetch_row(video_id)
         if raw_latest_row is not None:
             latest_row = dict(raw_latest_row)
             latest_row['url'] = latest_row.pop('link')
@@ -231,47 +232,27 @@ class RSS2MSG:
                 now = datetime.now(tz=timezone.utc).isoformat(timespec='seconds')
                 additional_fields = {'feed_name': entity.name, 'parsed_at': now}
                 row = record.as_dict(additional_fields)
-                self.db.insert_row(row)
+                self.db.store(row)
 
         return new_records
 
-class RecordDB:
+class RecordDB(utils.RecordDB):
+    table_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views integer, PRIMARY KEY(video_id, updated)'
+    row_structure = ':parsed_at, :feed_name, :author, :video_id, :url, :title, :summary, :published, :updated, :scheduled, :views'
+    id_field = 'video_id'
+    exact_id_field = 'updated'
+    group_id_field = 'feed_name'
+    sorting_field = 'parsed_at'
 
-    def __init__(self, db_path):
-        self.db = sqlite3.connect(db_path)
-        self.db.row_factory = sqlite3.Row
-        self.cursor = self.db.cursor()
-        record_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views integer, PRIMARY KEY(video_id, updated)'
-        self.cursor.execute('CREATE TABLE IF NOT EXISTS records ({})'.format(record_structure))
-        self.db.commit()
-
-    def insert_row(self, row: dict) -> None:
-        row_structure = ':parsed_at, :feed_name, :author, :video_id, :url, :title, :summary, :published, :updated, :scheduled, :views'
-        sql = "INSERT INTO records VALUES({})".format(row_structure)
-        self.cursor.execute(sql, row)
-        self.db.commit()
+    def store(self, row: dict) -> None:
+        return super().store(row)
 
     def row_exists(self, video_id: str, updated: Optional[datetime] = None) -> bool:
-        if updated is not None:
-            sql = "SELECT 1 FROM records WHERE video_id=:video_id AND updated=:updated LIMIT 1"
-        else:
-            sql = "SELECT 1 FROM records WHERE video_id=:video_id LIMIT 1"
-        keys = {'video_id': video_id, 'updated': updated}
-        self.cursor.execute(sql, keys)
-        return bool(self.cursor.fetchone())
+        return super().row_exists(video_id, updated)
 
-    def select_latest(self, video_id: str) -> Optional[sqlite3.Row]:
-        sql = "SELECT * FROM records WHERE video_id=:video_id ORDER BY updated DESC LIMIT 1"
-        keys = {'video_id': video_id}
-        self.cursor.execute(sql, keys)
-        return self.cursor.fetchone()
+    def fetch_row(self, video_id: str, updated: Optional[datetime] = None) -> Optional[sqlite3.Row]:
+        return super().fetch_row(video_id, updated)
 
     def get_size(self, feed_name: Optional[str] = None) -> int:
         '''return number of records, total or for specified feed, are stored in db'''
-        if feed_name is None:
-            sql = 'SELECT COUNT(1) FROM records'
-        else:
-            sql = 'SELECT COUNT(1) FROM records WHERE feed_name=:feed_name'
-        keys = {'feed_name': feed_name}
-        self.cursor.execute(sql, keys)
-        return int(self.cursor.fetchone()[0])
+        return super().get_size(feed_name)
