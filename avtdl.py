@@ -71,13 +71,21 @@ def main(config_path: Path):
 if __name__ == "__main__":
     description = '''Tool for monitoring rss feeds and other sources and running commands for new entries'''
     parser = argparse.ArgumentParser(description=description)
-    help_v = 'set loglevel to DEBUG regardless of configuration setting'
+    help_v = 'set loglevel to DEBUG'
+    parser.add_argument('-d', '--debug', action='store_true', default=False, help=help_v)
+    help_v = 'set loglevel to INFO'
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help=help_v)
     help_c = 'specify path to configuration file to use instead of default'
     parser.add_argument('-c', '--config', type=Path, default='config.yml', help=help_c)
     args = parser.parse_args()
 
-    log_level = logging.DEBUG if args.verbose else logging.INFO
+    if args.debug:
+        log_level = logging.DEBUG
+    elif args.verbose:
+        log_level = logging.INFO
+    else:
+        log_level = logging.WARNING
+
     set_logging_format(log_level)
     silence_library_loggers()
     main(args.config)
