@@ -46,7 +46,7 @@ class FC2Monitor(HttpTaskMonitor):
         try:
             data = await self.get_metadata(entity, session)
         except Exception as e:
-            self.logger.exception(f'FC2Monitor for {entity.name}: failed to check if channel {entity.user_id} is live: {e}')
+            self.logger.warning(f'FC2Monitor for {entity.name}: failed to check if channel {entity.user_id} is live: {e}')
             return None
         try:
             record = self.parse_metadata(data)
@@ -54,7 +54,7 @@ class FC2Monitor(HttpTaskMonitor):
                 self.logger.debug(f'FC2Monitor for {entity.name}: channel {entity.user_id} is not live')
                 return None
         except (KeyError, TypeError, JSONDecodeError, pydantic.ValidationError) as e:
-            self.logger.exception(f'FC2Monitor for {entity.name}: failed to parse channel info. Raw response: {data}')
+            self.logger.warning(f'FC2Monitor for {entity.name}: failed to parse channel info. Raw response: {data}')
             return None
         if record.start == entity.latest_live_start:
             self.logger.debug(f'FC2Monitor for {entity.name}: user {entity.user_id} is live since {entity.latest_live_start}, but record was already created')
