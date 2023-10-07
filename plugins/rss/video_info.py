@@ -7,6 +7,11 @@ from typing import Optional, Dict, Any, List
 import aiohttp
 from pydantic import BaseModel, Field
 
+class LoginRequiredError(ValueError):
+    '''Raised when video page returns no data aside from {'playability_status': 'LOGIN_REQUIRED'}, which usually indicated video being private'''
+
+class VideoErrorError(ValueError):
+    '''Raised when video page returns {'playability_status': 'ERROR'}'''
 
 class VideoFormat(BaseModel):
     itag: int
@@ -191,21 +196,24 @@ def parse_player_response(player_response: dict) -> Dict[str, Any]:
     info['formats'] = parse_video_formats(player_response)
     return info
 
-def get_video_info(url: str) -> VideoInfo:
-    page = get_video_page(url)
+def parse_video_page(page: str, url: str) -> VideoInfo:
     response = get_initial_player_response(page)
     data = parse_player_response(response)
     data['url'] = url
+    if data['playability_status'] == 'LOGIN_REQUIRED' and data.get('playability_reason') is None:
+        raise LoginRequiredError(f'Video is likely private: {url}. Raw data: {data}')
+    if data['playability_status'] == 'ERROR':
+        raise VideoErrorError(f'Video was deleted or never existed: {url} . Raw data: {data}')
     info = VideoInfo(**data)
     return info
 
+def get_video_info(url: str) -> VideoInfo:
+    page = get_video_page(url)
+    return parse_video_page(page, url)
+
 async def aget_video_info(url: str, session: Optional[aiohttp.ClientSession] = None) -> VideoInfo:
     page = await aget_video_page(url, session)
-    response = get_initial_player_response(page)
-    data = parse_player_response(response)
-    data['url'] = url
-    info = VideoInfo(**data)
-    return info
+    return parse_video_page(page, url)
 
 if __name__ == '__main__':
     from pprint import pprint
@@ -219,14 +227,15 @@ if __name__ == '__main__':
         'unlisted': 'https://www.youtube.com/live/IJXKVtb3xuU?si=o0gUYiYGoWW5_ukt',
         'not a live vod': 'https://www.youtube.com/watch?v=SdF0vjVj278',
         'privated': 'https://www.youtube.com/watch?v=w_ivzW_ya-U',
+        'nonexistant': 'https://www.youtube.com/watch?v=mamamama',
     }
     for name, url in urls.items():
         try:
-            text = get_video_page(url)
-            info = get_video_info(text)
+            info = get_video_info(url)
             info.summary = '0'
             info.formats = []
         except Exception as e:
+            print(f'[****** {name} ********]')
             print(f'{e!r}')
         else:
             print(f'[****** {name} ********]')
