@@ -7,6 +7,11 @@ from typing import Optional, Dict, Any, List
 import aiohttp
 from pydantic import BaseModel, Field
 
+class LoginRequiredError(ValueError):
+    '''Raised when video page returns no data aside from {'playability_status': 'LOGIN_REQUIRED'}, which usually indicated video being private'''
+
+class VideoErrorError(ValueError):
+    '''Raised when video page returns {'playability_status': 'ERROR'}'''
 
 class VideoFormat(BaseModel):
     itag: int
@@ -191,19 +196,22 @@ def parse_player_response(player_response: dict) -> Dict[str, Any]:
     info['formats'] = parse_video_formats(player_response)
     return info
 
-def get_video_info(url: str) -> VideoInfo:
-    page = get_video_page(url)
+def parse_video_page(page: str, url: str) -> VideoInfo:
     response = get_initial_player_response(page)
     data = parse_player_response(response)
     data['url'] = url
+    if data['playability_status'] == 'LOGIN_REQUIRED' and data.get('playability_reason') is None:
+        raise LoginRequiredError(f'Video is likely private: {url}. Raw data: {data}')
+    if data['playability_status'] == 'ERROR':
+        raise VideoErrorError(f'Video was deleted or never existed: {url} . Raw data: {data}')
     info = VideoInfo(**data)
     return info
 
+def get_video_info(url: str) -> VideoInfo:
+    page = get_video_page(url)
+    return parse_video_page(page, url)
+
 async def aget_video_info(url: str, session: Optional[aiohttp.ClientSession] = None) -> VideoInfo:
     page = await aget_video_page(url, session)
-    response = get_initial_player_response(page)
-    data = parse_player_response(response)
-    data['url'] = url
-    info = VideoInfo(**data)
-    return info
+    return parse_video_page(page, url)
 
