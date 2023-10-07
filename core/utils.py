@@ -1,4 +1,6 @@
+import asyncio
 import datetime
+import json
 import logging
 import os
 import re
@@ -9,6 +11,7 @@ from pathlib import Path
 from textwrap import shorten
 from typing import Optional, Dict, Any
 
+import aiohttp
 import multidict
 
 
@@ -106,6 +109,76 @@ def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
         if v1 != v2:
             diff.append(f'[{k[:12]:12}]: {repr_v2:60} |->| {repr_v1:60}')
     return '\n'.join(diff)
+
+
+async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
+                  method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
+                  headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
+                  retry_multiplier: int = 1,
+                  raise_errors: bool = False) -> Optional[aiohttp.ClientResponse]:
+    logger = logger if logger else logging.getLogger('request')
+    current_retry_delay = retry_delay
+    for attempt in range(0, retry_times + 1):
+        last_attempt = attempt == retry_times
+        try:
+            if session is not None:
+                async with session.request(method=method, url=url, headers=headers, params=params, data=data) as response:
+                    response.raise_for_status()
+                    _ = await response.text()
+                    return response
+            else:
+                async with aiohttp.request(method=method, url=url, headers=headers) as response:
+                    response.raise_for_status()
+                    _ = await response.text()
+                    return response
+
+        except Exception as e:
+            logger.warning(f'error when requesting {url}: {e}')
+            if not last_attempt:
+                logger.debug(f'next attempt in {current_retry_delay:.02f} seconds')
+                await asyncio.sleep(current_retry_delay)
+                current_retry_delay *= retry_multiplier
+                continue
+            elif raise_errors:
+                raise
+            else:
+                return None
+    return None
+
+async def request(url: str, session: Optional[aiohttp.ClientSession] = None, logger: Optional[logging.Logger] = None,
+                      method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
+                      headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
+                      retry_multiplier: int = 1,
+                      raise_errors: bool = False) -> Optional[str]:
+    logger = logger if logger else logging.getLogger('request')
+    response = await request_raw(url, session, logger, method, params, data, headers, retry_times, retry_delay, retry_multiplier, raise_errors)
+    if response is None:
+        return None
+    if response.status >= 300:
+        # presuming that there is no point in retrying 3xx and aiohttp will follow redirects transparently
+        logger.debug(f'got {response.status} ({response.reason}) from {url}')
+        return None
+    return await response.text()
+
+async def request_json(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
+                  method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
+                  headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
+                  retry_multiplier: int = 1,
+                  raise_errors: bool = False) -> Optional[Any]:
+    logger = logger if logger else logging.getLogger('request_json')
+    text = await request(url, session, logger, method, params, data, headers, retry_times, retry_delay, retry_multiplier, raise_errors)
+    if text is None:
+        return None
+    try:
+         parsed = json.loads(text)
+         return parsed
+    except json.JSONDecodeError as e:
+        logger.debug(f'error parsing response from {url}: {e}. Raw response data: "{text}"')
+        if raise_errors:
+            raise
+        else:
+            return None
+
 
 class RecordDB:
     table_name = 'records'
