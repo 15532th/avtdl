@@ -145,7 +145,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
     async def request(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession, method='GET') -> Optional[aiohttp.ClientResponse]:
-        '''Helper method to make http request. Does not retry, adjust entity.update_interval instead'''
+        '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
         logger = self.logger.getChild('request')
         request_headers: Dict[str, Any] = {}
         if entity.last_modified is not None and method in ['GET', 'HEAD']:
@@ -229,28 +229,42 @@ class BaseFeedMonitor(HttpTaskMonitor):
         row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum, 'class_name': class_name, 'as_json': as_json}
         self.db.store(row)
 
-    def record_is_new(self, record: Record, entity: BaseFeedMonitorEntity) -> bool:
+    def load_record(self, record: Record) -> Optional[Record]:
         uid = self.get_record_id(record)
         stored_record = self.db.fetch_row(uid)
-        exists = stored_record is not None
-        if not exists:
-            self.store_record(record, entity)
-            self.logger.debug(f'fetched record is new: "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
-        if exists and not self.db.row_exists(uid, record.hash()):
-            normalized_record = type(record).model_validate_json(record.as_json())
-            stored_record_instance = type(record).model_validate_json(stored_record['as_json'])
-            msg = f'[{entity.name}] fetched record "{self.get_record_id(record)}" (new: {record.hash()[:5]}, old: {stored_record_instance.hash()[:5]}) already exists but has changed:\n'
-            self.logger.debug(msg + show_diff(normalized_record.model_dump(), stored_record_instance.model_dump()))
+        if stored_record is None:
+            return None
+        stored_record_instance = type(record).model_validate_json(stored_record['as_json'])
+        return stored_record_instance
 
-            self.store_record(record, entity)
-            self.logger.debug(f'[{entity.name}] storing new version of record "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
-        return not exists
+    def record_is_new(self, record: Record) -> bool:
+        uid = self.get_record_id(record)
+        return not self.db.row_exists(uid)
+
+    def record_got_updated(self, record: Record) -> bool:
+        uid = self.get_record_id(record)
+        return self.db.row_exists(uid) and not self.db.row_exists(uid, record.hash())
+
+    def _log_changes(self, record: Record, entity: BaseFeedMonitorEntity):
+        normalized_record = type(record).model_validate_json(record.as_json())
+        stored_record = self.load_record(record)
+        if stored_record is None:
+            return
+        stored_record_instance = type(record).model_validate_json(stored_record.as_json())
+        msg = f'[{entity.name}] fetched record "{self.get_record_id(record)}" (new: {record.hash()[:5]}, old: {stored_record_instance.hash()[:5]}) already exists but has changed:\n'
+        self.logger.debug(msg + show_diff(normalized_record.model_dump(), stored_record_instance.model_dump()))
 
     def filter_new_records(self, records: Sequence[Record], entity: BaseFeedMonitorEntity) -> Sequence[Record]:
         new_records = []
         for record in records:
-            if self.record_is_new(record, entity):
+            if self.record_is_new(record):
                 new_records.append(record)
+                self.store_record(record, entity)
+                self.logger.debug(f'fetched record is new: "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
+            if self.record_got_updated(record):
+                self._log_changes(record, entity)
+                self.store_record(record, entity)
+                self.logger.debug(f'[{entity.name}] storing new version of record "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
         return new_records
 
     async def get_new_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
