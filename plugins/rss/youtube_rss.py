@@ -90,7 +90,7 @@ class FeedMonitor(GenericRSSMonitor):
         # record.check_scheduled() involves loading video page, so it should only be done when necessarily
         # and here seems to be the only good place for it, since network request requires "session" object
         for record in records:
-            previous = self.load_record(record)
+            previous = self.load_record(record, entity)
             if previous is None:
                 await record.check_scheduled(session)
                 continue
@@ -113,10 +113,10 @@ class FeedMonitor(GenericRSSMonitor):
     def get_record_id(self, record: YoutubeFeedRecord) -> str:
         return record.video_id
 
-    def record_is_new(self, record: YoutubeFeedRecord) -> bool:
-        return not self.db.row_exists(record.video_id)
+    def _get_record_id(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity) -> str:
+        return self.get_record_id(record)
 
-    def record_got_updated(self, record: YoutubeFeedRecord) -> bool:
+    def record_got_updated(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity) -> bool:
         return self.db.row_exists(record.video_id) and not self.db.row_exists(record.video_id, record.updated)
 
     def store_record(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity):
@@ -125,7 +125,7 @@ class FeedMonitor(GenericRSSMonitor):
         row = record.as_dict(additional_fields)
         self.db.store(row)
 
-    def load_record(self, record: YoutubeFeedRecord) -> Optional[YoutubeFeedRecord]:
+    def load_record(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity) -> Optional[YoutubeFeedRecord]:
         raw_latest_row = self.db.fetch_row(record.video_id)
         if raw_latest_row is None:
             return None
