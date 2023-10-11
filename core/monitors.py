@@ -203,6 +203,9 @@ class BaseFeedMonitor(HttpTaskMonitor):
     def get_record_id(self, record: Record) -> str:
         '''A string that unique identifies a record even if it has changed'''
 
+    def _get_record_id(self, record: Record, entity: BaseFeedMonitorEntity) -> str:
+        return '{}:{}'.format(entity.name, self.get_record_id(record))
+
     async def run(self):
         async with aiohttp.ClientSession() as session:
             for entity in self.entities.values():
@@ -220,7 +223,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
             self.logger.info(f'[{entity.name}] {size} records stored in database')
 
     def store_record(self, record: Record, entity: BaseFeedMonitorEntity):
-        uid = self.get_record_id(record)
+        uid = self._get_record_id(record, entity)
         parsed_at = datetime.utcnow()
         hashsum = record.hash()
         feed_name = entity.name
@@ -229,25 +232,25 @@ class BaseFeedMonitor(HttpTaskMonitor):
         row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum, 'class_name': class_name, 'as_json': as_json}
         self.db.store(row)
 
-    def load_record(self, record: Record) -> Optional[Record]:
-        uid = self.get_record_id(record)
+    def load_record(self, record: Record, entity: BaseFeedMonitorEntity) -> Optional[Record]:
+        uid = self._get_record_id(record, entity)
         stored_record = self.db.fetch_row(uid)
         if stored_record is None:
             return None
         stored_record_instance = type(record).model_validate_json(stored_record['as_json'])
         return stored_record_instance
 
-    def record_is_new(self, record: Record) -> bool:
-        uid = self.get_record_id(record)
+    def record_is_new(self, record: Record, entity: BaseFeedMonitorEntity) -> bool:
+        uid = self._get_record_id(record, entity)
         return not self.db.row_exists(uid)
 
-    def record_got_updated(self, record: Record) -> bool:
-        uid = self.get_record_id(record)
+    def record_got_updated(self, record: Record, entity: BaseFeedMonitorEntity) -> bool:
+        uid = self._get_record_id(record, entity)
         return self.db.row_exists(uid) and not self.db.row_exists(uid, record.hash())
 
     def _log_changes(self, record: Record, entity: BaseFeedMonitorEntity):
         normalized_record = type(record).model_validate_json(record.as_json())
-        stored_record = self.load_record(record)
+        stored_record = self.load_record(record, entity)
         if stored_record is None:
             return
         stored_record_instance = type(record).model_validate_json(stored_record.as_json())
@@ -257,11 +260,11 @@ class BaseFeedMonitor(HttpTaskMonitor):
     def filter_new_records(self, records: Sequence[Record], entity: BaseFeedMonitorEntity) -> Sequence[Record]:
         new_records = []
         for record in records:
-            if self.record_is_new(record):
+            if self.record_is_new(record, entity):
                 new_records.append(record)
                 self.store_record(record, entity)
                 self.logger.debug(f'fetched record is new: "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
-            if self.record_got_updated(record):
+            if self.record_got_updated(record, entity):
                 self._log_changes(record, entity)
                 self.store_record(record, entity)
                 self.logger.debug(f'[{entity.name}] storing new version of record "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
