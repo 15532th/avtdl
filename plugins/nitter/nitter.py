@@ -1,15 +1,15 @@
 import datetime
 from textwrap import shorten
-from typing import Sequence, Optional, List
+from typing import List, Optional, Sequence
 
 import aiohttp
 import lxml.html
-from pydantic import ConfigDict
 from dateutil import parser
+from pydantic import ConfigDict
 
 from core import utils
-from core.interfaces import Record, MAX_REPR_LEN
-from core.monitors import BaseFeedMonitor, BaseFeedMonitorEntity, BaseFeedMonitorConfig
+from core.interfaces import MAX_REPR_LEN, Record
+from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
 
 
@@ -124,7 +124,7 @@ class NitterMonitor(BaseFeedMonitor):
         return NitterQuoteRecord(url=url, author=author, username=username, published=published, text=text, html=html, media=attachments)
 
     def _parse_post(self, raw_post: lxml.html.HtmlElement) -> Optional[NitterRecord]:
-        header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='retweet-header'] | .//*[@class='replying-to']")) or None
+        header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='retweet-header'] | .//*[@class='replying-to']")).lstrip() or None
 
         url = raw_post.xpath(".//*[@class='tweet-link']/@href")[0]
         author = raw_post.xpath(".//*[@class='fullname']/@title")[0]
@@ -141,7 +141,7 @@ class NitterMonitor(BaseFeedMonitor):
         attachments = self._parse_attachments(raw_attachments) if raw_attachments is not None else []
 
         [raw_quote] = raw_post.xpath(".//*[@class='quote quote-big']") or [None]
-        quote = self._parse_quote(raw_quote) if raw_quote else None
+        quote = self._parse_quote(raw_quote) if raw_quote is not None else None
 
 
         return NitterRecord(url=url, author=author, username=username, published=published, text=text, html=html, header=header, media=attachments, quote=quote)
