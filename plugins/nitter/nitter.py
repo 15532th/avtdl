@@ -137,7 +137,7 @@ class NitterMonitor(BaseFeedMonitor):
         text = get_text_content(post_body)
         html = get_html_content(post_body)
 
-        [raw_attachments] = raw_post.xpath(".//*[@class='attachments']") or [None]
+        [raw_attachments] = raw_post.xpath("(.//*[@class='attachments'])[1]") or [None]
         attachments = self._parse_attachments(raw_attachments) if raw_attachments is not None else []
 
         [raw_quote] = raw_post.xpath(".//*[@class='quote quote-big']") or [None]
