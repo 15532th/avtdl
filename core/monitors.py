@@ -125,8 +125,15 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
 
 class BaseFeedMonitorConfig(ActorConfig):
-    db_path: str = ':memory:'
+    db_path: Union[Path, str] = ':memory:'
 
+    @field_validator('db_path')
+    @classmethod
+    def str_to_path(cls, path: Union[Path, str]):
+        if path == ':memory:':
+            return path
+        return Path(path)
+    
 class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     url: str
     adjust_update_interval: bool = True
