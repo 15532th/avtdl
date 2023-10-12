@@ -1,15 +1,15 @@
 import json
 from json import JSONDecodeError
 from textwrap import shorten
-from typing import Sequence, Optional
+from typing import Optional, Sequence
 
 import aiohttp
 import pydantic
-from pydantic import PrivateAttr
+from pydantic import Field
 
 from core.config import Plugins
 from core.interfaces import ActorConfig, LivestreamRecord, MAX_REPR_LEN
-from core.monitors import HttpTaskMonitorEntity, HttpTaskMonitor
+from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 
 class FC2Record(LivestreamRecord):
@@ -29,7 +29,7 @@ class FC2Record(LivestreamRecord):
 class FC2MonitorEntity(HttpTaskMonitorEntity):
     user_id: str
     update_interval: int = 300
-    latest_live_start: PrivateAttr = None
+    latest_live_start: str = Field(exclude=True, default='')
 
 @Plugins.register('fc2', Plugins.kind.ACTOR_CONFIG)
 class FC2MonitorConfig(ActorConfig):

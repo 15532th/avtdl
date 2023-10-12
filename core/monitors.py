@@ -1,16 +1,15 @@
 import asyncio
-import logging
 import sqlite3
 from abc import abstractmethod
 from collections import defaultdict
 from datetime import datetime
-from typing import Sequence, Dict, Optional, Any
+from typing import Any, Dict, Optional, Sequence
 
 import aiohttp
-from pydantic import FilePath, PrivateAttr
+from pydantic import Field, FilePath
 
 from core import utils
-from core.interfaces import ActorEntity, Actor, ActorConfig, Record
+from core.interfaces import Actor, ActorConfig, ActorEntity, Record
 from core.utils import get_cache_ttl, show_diff
 
 
@@ -131,9 +130,9 @@ class BaseFeedMonitorConfig(ActorConfig):
 class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     url: str
     adjust_update_interval: bool = True
-    base_update_interval: PrivateAttr = None
-    last_modified: PrivateAttr = None
-    etag: PrivateAttr = None
+    base_update_interval: float = Field(exclude=True, default=60)
+    last_modified: Optional[str] = Field(exclude=True, default=None)
+    etag: Optional[str] = Field(exclude=True, default=None)
 
     def model_post_init(self, __context: Any) -> None:
         self.base_update_interval = self.update_interval
