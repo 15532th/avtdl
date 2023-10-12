@@ -66,7 +66,7 @@ class FileMonitorEntity(TaskMonitorEntity):
 @Plugins.register('from_file', Plugins.kind.ACTOR)
 class FileMonitor(TaskMonitor):
 
-    async def get_new_records(self, entity: TaskMonitorEntity):
+    async def get_new_records(self, entity: FileMonitorEntity):
         return entity.get_new_records()
 
 
