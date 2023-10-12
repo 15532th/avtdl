@@ -3,10 +3,11 @@ import sqlite3
 from abc import abstractmethod
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Dict, Optional, Sequence
+from pathlib import Path
+from typing import Any, Dict, Optional, Sequence, Union
 
 import aiohttp
-from pydantic import Field, FilePath
+from pydantic import Field, FilePath, field_validator
 
 from core import utils
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
