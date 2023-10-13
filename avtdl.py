@@ -26,8 +26,15 @@ def load_config(path):
         raise SystemExit from e
     return config
 
+def handler(loop, context):
+    logging.exception(f'unhandled exception in event loop:', exc_info=context.get('exception'))
+    loop.default_exception_handler(context)
+
 
 async def run(runnables):
+    loop = asyncio.get_running_loop()
+    loop.set_exception_handler(handler)
+
     tasks = []
     for runnable in runnables:
         task = asyncio.create_task(runnable.run(), name=runnable.__class__.__name__)
