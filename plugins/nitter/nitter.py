@@ -92,7 +92,8 @@ class NitterMonitor(BaseFeedMonitor):
     async def _get_user_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
         # nitter.net instance returns 403 in absense of this two headers and if UserAgent contains "python-requests"
         headers={'Accept-Language': 'en-US', 'Accept-Encoding': 'gzip, deflate', 'Cookie':  'Cookie: hideBanner=on; hidePins=on; replaceTwitter=; replaceYouTube=; replaceReddit='}
-        text = await utils.request(entity.url, session, self.logger, headers=headers)
+        response = await self.request(entity, session, headers=headers)
+        text = await response.text() if response else None
         return text
 
     def _parse_entries(self, raw_page: Optional[str], base_url: str) -> Sequence[NitterRecord]:
