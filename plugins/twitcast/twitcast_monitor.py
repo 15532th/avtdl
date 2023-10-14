@@ -40,15 +40,15 @@ class TwitcastMonitor(HttpTaskMonitor):
 
     async def check_channel(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> Optional[TwitcastRecord]:
         if not await self.is_live(entity, session):
-            self.logger.debug(f'TwitcastMonitor for {entity.name}: user {entity.user_id} is not live')
+            self.logger.debug(f'[{entity.name}] user {entity.user_id} is not live')
             return None
 
         movie_id = await self.get_movie_id(entity, session)
         if movie_id is None:
-            self.logger.warning(f'TwitcastMonitor for {entity.name}: failed to get movie id, will report this record again if it was temporarily error, will never report new records if it is permanent')
+            self.logger.warning(f'[{entity.name}] failed to get movie id, will report this record again if it was temporarily error, will never report new records if it is permanent')
             movie_id = 'movie id is unknown'
         if movie_id == entity.most_recent_movie:
-            self.logger.debug(f'TwitcastMonitor for {entity.name}: user {entity.user_id} is live with movie {entity.most_recent_movie}, but record was already created')
+            self.logger.debug(f'[{entity.name}] user {entity.user_id} is live with movie {entity.most_recent_movie}, but record was already created')
             return None
         entity.most_recent_movie = movie_id
 
@@ -74,12 +74,12 @@ class TwitcastMonitor(HttpTaskMonitor):
             async with session.get(url) as r:
                 latest_movie_info = await r.json()
         except Exception as e:
-            msg = f'TwitcastMonitor for {entity.name}: failed to get current movie for {entity.user_id}: {e}'
-            self.logger.exception(msg)
+            msg = f'[{entity.name}] failed to get current movie for {entity.user_id}: {e}'
+            self.logger.warning(msg)
             return None
         try:
             movie_id = str(latest_movie_info['movie']['id'])
             return movie_id
         except (KeyError, TypeError):
-            self.logger.exception(f'TwitcastMonitor for {entity.name}: failed to parse "{latest_movie_info}"')
+            self.logger.warning(f'[{entity.name}] failed to parse "{latest_movie_info}"')
             return None
