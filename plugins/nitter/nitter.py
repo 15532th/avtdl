@@ -27,7 +27,18 @@ class NitterRecord(Record):
     quote: Optional['NitterQuoteRecord'] = None
 
     def __str__(self):
-        return f'{self.header or self.url}\n{self.author} ({self.username}):\n{self.text}\n{self.quote or ""}'
+        elements = []
+        elements.append(self.url)
+        if self.header:
+            elements.append(self.header)
+        elements.append(f'{self.author} ({self.username}):')
+        elements.append(self.text)
+        if self.media:
+            elements.append('\n'.join(self.media))
+        if self.quote:
+            elements.append('Referring to ')
+            elements.append(str(self.quote))
+        return '\n'.join(elements)
 
     def __repr__(self):
         return f'NitterRecord(author="{self.author}", url="{self.url}", text="{shorten(self.text, MAX_REPR_LEN)}")'
