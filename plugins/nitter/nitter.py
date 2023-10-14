@@ -123,6 +123,7 @@ class NitterMonitor(BaseFeedMonitor):
 
     def _parse_quote(self, raw_quote: lxml.html.HtmlElement) -> Optional[NitterQuoteRecord]:
         url = raw_quote.xpath(".//*[@class='quote-link']/@href")[0]
+        url = re.sub('#m$', '', url)
         author = raw_quote.xpath(".//*[@class='fullname']/@title")[0]
         username = raw_quote.xpath(".//*[@class='username']/@title")[0]
 
@@ -142,6 +143,7 @@ class NitterMonitor(BaseFeedMonitor):
         header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='retweet-header'] | .//*[@class='replying-to']")).lstrip() or None
 
         url = raw_post.xpath(".//*[@class='tweet-link']/@href")[0]
+        url = re.sub('#m$', '', url)
         author = raw_post.xpath(".//*[@class='fullname']/@title")[0]
         username = raw_post.xpath(".//*[@class='username']/@title")[0]
 
