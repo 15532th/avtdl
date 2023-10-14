@@ -24,7 +24,7 @@ class NitterRecord(Record):
     published: datetime.datetime
     text: str
     html: str = ''
-    media: List[str] = []
+    attachments: List[str] = []
     quote: Optional['NitterQuoteRecord'] = None
 
     def __str__(self):
@@ -34,8 +34,8 @@ class NitterRecord(Record):
             elements.append(self.header)
         elements.append(f'{self.author} ({self.username}):')
         elements.append(self.text)
-        if self.media:
-            elements.append('\n'.join(self.media))
+        if self.attachments:
+            elements.append('\n'.join(self.attachments))
         if self.quote:
             elements.append('Referring to ')
             elements.append(str(self.quote))
