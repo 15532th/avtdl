@@ -4,7 +4,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union, Mapping
 
 import aiohttp
 from pydantic import Field, FilePath, field_validator
@@ -86,6 +86,14 @@ class TaskMonitor(BaseTaskMonitor):
 class HttpTaskMonitorEntity(TaskMonitorEntity):
     cookies_file: Optional[FilePath] = None
 
+    adjust_update_interval: bool = True
+    base_update_interval: float = Field(exclude=True, default=60)
+    last_modified: Optional[str] = Field(exclude=True, default=None)
+    etag: Optional[str] = Field(exclude=True, default=None)
+
+    def model_post_init(self, __context: Any) -> None:
+        self.base_update_interval = self.update_interval
+
 
 class HttpTaskMonitor(BaseTaskMonitor):
     '''Maintain and provide for records aiohttp.ClientSession objects
@@ -95,6 +103,58 @@ class HttpTaskMonitor(BaseTaskMonitor):
     def __init__(self, conf: ActorConfig, entities: Sequence[HttpTaskMonitorEntity]):
         self.sessions: Dict[str, aiohttp.ClientSession] = {}
         super().__init__(conf, entities)
+
+    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Mapping] = None) -> Optional[aiohttp.ClientResponse]:
+        '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
+        logger = self.logger.getChild('request')
+        request_headers: Dict[str, Any] = headers or {}
+        if entity.last_modified is not None and method in ['GET', 'HEAD']:
+            request_headers['If-Modified-Since'] = entity.last_modified
+        if entity.etag is not None:
+            request_headers['If-None-Match'] = entity.etag
+        try:
+            async with session.request(method, url, headers=request_headers, params=params, data=data) as response:
+                response.raise_for_status()
+                # fully read http response to get it cached inside ClientResponse object
+                # client code can then use it by awaiting .text() again without causing
+                # network activity and potentially triggering associated errors
+                _ = await response.text()
+        except Exception as e:
+            if isinstance(e, aiohttp.ClientResponseError):
+                logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {url}')
+            else:
+                logger.warning(f'[{entity.name}] error while fetching {url}: {e}')
+
+            update_interval = min(entity.update_interval * 2, entity.base_update_interval * 10, 4*3600)
+            if entity.update_interval != update_interval:
+                entity.update_interval = update_interval
+                logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url}')
+            return None
+
+        if response.status == 304:
+            logger.debug(f'[{entity.name}] got {response.status} ({response.reason}) from {url}')
+            return None
+        # some servers do not have cache headers in 304 response, so only updating on 200
+        entity.last_modified = response.headers.get('Last-Modified', None)
+        entity.etag = response.headers.get('Etag', None)
+
+        cache_control = response.headers.get('Cache-control')
+        logger.debug(f'[{entity.name}] Last-Modified={entity.last_modified or "absent"}, ETAG={entity.etag or "absent"}, Cache-control="{cache_control or "absent"}"')
+
+
+        if entity.adjust_update_interval:
+            update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
+            new_update_interval = max(update_interval, entity.base_update_interval)
+            if entity.update_interval != new_update_interval:
+                logger.info(f'[{entity.name}] next update in {entity.update_interval}')
+                entity.update_interval = new_update_interval
+        else:
+            # restore update interval after backoff on failure
+            if entity.update_interval != entity.base_update_interval:
+                logger.info(f'[{entity.name}] restoring update interval {entity.update_interval} seconds for {url}')
+                entity.update_interval = entity.base_update_interval
+
+        return response
 
     def _get_session(self, entity: HttpTaskMonitorEntity) -> aiohttp.ClientSession:
         session_id = str(entity.cookies_file)
@@ -137,70 +197,12 @@ class BaseFeedMonitorConfig(ActorConfig):
     
 class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     url: str
-    adjust_update_interval: bool = True
-    base_update_interval: float = Field(exclude=True, default=60)
-    last_modified: Optional[str] = Field(exclude=True, default=None)
-    etag: Optional[str] = Field(exclude=True, default=None)
-
-    def model_post_init(self, __context: Any) -> None:
-        self.base_update_interval = self.update_interval
 
 class BaseFeedMonitor(HttpTaskMonitor):
 
     def __init__(self, conf: BaseFeedMonitorConfig, entities: Sequence[BaseFeedMonitorEntity]):
         super().__init__(conf, entities)
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
-
-    async def request(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None) -> Optional[aiohttp.ClientResponse]:
-        '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
-        logger = self.logger.getChild('request')
-        request_headers: Dict[str, Any] = headers or {}
-        if entity.last_modified is not None and method in ['GET', 'HEAD']:
-            request_headers['If-Modified-Since'] = entity.last_modified
-        if entity.etag is not None:
-            request_headers['If-None-Match'] = entity.etag
-        try:
-            async with session.request(method, entity.url, headers=request_headers) as response:
-                response.raise_for_status()
-                # fully read http response to get it cached inside ClientResponse object
-                # client code can then use it by awaiting .text() again without causing
-                # network activity and potentially triggering associated errors
-                _ = await response.text()
-        except Exception as e:
-            if isinstance(e, aiohttp.ClientResponseError):
-                logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {entity.url}')
-            else:
-                logger.warning(f'[{entity.name}] error while fetching {entity.url}: {e}')
-
-            update_interval = min(entity.update_interval * 2, entity.base_update_interval * 10, 4*3600)
-            if entity.update_interval != update_interval:
-                entity.update_interval = update_interval
-                logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {entity.url}')
-            return None
-
-        if response.status == 304:
-            logger.debug(f'[{entity.name}] got {response.status} ({response.reason}) from {entity.url}')
-            return None
-        # some servers do not have cache headers in 304 response, so only updating on 200
-        entity.last_modified = response.headers.get('Last-Modified', None)
-        entity.etag = response.headers.get('Etag', None)
-
-        cache_control = response.headers.get('Cache-control')
-        logger.debug(f'[{entity.name}] Last-Modified={entity.last_modified or "absent"}, ETAG={entity.etag or "absent"}, Cache-control="{cache_control or "absent"}"')
-
-        if entity.adjust_update_interval:
-            update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
-            new_update_interval = max(update_interval, entity.base_update_interval)
-            if entity.update_interval != new_update_interval:
-                logger.info(f'[{entity.name}] next update in {entity.update_interval}')
-                entity.update_interval = new_update_interval
-        else:
-            # restore update interval after backoff on failure
-            if entity.update_interval != entity.base_update_interval:
-                logger.info(f'[{entity.name}] restoring update interval {entity.update_interval} seconds for {entity.url}')
-                entity.update_interval = entity.base_update_interval
-
-        return response
 
     @abstractmethod
     async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
