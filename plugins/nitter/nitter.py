@@ -102,9 +102,13 @@ class NitterMonitor(BaseFeedMonitor):
             self.logger.debug(f'error parsing nitter page: {e}')
             return []
         records = []
-        for post in posts:
-            record = self._parse_post(post)
-            if record:
+        for post_node in posts_section:
+            try:
+                record = self._parse_post(post_node)
+            except Exception as e:
+                self.logger.exception(f'error parsing a post: {e}')
+                self.logger.debug(f'raw')
+            else:
                 records.append(record)
         return records
 
