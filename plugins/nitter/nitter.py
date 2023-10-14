@@ -1,4 +1,5 @@
 import datetime
+import re
 from textwrap import shorten
 from typing import List, Optional, Sequence
 
@@ -61,10 +62,11 @@ def get_text_content(element: lxml.html.HtmlElement) -> str:
         if isinstance(element, str):
             return element
         link = element.attrib.get('href')
-        if link is not None and not link.startswith('/'):
-            return link
-        else:
+        if link is None:
             return element.text
+        if link.find('/search') > -1 and element.text.startswith('#'): # hashtag
+            return element.text
+        return link
 
     strings = [handle_element(child) for child in element.xpath("node()")]
     text = ''.join(strings)
@@ -81,7 +83,7 @@ class NitterMonitor(BaseFeedMonitor):
         raw_page = await self._get_user_page(entity, session)
         if raw_page is None:
             return []
-        records = self._parse_entries(raw_page)
+        records = self._parse_entries(raw_page, entity.url)
         return records
 
     def get_record_id(self, record: NitterRecord) -> str:
@@ -93,11 +95,11 @@ class NitterMonitor(BaseFeedMonitor):
         text = await utils.request(entity.url, session, self.logger, headers=headers)
         return text
 
-    def _parse_entries(self, raw_page: Optional[str]) -> Sequence[NitterRecord]:
+    def _parse_entries(self, raw_page: Optional[str], base_url: str) -> Sequence[NitterRecord]:
         if raw_page is None:
             return []
         try:
-            posts = self._parse_timeline(raw_page)
+            posts_section = self._parse_timeline(raw_page, base_url)
         except Exception as e:
             self.logger.debug(f'error parsing nitter page: {e}')
             return []
@@ -112,9 +114,10 @@ class NitterMonitor(BaseFeedMonitor):
                 records.append(record)
         return records
 
-    def _parse_timeline(self, raw_page: str) -> Sequence[lxml.html.HtmlElement]:
-        root = lxml.html.fromstring(raw_page, base_url='twitter.com')
-        posts = root.find_class('timeline-item')
+    def _parse_timeline(self, raw_page: str, base_url: str) -> Sequence[lxml.html.HtmlElement]:
+        root = lxml.html.fromstring(raw_page, base_url=base_url)
+        root.make_links_absolute(base_url)
+        posts = root.find_class('timeline-item') # it is actually "timeline-item " in html, find_class() seems to trim trailing whitespace
         return posts
 
     def _parse_attachments(self, raw_attachments: lxml.html.HtmlElement) -> List[str]:
@@ -139,7 +142,7 @@ class NitterMonitor(BaseFeedMonitor):
 
         return NitterQuoteRecord(url=url, author=author, username=username, published=published, text=text, html=html, media=attachments)
 
-    def _parse_post(self, raw_post: lxml.html.HtmlElement) -> Optional[NitterRecord]:
+    def _parse_post(self, raw_post: lxml.html.HtmlElement) -> NitterRecord:
         header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='retweet-header'] | .//*[@class='replying-to']")).lstrip() or None
 
         url = raw_post.xpath(".//*[@class='tweet-link']/@href")[0]
