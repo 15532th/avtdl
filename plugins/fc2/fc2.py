@@ -43,10 +43,8 @@ class FC2Monitor(HttpTaskMonitor):
         return [record] if record else []
 
     async def check_channel(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession) -> Optional[FC2Record]:
-        try:
-            data = await self.get_metadata(entity, session)
-        except Exception as e:
-            self.logger.warning(f'FC2Monitor for {entity.name}: failed to check if channel {entity.user_id} is live: {e}')
+        data = await self.get_metadata(entity, session)
+        if data is None:
             return None
         try:
             record = self.parse_metadata(data)
@@ -62,13 +60,12 @@ class FC2Monitor(HttpTaskMonitor):
         entity.latest_live_start = record.start
         return record
 
-    @staticmethod
-    async def get_metadata(entity: FC2MonitorEntity, session: aiohttp.ClientSession):
+    async def get_metadata(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession):
         url = 'https://live.fc2.com/api/memberApi.php'
-        params = {'channel': 1, 'streamid': entity.user_id}
-        async with session.post(url, data=params) as r:
-            data = await r.text()
-            return data
+        data = {'channel': 1, 'streamid': entity.user_id}
+        response = await self.request(url, entity, session, method='POST', data=data)
+        text = await response.text() if response is not None else None
+        return text
 
     @staticmethod
     def parse_metadata(raw_data: str) -> Optional[FC2Record]:
