@@ -74,6 +74,21 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
 
     return int(delta)
 
+def get_retry_after(headers: multidict.CIMultiDictProxy) -> Optional[int]:
+    retry_after =  headers.get('Retry-After')
+    if retry_after is None:
+        return None
+    try:
+        return int(retry_after)
+    except ValueError:
+        pass
+    try:
+        return parsedate_to_datetime(retry_after)
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
 def check_dir(path: Path, create=True) -> bool:
     '''check if directory exists and writable, create if asked'''
     if path.is_dir() and os.access(path, mode=os.W_OK):

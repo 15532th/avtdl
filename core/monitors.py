@@ -11,7 +11,7 @@ from pydantic import Field, FilePath, field_validator
 
 from core import utils
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
-from core.utils import get_cache_ttl, show_diff
+from core.utils import get_cache_ttl, show_diff, get_retry_after
 
 
 class TaskMonitorEntity(ActorEntity):
@@ -122,6 +122,10 @@ class HttpTaskMonitor(BaseTaskMonitor):
         except Exception as e:
             if isinstance(e, aiohttp.ClientResponseError):
                 logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {url}')
+                retry_after = get_retry_after(response.headers)
+                if retry_after is not None:
+                    self.logger.debug(f'got Retry-After header with value {retry_after}')
+                    entity.update_interval = float(retry_after)
             else:
                 logger.warning(f'[{entity.name}] error while fetching {url}: {e}')
 
