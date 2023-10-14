@@ -1,7 +1,9 @@
+import datetime
 import logging
 import zoneinfo
 from typing import Sequence, Optional
 
+import dateutil
 from pydantic import field_validator
 
 from core.config import Plugins
@@ -30,11 +32,11 @@ class JabberEntity(ActorEntity):
 
     @field_validator('timezone')
     @classmethod
-    def check_timezone(cls, timezone: str) -> zoneinfo.ZoneInfo:
-        try:
-            return zoneinfo.ZoneInfo(key=timezone)
-        except zoneinfo.ZoneInfoNotFoundError as e:
-            raise ValueError(f'Unknown timezone: {timezone}') from e
+    def check_timezone(cls, timezone: str) -> datetime.timezone:
+        tz = dateutil.tz.gettz(timezone)
+        if tz is None:
+            raise ValueError(f'Unknown timezone: {timezone}')
+        return tz
 
 @Plugins.register('xmpp', Plugins.kind.ACTOR)
 class SendJabber(Actor):
