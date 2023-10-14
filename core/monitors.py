@@ -151,10 +151,10 @@ class BaseFeedMonitor(HttpTaskMonitor):
         super().__init__(conf, entities)
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
-    async def request(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession, method='GET') -> Optional[aiohttp.ClientResponse]:
+    async def request(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None) -> Optional[aiohttp.ClientResponse]:
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
         logger = self.logger.getChild('request')
-        request_headers: Dict[str, Any] = {}
+        request_headers: Dict[str, Any] = headers or {}
         if entity.last_modified is not None and method in ['GET', 'HEAD']:
             request_headers['If-Modified-Since'] = entity.last_modified
         if entity.etag is not None:
