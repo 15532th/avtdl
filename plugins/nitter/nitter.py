@@ -8,7 +8,6 @@ import lxml.html
 from dateutil import parser
 from pydantic import ConfigDict
 
-from core import utils
 from core.interfaces import MAX_REPR_LEN, Record
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
