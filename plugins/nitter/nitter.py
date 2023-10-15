@@ -141,7 +141,7 @@ class NitterMonitor(BaseFeedMonitor):
         [raw_attachments] = raw_quote.xpath(".//*[@class='quote-media-container']/*[@class='attachments']") or [None]
         attachments = self._parse_attachments(raw_attachments) if raw_attachments is not None else []
 
-        return NitterQuoteRecord(url=url, author=author, username=username, published=published, text=text, html=html, media=attachments)
+        return NitterQuoteRecord(url=url, author=author, username=username, published=published, text=text, html=html, attachments=attachments)
 
     def _parse_post(self, raw_post: lxml.html.HtmlElement) -> NitterRecord:
         header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='retweet-header'] | .//*[@class='replying-to']")).lstrip() or None
