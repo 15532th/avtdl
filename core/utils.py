@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import http
 import json
 import logging
 import os
@@ -24,6 +25,7 @@ def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional
         cookie_jar.load()
         logger.info(f"Successfully loaded cookies from {path}")
     except FileNotFoundError:
+        logger.exception(f'Failed to load cookies from {path}: file not found')
         if raise_on_error:
             raise
         return None
@@ -33,6 +35,21 @@ def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional
         logger.exception(f'Failed to load cookies from {path}: {e}')
         return None
     return cookie_jar
+
+def convert_cookiejar(cookie_jar: cookiejar.CookieJar) -> aiohttp.CookieJar:
+    cookies = http.cookies.SimpleCookie()
+    for cookie in cookie_jar:
+        name = cookie.name
+        cookies[name] = cookie.value
+        cookies[name]['domain'] = cookie.domain
+        cookies[name]['path'] = cookie.path
+        cookies[name]['expires'] = str(cookie.expires)
+        cookies[name]['secure'] = cookie.secure
+        cookies[name]['version'] = str(cookie.version)
+        cookies[name]['comment'] = cookie.comment
+    new_jar = aiohttp.CookieJar()
+    new_jar.update_cookies(cookies)
+    return new_jar
 
 def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
     '''Check for Expires and Cache-Control headers,

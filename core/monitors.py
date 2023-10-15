@@ -11,7 +11,7 @@ from pydantic import Field, FilePath, field_validator
 
 from core import utils
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
-from core.utils import get_cache_ttl, show_diff, get_retry_after
+from core.utils import get_cache_ttl, show_diff, get_retry_after, load_cookies, convert_cookiejar
 
 
 class TaskMonitorEntity(ActorEntity):
@@ -164,7 +164,8 @@ class HttpTaskMonitor(BaseTaskMonitor):
         session_id = str(entity.cookies_file)
         session = self.sessions.get(session_id)
         if session is None:
-            cookies = utils.load_cookies(entity.cookies_file)
+            netscape_cookies = load_cookies(entity.cookies_file)
+            cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
             session = aiohttp.ClientSession(cookies=cookies)
         return session
 
@@ -220,8 +221,10 @@ class BaseFeedMonitor(HttpTaskMonitor):
         return '{}:{}'.format(entity.name, self.get_record_id(record))
 
     async def run(self):
-        async with aiohttp.ClientSession() as session:
-            for entity in self.entities.values():
+        for entity in self.entities.values():
+            netscape_cookies = load_cookies(entity.cookies_file)
+            cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
+            async with aiohttp.ClientSession(cookie_jar=cookies) as session:
                 await self.prime_db(entity, session)
         await super().run()
 
