@@ -105,6 +105,7 @@ class SaveAsFileActionEntity(ActorEntity):
     save_path: Path
     base_name: str
     suffix_type: SuffixType = SuffixType.timestamp
+    save_as_json: bool = False
     only_save_changed: bool = True
     hash: Optional[str] = None
 
@@ -136,7 +137,8 @@ class SaveAsFileAction(Actor):
         else:
             suffix = '-'
         path = Path(entity.save_path).joinpath(entity.base_name)
-        path = path.with_suffix(f'.{suffix}{path.suffix}')
+        extension = 'txt' if not entity.save_as_json else 'json'
+        path = path.with_suffix(f'.{suffix}{path.suffix}.{extension}')
         return path
 
     def handle(self, entity: SaveAsFileActionEntity, record: Record):
@@ -145,8 +147,9 @@ class SaveAsFileAction(Actor):
             return
         path = self.get_filename(entity)
         try:
+            text = str(record) if not entity.save_as_json else record.as_json(indent=4)
             with open(path, 'wt', encoding='utf8') as fp:
-                fp.write(str(record) + '\n')
+                fp.write(text)
         except Exception as e:
             message = f'error in {self.conf.name}.{entity}: {e}'
             self.on_record(entity, Event(event_type=EventType.error, text=message))
