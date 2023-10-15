@@ -76,6 +76,7 @@ class FileActionConfig(ActorConfig):
 @Plugins.register('to_file', Plugins.kind.ACTOR_ENTITY)
 class FileActionEntity(ActorEntity):
     path: Path
+    separator: str = '\n'
 
 @Plugins.register('to_file', Plugins.kind.ACTOR)
 class FileAction(Actor):
@@ -83,8 +84,9 @@ class FileAction(Actor):
 
     def handle(self, entity: FileActionEntity, record: Record):
         try:
+            text = f'{record}{entity.separator}'
             with open(entity.path, 'at', encoding='utf8') as fp:
-                fp.write(str(record) + '\n')
+                fp.write(text)
         except Exception as e:
             message = f'error in {self.conf.name}.{entity}: {e}'
             self.on_record(entity, Event(event_type=EventType.error, text=message))
