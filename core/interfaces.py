@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from hashlib import sha1
 from textwrap import shorten
-from typing import Callable, Dict, List, Sequence, Tuple, Type, Optional
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 from pydantic import BaseModel
 
@@ -31,7 +31,7 @@ class Record(BaseModel):
                 fields[k] = v.astimezone(timezone)
         return self.model_validate(fields)
 
-    def as_json(self, indent=None) -> str:
+    def as_json(self, indent: Union[int, str, None] = None) -> str:
         return json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False, default=str, indent=indent)
 
     def hash(self) -> str:
