@@ -20,6 +20,7 @@ class SimpleGmailRecord(Record):
     subject: str
     text_preview: str
     relative_date: Optional[str]
+    fulltext_link: Optional[str] = None
 
     def __str__(self) -> str:
         return f'{self.relative_date} [{self.address_from}] {self.subject} {self.text_preview}'
@@ -74,6 +75,7 @@ class SimpleGmail(BaseFeedMonitor):
 
     def _parse_page(self, raw_page: str, base_url: str) -> Sequence[lxml.html.HtmlElement]:
        root = lxml.html.fromstring(raw_page)
+       root.make_links_absolute(base_url)
        messages = root.xpath("//table[@class='th']/tr")
        return messages
 
@@ -86,7 +88,8 @@ class SimpleGmail(BaseFeedMonitor):
             subject_end = text.text_content().find(text_preview)
             subject = text.text_content()[:subject_end]
             relative_date = date.text_content()
-            return SimpleGmailRecord(address_from=address_from, subject=subject, text_preview=text_preview, relative_date=relative_date)
+            fulltext_link = text.xpath(".//a/@href")[0]
+            return SimpleGmailRecord(address_from=address_from, subject=subject, text_preview=text_preview, relative_date=relative_date, fulltext_link=fulltext_link)
         except (IndexError, TypeError, ValidationError) as e:
             logging.exception(f'failed to parse message: {e}')
             return None
