@@ -28,6 +28,8 @@ class SimpleGmailRecord(Record):
         return shorten(str(self), MAX_REPR_LEN)
 
     def hash(self) -> str:
+        if self.relative_date is None:
+            return super().hash()
         data = self.model_dump()
         data['relative_date'] = None
         return SimpleGmailRecord.model_validate(data).hash()
