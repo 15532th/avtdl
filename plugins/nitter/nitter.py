@@ -163,5 +163,4 @@ class NitterMonitor(BaseFeedMonitor):
         [raw_quote] = raw_post.xpath(".//*[@class='quote quote-big']") or [None]
         quote = self._parse_quote(raw_quote) if raw_quote is not None else None
 
-
-        return NitterRecord(url=url, author=author, username=username, published=published, text=text, html=html, header=header, media=attachments, quote=quote)
+        return NitterRecord(url=url, author=author, username=username, published=published, text=text, html=html, header=header, attachments=attachments, quote=quote)
