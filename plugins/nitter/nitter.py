@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import re
 from textwrap import shorten
@@ -8,6 +9,7 @@ import lxml.html
 from dateutil import parser
 from pydantic import ConfigDict
 
+from core import utils
 from core.interfaces import MAX_REPR_LEN, Record
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
@@ -49,7 +51,8 @@ class NitterQuoteRecord(NitterRecord):
 
 @Plugins.register('nitter', Plugins.kind.ACTOR_CONFIG)
 class NitterMonitorConfig(BaseFeedMonitorConfig):
-    pass
+    max_continuation_depth: int = 10
+    next_page_delay: float = 1
 
 @Plugins.register('nitter', Plugins.kind.ACTOR_ENTITY)
 class NitterMonitorEntity(BaseFeedMonitorEntity):
@@ -78,28 +81,57 @@ def get_html_content(element: lxml.html.HtmlElement) -> str:
 
 @Plugins.register('nitter', Plugins.kind.ACTOR)
 class NitterMonitor(BaseFeedMonitor):
+
+    # nitter.net instance returns 403 in absense of this two headers and if UserAgent contains "python-requests"
+    HEADERS = {'Accept-Language': 'en-US', 'Accept-Encoding': 'gzip, deflate',
+               'Cookie': 'Cookie: hideBanner=on; hidePins=on; replaceTwitter=; replaceYouTube=; replaceReddit='}
+
     async def get_records(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
         raw_page = await self._get_user_page(entity, session)
         if raw_page is None:
             return []
-        records = self._parse_entries(raw_page, entity.url)
+        page = self._parse_html(raw_page, entity.url)
+        records = current_page_records = self._parse_entries(page)
+        next_page_url = self._get_continuation_url(page)
+
+        current_page = 1
+        while True:
+            if current_page > self.conf.max_continuation_depth:
+                self.logger.info(f'[{entity.name}] reached continuation limit of {self.conf.max_continuation_depth}, aborting update')
+                break
+            if next_page_url is None:
+                self.logger.debug(f'[{entity.name}] no continuation link on {current_page - 1} page, end of feed reached')
+                break
+            if not all(self.record_is_new(record, entity) for record in current_page_records):
+                self.logger.debug(f'[{entity.name}] found already stored records on {current_page - 1} page')
+                break
+            self.logger.debug(f'[{entity.name}] all records on page {current_page - 1} are new, loading next one')
+            raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=2, retry_multiplier=2, retry_delay=1)
+            if raw_page is None:
+                # when unable to load _all_ new records, throw away all already parsed and return nothing
+                # to not cause discontinuity in stored data
+                return []
+            page = self._parse_html(raw_page, entity.url)
+            current_page_records = self._parse_entries(page) or [] # perhaps should also issue total failure if no records on the page?
+            records.extend(current_page_records)
+            next_page_url = self._get_continuation_url(page)
+
+            current_page += 1
+            await asyncio.sleep(self.conf.next_page_delay)
+
         return records
 
     def get_record_id(self, record: NitterRecord) -> str:
         return record.url
 
     async def _get_user_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
-        # nitter.net instance returns 403 in absense of this two headers and if UserAgent contains "python-requests"
-        headers={'Accept-Language': 'en-US', 'Accept-Encoding': 'gzip, deflate', 'Cookie':  'Cookie: hideBanner=on; hidePins=on; replaceTwitter=; replaceYouTube=; replaceReddit='}
-        response = await self.request(entity.url, entity, session, headers=headers)
+        response = await self.request(entity.url, entity, session, headers=self.HEADERS)
         text = await response.text() if response else None
         return text
 
-    def _parse_entries(self, raw_page: Optional[str], base_url: str) -> Sequence[NitterRecord]:
-        if raw_page is None:
-            return []
+    def _parse_entries(self, page: lxml.html.HtmlElement) -> List[NitterRecord]:
         try:
-            posts_section = self._parse_timeline(raw_page, base_url)
+            posts_section = self._parse_timeline(page)
         except Exception as e:
             self.logger.debug(f'error parsing nitter page: {e}')
             return []
@@ -109,16 +141,23 @@ class NitterMonitor(BaseFeedMonitor):
                 record = self._parse_post(post_node)
             except Exception as e:
                 self.logger.exception(f'error parsing a post: {e}')
-                self.logger.debug(f'raw')
+                self.logger.debug(f'raw post: {get_html_content(post_node)}')
             else:
                 records.append(record)
         return records
 
-    def _parse_timeline(self, raw_page: str, base_url: str) -> Sequence[lxml.html.HtmlElement]:
+    def _parse_html(self, raw_page: str, base_url: str) -> lxml.html.HtmlElement:
         root = lxml.html.fromstring(raw_page, base_url=base_url)
         root.make_links_absolute(base_url)
-        posts = root.find_class('timeline-item') # it is actually "timeline-item " in html, find_class() seems to trim trailing whitespace
+        return root
+
+    def _parse_timeline(self, page: lxml.html.HtmlElement) -> Sequence[lxml.html.HtmlElement]:
+        posts = page.xpath(".//*[@class='timeline-item ']") # note trailing space in class name
         return posts
+
+    def _get_continuation_url(self, page: lxml.html.HtmlElement) -> Optional[str]:
+        [continuation] = page.xpath(".//*[@class='show-more']/a/@href") or [None]
+        return continuation
 
     def _parse_attachments(self, raw_attachments: lxml.html.HtmlElement) -> List[str]:
         links = raw_attachments.xpath(".//a/@href")
