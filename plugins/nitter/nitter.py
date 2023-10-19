@@ -179,9 +179,12 @@ class NitterMonitor(BaseFeedMonitor):
         published_text = raw_quote.xpath(".//*[@class='tweet-date']/a/@title")[0]
         published = parser.parse(published_text.replace('·', ''))
 
-        post_body = raw_quote.xpath(".//*[@class='quote-text']")[0]
-        text = get_text_content(post_body)
-        html = get_html_content(post_body)
+        [post_body] = raw_quote.xpath(".//*[@class='quote-text']") or [None]
+        if post_body is None:
+            text = html = ''
+        else:
+            text = get_text_content(post_body)
+            html = get_html_content(post_body)
 
         [raw_attachments] = raw_quote.xpath(".//*[@class='quote-media-container']/*[@class='attachments']") or [None]
         attachments = self._parse_attachments(raw_attachments) if raw_attachments is not None else []
