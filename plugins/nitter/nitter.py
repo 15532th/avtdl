@@ -60,7 +60,8 @@ class NitterMonitorEntity(BaseFeedMonitorEntity):
     max_continuation_depth: int = 10
     next_page_delay: float = 1
     allow_discontiniuty: bool = False # store already fetched records on failure to load one of older pages
-    fetch_entire_feed_mode: bool = False
+    fetch_until_the_end_of_feed_mode: bool = False
+
 
 def get_text_content(element: lxml.html.HtmlElement) -> str:
     def handle_element(element: lxml.html.HtmlElement) -> str:
@@ -97,21 +98,26 @@ class NitterMonitor(BaseFeedMonitor):
         records = current_page_records = self._parse_entries(page)
         next_page_url = self._get_continuation_url(page)
 
+        if entity.fetch_until_the_end_of_feed_mode:
+            self.logger.info(f'[{entity.name}] "fetch_until_the_end_of_feed_mode" setting is enabled, will keep loading through already seen pages until the end. Disable it in config after it succeeds once')
+
         current_page = 1
         while True:
             if next_page_url is None:
                 self.logger.debug(f'[{entity.name}] no continuation link on {current_page - 1} page, end of feed reached')
+                entity.fetch_until_the_end_of_feed_mode = False
                 break
-            if current_page > entity.max_continuation_depth:
-                self.logger.info(f'[{entity.name}] reached continuation limit of {entity.max_continuation_depth}, aborting update')
-                break
-            if not all(self.record_is_new(record, entity) for record in current_page_records):
-                self.logger.debug(f'[{entity.name}] found already stored records on {current_page - 1} page')
-                break
+            if not entity.fetch_until_the_end_of_feed_mode:
+                if current_page > entity.max_continuation_depth:
+                    self.logger.info(f'[{entity.name}] reached continuation limit of {entity.max_continuation_depth}, aborting update')
+                    break
+                if not all(self.record_is_new(record, entity) for record in current_page_records):
+                    self.logger.debug(f'[{entity.name}] found already stored records on {current_page - 1} page')
+                    break
             self.logger.debug(f'[{entity.name}] all records on page {current_page - 1} are new, loading next one')
             raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=3, retry_multiplier=2, retry_delay=5)
             if raw_page is None:
-                if entity.allow_discontiniuty:
+                if entity.allow_discontiniuty or entity.fetch_until_the_end_of_feed_mode:
                     # when unable to load _all_ new records, return at least current progress
                     return records
                 else:
