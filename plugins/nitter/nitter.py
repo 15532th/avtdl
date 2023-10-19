@@ -51,14 +51,16 @@ class NitterQuoteRecord(NitterRecord):
 
 @Plugins.register('nitter', Plugins.kind.ACTOR_CONFIG)
 class NitterMonitorConfig(BaseFeedMonitorConfig):
-    max_continuation_depth: int = 10
-    next_page_delay: float = 1
-    allow_discontiniuty: bool = False # store already fetched records on failure to load one of older pages
+    pass
 
 @Plugins.register('nitter', Plugins.kind.ACTOR_ENTITY)
 class NitterMonitorEntity(BaseFeedMonitorEntity):
     update_interval: float = 1800
 
+    max_continuation_depth: int = 10
+    next_page_delay: float = 1
+    allow_discontiniuty: bool = False # store already fetched records on failure to load one of older pages
+    fetch_entire_feed_mode: bool = False
 
 def get_text_content(element: lxml.html.HtmlElement) -> str:
     def handle_element(element: lxml.html.HtmlElement) -> str:
@@ -97,11 +99,11 @@ class NitterMonitor(BaseFeedMonitor):
 
         current_page = 1
         while True:
-            if current_page > self.conf.max_continuation_depth:
-                self.logger.info(f'[{entity.name}] reached continuation limit of {self.conf.max_continuation_depth}, aborting update')
-                break
             if next_page_url is None:
                 self.logger.debug(f'[{entity.name}] no continuation link on {current_page - 1} page, end of feed reached')
+                break
+            if current_page > entity.max_continuation_depth:
+                self.logger.info(f'[{entity.name}] reached continuation limit of {entity.max_continuation_depth}, aborting update')
                 break
             if not all(self.record_is_new(record, entity) for record in current_page_records):
                 self.logger.debug(f'[{entity.name}] found already stored records on {current_page - 1} page')
@@ -109,7 +111,7 @@ class NitterMonitor(BaseFeedMonitor):
             self.logger.debug(f'[{entity.name}] all records on page {current_page - 1} are new, loading next one')
             raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=3, retry_multiplier=2, retry_delay=5)
             if raw_page is None:
-                if self.conf.allow_discontiniuty:
+                if entity.allow_discontiniuty:
                     # when unable to load _all_ new records, return at least current progress
                     return records
                 else:
@@ -122,7 +124,7 @@ class NitterMonitor(BaseFeedMonitor):
             next_page_url = self._get_continuation_url(page)
 
             current_page += 1
-            await asyncio.sleep(self.conf.next_page_delay)
+            await asyncio.sleep(entity.next_page_delay)
 
         return records
 
