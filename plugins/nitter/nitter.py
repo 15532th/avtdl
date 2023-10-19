@@ -106,7 +106,7 @@ class NitterMonitor(BaseFeedMonitor):
                 self.logger.debug(f'[{entity.name}] found already stored records on {current_page - 1} page')
                 break
             self.logger.debug(f'[{entity.name}] all records on page {current_page - 1} are new, loading next one')
-            raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=2, retry_multiplier=2, retry_delay=1)
+            raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=3, retry_multiplier=2, retry_delay=5)
             if raw_page is None:
                 # when unable to load _all_ new records, throw away all already parsed and return nothing
                 # to not cause discontinuity in stored data
