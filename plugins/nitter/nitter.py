@@ -53,6 +53,7 @@ class NitterQuoteRecord(NitterRecord):
 class NitterMonitorConfig(BaseFeedMonitorConfig):
     max_continuation_depth: int = 10
     next_page_delay: float = 1
+    allow_discontiniuty: bool = False # store already fetched records on failure to load one of older pages
 
 @Plugins.register('nitter', Plugins.kind.ACTOR_ENTITY)
 class NitterMonitorEntity(BaseFeedMonitorEntity):
@@ -108,9 +109,13 @@ class NitterMonitor(BaseFeedMonitor):
             self.logger.debug(f'[{entity.name}] all records on page {current_page - 1} are new, loading next one')
             raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=3, retry_multiplier=2, retry_delay=5)
             if raw_page is None:
-                # when unable to load _all_ new records, throw away all already parsed and return nothing
-                # to not cause discontinuity in stored data
-                return []
+                if self.conf.allow_discontiniuty:
+                    # when unable to load _all_ new records, return at least current progress
+                    return records
+                else:
+                    # when unable to load _all_ new records, throw away all already parsed and return nothing
+                    # to not cause discontinuity in stored data
+                    return []
             page = self._parse_html(raw_page, entity.url)
             current_page_records = self._parse_entries(page) or [] # perhaps should also issue total failure if no records on the page?
             records.extend(current_page_records)
