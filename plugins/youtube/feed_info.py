@@ -58,7 +58,7 @@ def get_author_fallback(item:dict) -> Optional[str]:
     full_text = find_one(item, '$.title.accessibility..label')
     title_part = find_one(item, '$.title.runs..text')
     views_part = find_one(item, '$.viewCountText.simpleText')
-    views_part_fallback = re.search('\d+\D+$', full_text)
+    views_part_fallback = re.search('\d+\D+$', full_text) if full_text else None
     if not all((full_text, title_part, views_part or views_part_fallback)):
         return None
     start = full_text.find(title_part)
