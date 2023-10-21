@@ -11,7 +11,7 @@ from pydantic import ConfigDict
 from core import utils
 from core.config import Plugins
 from core.interfaces import LivestreamRecord
-from plugins.rss import video_info
+from plugins.youtube import video_info
 from plugins.rss.generic_rss import GenericRSSMonitor, GenericRSSMonitorConfig, GenericRSSMonitorEntity
 
 
