@@ -1,7 +1,7 @@
 import datetime
 import json
 import re
-from typing import Optional, Any
+from typing import Any, Optional
 
 import jsonpath_ng
 import requests
@@ -24,8 +24,11 @@ class VideoRendererInfo(BaseModel):
     is_member_only: bool
 
 
-def find_all(data: Any, jsonpath: str) -> list:
-    return [item.value for item in jsonpath_ng.parse(jsonpath).find(data)]
+def find_all(data: Any, jsonpath: str, cache={}) -> list:
+    if jsonpath not in cache:
+        cache[jsonpath] = jsonpath_ng.parse(jsonpath)
+    parser = cache[jsonpath]
+    return [item.value for item in parser.find(data)]
 
 def find_one(data: Any, jsonpath: str) -> Optional[Any]:
     result = find_all(data, jsonpath)
@@ -95,12 +98,12 @@ def parse_video_renderer(item: dict) -> VideoRendererInfo:
     published_text = find_one(item, '$.publishedTimeText.simpleText')
     length = find_one(item, '$.lengthText.simpleText') or find_one(item, '$..thumbnailOverlayTimeStatusRenderer.simpleText')
 
-    badges = find_all(item, '$..badges..[style, label]')
-    print(title, badges) if badges else ...
+    badges = find_all(item, '$.badges..style')
     is_member_only = 'BADGE_STYLE_TYPE_MEMBERS_ONLY' in badges
     is_live = 'BADGE_STYLE_TYPE_LIVE_NOW' in badges
-    is_upcoming = find_one(item, '$..upcomingEventData') is not None
+    is_upcoming = scheduled is not None
 
+    print(badges, title) if badges else ...
     try:
         info = VideoRendererInfo(video_id=video_id,
                                  url=url,
@@ -130,11 +133,11 @@ def handle_url(url: str) -> list:
     return handle_page(page)
 
 if __name__ == '__main__':
-    urls = ['https://www.youtube.com/@OmaruPolka/streams', 'https://www.youtube.com/@OmaruPolka/videos', 'https://www.youtube.com/@OmaruPolka/']
+    urls = ['https://www.youtube.com/@OmaruPolka/streams',
+            'https://www.youtube.com/@OmaruPolka/videos',
+            'https://www.youtube.com/@OmaruPolka/featured']
     x1 = handle_url(urls[0])
     x2 = handle_url(urls[1])
     x3 = handle_url(urls[2])
-    with open('D:\\avtdl\\subscriptions', 'rt', encoding='utf8') as fp:
-        text = fp.read()
-    x4 = handle_page(text)
+
     ...
