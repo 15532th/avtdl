@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 import jsonpath_ng
 import requests
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 
 class VideoRendererInfo(BaseModel):
@@ -15,7 +15,8 @@ class VideoRendererInfo(BaseModel):
     summary: Optional[str] = Field(repr=False)
     scheduled: Optional[datetime.datetime] = None
     author: Optional[str]
-    channel_id: Optional[str]
+    channel_link: Optional[str] = None
+    channel_id: Optional[str] = None
     published_text: Optional[str]
     length: Optional[str]
 
@@ -82,19 +83,61 @@ def get_author_fallback(item:dict) -> Optional[str]:
     return author_text
 
 
+class AuthorInfo(BaseModel):
+    name: str
+    channel: str
+    channel_id: str
+    
+    @field_validator('channel')
+    @classmethod
+    def add_prefix(cls, channel: str) -> str:
+        if channel.startswith('/'):
+            return 'https://www.youtube.com' + channel
+        else:
+            return channel
 
-def parse_video_renderer(item: dict) -> VideoRendererInfo:
+
+def parse_author(video_render: dict) -> Optional[AuthorInfo]:
+    author_info = find_one(video_render, '$.[ownerText,shortBylineText]')
+    if author_info is None:
+        return None
+    author = find_one(author_info, '$..text')
+    channel_link = find_one(author_info, '$..browseEndpoint.canonicalBaseUrl')
+    channel_id = find_one(author_info, '$..browseEndpoint.browseId')
+    try:
+        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id)
+    except ValidationError:
+        return None
+
+def parse_owner_info(page: dict) -> Optional[AuthorInfo]:
+    owner_info_data = find_one(page, '$.header.c4TabbedHeaderRenderer')
+    if owner_info_data is None:
+        return None
+    author = find_one(owner_info_data, '$.title')
+    channel_link = find_one(owner_info_data, '$..canonicalBaseUrl')
+    channel_id = find_one(owner_info_data, '$.channelId')
+    try:
+        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id)
+    except ValidationError:
+        return None
+
+def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> VideoRendererInfo:
     video_id = item.get('videoId')
     url = f'https://www.youtube.com/watch?v={video_id}'
     title = find_one(item, '$.title..[text,simpleText]')
     summary = find_one(item, '$.descriptionSnippet..text')
+    
+    author_info = parse_author(item) or owner_info
+    if author_info is None:
+        author_name = get_author_fallback(item) 
+        channel_link = channel_id = None
+    else:
+        author_name = author_info.name
+        channel_link = author_info.channel
+        channel_id = author_info.channel_id
 
     scheduled_timestamp = find_one(item, '$.upcomingEventData.startTime')
     scheduled = parse_scheduled(scheduled_timestamp)
-
-    author = find_one(item, '$.shortBylineText..text') or get_author_fallback(item)
-    channel_id = find_one(item, '$.shortBylineText..canonicalBaseUrl')
-    channel_id = channel_id.strip('/') if channel_id else channel_id
     published_text = find_one(item, '$.publishedTimeText.simpleText')
     length = find_one(item, '$.lengthText.simpleText') or find_one(item, '$..thumbnailOverlayTimeStatusRenderer.simpleText')
 
@@ -110,7 +153,8 @@ def parse_video_renderer(item: dict) -> VideoRendererInfo:
                                  title=title,
                                  summary=summary,
                                  scheduled=scheduled,
-                                 author=author,
+                                 author=author_name,
+                                 channel_link=channel_link,
                                  channel_id=channel_id,
                                  published_text=published_text,
                                  length=length,
@@ -124,8 +168,9 @@ def parse_video_renderer(item: dict) -> VideoRendererInfo:
 
 def handle_page(page: str) -> list:
     data = get_initial_data(page)
+    owner_info = parse_owner_info(data)
     items = get_video_renderers(data)
-    info = [parse_video_renderer(x) for x in items]
+    info = [parse_video_renderer(x, owner_info) for x in items]
     return info
 
 def handle_url(url: str) -> list:
