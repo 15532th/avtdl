@@ -146,7 +146,6 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> VideoR
     is_live = 'BADGE_STYLE_TYPE_LIVE_NOW' in badges
     is_upcoming = scheduled is not None
 
-    print(badges, title) if badges else ...
     try:
         info = VideoRendererInfo(video_id=video_id,
                                  url=url,
