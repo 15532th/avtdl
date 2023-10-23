@@ -121,7 +121,7 @@ def parse_owner_info(page: dict) -> Optional[AuthorInfo]:
     except ValidationError:
         return None
 
-def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> VideoRendererInfo:
+def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> Optional[VideoRendererInfo]:
     video_id = item.get('videoId')
     url = f'https://www.youtube.com/watch?v={video_id}'
     title = find_one(item, '$.title..[text,simpleText]')
@@ -160,10 +160,9 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> VideoR
                                  is_live=is_live,
                                  is_upcoming=is_upcoming,
                                  is_member_only=is_member_only)
-    except Exception as e:
-        f'{e!r}: {e}'
+        return info
+    except ValidationError:
         return None
-    return info
 
 def handle_page(page: str) -> list:
     data = get_initial_data(page)
