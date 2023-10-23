@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import shlex
 import time
 from hashlib import sha1
@@ -108,10 +109,10 @@ class Command(Actor):
             self.logger.warning(f'[{entity.name}] check if directory specified in "output_dir" value "{entity.output_dir}" exists and is a writeable directory')
             self.logger.warning(f'[{entity.name}] output of running command will be redirected to stdout')
             return None
-        timestamp = int(time.time() * 1000)
-        command_hash = sha1(task_id.encode())
-        command_hash = command_hash.hexdigest()
-        filename = f'command_{entity.name}_{timestamp}_{command_hash}_stdout.log'
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')
+        command_pre_hash = sha1(task_id.encode())
+        command_hash = command_pre_hash.hexdigest()
+        filename = f'command_{entity.name}_{timestamp}_{command_hash[:6]}_stdout.log'
         return entity.output_dir / filename
 
     async def run_subprocess(self, args: List[str], task_id: str, entity: CommandEntity, record: Record):
