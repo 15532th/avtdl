@@ -127,6 +127,8 @@ class Command(Actor):
                 process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
             else:
                 with open(stdout_path, 'at') as stdout:
+                    stdout.write(f'# [{self.conf.name}.{entity.name}] > {entity.command}\n')
+                    stdout.flush()
                     process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir, stdout=stdout, stderr=asyncio.subprocess.STDOUT)
         except Exception as e:
             self.logger.warning(f'[{entity.name}] failed to execute command "{command_line}": {e}')
