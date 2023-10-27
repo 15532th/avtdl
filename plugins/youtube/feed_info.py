@@ -3,7 +3,7 @@ import json
 import re
 from typing import Any, Optional
 
-import jsonpath_ng
+import jsonpath_ng.ext as jsonpath_ng
 import requests
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
