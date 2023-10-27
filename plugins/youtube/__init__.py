@@ -1,1 +1,1 @@
-__all__ = ['youtube_rss']
+__all__ = ['youtube_rss', 'youtube_community']
