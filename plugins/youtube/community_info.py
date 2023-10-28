@@ -1,11 +1,11 @@
 import time
 from hashlib import sha1
-from typing import Optional, Tuple, List
+from typing import List, Optional, Tuple
 from urllib.parse import parse_qs, unquote, urlparse
 
 from pydantic import BaseModel
 
-from plugins.youtube.feed_info import find_all, find_one
+from plugins.youtube.utils import find_all, find_one
 
 CLIENT_VERSION = '2.20231023.04.02'
 
