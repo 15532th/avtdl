@@ -2,7 +2,6 @@ import datetime
 import re
 from typing import Optional
 
-import requests
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from plugins.youtube.utils import find_all, find_one, get_initial_data
@@ -150,17 +149,3 @@ def handle_page(page: str) -> list:
     items = get_video_renderers(data)
     info = [parse_video_renderer(x, owner_info) for x in items]
     return info
-
-def handle_url(url: str) -> list:
-    page = requests.get(url).text
-    return handle_page(page)
-
-if __name__ == '__main__':
-    urls = ['https://www.youtube.com/@OmaruPolka/streams',
-            'https://www.youtube.com/@OmaruPolka/videos',
-            'https://www.youtube.com/@OmaruPolka/featured']
-    x1 = handle_url(urls[0])
-    x2 = handle_url(urls[1])
-    x3 = handle_url(urls[2])
-
-    ...
