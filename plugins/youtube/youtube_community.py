@@ -14,7 +14,7 @@ from plugins.youtube.community_info import CommunityPostInfo, get_continuation_t
 from plugins.youtube.utils import get_initial_data
 
 
-class CommunityPostRecord(Record):
+class CommunityPostRecord(Record, CommunityPostInfo):
     channel_id: str
     post_id: str
     author: str
