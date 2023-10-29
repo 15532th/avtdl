@@ -104,7 +104,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
         self.sessions: Dict[str, aiohttp.ClientSession] = {}
         super().__init__(conf, entities)
 
-    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Mapping] = None) -> Optional[aiohttp.ClientResponse]:
+    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None) -> Optional[aiohttp.ClientResponse]:
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
         logger = self.logger.getChild('request')
         request_headers: Dict[str, Any] = headers or {}
