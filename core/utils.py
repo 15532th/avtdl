@@ -10,7 +10,7 @@ from email.utils import mktime_tz, parsedate_to_datetime
 from http import cookiejar
 from pathlib import Path
 from textwrap import shorten
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import aiohttp
 import multidict
@@ -221,11 +221,11 @@ class RecordDB:
     group_id_field = 'feed_name'
     sorting_field = 'parsed_at'
 
-    def __init__(self, db_path: Path, logger: Optional[logging.Logger] = None):
+    def __init__(self, db_path: Union[str,Path], logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger('RecordDB')
         try:
-            if not db_path == ':memory:' and not db_path.exists():
-                check_dir(db_path.parent)
+            if not db_path == ':memory:' and not Path(db_path).exists():
+                check_dir(Path(db_path).parent)
             self.db = sqlite3.connect(db_path)
             self.db.row_factory = sqlite3.Row
             self.cursor = self.db.cursor()
