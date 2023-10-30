@@ -68,6 +68,29 @@ class YoutubeFeedRecord(LivestreamRecord):
         record_dict.update(additional_fields)
         return record_dict
 
+
+class RecordDB(utils.RecordDB):
+    table_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views integer, PRIMARY KEY(video_id, updated)'
+    row_structure = ':parsed_at, :feed_name, :author, :video_id, :url, :title, :summary, :published, :updated, :scheduled, :views'
+    id_field = 'video_id'
+    exact_id_field = 'updated'
+    group_id_field = 'feed_name'
+    sorting_field = 'parsed_at'
+
+    def store(self, row: dict) -> None:
+        return super().store(row)
+
+    def row_exists(self, video_id: str, updated: Optional[datetime] = None) -> bool:
+        return super().row_exists(video_id, updated)
+
+    def fetch_row(self, video_id: str, updated: Optional[datetime] = None) -> Optional[sqlite3.Row]:
+        return super().fetch_row(video_id, updated)
+
+    def get_size(self, feed_name: Optional[str] = None) -> int:
+        '''return number of records, total or for specified feed, are stored in db'''
+        return super().get_size(feed_name)
+
+
 @Plugins.register('rss', Plugins.kind.ACTOR_ENTITY)
 class FeedMonitorEntity(GenericRSSMonitorEntity):
     pass
@@ -78,10 +101,10 @@ class FeedMonitorConfig(GenericRSSMonitorConfig):
 
 @Plugins.register('rss', Plugins.kind.ACTOR)
 class FeedMonitor(GenericRSSMonitor):
+    RecordDB = RecordDB
 
     def __init__(self, conf: FeedMonitorConfig, entities: Sequence[FeedMonitorEntity]):
         super().__init__(conf, entities)
-        self.db = RecordDB(conf.db_path)
 
     async def get_new_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeFeedRecord]:
         records = await self.get_records(entity, session)
@@ -158,25 +181,3 @@ class FeedMonitor(GenericRSSMonitor):
         parsed['views'] = views
         record = YoutubeFeedRecord(**parsed)
         return record
-
-
-class RecordDB(utils.RecordDB):
-    table_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views integer, PRIMARY KEY(video_id, updated)'
-    row_structure = ':parsed_at, :feed_name, :author, :video_id, :url, :title, :summary, :published, :updated, :scheduled, :views'
-    id_field = 'video_id'
-    exact_id_field = 'updated'
-    group_id_field = 'feed_name'
-    sorting_field = 'parsed_at'
-
-    def store(self, row: dict) -> None:
-        return super().store(row)
-
-    def row_exists(self, video_id: str, updated: Optional[datetime] = None) -> bool:
-        return super().row_exists(video_id, updated)
-
-    def fetch_row(self, video_id: str, updated: Optional[datetime] = None) -> Optional[sqlite3.Row]:
-        return super().fetch_row(video_id, updated)
-
-    def get_size(self, feed_name: Optional[str] = None) -> int:
-        '''return number of records, total or for specified feed, are stored in db'''
-        return super().get_size(feed_name)

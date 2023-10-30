@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Union, Mapping
 
 import aiohttp
-from pydantic import Field, FilePath, field_validator
+from pydantic import Field, FilePath, field_validator, model_validator
 
 from core import utils
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
-from core.utils import get_cache_ttl, show_diff, get_retry_after, load_cookies, convert_cookiejar
+from core.utils import get_cache_ttl, show_diff, get_retry_after, load_cookies, convert_cookiejar, check_dir
 
 
 class TaskMonitorEntity(ActorEntity):
@@ -190,6 +190,29 @@ class HttpTaskMonitor(BaseTaskMonitor):
         '''Produce new records, optionally adjust update_interval'''
 
 
+
+class RecordDB(utils.RecordDB):
+    table_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
+    row_structure = ':parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json'
+    id_field = 'uid'
+    exact_id_field = 'hashsum'
+    group_id_field = 'feed_name'
+    sorting_field = 'parsed_at'
+
+    def store(self, row: Dict[str, Any]) -> None:
+        return super().store(row)
+
+    def fetch_row(self, uid: str, hashsum: Optional[str] = None) -> Optional[sqlite3.Row]:
+        return super().fetch_row(uid, hashsum)
+
+    def row_exists(self, uid: str, hashsum: Optional[str] = None) -> bool:
+        return super().row_exists(uid, hashsum)
+
+    def get_size(self, feed_name: Optional[str] = None) -> int:
+        '''return number of records, total or for specified feed, are stored in db'''
+        return super().get_size(feed_name)
+
+
 class BaseFeedMonitorConfig(ActorConfig):
     db_path: Union[Path, str] = ':memory:'
 
@@ -216,10 +239,11 @@ class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     url: str
 
 class BaseFeedMonitor(HttpTaskMonitor):
+    RecordDB = RecordDB
 
     def __init__(self, conf: BaseFeedMonitorConfig, entities: Sequence[BaseFeedMonitorEntity]):
         super().__init__(conf, entities)
-        self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
+        self.db = self.RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
     @abstractmethod
     async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
@@ -302,25 +326,3 @@ class BaseFeedMonitor(HttpTaskMonitor):
         records = await self.get_records(entity, session)
         new_records = self.filter_new_records(records, entity)
         return new_records
-
-class RecordDB(utils.RecordDB):
-    table_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
-    row_structure = ':parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json'
-    id_field = 'uid'
-    exact_id_field = 'hashsum'
-    group_id_field = 'feed_name'
-    sorting_field = 'parsed_at'
-
-    def store(self, row: Dict[str, Any]) -> None:
-        return super().store(row)
-
-    def fetch_row(self, uid: str, hashsum: Optional[str] = None) -> Optional[sqlite3.Row]:
-        return super().fetch_row(uid, hashsum)
-
-    def row_exists(self, uid: str, hashsum: Optional[str] = None) -> bool:
-        return super().row_exists(uid, hashsum)
-
-    def get_size(self, feed_name: Optional[str] = None) -> int:
-        '''return number of records, total or for specified feed, are stored in db'''
-        return super().get_size(feed_name)
-
