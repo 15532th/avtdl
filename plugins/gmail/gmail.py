@@ -38,7 +38,7 @@ class SimpleGmailRecord(Record):
 
 
 @Plugins.register('gmail', Plugins.kind.ACTOR_CONFIG)
-class NitterMonitorConfig(BaseFeedMonitorConfig):
+class SimpleGmailMonitorConfig(BaseFeedMonitorConfig):
     pass
 
 @Plugins.register('gmail', Plugins.kind.ACTOR_ENTITY)
