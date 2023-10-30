@@ -203,7 +203,7 @@ class NitterMonitor(BaseFeedMonitor):
 
     def _parse_post(self, raw_post: lxml.html.HtmlElement) -> NitterRecord:
         retweet_header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='retweet-header']")).lstrip() or None
-        reply_header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='replying-to']")).lstrip() or None
+        reply_header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='tweet-body']/*[@class='replying-to']")).lstrip() or None
 
         url = raw_post.xpath(".//*[@class='tweet-link']/@href")[0]
         url = re.sub('#m$', '', url)
