@@ -10,15 +10,17 @@ from dateutil import parser
 from pydantic import ConfigDict
 
 from core import utils
-from core.interfaces import MAX_REPR_LEN, Record
+from core.interfaces import MAX_REPR_LEN, Record, FilterEntity, Filter
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
+from plugins.filters.filters import EmptyFilterConfig
 
 
 class NitterRecord(Record):
     model_config = ConfigDict(extra='allow')
 
-    header: Optional[str] = None
+    retweet_header: Optional[str] = None
+    reply_header: Optional[str] = None
     url: str
     author: str
     username: str
@@ -31,14 +33,16 @@ class NitterRecord(Record):
     def __str__(self):
         elements = []
         elements.append(self.url)
-        if self.header:
-            elements.append(self.header)
+        if self.retweet_header:
+            elements.append(self.retweet_header)
+        if self.reply_header:
+            elements.append(self.reply_header)
         elements.append(f'{self.author} ({self.username}):')
         elements.append(self.text)
         if self.attachments:
             elements.append('\n'.join(self.attachments))
         if self.quote:
-            elements.append('Referring to ')
+            elements.append('\nReferring to ')
             elements.append(str(self.quote))
         return '\n'.join(elements)
 
@@ -198,7 +202,8 @@ class NitterMonitor(BaseFeedMonitor):
         return NitterQuoteRecord(url=url, author=author, username=username, published=published, text=text, html=html, attachments=attachments)
 
     def _parse_post(self, raw_post: lxml.html.HtmlElement) -> NitterRecord:
-        header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='retweet-header'] | .//*[@class='replying-to']")).lstrip() or None
+        retweet_header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='retweet-header']")).lstrip() or None
+        reply_header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='replying-to']")).lstrip() or None
 
         url = raw_post.xpath(".//*[@class='tweet-link']/@href")[0]
         url = re.sub('#m$', '', url)
@@ -218,4 +223,82 @@ class NitterMonitor(BaseFeedMonitor):
         [raw_quote] = raw_post.xpath(".//*[@class='quote quote-big']") or [None]
         quote = self._parse_quote(raw_quote) if raw_quote is not None else None
 
-        return NitterRecord(url=url, author=author, username=username, published=published, text=text, html=html, header=header, attachments=attachments, quote=quote)
+        return NitterRecord(url=url,
+                            author=author,
+                            username=username,
+                            published=published,
+                            text=text,
+                            html=html,
+                            retweet_header=retweet_header,
+                            reply_header=reply_header,
+                            attachments=attachments,
+                            quote=quote
+                            )
+
+
+@Plugins.register('filter.nitter.pick', Plugins.kind.ACTOR_CONFIG)
+@Plugins.register('filter.nitter.drop', Plugins.kind.ACTOR_CONFIG)
+class NitterFilterConfig(EmptyFilterConfig):
+    pass
+
+@Plugins.register('filter.nitter.pick', Plugins.kind.ACTOR_ENTITY)
+@Plugins.register('filter.nitter.drop', Plugins.kind.ACTOR_ENTITY)
+class NitterFilterEntity(FilterEntity):
+    retweet: bool = False
+    reply: bool = False
+    quote: bool = False
+    regular_tweet: bool = False
+    author: Optional[str] = None
+    username: Optional[str] = None
+
+
+
+@Plugins.register('filter.nitter.pick', Plugins.kind.ACTOR)
+class NitterFilterPick(Filter):
+
+    def __init__(self, config: NitterFilterConfig, entities: Sequence[NitterFilterEntity]):
+        super().__init__(config, entities)
+
+    def match(self, entity: NitterFilterEntity, record: NitterRecord) -> Optional[NitterRecord]:
+        if not isinstance(record, NitterRecord):
+            self.logger.debug(f'[{entity.name}] record dropped due to unsupported type, expected NitterRecord, got {type(record)}')
+            return None
+        if entity.retweet and record.retweet_header is not None:
+            return record
+        if entity.reply and record.reply_header is not None:
+            return record
+        if entity.quote and not record.quote is not None:
+            return record
+        if entity.regular_tweet:
+            if all([x is None for x in [record.reply_header, record.retweet_header, record.quote]]):
+                return record
+        if entity.author and record.author.find(entity.author) > -1:
+            return record
+        if entity.username and record.username.find(entity.username) > -1:
+            return record
+        return None
+
+@Plugins.register('filter.nitter.drop', Plugins.kind.ACTOR)
+class NitterFilterDrop(Filter):
+
+    def __init__(self, config: NitterFilterConfig, entities: Sequence[NitterFilterEntity]):
+        super().__init__(config, entities)
+
+    def match(self, entity: NitterFilterEntity, record: NitterRecord) -> Optional[NitterRecord]:
+        if not isinstance(record, NitterRecord):
+            self.logger.debug(f'[{entity.name}] record dropped due to unsupported type, expected NitterRecord, got {type(record)}')
+            return None
+        if entity.retweet and record.retweet_header is not None:
+            return None
+        if entity.reply and record.reply_header is not None:
+            return None
+        if entity.quote and not record.quote is not None:
+            return None
+        if entity.regular_tweet:
+            if all([x is None for x in [record.reply_header, record.retweet_header, record.quote]]):
+                return None
+        if entity.author and record.author.find(entity.author) > -1:
+            return None
+        if entity.username and record.username.find(entity.username) > -1:
+            return None
+        return record
