@@ -196,10 +196,22 @@ class BaseFeedMonitorConfig(ActorConfig):
     @field_validator('db_path')
     @classmethod
     def str_to_path(cls, path: Union[Path, str]):
+        if isinstance(path, Path):
+            return path
         if path == ':memory:':
             return path
+        if path.endswith('/') or path.endswith('\\'):
+            ok = check_dir(Path(path), create=True)
+            if not ok:
+                raise ValueError(f'error accessing path {path}, check if it is a valid path and is writeable')
         return Path(path)
-    
+
+    @model_validator(mode='after')
+    def handle_db_directory(self):
+        if self.db_path.is_dir():
+            self.db_path = self.db_path.joinpath(f'{self.name}.sqlite')
+        return self
+
 class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     url: str
 
