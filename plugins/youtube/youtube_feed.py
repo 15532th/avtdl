@@ -4,9 +4,10 @@ from typing import Optional, Sequence
 import aiohttp
 from pydantic import Field
 
-from core.interfaces import Record
+from core.interfaces import Record, FilterEntity, Filter
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
+from plugins.filters.filters import EmptyFilterConfig
 from plugins.youtube.feed_info import VideoRendererInfo, handle_page
 
 
@@ -71,3 +72,33 @@ class VideosMonitor(BaseFeedMonitor):
 
     def get_record_id(self, record: YoutubeVideoRecord) -> str:
         return record.video_id
+
+
+@Plugins.register('filter.channel', Plugins.kind.ACTOR_CONFIG)
+class ChannelFilterConfig(EmptyFilterConfig):
+    pass
+
+@Plugins.register('filter.channel', Plugins.kind.ACTOR_ENTITY)
+class ChannelFilterEntity(FilterEntity):
+    upcoming: bool = True
+    live: bool = False
+    member_only: bool = False
+
+
+@Plugins.register('filter.channel', Plugins.kind.ACTOR)
+class ChannelFilter(Filter):
+
+    def __init__(self, config: ChannelFilterConfig, entities: Sequence[ChannelFilterEntity]):
+        super().__init__(config, entities)
+
+    def match(self, entity: ChannelFilterEntity, record: YoutubeVideoRecord) -> Optional[YoutubeVideoRecord]:
+        if not isinstance(record, YoutubeVideoRecord):
+            self.logger.debug(f'[{entity.name}] record dropped due to unsupported type, expected YoutubeVideoRecord, got {type(record)}')
+            return None
+        if entity.upcoming and not record.is_upcoming:
+            return None
+        if entity.live and not record.is_live:
+            return None
+        if entity.member_only and not record.is_member_only:
+            return None
+        return record
