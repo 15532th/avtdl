@@ -38,6 +38,33 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         original_post = str(self.original_post) if self.original_post else ''
         return '\n'.join((channel_post_url, header, body, attachments, original_post))
 
+    def discord_embed(self) -> dict:
+        channel_url = f'https://www.youtube.com/channel/{self.channel_id}'
+        post_url = f'https://www.youtube.com/post/{self.post_id}'
+
+        attachments = '\n'.join(self.attachments)
+        original_post = str(self.original_post) if self.original_post else ''
+        text = '\n'.join([self.full_text, attachments, original_post])
+        text = text.replace('\n', ' \r\n')
+
+        embed = {
+            'title': post_url,
+            'description': text,
+            'url': post_url,
+            'color': None,
+            'author': {'name': self.author, 'url': channel_url},
+            'fields': [
+                {
+                    'name': '',
+                    'value': self.published_text
+                }
+            ]
+        }
+        if self.sponsor_only:
+            embed['fields'].append({'name': 'Member only', 'value': ''})
+        if self.attachments:
+            embed['image'] = {'url': self.attachments[0]}
+        return embed
 
 @Plugins.register('community', Plugins.kind.ACTOR_CONFIG)
 class CommunityPostsMonitorConfig(BaseFeedMonitorConfig):
