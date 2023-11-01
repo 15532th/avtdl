@@ -1,56 +1,19 @@
 import asyncio
 import datetime
-import json
 import logging
-from collections import defaultdict
 from textwrap import shorten
-from typing import List, Optional, Sequence, Dict, DefaultDict, Union, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
 import dateutil
-from pydantic import field_validator, BaseModel, Field
+from pydantic import Field, field_validator
 
-from core.interfaces import Record, ActorConfig, ActorEntity, Actor
+from core.interfaces import Actor, ActorConfig, ActorEntity, Record
 from core.plugins import Plugins
 
 EMBEDS_PER_MESSAGE = 10
 EMBED_TITLE_MAX_LENGTH = 256
 EMBED_DESCRIPTION_MAX_LENGTH = 4096
-
-
-@Plugins.register('discord.hook', Plugins.kind.ACTOR_CONFIG)
-class DiscordHookConfig(ActorConfig):
-    pass
-
-@Plugins.register('discord.hook', Plugins.kind.ACTOR_ENTITY)
-class DiscordHookEntity(ActorEntity):
-    hook_url: str
-    timezone: Optional[Union[str, datetime.timezone]] = None # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-    hook: Optional['DiscordWebhook'] = Field(exclude=True, default=None)
-
-    @field_validator('timezone')
-    @classmethod
-    def check_timezone(cls, timezone: str) -> datetime.timezone:
-        tz = dateutil.tz.gettz(timezone)
-        if tz is None:
-            raise ValueError(f'Unknown timezone: {timezone}')
-        return tz
-
-@Plugins.register('discord.hook', Plugins.kind.ACTOR)
-class DiscordHook(Actor):
-    def __init__(self, conf: DiscordHookConfig, entities: Sequence[DiscordHookEntity]):
-        for entity in entities:
-            entity.hook = DiscordWebhook(entity.hook_url, self.logger)
-        super().__init__(conf, entities)
-
-    def handle(self, entity: DiscordHookEntity, record: Record):
-        if entity.hook is None:
-            return
-        entity.hook.to_be_send(record.as_timezone(entity.timezone))
-
-    async def run(self):
-        tasks = [asyncio.create_task(entity.hook.run() for entity in self.entities.values())]
-        await asyncio.wait(tasks)
 
 
 class DiscordWebhook:
@@ -81,7 +44,7 @@ class DiscordWebhook:
             if len(to_be_send) == 0:
                 continue
             message = MessageFormatter.format(to_be_send)
-            success, until_next_try = self.send(message)
+            success, until_next_try = await self.send(message)
             if success:
                 to_be_send = []
             await asyncio.sleep(until_next_try)
@@ -101,8 +64,10 @@ class DiscordWebhook:
             self.logger.debug(f'Retry-After header is set to {delay}')
         else:
             remaining = response.headers.get('X-RateLimit-Remaining', '0')
+            self.logger.debug(f'X-RateLimit-Remaining={remaining}')
             if remaining == '0':
                 delay = response.headers.get('X-RateLimit-Reset-After', 'no X-RateLimit-Reset-After header in response')
+                self.logger.debug(f'X-RateLimit-Reset-After={delay}')
             else:
                 delay = 0
         try:
@@ -149,4 +114,39 @@ class MessageFormatter:
         description = shorten(description, EMBED_DESCRIPTION_MAX_LENGTH)
         return {'title': title, 'description': description}
 
+
+
+@Plugins.register('discord.hook', Plugins.kind.ACTOR_CONFIG)
+class DiscordHookConfig(ActorConfig):
+    pass
+
+@Plugins.register('discord.hook', Plugins.kind.ACTOR_ENTITY)
+class DiscordHookEntity(ActorEntity):
+    url: str
+    timezone: Optional[str] = None # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+    hook: Optional[Any] = Field(exclude=True, default=None)
+
+    @field_validator('timezone')
+    @classmethod
+    def check_timezone(cls, timezone: str) -> datetime.timezone:
+        tz = dateutil.tz.gettz(timezone)
+        if tz is None:
+            raise ValueError(f'Unknown timezone: {timezone}')
+        return tz
+
+@Plugins.register('discord.hook', Plugins.kind.ACTOR)
+class DiscordHook(Actor):
+    def __init__(self, conf: DiscordHookConfig, entities: Sequence[DiscordHookEntity]):
+        super().__init__(conf, entities)
+        for entity in entities:
+            entity.hook = DiscordWebhook(entity.url, self.logger)
+
+    def handle(self, entity: DiscordHookEntity, record: Record):
+        if entity.hook is None:
+            return
+        entity.hook.to_be_send(record.as_timezone(entity.timezone))
+
+    async def run(self):
+        tasks = [asyncio.create_task(entity.hook.run()) for entity in self.entities.values()]
+        await asyncio.wait(tasks)
 
