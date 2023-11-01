@@ -10,7 +10,7 @@ from dateutil import parser
 from pydantic import ConfigDict
 
 from core import utils
-from core.interfaces import MAX_REPR_LEN, Record, FilterEntity, Filter
+from core.interfaces import Filter, FilterEntity, MAX_REPR_LEN, Record
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
@@ -48,6 +48,35 @@ class NitterRecord(Record):
 
     def __repr__(self):
         return f'NitterRecord(author="{self.author}", url="{self.url}", text="{shorten(self.text, MAX_REPR_LEN)}")'
+
+    def discord_embed(self) -> dict:
+        text = self.text
+        if len(self.attachments) > 0:
+            text += '\n'.join(self.attachments)
+        if self.quote:
+            text += '\nReferring to '
+            text += str(self.quote)
+        text = text.replace('\n', ' \r\n')
+
+        author_render = f'{self.author} ({self.username})'
+        if self.retweet_header:
+            author = self.retweet_header
+            title = author_render
+        else:
+            author = author_render
+            title = self.reply_header or self.url
+
+        embed = {
+            'title': title,
+            'description': text,
+            'url': self.url,
+            'color': None,
+            'author': {'name': author},
+            'timestamp': self.published.isoformat(),
+        }
+        if self.attachments:
+            embed['image'] = {'url': self.attachments[0]}
+        return embed
 
 class NitterQuoteRecord(NitterRecord):
     quote: None = None
