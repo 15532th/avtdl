@@ -74,7 +74,7 @@ def get_text_content(element: lxml.html.HtmlElement) -> str:
         link = element.attrib.get('href')
         if link is None:
             return element.text
-        if link.find('/search') > -1 and element.text.startswith('#'): # hashtag
+        if link.find('/search?q=') > -1: # hashtag
             return element.text
         return link
 
