@@ -4,14 +4,14 @@ from abc import abstractmethod
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union, Mapping
+from typing import Any, Dict, Mapping, Optional, Sequence, Union
 
 import aiohttp
 from pydantic import Field, FilePath, field_validator, model_validator
 
 from core import utils
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
-from core.utils import get_cache_ttl, show_diff, get_retry_after, load_cookies, convert_cookiejar, check_dir
+from core.utils import check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff
 
 
 class TaskMonitorEntity(ActorEntity):
@@ -231,7 +231,7 @@ class BaseFeedMonitorConfig(ActorConfig):
 
     @model_validator(mode='after')
     def handle_db_directory(self):
-        if self.db_path.is_dir():
+        if isinstance(self.db_path, Path) and self.db_path.is_dir():
             self.db_path = self.db_path.joinpath(f'{self.name}.sqlite')
         return self
 
