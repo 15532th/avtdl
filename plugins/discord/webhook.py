@@ -1,11 +1,13 @@
 import asyncio
 import datetime
+import json
 import logging
 from textwrap import shorten
 from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
 import dateutil
+import multidict
 from pydantic import Field, field_validator
 
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
@@ -18,8 +20,9 @@ EMBED_DESCRIPTION_MAX_LENGTH = 4096
 
 class DiscordWebhook:
 
-    def __init__(self, hook_url: str, logger: Optional[logging.Logger] = None):
+    def __init__(self, name: str, hook_url: str, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger('DiscordHook')
+        self.name = name
         self.hook_url = hook_url
         self.send_query: Optional[asyncio.Queue] = None
         self.session: Optional[aiohttp.ClientSession] = None
@@ -33,8 +36,10 @@ class DiscordWebhook:
         self.send_query = asyncio.Queue()
         self.session = aiohttp.ClientSession()
 
+        until_next_try = 0
         to_be_send = []
         while True:
+            await asyncio.sleep(until_next_try)
             try:
                 while len(to_be_send) < EMBEDS_PER_MESSAGE:
                     record = await asyncio.wait_for(self.send_query.get(), 60/EMBEDS_PER_MESSAGE)
@@ -44,29 +49,37 @@ class DiscordWebhook:
             if len(to_be_send) == 0:
                 continue
             message = MessageFormatter.format(to_be_send)
-            success, until_next_try = await self.send(message)
-            if success:
+            try:
+                response = await self.session.post(self.hook_url, json=message)
+            except Exception as e:
+                self.logger.warning(f'[{self.name}] error while sending message with Discord webhook: {e}')
+                until_next_try = 60
+                continue
+            try:
+                response.raise_for_status()
+            except aiohttp.ClientResponseError as e:
+                self.logger.warning(f'got {response.status} ({response.reason}) from {self.hook_url}')
+                if e.status == 400:
+                    self.logger.warning(f'[{self.name}] message got rejected with {response.status} ({response.reason}), dropping it')
+                    self.logger.debug(f'[{self.name}] response headers: {response.headers}')
+                    self.logger.debug(f'[{self.name}] raw request body: {json.dumps(message)}')
+                    to_be_send = []
+                elif e.status in  [404, 403]:
+                    self.logger.warning(f'[{self.name}] got {e.status} from webhook, interrupting operations. Check if webhook url is still valid: {self.hook_url}')
+                    break
+            else:
                 to_be_send = []
-            await asyncio.sleep(until_next_try)
+            until_next_try = self.get_next_delay(response.headers)
 
-    async def send(self, message: dict) -> Tuple[bool, int]:
-        if self.session is None:
-            return False, 60
-        response = await self.session.post(self.hook_url, json=message)
-        try:
-            response.raise_for_status()
-            success = True
-        except aiohttp.ClientResponseError:
-            success = False
-            self.logger.debug(f'got {response.status} ({response.reason}) from {self.hook_url}')
-        if 'Retry-After' in response.headers:
-            delay = response.headers.get('Retry-After', 0)
+    def get_next_delay(self, headers: multidict.CIMultiDictProxy):
+        if 'Retry-After' in headers:
+            delay = headers.get('Retry-After', 0)
             self.logger.debug(f'Retry-After header is set to {delay}')
         else:
-            remaining = response.headers.get('X-RateLimit-Remaining', '0')
+            remaining = headers.get('X-RateLimit-Remaining', '0')
             self.logger.debug(f'X-RateLimit-Remaining={remaining}')
             if remaining == '0':
-                delay = response.headers.get('X-RateLimit-Reset-After', 'no X-RateLimit-Reset-After header in response')
+                delay = headers.get('X-RateLimit-Reset-After', 'no X-RateLimit-Reset-After header in response')
                 self.logger.debug(f'X-RateLimit-Reset-After={delay}')
             else:
                 delay = 0
@@ -75,7 +88,7 @@ class DiscordWebhook:
         except ValueError:
             self.logger.debug(f'failed to parse delay {delay} for {self.hook_url}, using default')
             delay = 6
-        return success, delay
+        return delay
 
 
 class MessageFormatter:
@@ -115,7 +128,6 @@ class MessageFormatter:
         return {'title': title, 'description': description}
 
 
-
 @Plugins.register('discord.hook', Plugins.kind.ACTOR_CONFIG)
 class DiscordHookConfig(ActorConfig):
     pass
@@ -139,7 +151,7 @@ class DiscordHook(Actor):
     def __init__(self, conf: DiscordHookConfig, entities: Sequence[DiscordHookEntity]):
         super().__init__(conf, entities)
         for entity in entities:
-            entity.hook = DiscordWebhook(entity.url, self.logger)
+            entity.hook = DiscordWebhook(entity.name, entity.url, self.logger)
 
     def handle(self, entity: DiscordHookEntity, record: Record):
         if entity.hook is None:
