@@ -147,8 +147,9 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
 
         if entity.adjust_update_interval:
-            update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
-            new_update_interval = max(update_interval, entity.base_update_interval)
+            new_update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
+            new_update_interval = min(new_update_interval, 10 * entity.base_update_interval, 4*3600) # in case ttl is overly long
+            new_update_interval = max(new_update_interval, entity.base_update_interval)
             if entity.update_interval != new_update_interval:
                 logger.info(f'[{entity.name}] next update in {entity.update_interval}')
                 entity.update_interval = new_update_interval
