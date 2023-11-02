@@ -36,7 +36,7 @@ class DiscordWebhook:
         to_be_send = []
         while True:
             try:
-                for _ in range(EMBEDS_PER_MESSAGE):
+                while len(to_be_send) < EMBEDS_PER_MESSAGE:
                     record = await asyncio.wait_for(self.send_query.get(), 60/EMBEDS_PER_MESSAGE)
                     to_be_send.append(record)
             except asyncio.TimeoutError:
