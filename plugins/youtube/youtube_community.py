@@ -45,7 +45,6 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         attachments = '\n'.join(self.attachments)
         original_post = str(self.original_post) if self.original_post else ''
         text = '\n'.join([self.full_text, attachments, original_post])
-        text = text.replace('\n', ' \r\n')
 
         embed = {
             'title': post_url,

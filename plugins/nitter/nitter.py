@@ -56,7 +56,6 @@ class NitterRecord(Record):
         if self.quote:
             text += '\nReferring to '
             text += str(self.quote)
-        text = text.replace('\n', ' \r\n')
 
         author_render = f'{self.author} ({self.username})'
         if self.retweet_header:
