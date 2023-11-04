@@ -165,6 +165,7 @@ class NitterMonitor(BaseFeedMonitor):
             current_page += 1
             await asyncio.sleep(entity.next_page_delay)
 
+        records = records[::-1] # feed is naturally sorted from newer to older, reverse it
         return records
 
     def get_record_id(self, record: NitterRecord) -> str:
