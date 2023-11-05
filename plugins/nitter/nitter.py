@@ -50,12 +50,13 @@ class NitterRecord(Record):
         return f'NitterRecord(author="{self.author}", url="{self.url}", text="{shorten(self.text, MAX_REPR_LEN)}")'
 
     def discord_embed(self) -> dict:
-        text = self.text
-        if len(self.attachments) > 0:
-            text += '\n'.join(self.attachments)
+        text_items = [self.text]
+        if len(self.attachments) > 1:
+            text_items.extend(self.attachments)
         if self.quote:
-            text += '\nReferring to '
-            text += str(self.quote)
+            text_items.append('\nReferring to ')
+            text_items.append(str(self.quote))
+        text = '\n'.join(text_items)
 
         author_render = f'{self.author} ({self.username})'
         if self.retweet_header:
