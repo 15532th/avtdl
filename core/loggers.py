@@ -17,8 +17,14 @@ class LogLevel(str, Enum):
 def set_logging_format(level):
     log_format = '%(asctime)s.%(msecs)03d [%(levelname)-7s] [%(name)s] %(message)s'
     datefmt = '%Y/%m/%d %H:%M:%S'
-    logging.basicConfig(level=level, format=log_format, datefmt=datefmt)
+    handler = logging.StreamHandler()
+    handler.setLevel(level)
+    formatter = logging.Formatter(log_format, datefmt)
+    handler.setFormatter(formatter)
+    logging.getLogger().addHandler(handler)
+    
     logging.getLogger().name = 'avtdl'
+    logging.getLogger().setLevel(logging.NOTSET)
 
 def set_file_logger(path: Path, name: str = 'avtdl.log', max_size=1000000):
     check_dir(path, create=True)
@@ -33,7 +39,7 @@ def set_file_logger(path: Path, name: str = 'avtdl.log', max_size=1000000):
         return
     handler.setFormatter(formatter)
     handler.setLevel(logging.DEBUG)
-    logging.getLogger('').addHandler(handler)
+    logging.getLogger().addHandler(handler)
     logging.info(f'writing verbose log to file {path.absolute()}')
 
 def set_logger(name: str, level: Union[LogLevel, int], propagate=True):
