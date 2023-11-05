@@ -3,6 +3,7 @@ import datetime
 import re
 from textwrap import shorten
 from typing import List, Optional, Sequence
+from urllib import parse as urllibparse
 
 import aiohttp
 import lxml.html
@@ -249,8 +250,13 @@ class NitterMonitor(BaseFeedMonitor):
         text = get_text_content(post_body)
         html = get_html_content(post_body)
 
-        [raw_attachments] = raw_post.xpath("(.//*[@class='attachments'])[1]") or [None]
+        [raw_attachments] = raw_post.xpath("(.//*[@class='tweet-body']/*[@class='attachments'])[1]") or [None]
         attachments = self._parse_attachments(raw_attachments) if raw_attachments is not None else []
+
+        video_attachments = raw_post.xpath(".//*[@class='attachment video-container']/video/@poster")
+        if video_attachments:
+            thumbnails = [urllibparse.urljoin(raw_post.base_url, thumb) for thumb in video_attachments]
+            attachments.extend(thumbnails)
 
         [raw_quote] = raw_post.xpath(".//*[@class='quote quote-big']") or [None]
         quote = self._parse_quote(raw_quote) if raw_quote is not None else None
