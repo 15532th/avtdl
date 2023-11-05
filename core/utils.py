@@ -22,7 +22,7 @@ def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional
         return None
     cookie_jar = cookiejar.MozillaCookieJar(path)
     try:
-        cookie_jar.load()
+        cookie_jar.load(ignore_discard=True, ignore_expires=True)
         logger.info(f"Successfully loaded cookies from {path}")
     except FileNotFoundError:
         logger.exception(f'Failed to load cookies from {path}: file not found')
