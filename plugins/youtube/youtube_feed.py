@@ -80,6 +80,7 @@ class VideosMonitor(BaseFeedMonitor):
         raw_page_text = await raw_page.text()
         video_info = handle_page(raw_page_text)
         records = [YoutubeVideoRecord.model_validate(info.model_dump()) for info in video_info]
+        records = records[::-1] # records are ordered from new to old on page, reorder in chronological order
         return records
 
     def get_record_id(self, record: YoutubeVideoRecord) -> str:
