@@ -41,6 +41,18 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
         template = '{} {:<8} [{}] {}'
         return template.format(self.published_text, self.author, self.video_id, self.title[:60])
 
+    def discord_embed(self) -> dict:
+        embed = {
+            'title': self.title,
+            'description': self.url,
+            'url': self.url,
+            'color': None,
+            'author': {'name': self.author, 'url': self.channel_link},
+            'timestamp': self.scheduled.isoformat() if self.scheduled else None,
+        }
+        return embed
+
+
     @staticmethod
     def format_date(date: datetime.datetime) -> str:
         if isinstance(date, str):
