@@ -3,7 +3,7 @@ import datetime
 import json
 import logging
 from textwrap import shorten
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence
 
 import aiohttp
 import dateutil
