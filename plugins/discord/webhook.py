@@ -30,6 +30,7 @@ class DiscordWebhook:
     def to_be_send(self, record: Record):
         if self.send_query is None:
             return
+        self.logger.debug(f'adding record to send queue: {record!r}')
         self.send_query.put_nowait(record)
 
     async def run(self):
