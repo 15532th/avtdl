@@ -167,7 +167,10 @@ class HttpTaskMonitor(BaseTaskMonitor):
         if session is None:
             netscape_cookies = load_cookies(entity.cookies_file)
             cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
-            session = aiohttp.ClientSession(cookies=cookies)
+            session = aiohttp.ClientSession(cookie_jar=cookies)
+            self.sessions[session_id] = session
+        else:
+            self.logger.debug(f'[{entity.name}] reusing session with cookies from {session_id}')
         return session
 
     async def run_for(self, entity: HttpTaskMonitorEntity):
