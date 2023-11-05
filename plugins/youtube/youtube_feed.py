@@ -4,7 +4,7 @@ from typing import Optional, Sequence
 import aiohttp
 from pydantic import Field
 
-from core.interfaces import Record, FilterEntity, Filter
+from core.interfaces import Filter, FilterEntity, Record
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
