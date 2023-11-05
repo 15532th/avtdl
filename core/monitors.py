@@ -174,15 +174,14 @@ class HttpTaskMonitor(BaseTaskMonitor):
         return session
 
     async def run_for(self, entity: HttpTaskMonitorEntity):
-        session = self._get_session(entity)
-        async with session:
-            while True:
-                try:
+        try:
+            session = self._get_session(entity)
+            async with session:
+                while True:
                     await self.run_once(entity, session)
-                except Exception:
-                    self.logger.exception(f'{self.conf.name}: task for entity {entity} failed, terminating')
-                    break
-                await asyncio.sleep(entity.update_interval)
+                    await asyncio.sleep(entity.update_interval)
+        except Exception:
+            self.logger.exception(f'unexpected error in task for entity {entity.name}, task terminated')
 
     async def run_once(self, entity: TaskMonitorEntity, session: aiohttp.ClientSession):
         records = await self.get_new_records(entity, session)
