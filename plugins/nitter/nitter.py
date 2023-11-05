@@ -76,6 +76,8 @@ class NitterRecord(Record):
         }
         if self.attachments:
             embed['image'] = {'url': self.attachments[0]}
+        elif self.quote and self.quote.attachments:
+            embed['image'] = {'url': self.quote.attachments[0]}
         return embed
 
 class NitterQuoteRecord(NitterRecord):
