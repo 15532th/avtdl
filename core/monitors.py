@@ -11,7 +11,7 @@ from pydantic import Field, FilePath, field_validator, model_validator
 
 from core import utils
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
-from core.utils import check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff
+from core.utils import check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff, Delay
 
 
 class TaskMonitorEntity(ActorEntity):
@@ -241,6 +241,9 @@ class BaseFeedMonitorConfig(ActorConfig):
 class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     url: str
 
+    quiet_start: bool = False
+    quiet_first_time: bool = True
+
 class BaseFeedMonitor(HttpTaskMonitor):
     RecordDB = RecordDB
 
@@ -271,9 +274,18 @@ class BaseFeedMonitor(HttpTaskMonitor):
         '''if feed has no prior records fetch it once and mark all entries as old
         in order to not produce ten messages at once when feed first added'''
         size = self.db.get_size(entity.name)
-        if size == 0:
+        priming_required = False
+        if entity.quiet_start:
+            self.logger.info(f'[{entity.name}] option "quiet_start" enabled, all records until this moment will be marked as already seen')
+            priming_required = True
+        elif size == 0:
             self.logger.info(f'[{entity.name}] database at "{self.conf.db_path}" has no records for "{entity.name}", assuming first run')
-            await self.get_new_records(entity, session)
+            if entity.quiet_first_time:
+                self.logger.debug(f'[{entity.name}] option "quiet_first_time" enabled, all records until this moment will be marked as already seen')
+                priming_required = True
+        if priming_required:
+            n = len(await self.get_new_records(entity, session))
+            self.logger.debug(f'[{entity.name}] number of records that was marked as already seen on first update: {n}')
         else:
             self.logger.info(f'[{entity.name}] {size} records stored in database')
 
