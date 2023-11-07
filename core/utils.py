@@ -8,6 +8,7 @@ import re
 import sqlite3
 from email.utils import mktime_tz, parsedate_to_datetime
 from http import cookiejar
+from math import log2
 from pathlib import Path
 from textwrap import shorten
 from typing import Any, Dict, Optional, Union
@@ -264,3 +265,29 @@ class RecordDB:
         keys = {'group': group}
         self.cursor.execute(sql, keys)
         return int(self.cursor.fetchone()[0])
+
+
+class Delay:
+    '''Provide method to calculate next delay for exponential backoff based on S-shaped curve'''
+
+    A: float = 4600 # upper asymptote
+    k: float = 0.88 # curve growth rate
+    x0: float = 8 # x value corresponding to midpoint of the curve
+
+    @classmethod
+    def _sigmoid(cls, x: float) -> float:
+        y = cls.A / (1 + 2 ** (-cls.k * (x - cls.x0)))
+        return y
+
+    @classmethod
+    def _inv_sigmoid(cls, y: float) -> float:
+        x = cls.x0 - log2((cls.A - y) / y) / cls.k
+        return x
+
+    @classmethod
+    def get_next(cls, current: float) -> float:
+        '''Find current value on S-shaped curve and return a next one'''
+        current_step = cls._inv_sigmoid(current)
+        next_step = current_step + 1
+        next_delay = cls._sigmoid(next_step)
+        return next_delay
