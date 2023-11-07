@@ -68,6 +68,17 @@ class YoutubeFeedRecord(LivestreamRecord):
         record_dict.update(additional_fields)
         return record_dict
 
+    def discord_embed(self) -> dict:
+        embed = {
+            'title': self.title,
+            'description': self.url,
+            'url': self.url,
+            'color': None,
+            'author': {'name': self.author},
+            'timestamp': self.scheduled.isoformat() if self.scheduled else None,
+        }
+        return embed
+
 
 class RecordDB(utils.RecordDB):
     table_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views integer, PRIMARY KEY(video_id, updated)'
