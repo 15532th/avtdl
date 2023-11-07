@@ -26,7 +26,7 @@ def set_logging_format(level):
     logging.getLogger().name = 'avtdl'
     logging.getLogger().setLevel(logging.NOTSET)
 
-def set_file_logger(path: Path, name: str = 'avtdl.log', max_size=1000000):
+def set_file_logger(path: Path, name: str = 'avtdl.log', max_size=1000000, level: LogLevel = LogLevel.debug):
     check_dir(path, create=True)
     path /= name
     log_format = '%(asctime)s.%(msecs)03d [%(levelname)s] [%(name)s] %(message)s'
@@ -38,7 +38,7 @@ def set_file_logger(path: Path, name: str = 'avtdl.log', max_size=1000000):
         logging.error(f'writing log to {path.absolute()} failed: {e}')
         return
     handler.setFormatter(formatter)
-    handler.setLevel(logging.DEBUG)
+    handler.setLevel(getattr(logging, level))
     logging.getLogger().addHandler(handler)
     logging.info(f'writing verbose log to file {path.absolute()}')
 
