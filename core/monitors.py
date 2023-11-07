@@ -129,7 +129,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
             else:
                 logger.warning(f'[{entity.name}] error while fetching {url}: {e}')
 
-            update_interval = min(entity.update_interval * 2, entity.base_update_interval * 10, 4*3600)
+            update_interval = int(Delay.get_next(entity.update_interval))
             if entity.update_interval != update_interval:
                 entity.update_interval = update_interval
                 logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url}')
