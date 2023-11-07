@@ -34,12 +34,12 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
             scheduled_time = '\nscheduled to {}'.format(self.format_date(scheduled))
         else:
             scheduled_time = ''
-        template = '{}\n{}\npublished by {} at {}'
-        return template.format(self.url, self.title, self.author, self.published_text) + scheduled_time
+        template = '{}\n{}\npublished by {}'
+        return template.format(self.url, self.title, self.author) + scheduled_time
 
     def __repr__(self):
-        template = '{} {:<8} [{}] {}'
-        return template.format(self.published_text, self.author, self.video_id, self.title[:60])
+        template = '{:<8} [{}] {}'
+        return template.format(self.author, self.video_id, self.title[:60])
 
     def discord_embed(self) -> dict:
         embed = {
