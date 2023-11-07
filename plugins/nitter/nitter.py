@@ -38,7 +38,7 @@ class NitterRecord(Record):
             elements.append(self.retweet_header)
         if self.reply_header:
             elements.append(self.reply_header)
-        elements.append(f'{self.author} ({self.username}):')
+        elements.append(f'{self.author} ({self.username}) [{self.published.strftime("%Y-%m-%d %H:%M:%S")}]:')
         elements.append(self.text)
         if self.attachments:
             elements.append('\n'.join(self.attachments))
