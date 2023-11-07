@@ -1,5 +1,6 @@
 import json
 import re
+from collections import OrderedDict
 from typing import List, Sequence, Optional
 
 from pydantic import field_validator
@@ -16,6 +17,7 @@ from core.interfaces import Filter, Record, FilterEntity, ActorConfig, Event, Te
 @Plugins.register('filter.type', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('filter.json', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('filter.format', Plugins.kind.ACTOR_CONFIG)
+@Plugins.register('filter.deduplicate', Plugins.kind.ACTOR_CONFIG)
 class EmptyFilterConfig(ActorConfig):
     pass
 
@@ -162,3 +164,43 @@ class FormatFilter(Filter):
         for placeholder in placeholders:
            text = text.replace(placeholder, getattr(record, placeholder[1:-1], entity.missing))
         return TextRecord(text=text)
+
+
+@Plugins.register('filter.deduplicate', Plugins.kind.ACTOR_ENTITY)
+class DeduplicateFilterEntity(FilterEntity):
+    field: str = 'hash'
+    history_size: int = 10000
+
+
+@Plugins.register('filter.deduplicate', Plugins.kind.ACTOR)
+class DeduplicateFilter(Filter):
+
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[DeduplicateFilterEntity]):
+        super().__init__(config, entities)
+        self.seen: OrderedDict = OrderedDict()
+
+    def match(self, entity: DeduplicateFilterEntity, record: Record) -> Optional[Record]:
+        field = getattr(record, entity.field, None)
+        if field is None:
+            self.logger.debug(f'[{entity.name}] record has no field {entity.field}, letting it through')
+            return record
+        if callable(field):
+            try:
+                value = field()
+            except TypeError:
+                self.logger.debug(f'[{entity.name}] unsupported "field" value {entity.field}. Should be a property or a method that takes no arguments. All records will be dropped on this filter')
+                return None
+        else:
+            value = field
+
+        value = str(value) # support non-hashable fields
+
+        if self.seen.get(value, False):
+            self.logger.debug(f'[{entity.name}] record with {entity.field}={value} has already been seen, dropping')
+            return None
+
+        while len(self.seen) >= entity.history_size:
+            self.seen.popitem(last=False)
+
+        self.seen[value] = True
+        return record
