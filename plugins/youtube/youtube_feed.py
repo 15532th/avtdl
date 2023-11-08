@@ -9,6 +9,7 @@ from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonito
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
 from plugins.youtube.feed_info import VideoRendererInfo, handle_page
+from plugins.youtube.utils import thumbnail_url
 
 
 class YoutubeVideoRecord(VideoRendererInfo, Record):
@@ -19,6 +20,7 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
     summary: Optional[str] = Field(repr=False)
     scheduled: Optional[datetime.datetime] = None
     author: Optional[str]
+    avatar_url: Optional[str] = None
     channel_link: Optional[str] = None
     channel_id: Optional[str] = None
     published_text: Optional[str]
@@ -47,8 +49,9 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
             'description': self.url,
             'url': self.url,
             'color': None,
-            'author': {'name': self.author, 'url': self.channel_link},
+            'author': {'name': self.author, 'url': self.channel_link, 'icon_url': self.avatar_url},
             'timestamp': self.scheduled.isoformat() if self.scheduled else None,
+            'image': {'url': thumbnail_url(self.video_id)}
         }
         return embed
 
