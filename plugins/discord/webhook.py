@@ -27,10 +27,10 @@ class DiscordWebhook:
         self.send_query: Optional[asyncio.Queue] = None
         self.session: Optional[aiohttp.ClientSession] = None
 
-    def to_be_send(self, record: Record):
+    def to_be_sent(self, record: Record):
         if self.send_query is None:
             return
-        self.logger.debug(f'adding record to send queue: {record!r}')
+        self.logger.debug(f'adding record to send query: {record!r}')
         self.send_query.put_nowait(record)
 
     async def run(self):
@@ -38,20 +38,21 @@ class DiscordWebhook:
         self.session = aiohttp.ClientSession()
 
         until_next_try = 0
-        to_be_send = []
+        to_be_sent = []
         while True:
             await asyncio.sleep(until_next_try)
             try:
-                while len(to_be_send) < EMBEDS_PER_MESSAGE:
+                while len(to_be_sent) < EMBEDS_PER_MESSAGE:
                     record = await asyncio.wait_for(self.send_query.get(), 60/EMBEDS_PER_MESSAGE)
-                    to_be_send.append(record)
+                    to_be_sent.append(record)
             except asyncio.TimeoutError:
                 pass
-            if len(to_be_send) == 0:
+            if len(to_be_sent) == 0:
                 continue
-            message = MessageFormatter.format(to_be_send)
+            message = MessageFormatter.format(to_be_sent)
             try:
                 response = await self.session.post(self.hook_url, json=message)
+                text = await response.text()
             except Exception as e:
                 self.logger.warning(f'[{self.name}] error while sending message with Discord webhook: {e}')
                 until_next_try = 60
@@ -64,12 +65,12 @@ class DiscordWebhook:
                     self.logger.warning(f'[{self.name}] message got rejected with {response.status} ({response.reason}), dropping it')
                     self.logger.debug(f'[{self.name}] response headers: {response.headers}')
                     self.logger.debug(f'[{self.name}] raw request body: {json.dumps(message)}')
-                    to_be_send = []
+                    to_be_sent = []
                 elif e.status in  [404, 403]:
                     self.logger.warning(f'[{self.name}] got {e.status} from webhook, interrupting operations. Check if webhook url is still valid: {self.hook_url}')
                     break
             else:
-                to_be_send = []
+                to_be_sent = []
             until_next_try = self.get_next_delay(response.headers)
 
     def get_next_delay(self, headers: multidict.CIMultiDictProxy):
@@ -157,7 +158,7 @@ class DiscordHook(Actor):
     def handle(self, entity: DiscordHookEntity, record: Record):
         if entity.hook is None:
             return
-        entity.hook.to_be_send(record.as_timezone(entity.timezone))
+        entity.hook.to_be_sent(record.as_timezone(entity.timezone))
 
     async def run(self):
         tasks = [asyncio.create_task(entity.hook.run()) for entity in self.entities.values()]
