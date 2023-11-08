@@ -25,6 +25,7 @@ class NitterRecord(Record):
     url: str
     author: str
     username: str
+    avatar_url: Optional[str] = None
     published: datetime.datetime
     text: str
     html: str = ''
@@ -72,7 +73,7 @@ class NitterRecord(Record):
             'description': text,
             'url': self.url,
             'color': None,
-            'author': {'name': author},
+            'author': {'name': author, 'icon_url': self.avatar_url},
             'timestamp': self.published.isoformat(),
         }
         if self.attachments:
@@ -218,6 +219,7 @@ class NitterMonitor(BaseFeedMonitor):
         url = re.sub('#m$', '', url)
         author = raw_quote.xpath(".//*[@class='fullname']/@title")[0]
         username = raw_quote.xpath(".//*[@class='username']/@title")[0]
+        [avatar_url] = raw_quote.xpath(".//img[@class='avatar round mini']/@src") or [None]
 
         published_text = raw_quote.xpath(".//*[@class='tweet-date']/a/@title")[0]
         published = parser.parse(published_text.replace('·', ''))
@@ -232,7 +234,15 @@ class NitterMonitor(BaseFeedMonitor):
         [raw_attachments] = raw_quote.xpath(".//*[@class='quote-media-container']/*[@class='attachments']") or [None]
         attachments = self._parse_attachments(raw_attachments) if raw_attachments is not None else []
 
-        return NitterQuoteRecord(url=url, author=author, username=username, published=published, text=text, html=html, attachments=attachments)
+        return NitterQuoteRecord(url=url,
+                                 author=author,
+                                 username=username,
+                                 avatar_url=avatar_url,
+                                 published=published,
+                                 text=text,
+                                 html=html,
+                                 attachments=attachments
+                                 )
 
     def _parse_post(self, raw_post: lxml.html.HtmlElement) -> NitterRecord:
         retweet_header = ''.join(element.text_content() for element in raw_post.xpath(".//*[@class='retweet-header']")).lstrip() or None
@@ -242,6 +252,7 @@ class NitterMonitor(BaseFeedMonitor):
         url = re.sub('#m$', '', url)
         author = raw_post.xpath(".//*[@class='fullname']/@title")[0]
         username = raw_post.xpath(".//*[@class='username']/@title")[0]
+        [avatar_url] = raw_post.xpath(".//*[@class='tweet-avatar']/img/@src") or [None]
 
         published_text = raw_post.xpath(".//*[@class='tweet-date']/a/@title")[0]
         published = parser.parse(published_text.replace('·', ''))
@@ -264,6 +275,7 @@ class NitterMonitor(BaseFeedMonitor):
         return NitterRecord(url=url,
                             author=author,
                             username=username,
+                            avatar_url=avatar_url,
                             published=published,
                             text=text,
                             html=html,
