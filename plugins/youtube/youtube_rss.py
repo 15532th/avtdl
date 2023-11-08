@@ -105,7 +105,7 @@ class RecordDB(utils.RecordDB):
 
 @Plugins.register('rss', Plugins.kind.ACTOR_ENTITY)
 class FeedMonitorEntity(GenericRSSMonitorEntity):
-    pass
+    update_interval : float = 900
 
 @Plugins.register('rss', Plugins.kind.ACTOR_CONFIG)
 class FeedMonitorConfig(GenericRSSMonitorConfig):
