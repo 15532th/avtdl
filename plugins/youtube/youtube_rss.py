@@ -13,6 +13,7 @@ from core.config import Plugins
 from core.interfaces import LivestreamRecord
 from plugins.youtube import video_info
 from plugins.rss.generic_rss import GenericRSSMonitor, GenericRSSMonitorConfig, GenericRSSMonitorEntity
+from plugins.youtube.utils import thumbnail_url
 
 
 class YoutubeFeedRecord(LivestreamRecord):
@@ -76,6 +77,7 @@ class YoutubeFeedRecord(LivestreamRecord):
             'color': None,
             'author': {'name': self.author},
             'timestamp': self.scheduled.isoformat() if self.scheduled else None,
+            'image': {'url': thumbnail_url(self.video_id)}
         }
         return embed
 
