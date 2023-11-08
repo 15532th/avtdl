@@ -11,18 +11,20 @@ from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonito
 from core.plugins import Plugins
 from plugins.youtube.community_info import CommunityPostInfo, get_continuation_token, get_posts_renderers, \
     prepare_next_page_request
-from plugins.youtube.utils import get_initial_data
+from plugins.youtube.utils import get_initial_data, video_url, thumbnail_url
 
 
 class CommunityPostRecord(Record, CommunityPostInfo):
     channel_id: str
     post_id: str
     author: str
+    avatar_url: Optional[str] = None
     vote_count: str
     sponsor_only: bool
     published_text: str
     full_text: str
     attachments: List[str]
+    video_id: Optional[str] = None
     original_post: Optional['CommunityPostRecord'] = None
 
     def __repr__(self) -> str:
@@ -35,8 +37,9 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         header = f'[{self.author}, {self.published_text} {sponsor_only}] {self.vote_count}'
         body = self.full_text
         attachments = '\n'.join(self.attachments)
+        video = video_url(self.video_id) if self.video_id else ''
         original_post = str(self.original_post) if self.original_post else ''
-        return '\n'.join((channel_post_url, header, body, attachments, original_post))
+        return '\n'.join((channel_post_url, header, body, video, attachments, original_post))
 
     def discord_embed(self) -> dict:
         channel_url = f'https://www.youtube.com/channel/{self.channel_id}'
@@ -51,7 +54,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
             'description': text,
             'url': post_url,
             'color': None,
-            'author': {'name': self.author, 'url': channel_url},
+            'author': {'name': self.author, 'url': channel_url, 'icon_url': self.avatar_url},
             'fields': [
                 {
                     'name': '',
@@ -61,7 +64,9 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         }
         if self.sponsor_only:
             embed['fields'].append({'name': 'Member only', 'value': ''})
-        if self.attachments:
+        if self.video_id:
+            embed['image'] = {'url': thumbnail_url(self.video_id)}
+        elif self.attachments:
             embed['image'] = {'url': self.attachments[0]}
         return embed
 

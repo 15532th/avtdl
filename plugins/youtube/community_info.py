@@ -14,11 +14,13 @@ class CommunityPostInfo(BaseModel):
     channel_id: str
     post_id: str
     author: str
+    avatar_url: Optional[str] = None
     vote_count: str
     sponsor_only: bool
     published_text: str
     full_text: str
     attachments: List[str]
+    video_id: Optional[str] = None
     original_post: Optional['CommunityPostInfo'] = None
 
     @classmethod
@@ -53,6 +55,7 @@ class CommunityPostInfo(BaseModel):
         author = find_one(post_renderer, '$.authorText..text')
         channel_id = find_one(post_renderer, '$.authorText..browseId')
         post_id = find_one(post_renderer, '$.postId')
+        avatar_url = find_one(post_renderer, '$.authorThumbnail.thumbnails.[-1].url')
 
         vote_count = find_one(post_renderer, '$.voteCount.simpleText')
 
@@ -62,6 +65,7 @@ class CommunityPostInfo(BaseModel):
         full_text = cls.render_full_text(post_renderer)
 
         attachments = find_all(post_renderer, '$.backstageAttachment..backstageImageRenderer.image.thumbnails.[-1:].url')
+        video_id = find_one(post_renderer, '$.backstageAttachment..videoRenderer.videoId')
 
         original_post_render = find_one(post_renderer, '$.originalPost')
         original_post = cls.from_post_renderer(original_post_render) if original_post_render else None
@@ -70,11 +74,13 @@ class CommunityPostInfo(BaseModel):
             author=author,
             channel_id=channel_id,
             post_id=post_id,
+            avatar_url=avatar_url,
             vote_count=vote_count,
             sponsor_only=sponsor_only,
             published_text=published_text,
             full_text=full_text,
             attachments=attachments,
+            video_id=video_id,
             original_post=original_post
         )
         return post
