@@ -25,3 +25,10 @@ def get_initial_data(page: str) -> dict:
     raw_data = match.groups()[0]
     data = json.loads(raw_data)
     return data
+
+
+def thumbnail_url(video_id: str) -> str:
+    return f'https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg'
+
+def video_url(video_id: str) -> str:
+    return f'https://www.youtube.com/watch?v={video_id}'
