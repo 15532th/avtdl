@@ -1,8 +1,7 @@
 import logging
 import sqlite3
 from datetime import datetime, timezone
-from typing import Optional, Union
-from typing import Sequence
+from typing import Optional, Sequence, Union
 
 import aiohttp
 import feedparser
@@ -11,8 +10,8 @@ from pydantic import ConfigDict
 from core import utils
 from core.config import Plugins
 from core.interfaces import LivestreamRecord
-from plugins.youtube import video_info
 from plugins.rss.generic_rss import GenericRSSMonitor, GenericRSSMonitorConfig, GenericRSSMonitorEntity
+from plugins.youtube import video_info
 from plugins.youtube.utils import thumbnail_url
 
 
