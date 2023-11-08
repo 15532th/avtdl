@@ -14,6 +14,7 @@ class VideoRendererInfo(BaseModel):
     summary: Optional[str] = Field(repr=False)
     scheduled: Optional[datetime.datetime] = None
     author: Optional[str]
+    avatar_url: Optional[str] = None
     channel_link: Optional[str] = None
     channel_id: Optional[str] = None
     published_text: Optional[str]
@@ -66,6 +67,7 @@ class AuthorInfo(BaseModel):
     name: str
     channel: str
     channel_id: str
+    avatar_url: Optional[str] = None
     
     @field_validator('channel')
     @classmethod
@@ -83,8 +85,11 @@ def parse_author(video_render: dict) -> Optional[AuthorInfo]:
     author = find_one(author_info, '$..text')
     channel_link = find_one(author_info, '$..browseEndpoint.canonicalBaseUrl')
     channel_id = find_one(author_info, '$..browseEndpoint.browseId')
+
+    avatar_url = find_one(video_render, '$.ChannelThumbnailSupportedRenderers..thumbnails.[-1].url')
+
     try:
-        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id)
+        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url)
     except ValidationError:
         return None
 
@@ -95,8 +100,9 @@ def parse_owner_info(page: dict) -> Optional[AuthorInfo]:
     author = find_one(owner_info_data, '$.title')
     channel_link = find_one(owner_info_data, '$..canonicalBaseUrl')
     channel_id = find_one(owner_info_data, '$.channelId')
+    avatar_url = find_one(owner_info_data, '$.avatar.thumbnails.[-1].url')
     try:
-        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id)
+        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url)
     except ValidationError:
         return None
 
@@ -109,11 +115,12 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> Option
     author_info = parse_author(item) or owner_info
     if author_info is None:
         author_name = get_author_fallback(item) 
-        channel_link = channel_id = None
+        channel_link = channel_id = avatar_url = None
     else:
         author_name = author_info.name
         channel_link = author_info.channel
         channel_id = author_info.channel_id
+        avatar_url = author_info.avatar_url
 
     scheduled_timestamp = find_one(item, '$.upcomingEventData.startTime')
     scheduled = parse_scheduled(scheduled_timestamp)
@@ -132,6 +139,7 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> Option
                                  summary=summary,
                                  scheduled=scheduled,
                                  author=author_name,
+                                 avatar_url=avatar_url,
                                  channel_link=channel_link,
                                  channel_id=channel_id,
                                  published_text=published_text,
