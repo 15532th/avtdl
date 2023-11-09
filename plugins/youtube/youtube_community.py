@@ -11,7 +11,7 @@ from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonito
 from core.plugins import Plugins
 from plugins.youtube.community_info import CommunityPostInfo, get_continuation_token, get_posts_renderers, \
     prepare_next_page_request
-from plugins.youtube.utils import get_initial_data, video_url, thumbnail_url
+from plugins.youtube.utils import get_initial_data, thumbnail_url, video_url
 
 
 class CommunityPostRecord(Record, CommunityPostInfo):
@@ -46,11 +46,12 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         post_url = f'https://www.youtube.com/post/{self.post_id}'
 
         attachments = '\n'.join(self.attachments)
+        video = video_url(self.video_id) if self.video_id else ''
         original_post = str(self.original_post) if self.original_post else ''
-        text = '\n'.join([self.full_text, attachments, original_post])
+        text = '\n'.join([self.full_text, attachments, video, original_post])
 
         embed = {
-            'title': post_url,
+            'title': self.post_id,
             'description': text,
             'url': post_url,
             'color': None,
