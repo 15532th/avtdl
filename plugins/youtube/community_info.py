@@ -56,6 +56,8 @@ class CommunityPostInfo(BaseModel):
         channel_id = find_one(post_renderer, '$.authorText..browseId')
         post_id = find_one(post_renderer, '$.postId')
         avatar_url = find_one(post_renderer, '$.authorThumbnail.thumbnails.[-1].url')
+        if avatar_url is not None and str(avatar_url).startswith(r'//'):
+            avatar_url = 'https:' + avatar_url
 
         vote_count = find_one(post_renderer, '$.voteCount.simpleText')
 
