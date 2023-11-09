@@ -50,9 +50,10 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
             'url': self.url,
             'color': None,
             'author': {'name': self.author, 'url': self.channel_link, 'icon_url': self.avatar_url},
-            'timestamp': self.scheduled.isoformat() if self.scheduled else None,
             'image': {'url': thumbnail_url(self.video_id)}
         }
+        if self.scheduled is not None:
+            embed['fields'] = [{'name': self.scheduled.strftime('%Y-%m-%d %H:%M'), 'value': ''}]
         return embed
 
 
