@@ -25,7 +25,7 @@ class VideoRendererInfo(BaseModel):
     is_member_only: bool
 
 def get_video_renderers(data: dict) -> list:
-    items = find_all(data, '$..[videoRenderer,gridVideoRenderer]')
+    items = find_all(data, '$..[videoRenderer,gridVideoRenderer,playlistVideoRenderer]')
     return items
 
 def parse_scheduled(timestamp: Optional[str]) -> Optional[datetime.datetime]:
