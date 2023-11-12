@@ -75,11 +75,11 @@ class YoutubeFeedRecord(LivestreamRecord):
             'url': self.url,
             'color': None,
             'author': {'name': self.author},
-            'timestamp': self.published,
+            'timestamp': self.format_date(self.published),
             'image': {'url': thumbnail_url(self.video_id)}
         }
         if self.scheduled is not None:
-            embed['fields'] = [{'name': self.scheduled.strftime('%Y-%m-%d %H:%M'), 'value': ''}]
+            embed['fields'] = [{'name': self.format_date(self.scheduled), 'value': ''}]
         return embed
 
 
