@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from pydantic import BaseModel
 
-from plugins.youtube.utils import find_all, find_one
+from plugins.youtube.common import find_all, find_one
 
 CLIENT_VERSION = '2.20231023.04.02'
 

@@ -9,7 +9,7 @@ from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonito
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
 from plugins.youtube.feed_info import VideoRendererInfo, handle_page
-from plugins.youtube.utils import thumbnail_url
+from plugins.youtube.common import thumbnail_url
 
 
 class YoutubeVideoRecord(VideoRendererInfo, Record):

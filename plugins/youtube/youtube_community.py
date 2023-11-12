@@ -11,7 +11,7 @@ from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonito
 from core.plugins import Plugins
 from plugins.youtube.community_info import CommunityPostInfo, get_continuation_token, get_posts_renderers, \
     prepare_next_page_request
-from plugins.youtube.utils import get_initial_data, thumbnail_url, video_url
+from plugins.youtube.common import get_initial_data, thumbnail_url, video_url
 
 
 class CommunityPostRecord(Record, CommunityPostInfo):

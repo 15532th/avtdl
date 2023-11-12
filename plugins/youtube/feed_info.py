@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from plugins.youtube.utils import find_all, find_one, get_initial_data
+from plugins.youtube.common import find_all, find_one, get_initial_data
 
 
 class VideoRendererInfo(BaseModel):
