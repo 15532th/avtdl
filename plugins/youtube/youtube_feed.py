@@ -33,7 +33,7 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
     def __str__(self):
         scheduled = self.scheduled
         if scheduled:
-            scheduled_time = '\nscheduled to {}'.format(self.format_date(scheduled))
+            scheduled_time = '\nscheduled to {}'.format(scheduled.strftime('%Y-%m-%d %H:%M'))
         else:
             scheduled_time = ''
         template = '{}\n{}\npublished by {}'
@@ -57,13 +57,6 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
         return embed
 
 
-    @staticmethod
-    def format_date(date: datetime.datetime) -> str:
-        if isinstance(date, str):
-            date = datetime.datetime.fromisoformat(date)
-        return date.strftime('%Y-%m-%d %H:%M')
-
-
 @Plugins.register('channel', Plugins.kind.ACTOR_CONFIG)
 class VideosMonitorConfig(BaseFeedMonitorConfig):
     pass
@@ -84,7 +77,7 @@ class VideosMonitor(BaseFeedMonitor):
         raw_page_text = await raw_page.text()
         video_info = handle_page(raw_page_text)
         records = [YoutubeVideoRecord.model_validate(info.model_dump()) for info in video_info]
-        records = records[::-1] # records are ordered from new to old on page, reorder in chronological order
+        records = records[::-1] # records are ordered from old to new on page, reorder in chronological order
         return records
 
     def get_record_id(self, record: YoutubeVideoRecord) -> str:
