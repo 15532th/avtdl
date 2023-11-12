@@ -50,6 +50,11 @@ class DiscordWebhook:
             if len(to_be_sent) == 0:
                 continue
             message = MessageFormatter.format(to_be_sent)
+            if not MessageFormatter.check_limits(message):
+                self.logger.warning(f'[{self.name}] prepared message exceeded Discord length limits. Records will be discarded')
+                self.logger.debug(f'[{self.name}] message content:\n{message}')
+                to_be_sent = pending_records
+                continue
             try:
                 response = await self.session.post(self.hook_url, json=message)
                 text = await response.text()
@@ -128,6 +133,43 @@ class MessageFormatter:
         title = shorten(title, EMBED_TITLE_MAX_LENGTH)
         description = shorten(description, EMBED_DESCRIPTION_MAX_LENGTH)
         return {'title': title, 'description': description}
+
+    @classmethod
+    def check_limits(cls, message: dict) -> bool:
+        # doesn't count field.name and field.value number and size in hope it will not change outcome
+
+        class Limits:
+            TOTAL = 6000
+            AUTHOR_NAME = 256
+            TITLE = 256
+            DESCRIPTION = 4096
+            FOOTER_TEXT = 2048
+
+        total_length = 0
+        embeds = message.get('embeds', [])
+        for embed in embeds:
+            author_name = len(embed.get('author', {}).get('name', ''))
+            title = len(embed.get('title', ''))
+            description = len(embed.get('description', ''))
+            footer_text = len(embed.get('footer', {}).get('text', ''))
+            if author_name > Limits.AUTHOR_NAME:
+                return False
+            if title > Limits.TITLE:
+                return False
+            if description > Limits.DESCRIPTION:
+                return False
+            if footer_text > Limits.FOOTER_TEXT:
+                return False
+            total_length += author_name + title + description + footer_text
+
+        if total_length > Limits.TOTAL:
+            return False
+        return True
+
+
+
+
+
 
 
 @Plugins.register('discord.hook', Plugins.kind.ACTOR_CONFIG)
