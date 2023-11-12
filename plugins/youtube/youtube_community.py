@@ -41,7 +41,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         original_post = str(self.original_post) if self.original_post else ''
         return '\n'.join((channel_post_url, header, body, video, attachments, original_post))
 
-    def discord_embed(self) -> dict:
+    def discord_embed(self) -> List[dict]:
         channel_url = f'https://www.youtube.com/channel/{self.channel_id}'
         post_url = f'https://www.youtube.com/post/{self.post_id}'
 
@@ -67,9 +67,14 @@ class CommunityPostRecord(Record, CommunityPostInfo):
             embed['fields'].append({'name': 'Member only', 'value': ''})
         if self.video_id:
             embed['image'] = {'url': thumbnail_url(self.video_id)}
-        elif self.attachments:
-            embed['image'] = {'url': self.attachments[0]}
-        return embed
+        if self.attachments:
+            images = [{'url': post_url, 'image': {'url': attachment}} for attachment in attachments]
+            if embed.get('image') is None:
+                embed['image'] = images.pop(0)['image']
+            embeds = [embed, *images]
+        else:
+            embeds = [embed]
+        return embeds
 
 @Plugins.register('community', Plugins.kind.ACTOR_CONFIG)
 class CommunityPostsMonitorConfig(BaseFeedMonitorConfig):
@@ -108,7 +113,6 @@ class CommunityPostsMonitor(BaseFeedMonitor):
         if raw_page is None:
             return []
         raw_page_text = await raw_page.text()
-
 
         initial_page = get_initial_data(raw_page_text)
         continuation_token = get_continuation_token(initial_page)

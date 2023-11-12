@@ -3,7 +3,7 @@ import datetime
 import json
 import logging
 from textwrap import shorten
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
 import dateutil
@@ -33,12 +33,12 @@ class DiscordWebhook:
         self.logger.debug(f'adding record to send query: {record!r}')
         self.send_query.put_nowait(record)
 
-    async def run(self):
+    async def run(self) -> None:
         self.send_query = asyncio.Queue()
         self.session = aiohttp.ClientSession()
 
         until_next_try = 0
-        to_be_sent = []
+        to_be_sent: List[Record] = []
         while True:
             await asyncio.sleep(until_next_try)
             try:
@@ -49,7 +49,7 @@ class DiscordWebhook:
                 pass
             if len(to_be_sent) == 0:
                 continue
-            message = MessageFormatter.format(to_be_sent)
+            message, pending_records = MessageFormatter.format(to_be_sent)
             if not MessageFormatter.check_limits(message):
                 self.logger.warning(f'[{self.name}] prepared message exceeded Discord length limits. Records will be discarded')
                 self.logger.debug(f'[{self.name}] message content:\n{message}')
@@ -58,8 +58,14 @@ class DiscordWebhook:
             try:
                 response = await self.session.post(self.hook_url, json=message)
                 text = await response.text()
-            except Exception as e:
+            except OSError as e:
                 self.logger.warning(f'[{self.name}] error while sending message with Discord webhook: {e}')
+                until_next_try = 60
+                continue  # implicitly saving messages in to_be_sent until the next try
+            except Exception as e:
+                self.logger.exception(f'[{self.name}] error while sending message with Discord webhook: {e}')
+                self.logger.debug(f'raw message text:\n{message}')
+                to_be_sent = pending_records
                 until_next_try = 60
                 continue
             try:
@@ -70,12 +76,11 @@ class DiscordWebhook:
                     self.logger.warning(f'[{self.name}] message got rejected with {response.status} ({response.reason}), dropping it')
                     self.logger.debug(f'[{self.name}] response headers: {response.headers}')
                     self.logger.debug(f'[{self.name}] raw request body: {json.dumps(message)}')
-                    to_be_sent = []
                 elif e.status in  [404, 403]:
                     self.logger.warning(f'[{self.name}] got {e.status} from webhook, interrupting operations. Check if webhook url is still valid: {self.hook_url}')
                     break
-            else:
-                to_be_sent = []
+            # if message got send successfully discard records except these that didn't fit into message
+            to_be_sent = pending_records
             until_next_try = self.get_next_delay(response.headers)
 
     def get_next_delay(self, headers: multidict.CIMultiDictProxy):
@@ -101,13 +106,20 @@ class DiscordWebhook:
 class MessageFormatter:
 
     @classmethod
-    def format(cls, records: List[Record]) -> dict:
-        '''take records and format them in Discord webhook payload as embeds'''
-        if len(records) > EMBEDS_PER_MESSAGE:
-            raise ValueError(f'got {len(records)} records, but only {EMBEDS_PER_MESSAGE} embeds per message are supported')
-        embeds = [cls.make_embed(record) for record in records]
+    def format(cls, records: List[Record]) -> Tuple[dict, List[Record]]:
+        '''take records and format them in Discord webhook payload as embeds
+        after limit on embeds is reached, the rest of records is returned back'''
+        embeds: List[dict] = []
+        excess_records = []
+        for i, record in enumerate(records):
+            record_embeds = cls.make_embeds(record)
+            if len(embeds) + len(record_embeds) > EMBEDS_PER_MESSAGE:
+                excess_records = records[i:]
+                break
+            else:
+                embeds.extend(record_embeds)
         message = cls.make_message(embeds)
-        return message
+        return message, excess_records
 
     @classmethod
     def make_message(cls, embeds: List[dict]) -> dict:
@@ -117,11 +129,14 @@ class MessageFormatter:
         }
 
     @classmethod
-    def make_embed(cls, record: Record) -> dict:
+    def make_embeds(cls, record: Record) -> List[dict]:
         formatter = getattr(record, 'discord_embed', None)
         if formatter is not None and callable(formatter):
-            return formatter()
-        return cls.plaintext_embed(record)
+            embeds = formatter()
+            if not isinstance(embeds, list):
+                embeds = [embeds]
+            return embeds
+        return [cls.plaintext_embed(record)]
 
     @classmethod
     def plaintext_embed(cls, record: Record) -> dict:

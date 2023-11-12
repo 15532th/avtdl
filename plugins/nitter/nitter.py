@@ -51,7 +51,7 @@ class NitterRecord(Record):
     def __repr__(self):
         return f'NitterRecord(author="{self.author}", url="{self.url}", text="{shorten(self.text, MAX_REPR_LEN)}")'
 
-    def discord_embed(self) -> dict:
+    def discord_embed(self) -> List[dict]:
         text_items = [self.text]
         if len(self.attachments) > 1:
             text_items.extend(self.attachments)
@@ -76,11 +76,21 @@ class NitterRecord(Record):
             'author': {'name': author, 'icon_url': self.avatar_url},
             'timestamp': self.published.isoformat(),
         }
+
+        def format_attachments(post_url: str, attachments: List[str]) -> List[dict]:
+            return [{'url': post_url, 'image': {'url': attachment}} for attachment in attachments]
+
         if self.attachments:
-            embed['image'] = {'url': self.attachments[0]}
+            images = format_attachments(self.url, self.attachments)
+            embed['image'] = images.pop(0)['image']
+            embeds = [embed, *images]
         elif self.quote and self.quote.attachments:
-            embed['image'] = {'url': self.quote.attachments[0]}
-        return embed
+            images = format_attachments(self.quote.url, self.quote.attachments)
+            embed['image'] = images.pop(0)['image']
+            embeds = [embed, *images]
+        else:
+            embeds = [embed]
+        return embeds
 
 class NitterQuoteRecord(NitterRecord):
     quote: None = None
