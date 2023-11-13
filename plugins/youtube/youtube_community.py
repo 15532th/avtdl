@@ -38,7 +38,9 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         header = f'[{self.author}, {self.published_text} {sponsor_only}] {self.vote_count}'
         body = self.full_text
         attachments = '\n'.join(self.attachments)
-        video = video_url(self.video_id) if self.video_id else ''
+        video = ''
+        if self.video_id and self.full_text.find(self.video_id) == -1:
+            video = video_url(self.video_id)
         original_post = str(self.original_post) if self.original_post else ''
         return '\n'.join((channel_post_url, header, body, video, attachments, original_post))
 
@@ -47,7 +49,9 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         post_url = f'https://www.youtube.com/post/{self.post_id}'
 
         attachments = '\n'.join(self.attachments)
-        video = video_url(self.video_id) if self.video_id else ''
+        video = ''
+        if self.video_id and self.full_text.find(self.video_id) == -1:
+            video = video_url(self.video_id)
         original_post = str(self.original_post) if self.original_post else ''
         text = '\n'.join([self.full_text, attachments, video, original_post])
 
