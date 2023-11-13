@@ -68,7 +68,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         if self.video_id:
             embed['image'] = {'url': thumbnail_url(self.video_id)}
         if self.attachments:
-            images = [{'url': post_url, 'image': {'url': attachment}} for attachment in attachments]
+            images = [{'url': post_url, 'image': {'url': attachment}} for attachment in self.attachments]
             if embed.get('image') is None:
                 embed['image'] = images.pop(0)['image']
             embeds = [embed, *images]
