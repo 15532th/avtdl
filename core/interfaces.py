@@ -133,7 +133,7 @@ class Actor(ABC):
 
     def __init__(self, conf: ActorConfig, entities: Sequence[ActorEntity]):
         self.conf = conf
-        self.logger = logging.getLogger(f'actor.{conf.name}')
+        self.logger = logging.getLogger(f'actor').getChild(conf.name)
         self.bus = MessageBus()
         self.entities: Dict[str, ActorEntity] = {entity.name: entity for entity in entities}
 
