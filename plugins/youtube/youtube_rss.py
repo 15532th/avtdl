@@ -71,7 +71,7 @@ class YoutubeFeedRecord(LivestreamRecord):
     def discord_embed(self) -> dict:
         embed = {
             'title': self.title,
-            'description': self.url,
+            # 'description': ,
             'url': self.url,
             'color': None,
             'author': {'name': self.author},
@@ -79,7 +79,8 @@ class YoutubeFeedRecord(LivestreamRecord):
             'image': {'url': thumbnail_url(self.video_id)}
         }
         if self.scheduled is not None:
-            embed['fields'] = [{'name': self.format_date(self.scheduled), 'value': ''}]
+            scheduled = self.scheduled.strftime('%Y-%m-%d %H:%M')
+            embed['fields'] = [{'name': 'Scheduled:', 'value': scheduled, 'inline': True}]
         return embed
 
 
