@@ -8,8 +8,8 @@ from core.interfaces import Filter, FilterEntity, Record
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
-from plugins.youtube.feed_info import VideoRendererInfo, handle_page
 from plugins.youtube.common import thumbnail_url
+from plugins.youtube.feed_info import VideoRendererInfo, handle_page
 
 
 class YoutubeVideoRecord(VideoRendererInfo, Record):

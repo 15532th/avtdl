@@ -9,9 +9,9 @@ from core import utils
 from core.interfaces import MAX_REPR_LEN, Record
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
+from plugins.youtube.common import get_initial_data, thumbnail_url, video_url
 from plugins.youtube.community_info import CommunityPostInfo, get_continuation_token, get_posts_renderers, \
     prepare_next_page_request
-from plugins.youtube.common import get_initial_data, thumbnail_url, video_url
 
 
 class CommunityPostRecord(Record, CommunityPostInfo):
