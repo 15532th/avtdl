@@ -61,15 +61,10 @@ class CommunityPostRecord(Record, CommunityPostInfo):
             'url': post_url,
             'color': None,
             'author': {'name': self.author, 'url': channel_url, 'icon_url': self.avatar_url},
-            'fields': [
-                {
-                    'name': '',
-                    'value': self.published_text
-                }
-            ]
+            'footer': {'text': self.published_text}
         }
         if self.sponsor_only:
-            embed['fields'].append({'name': 'Member only', 'value': ''})
+            embed['fields'] = [{'name': 'Member only', 'value': ''}]
         if self.video_id:
             embed['image'] = {'url': thumbnail_url(self.video_id)}
         if self.attachments:
