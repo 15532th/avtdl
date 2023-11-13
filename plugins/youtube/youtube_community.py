@@ -28,7 +28,8 @@ class CommunityPostRecord(Record, CommunityPostInfo):
     original_post: Optional['CommunityPostRecord'] = None
 
     def __repr__(self) -> str:
-        return f'{self.post_id} [{self.author}] {self.full_text[:MAX_REPR_LEN]}'
+        text = self.full_text.replace('\n', ' • ')[:MAX_REPR_LEN]
+        return f'{self.post_id} [{self.author}] {text}'
 
     def __str__(self) -> str:
         channel_post_url = f'https://www.youtube.com/channel/{self.channel_id}/community?lb={self.post_id}'
