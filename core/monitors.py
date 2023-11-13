@@ -11,7 +11,7 @@ from pydantic import Field, FilePath, field_validator, model_validator
 
 from core import utils
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
-from core.utils import check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff, Delay
+from core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff
 
 
 class TaskMonitorEntity(ActorEntity):

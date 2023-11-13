@@ -1,11 +1,11 @@
 from functools import wraps
 from pathlib import Path
-from typing import Dict, List, Tuple, Generic, TypeVar, Type, Any
+from typing import Any, Dict, Generic, List, Tuple, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError, create_model
 
 from core.chain import Chain, ChainConfigSection
-from core.loggers import override_loglevel, set_file_logger, LogLevel
+from core.loggers import LogLevel, override_loglevel, set_file_logger
 from core.plugins import Plugins
 
 
