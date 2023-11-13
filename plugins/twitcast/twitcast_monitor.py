@@ -2,6 +2,7 @@ from textwrap import shorten
 from typing import Optional, Sequence
 
 import aiohttp
+from pydantic import Field
 
 from core.config import Plugins
 from core.interfaces import ActorConfig, LivestreamRecord, MAX_REPR_LEN
@@ -25,7 +26,8 @@ class TwitcastRecord(LivestreamRecord):
 @Plugins.register('twitcast', Plugins.kind.ACTOR_ENTITY)
 class TwitcastMonitorEntity(HttpTaskMonitorEntity):
     user_id: str
-    most_recent_movie: Optional[str] = None
+    update_interval: int = 300
+    most_recent_movie: Optional[str] = Field(exclude=True, default=None)
 
 @Plugins.register('twitcast', Plugins.kind.ACTOR_CONFIG)
 class TwitcastMonitorConfig(ActorConfig):
