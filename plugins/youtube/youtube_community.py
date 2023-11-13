@@ -152,6 +152,7 @@ class CommunityPostsMonitor(BaseFeedMonitor):
             current_page += 1
             await asyncio.sleep(entity.next_page_delay)
 
+        records = records[::-1]
         return records
 
     def get_record_id(self, record: CommunityPostRecord) -> str:
