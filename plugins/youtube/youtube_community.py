@@ -48,7 +48,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         channel_url = f'https://www.youtube.com/channel/{self.channel_id}'
         post_url = f'https://www.youtube.com/post/{self.post_id}'
 
-        attachments = '\n'.join(self.attachments)
+        attachments = '\n'.join(self.attachments) if len(self.attachments) > 4 else ''
         video = ''
         if self.video_id and self.full_text.find(self.video_id) == -1:
             video = video_url(self.video_id)
