@@ -36,7 +36,7 @@ class Settings(BaseModel):
     log_directory: Path = Path('logs')
     logfile_size: int = 1000000
     logfile_level: LogLevel = LogLevel.debug
-    loglevel_override: Dict[str, LogLevel] = {'bus': LogLevel.info, 'chain': LogLevel.info, 'actor.generic_rss.request': LogLevel.info}
+    loglevel_override: Dict[str, LogLevel] = {'bus': LogLevel.info, 'chain': LogLevel.info, 'actor.request': LogLevel.info}
 
 def configure_loggers(settings: Settings):
     override_loglevel(settings.loglevel_override)
