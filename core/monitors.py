@@ -43,7 +43,7 @@ class BaseTaskMonitor(Actor):
             asyncio.create_task(self.start_tasks_for(entities, interval))
 
     async def start_tasks_for(self, entities, interval):
-        logger = self.logger.getChild('scheduler')
+        logger = self.logger.parent.getChild('scheduler').getChild(self.conf.name)
         if len(entities) == 0:
             logger.debug(f'called with no entities and {interval} interval')
             return
