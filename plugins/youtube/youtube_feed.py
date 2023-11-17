@@ -82,6 +82,8 @@ class VideosMonitor(BaseFeedMonitor):
         raw_page_text = await raw_page.text()
         video_info = handle_page(raw_page_text)
         records = [YoutubeVideoRecord.model_validate(info.model_dump()) for info in video_info]
+        if not records:
+            self.logger.warning(f'[{entity.name}] parsing page "{entity.url}" yielded no videos, check url and cookies')
         records = records[::-1] # records are ordered from old to new on page, reorder in chronological order
         return records
 
