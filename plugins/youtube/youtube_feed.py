@@ -56,8 +56,8 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
         if self.published_text:
             footer += self.published_text
         if self.scheduled is not None:
-            scheduled = 'live {}'.format(self.scheduled.strftime('%Y-%m-%d %H:%M'))
-            footer = footer + f' • {scheduled}' if footer else scheduled
+            scheduled = self.scheduled.strftime('%Y-%m-%d %H:%M')
+            embed['fields'] = [{'name': 'Scheduled:', 'value': scheduled, 'inline': True}]
         embed['footer'] = {'text': footer}
         return embed
 
