@@ -1,6 +1,7 @@
 import json
 import re
 from collections import defaultdict
+from json import JSONDecodeError
 from typing import Any, Optional
 
 from jsonpath import JSONPath
@@ -21,7 +22,7 @@ def find_one(data: Any, jsonpath: str) -> Optional[Any]:
 def get_initial_data(page: str) -> dict:
     try:
         return get_initial_data_fast(page)
-    except ValueError:
+    except (ValueError, JSONDecodeError):
         return get_initial_data_slow(page)
 
 def get_initial_data_fast(page: str) -> dict:
