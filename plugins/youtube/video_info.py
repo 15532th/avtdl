@@ -3,6 +3,7 @@ import json
 import re
 import urllib.request
 from collections import defaultdict
+from json import JSONDecodeError
 from typing import Any, Dict, List, Optional
 
 import aiohttp
@@ -65,7 +66,7 @@ async def aget_video_page(url: str, session: Optional[aiohttp.ClientSession] = N
 def get_initial_player_response(page: str) -> dict:
     try:
         return get_initial_response_fast(page)
-    except ValueError:
+    except (ValueError, JSONDecodeError):
         return get_initial_response_slow(page)
 
 def get_initial_response_fast(page: str) -> dict:
