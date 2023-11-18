@@ -2,6 +2,7 @@ import datetime
 import json
 import re
 import urllib.request
+from collections import defaultdict
 from typing import Optional, Dict, Any, List
 
 import aiohttp
@@ -61,14 +62,46 @@ async def aget_video_page(url: str, session: Optional[aiohttp.ClientSession] = N
     return text
 
 def get_initial_player_response(page: str) -> dict:
-    re_response = 'var ytInitialPlayerResponse = ({.*?});'
-    match = re.search(re_response, page)
+    try:
+        return get_initial_response_fast(page)
+    except ValueError:
+        return get_initial_response_slow(page)
+
+@profile
+def get_initial_response_fast(page: str) -> dict:
+    re_initial_data = 'var ytInitialPlayerResponse = ([^;]*);'
+    match = re.search(re_initial_data, page)
     if match is None:
-        raise ValueError(f'Failed to find InitialPlayerResponse on page')
+        raise ValueError(f'Failed to find ytInitialPlayerResponse on the page')
     raw_data = match.groups()[0]
     data = json.loads(raw_data)
     return data
 
+@profile
+def get_initial_response_slow(page: str) -> dict:
+    anchor = 'var ytInitialPlayerResponse = {'
+    pos_start = page.find(anchor)
+    if pos_start == -1:
+        raise ValueError(f'Failed to find ytInitialPlayerResponse on the page')
+    pos_start += len(anchor) - 1
+    position = pos_start
+
+    re_parenthesses = re.compile('[{}]')
+    parenthesses_values = defaultdict(int, {'{': 1, '}': -1})
+    parentheses = 0
+    while True:
+        parentheses += parenthesses_values[page[position]]
+        if parentheses == 0:
+            raw_data = page[pos_start:position+1]
+            response = json.loads(raw_data)
+            return response
+        position_match = re_parenthesses.search(page, position + 1)
+        try:
+            position = position_match.start()
+        except AttributeError:
+            raise ValueError(f'Failed to find matching set of parentheses after ytInitialPlayerResponse')
+
+@profile
 def get_embedded_player_response(page: str) -> dict:
     pos_start = page.find('{"embedded_player_response"')
     if pos_start == -1:

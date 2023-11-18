@@ -25,7 +25,17 @@ class VideoRendererInfo(BaseModel):
     is_member_only: bool
 
 def get_video_renderers(data: dict) -> list:
-    items = find_all(data, '$..[videoRenderer,gridVideoRenderer,playlistVideoRenderer]')
+    # there two are deemed not worth using: path_playlist adds speedup but should be rare
+    # path_channel_main is slower than path_universal
+    # path_playlist = '$.contents.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents.*.itemSectionRenderer.contents.*.playlistVideoListRenderer.contents.*.playlistVideoRenderer'
+    # path_channel_main = '$.contents.twoColumnBrowseResultsRenderer.tabs.*.tabRenderer.content.sectionListRenderer.contents.*.itemSectionRenderer.contents..gridVideoRenderer'
+    path_channel = '$.contents.twoColumnBrowseResultsRenderer.tabs.*.tabRenderer.content.richGridRenderer.contents.*.richItemRenderer.content.videoRenderer'
+    path_universal = '$.contents..videoRenderer,gridVideoRenderer,playlistVideoRenderer'
+    items = find_all(data, path_channel)
+    if not items:
+        items = find_all(data, path_universal)
+    if not items:
+        logging.warning(f'no items on videos page, search expression probably broken')
     return items
 
 def parse_scheduled(timestamp: Optional[str]) -> Optional[datetime.datetime]:
@@ -79,7 +89,7 @@ class AuthorInfo(BaseModel):
 
 
 def parse_author(video_render: dict) -> Optional[AuthorInfo]:
-    author_info = find_one(video_render, '$.[ownerText,shortBylineText]')
+    author_info = find_one(video_render, '$.ownerText,shortBylineText')
     if author_info is None:
         return None
     author = find_one(author_info, '$..text')
@@ -98,9 +108,9 @@ def parse_owner_info(page: dict) -> Optional[AuthorInfo]:
     if owner_info_data is None:
         return None
     author = find_one(owner_info_data, '$.title')
-    channel_link = find_one(owner_info_data, '$..canonicalBaseUrl')
+    channel_link = find_one(owner_info_data, '$.navigationEndpoint.browseEndpoint.canonicalBaseUrl')
     channel_id = find_one(owner_info_data, '$.channelId')
-    avatar_url = find_one(owner_info_data, '$.avatar.thumbnails.[-1].url')
+    avatar_url = find_one(owner_info_data, '$.avatar.thumbnails.[::-1].url')
     try:
         return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url)
     except ValidationError:
@@ -109,7 +119,7 @@ def parse_owner_info(page: dict) -> Optional[AuthorInfo]:
 def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> Optional[VideoRendererInfo]:
     video_id = item.get('videoId')
     url = f'https://www.youtube.com/watch?v={video_id}'
-    title = find_one(item, '$.title..[text,simpleText]')
+    title = find_one(item, '$.title..text,simpleText')
     summary = find_one(item, '$.descriptionSnippet..text')
     
     author_info = parse_author(item) or owner_info

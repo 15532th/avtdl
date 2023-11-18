@@ -55,7 +55,7 @@ class CommunityPostInfo(BaseModel):
         author = find_one(post_renderer, '$.authorText..text')
         channel_id = find_one(post_renderer, '$.authorText..browseId')
         post_id = find_one(post_renderer, '$.postId')
-        avatar_url = find_one(post_renderer, '$.authorThumbnail.thumbnails.[-1].url')
+        avatar_url = find_one(post_renderer, '$.authorThumbnail.thumbnails.[::-1].url')
         if avatar_url is not None and str(avatar_url).startswith(r'//'):
             avatar_url = 'https:' + avatar_url
 
@@ -89,11 +89,11 @@ class CommunityPostInfo(BaseModel):
 
 
 def get_posts_renderers(data: dict) -> list:
-    items = find_all(data, '$..post.backstagePostRenderer')
+    items = find_all(data, '$.contents..tabRenderer.content..post.backstagePostRenderer')
     return items
 
 def get_continuation_token(data: dict) -> Optional[str]:
-    token = find_one(data, '$..continuationEndpoint.continuationCommand.token')
+    token = find_one(data, '$.contents..tabRenderer.content..continuationEndpoint.continuationCommand.token')
     return token
 
 def get_auth_header(sapisid: str) -> str:
@@ -109,7 +109,7 @@ def prepare_next_page_request(initial_page_data: dict, continuation_token, cooki
     session_index = find_one(response_context, '$.webResponseContextExtensionData.ytConfigData.sessionIndex') or ''
 
     if client_version is None:
-        client_version = find_one(initial_page_data, '$..serviceTrackingParams..params[?key = "client.version"].value')
+        client_version = find_one(initial_page_data, '$..serviceTrackingParams..params[?(@.key=="client.version")].value')
         if client_version is None:
             client_version = CLIENT_VERSION
 
