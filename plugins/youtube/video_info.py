@@ -3,10 +3,11 @@ import json
 import re
 import urllib.request
 from collections import defaultdict
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 from pydantic import BaseModel, Field
+
 
 class LoginRequiredError(ValueError):
     '''Raised when video page returns no data aside from {'playability_status': 'LOGIN_REQUIRED'}, which usually indicated video being private'''
@@ -67,7 +68,6 @@ def get_initial_player_response(page: str) -> dict:
     except ValueError:
         return get_initial_response_slow(page)
 
-@profile
 def get_initial_response_fast(page: str) -> dict:
     re_initial_data = 'var ytInitialPlayerResponse = ([^;]*);'
     match = re.search(re_initial_data, page)
@@ -77,7 +77,6 @@ def get_initial_response_fast(page: str) -> dict:
     data = json.loads(raw_data)
     return data
 
-@profile
 def get_initial_response_slow(page: str) -> dict:
     anchor = 'var ytInitialPlayerResponse = {'
     pos_start = page.find(anchor)
@@ -101,7 +100,6 @@ def get_initial_response_slow(page: str) -> dict:
         except AttributeError:
             raise ValueError(f'Failed to find matching set of parentheses after ytInitialPlayerResponse')
 
-@profile
 def get_embedded_player_response(page: str) -> dict:
     pos_start = page.find('{"embedded_player_response"')
     if pos_start == -1:

@@ -24,7 +24,6 @@ def get_initial_data(page: str) -> dict:
     except ValueError:
         return get_initial_data_slow(page)
 
-@profile
 def get_initial_data_fast(page: str) -> dict:
     re_initial_data = 'var ytInitialData = ([^;]*);'
     match = re.search(re_initial_data, page)
@@ -34,7 +33,6 @@ def get_initial_data_fast(page: str) -> dict:
     data = json.loads(raw_data)
     return data
 
-@profile
 def get_initial_data_slow(page: str) -> dict:
     anchor = 'var ytInitialData = {'
     pos_start = page.find(anchor)
