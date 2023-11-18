@@ -19,7 +19,7 @@ class FC2Record(LivestreamRecord):
     start: str
 
     def __str__(self):
-        f'{self.url}\n{self.title}'
+        return f'{self.url}\n{self.title}'
 
     def __repr__(self):
         title = shorten(self.title, MAX_REPR_LEN)
