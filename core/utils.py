@@ -11,7 +11,8 @@ from http import cookiejar
 from math import log2
 from pathlib import Path
 from textwrap import shorten
-from typing import Any, Dict, Optional, Union
+from time import perf_counter_ns
+from typing import Any, Dict, Optional, Union, Callable
 
 import aiohttp
 import multidict
@@ -291,3 +292,13 @@ class Delay:
         next_step = current_step + 1
         next_delay = cls._sigmoid(next_step)
         return next_delay
+
+
+def timeit(func: Callable) -> Callable:
+  def timer(*args, **kwargs) -> Any:
+      begin = perf_counter_ns()
+      result = func(*args, **kwargs)
+      duration = perf_counter_ns() - begin
+      logging.warning(f'{func.__name__}: {duration/10**6:10}')
+      return result
+  return timer
