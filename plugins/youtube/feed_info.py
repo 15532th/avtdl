@@ -96,7 +96,7 @@ def parse_author(video_render: dict) -> Optional[AuthorInfo]:
     channel_link = find_one(author_info, '$..browseEndpoint.canonicalBaseUrl')
     channel_id = find_one(author_info, '$..browseEndpoint.browseId')
 
-    avatar_url = find_one(video_render, '$.ChannelThumbnailSupportedRenderers..thumbnails.[-1].url')
+    avatar_url = find_one(video_render, '$.ChannelThumbnailSupportedRenderers..thumbnails.[::-1].url')
 
     try:
         return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url)
