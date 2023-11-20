@@ -1,10 +1,11 @@
 import datetime
+import json
 import re
-from typing import Optional
+from typing import Optional, Tuple
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from plugins.youtube.common import find_all, find_one, get_initial_data
+from plugins.youtube.common import find_all, find_one
 
 
 class VideoRendererInfo(BaseModel):
@@ -24,19 +25,22 @@ class VideoRendererInfo(BaseModel):
     is_live: bool
     is_member_only: bool
 
-def get_video_renderers(data: dict) -> list:
-    # there two are deemed not worth using: path_playlist adds speedup but should be rare
-    # path_channel_main is slower than path_universal
-    # path_playlist = '$.contents.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents.*.itemSectionRenderer.contents.*.playlistVideoListRenderer.contents.*.playlistVideoRenderer'
-    # path_channel_main = '$.contents.twoColumnBrowseResultsRenderer.tabs.*.tabRenderer.content.sectionListRenderer.contents.*.itemSectionRenderer.contents..gridVideoRenderer'
-    path_channel = '$.contents.twoColumnBrowseResultsRenderer.tabs.*.tabRenderer.content.richGridRenderer.contents.*.richItemRenderer.content.videoRenderer'
-    path_universal = '$.contents..videoRenderer,gridVideoRenderer,playlistVideoRenderer'
-    items = find_all(data, path_channel)
-    if not items:
-        items = find_all(data, path_universal)
-    if not items:
-        logging.warning(f'no items on videos page, search expression probably broken')
-    return items
+def get_video_renderers(page: str) -> Tuple[list, dict]:
+    anchor = 'var ytInitialData = {'
+    keys = ["gridVideoRenderer", "videoRenderer", "playlistVideoRenderer"]
+    pos_start = page.find(anchor)
+    if pos_start == -1:
+        raise ValueError(f'Failed to find initial data on page')
+    pos_start += len(anchor) - 1
+
+    items = []
+    def append_search(obj):
+        items.extend([obj[k] for k in keys if k in obj])
+        return obj
+    decoder = json.JSONDecoder(object_hook=append_search)
+    page = page[pos_start:]
+    data, pos_end = decoder.raw_decode(page)
+    return items, data
 
 def parse_scheduled(timestamp: Optional[str]) -> Optional[datetime.datetime]:
     if timestamp is None:
@@ -162,8 +166,7 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> Option
         return None
 
 def handle_page(page: str) -> list:
-    data = get_initial_data(page)
+    items, data = get_video_renderers(page)
     owner_info = parse_owner_info(data)
-    items = get_video_renderers(data)
     info = [parse_video_renderer(x, owner_info) for x in items]
     return info
