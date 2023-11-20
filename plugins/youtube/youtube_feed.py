@@ -1,8 +1,9 @@
 import datetime
+from json import JSONDecodeError
 from typing import Optional, Sequence
 
 import aiohttp
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from core.interfaces import Filter, FilterEntity, Record
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
@@ -80,8 +81,14 @@ class VideosMonitor(BaseFeedMonitor):
         if raw_page is None:
             return []
         raw_page_text = await raw_page.text()
-        video_info = handle_page(raw_page_text)
-        records = [YoutubeVideoRecord.model_validate(info.model_dump()) for info in video_info]
+        try:
+            video_info = handle_page(raw_page_text)
+            records = [YoutubeVideoRecord.model_validate(info.model_dump()) for info in video_info]
+        except (ValueError, JSONDecodeError, ValidationError) as e:
+            self.logger.warning(f'[{entity.name}] failed to parse page from "{entity.url}"')
+            self.logger.debug(f'[{entity.name}] {type(e)}: {e}')
+            self.logger.debug(f'[{entity.name}] raw page:\n{raw_page_text}')
+            return []
         if not records:
             self.logger.warning(f'[{entity.name}] parsing page "{entity.url}" yielded no videos, check url and cookies')
         records = records[::-1] # records are ordered from old to new on page, reorder in chronological order
