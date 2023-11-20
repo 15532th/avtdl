@@ -89,11 +89,11 @@ class CommunityPostInfo(BaseModel):
 
 
 def get_posts_renderers(data: dict) -> list:
-    items = find_all(data, '$.contents..tabRenderer.content..post.backstagePostRenderer')
+    items = find_all(data, '$..post.backstagePostRenderer')
     return items
 
 def get_continuation_token(data: dict) -> Optional[str]:
-    token = find_one(data, '$.contents..tabRenderer.content..continuationEndpoint.continuationCommand.token')
+    token = find_one(data, '$..continuationEndpoint.continuationCommand.token')
     return token
 
 def get_auth_header(sapisid: str) -> str:
