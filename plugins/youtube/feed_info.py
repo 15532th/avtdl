@@ -1,11 +1,9 @@
 import datetime
-import json
 import re
 from typing import Optional, Tuple
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from plugins.youtube.common import find_all, find_one
 from plugins.youtube.common import find_all, find_one, extract_keys, get_continuation_token
 
 
