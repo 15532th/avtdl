@@ -2,7 +2,7 @@ import json
 import re
 from collections import defaultdict
 from json import JSONDecodeError
-from typing import Any, Optional
+from typing import Any, Optional, List, Tuple, Dict, Union
 
 from jsonpath import JSONPath
 
@@ -62,3 +62,25 @@ def thumbnail_url(video_id: str) -> str:
 
 def video_url(video_id: str) -> str:
     return f'https://www.youtube.com/watch?v={video_id}'
+
+
+def get_continuation_token(data: dict) -> Optional[str]:
+    token = find_one(data, '$..continuationCommand.token')
+    return token
+
+def extract_keys(page: str, keys: List[str], anchor: str = '') -> Tuple[Dict[str, list], dict]:
+    pos_start = page.find(anchor)
+    if pos_start == -1:
+        raise ValueError(f'Failed to find anchor on page')
+    pos_start += len(anchor) - 1
+
+    items = defaultdict(list)
+    def append_search(obj):
+        for k in keys:
+            if k in obj:
+                items[k].append(obj[k])
+        return obj
+    decoder = json.JSONDecoder(object_hook=append_search)
+    page = page[pos_start:]
+    data, pos_end = decoder.raw_decode(page)
+    return items, data
