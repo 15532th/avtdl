@@ -7,14 +7,15 @@ from typing import Any, Optional, List, Tuple, Dict, Union
 from jsonpath import JSONPath
 
 
-def find_all(data: Any, jsonpath: str, cache={}) -> list:
+
+def find_all(data: Union[dict, list], jsonpath: str, cache={}) -> list:
     if jsonpath not in cache:
         cache[jsonpath] = JSONPath(jsonpath)
     parser = cache[jsonpath]
     return parser.parse(data)
 
 
-def find_one(data: Any, jsonpath: str) -> Optional[Any]:
+def find_one(data: Union[dict, list], jsonpath: str) -> Optional[Any]:
     result = find_all(data, jsonpath)
     return result[0] if result else None
 
