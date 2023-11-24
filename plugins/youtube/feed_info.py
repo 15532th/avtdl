@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from plugins.youtube.common import find_all, find_one
+from plugins.youtube.common import find_all, find_one, extract_keys, get_continuation_token
 
 
 class VideoRendererInfo(BaseModel):
@@ -25,22 +26,15 @@ class VideoRendererInfo(BaseModel):
     is_live: bool
     is_member_only: bool
 
-def get_video_renderers(page: str) -> Tuple[list, dict]:
+def get_video_renderers(page: str) -> Tuple[list, Optional[dict], dict]:
     anchor = 'var ytInitialData = {'
-    keys = ["gridVideoRenderer", "videoRenderer", "playlistVideoRenderer"]
-    pos_start = page.find(anchor)
-    if pos_start == -1:
-        raise ValueError(f'Failed to find initial data on page')
-    pos_start += len(anchor) - 1
-
-    items = []
-    def append_search(obj):
-        items.extend([obj[k] for k in keys if k in obj])
-        return obj
-    decoder = json.JSONDecoder(object_hook=append_search)
-    page = page[pos_start:]
-    data, pos_end = decoder.raw_decode(page)
-    return items, data
+    keys = ['gridVideoRenderer', 'videoRenderer', 'playlistVideoRenderer', 'continuationEndpoint']
+    items, data = extract_keys(page, keys, anchor)
+    continuation = get_continuation_token(items.pop('continuationEndpoint', {}))
+    renderers = []
+    for item in items.values():
+        renderers.extend(item)
+    return renderers, continuation, data
 
 def parse_scheduled(timestamp: Optional[str]) -> Optional[datetime.datetime]:
     if timestamp is None:
@@ -166,7 +160,7 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> Option
         return None
 
 def handle_page(page: str) -> list:
-    items, data = get_video_renderers(page)
+    items, continuation, data = get_video_renderers(page)
     owner_info = parse_owner_info(data)
     info = [parse_video_renderer(x, owner_info) for x in items]
     return info
