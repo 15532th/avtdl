@@ -65,7 +65,7 @@ def video_url(video_id: str) -> str:
     return f'https://www.youtube.com/watch?v={video_id}'
 
 
-def get_continuation_token(data: dict) -> Optional[str]:
+def get_continuation_token(data: Union[dict, list]) -> Optional[str]:
     token = find_one(data, '$..continuationCommand.token')
     return token
 
