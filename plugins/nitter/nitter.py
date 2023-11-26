@@ -21,16 +21,27 @@ class NitterRecord(Record):
     model_config = ConfigDict(extra='allow')
 
     retweet_header: Optional[str] = None
+    """text line saying this is a retweet"""
     reply_header: Optional[str] = None
+    """text line saying this tweet is a reply"""
     url: str
+    """tweet url"""
     author: str
+    """user's visible name"""
     username: str
+    """user's handle"""
     avatar_url: Optional[str] = None
+    """link to the picture used as user's avatar"""
     published: datetime.datetime
+    """tweet timestamp"""
     text: str
+    """tweet text with stripped formatting"""
     html: str = ''
+    """tweet text as raw html"""
     attachments: List[str] = []
+    """list of links to attached images or video thumbnails"""
     quote: Optional['NitterQuoteRecord'] = None
+    """Nested NitterRecord containing tweet being quited"""
 
     def __str__(self):
         elements = []
@@ -103,6 +114,7 @@ class NitterMonitorConfig(BaseFeedMonitorConfig):
 @Plugins.register('nitter', Plugins.kind.ACTOR_ENTITY)
 class NitterMonitorEntity(BaseFeedMonitorEntity):
     update_interval: float = 1800
+    """How often the monitored url will be checked, in seconds"""
 
     max_continuation_depth: int = 10
     next_page_delay: float = 1
@@ -132,6 +144,28 @@ def get_html_content(element: lxml.html.HtmlElement) -> str:
 
 @Plugins.register('nitter', Plugins.kind.ACTOR)
 class NitterMonitor(BaseFeedMonitor):
+    """
+    Monitor for Nitter instances
+
+    Monitors recent tweets, retweets and replies of Twitter user
+    by scraping and parsing data from a Nitter instance.
+
+    Examples of supported url:
+    https://nitter.net/username
+    https://nitter.net/username/with_replies
+
+    Some instances might not be happy about automated activity. Make sure
+    to use reasonable update_interval and keep eyes on 4XX and 5XX responses
+    in log, as they might indicate server is under high load or refuses to
+    communicate.
+
+    Nitter has build in RSS feed, though not all instances enable it, so it
+    can be monitored with "generic_rss" plugin instead of this one.
+
+    Twitter Spaces appears on user feed as normal tweets with a single link
+    looking similar to https://x.com/i/spaces/2FsjOybqEbnzR. It therefore
+    can be picked up by using a regular full-text "match" filter.
+    """
 
     # nitter.net instance returns 403 in absense of this two headers and if UserAgent contains "python-requests"
     HEADERS = {'Accept-Language': 'en-US', 'Accept-Encoding': 'gzip, deflate',
@@ -305,16 +339,25 @@ class NitterFilterConfig(EmptyFilterConfig):
 @Plugins.register('filter.nitter.drop', Plugins.kind.ACTOR_ENTITY)
 class NitterFilterEntity(FilterEntity):
     retweet: bool = False
+    """match retweets"""
     reply: bool = False
+    """match replies"""
     quote: bool = False
+    """match quotes"""
     regular_tweet: bool = False
+    """match regular tweets, that are not a retweet, reply or quote"""
     author: Optional[str] = None
+    """match if given string is a part of the name of the author of the tweet"""
     username: Optional[str] = None
-
+    """match if given string is a part of tweet author's username (without the "@" symbol)"""
 
 
 @Plugins.register('filter.nitter.pick', Plugins.kind.ACTOR)
 class NitterFilterPick(Filter):
+    """
+    Filter, that lets through NitterRecords that match any of specified criteria
+
+    All records from other sources pass through without filtering."""
 
     def __init__(self, config: NitterFilterConfig, entities: Sequence[NitterFilterEntity]):
         super().__init__(config, entities)
@@ -340,6 +383,11 @@ class NitterFilterPick(Filter):
 
 @Plugins.register('filter.nitter.drop', Plugins.kind.ACTOR)
 class NitterFilterDrop(Filter):
+    """
+    Filter, that lets through NitterRecords that doesn't match all of the specified criteria
+
+    All records from other sources pass through without filtering.
+    """
 
     def __init__(self, config: NitterFilterConfig, entities: Sequence[NitterFilterEntity]):
         super().__init__(config, entities)
