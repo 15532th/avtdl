@@ -1,17 +1,18 @@
-import asyncio
 import json
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Any, Tuple
+
+import json
+from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
 from pydantic import ValidationError
 
 from core import utils
 from core.interfaces import MAX_REPR_LEN, Record
-from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
+from core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from core.plugins import Plugins
-from plugins.youtube.common import get_initial_data, thumbnail_url, video_url
-from plugins.youtube.community_info import CommunityPostInfo, get_continuation_token, get_posts_renderers, \
-    prepare_next_page_request
+from plugins.youtube.common import get_continuation_token, get_initial_data, prepare_next_page_request, thumbnail_url, video_url
+from plugins.youtube.community_info import CommunityPostInfo, get_posts_renderers
 
 
 class CommunityPostRecord(Record, CommunityPostInfo):
@@ -77,22 +78,49 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         return embeds
 
 @Plugins.register('community', Plugins.kind.ACTOR_CONFIG)
-class CommunityPostsMonitorConfig(BaseFeedMonitorConfig):
+class CommunityPostsMonitorConfig(PagedFeedMonitorConfig):
     pass
 
 
 @Plugins.register('community', Plugins.kind.ACTOR_ENTITY)
-class CommunityPostsMonitorEntity(BaseFeedMonitorEntity):
+class CommunityPostsMonitorEntity(PagedFeedMonitorEntity):
     update_interval: float = 1800
 
-    max_continuation_depth: int = 10
-    next_page_delay: float = 1
-    allow_discontinuity: bool = False # store already fetched records on failure to load one of older pages
-    fetch_until_the_end_of_feed_mode: bool = False
-
-
 @Plugins.register('community', Plugins.kind.ACTOR)
-class CommunityPostsMonitor(BaseFeedMonitor):
+class CommunityPostsMonitor(PagedFeedMonitor):
+
+    def get_record_id(self, record: CommunityPostRecord) -> str:
+        return f'{record.channel_id}:{record.post_id}'
+
+    async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+        raw_page = await self.request(entity.url, entity, session)
+        if raw_page is None:
+            return None, None
+        raw_page_text = await raw_page.text()
+
+        try:
+            initial_page = get_initial_data(raw_page_text)
+        except Exception as e:
+            self.logger.exception(f'[{entity.name}] failed to get initial data from {entity.url}: {e}')
+            return None, None
+        records = self._parse_entries(initial_page)
+        continuation_token = get_continuation_token(initial_page)
+
+        return records, (initial_page, continuation_token)
+
+    async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+        initial_page, continuation_token = context  # type: ignore
+
+        url, headers, post_body = prepare_next_page_request(initial_page, continuation_token, cookies=session.cookie_jar)
+        current_page = await utils.request_json(url, session, self.logger, method='POST', headers=headers,
+                                             data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
+                                             retry_delay=5)
+        if current_page is None:
+                return None, None
+        current_page_records = self._parse_entries(current_page) or []
+        continuation_token = get_continuation_token(current_page)
+        context = (initial_page, continuation_token) if continuation_token else None
+        return current_page_records, context
 
     def _parse_entries(self, page: dict) -> List[CommunityPostRecord]:
         post_renderers = get_posts_renderers(page)
@@ -106,55 +134,4 @@ class CommunityPostsMonitor(BaseFeedMonitor):
                self.logger.debug(f'error parsing item {item}: {e}')
                continue
         return records
-
-
-    async def get_records(self, entity: CommunityPostsMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
-        raw_page = await self.request(entity.url, entity, session)
-        if raw_page is None:
-            return []
-        raw_page_text = await raw_page.text()
-
-        initial_page = get_initial_data(raw_page_text)
-        continuation_token = get_continuation_token(initial_page)
-        records = current_page_records = self._parse_entries(initial_page)
-
-        if entity.fetch_until_the_end_of_feed_mode:
-            self.logger.info(f'[{entity.name}] "fetch_until_the_end_of_feed_mode" setting is enabled, will keep loading through already seen pages until the end. Disable it in config after it succeeds once')
-
-        current_page = 1
-        while True:
-            if continuation_token is None:
-                self.logger.debug(f'[{entity.name}] no continuation link on {current_page - 1} page, end of feed reached')
-                entity.fetch_until_the_end_of_feed_mode = False
-                break
-            if not entity.fetch_until_the_end_of_feed_mode:
-                if current_page > entity.max_continuation_depth:
-                    self.logger.info(f'[{entity.name}] reached continuation limit of {entity.max_continuation_depth}, aborting update')
-                    break
-                if not all(self.record_is_new(record, entity) for record in current_page_records):
-                    self.logger.debug(f'[{entity.name}] found already stored records on {current_page - 1} page')
-                    break
-            self.logger.debug(f'[{entity.name}] all records on page {current_page - 1} are new, loading next one')
-            url, headers, post_body = prepare_next_page_request(initial_page, continuation_token, cookies=session.cookie_jar)
-            next_page = await utils.request_json(url, session, self.logger, method='POST', headers=headers, data=json.dumps(post_body), retry_times=3, retry_multiplier=2, retry_delay=5)
-            if next_page is None:
-                if entity.allow_discontinuity or entity.fetch_until_the_end_of_feed_mode:
-                    # when unable to load _all_ new records, return at least current progress
-                    return records
-                else:
-                    # when unable to load _all_ new records, throw away all already parsed and return nothing
-                    # to not cause discontinuity in stored data
-                    return []
-            current_page_records = self._parse_entries(next_page) or [] # perhaps should also issue total failure if no records on the page?
-            records.extend(current_page_records)
-            continuation_token = get_continuation_token(next_page)
-
-            current_page += 1
-            await asyncio.sleep(entity.next_page_delay)
-
-        records = records[::-1]
-        return records
-
-    def get_record_id(self, record: CommunityPostRecord) -> str:
-        return f'{record.channel_id}:{record.post_id}'
 

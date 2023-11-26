@@ -1,16 +1,18 @@
 import datetime
+import json
 from json import JSONDecodeError
-from typing import Optional, Sequence
+from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
 from pydantic import Field, ValidationError
 
+from core import utils
 from core.interfaces import Filter, FilterEntity, Record
-from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
+from core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
-from plugins.youtube.common import thumbnail_url
-from plugins.youtube.feed_info import VideoRendererInfo, handle_page
+from plugins.youtube.common import prepare_next_page_request, thumbnail_url
+from plugins.youtube.feed_info import VideoRendererInfo, get_video_renderers, parse_owner_info, parse_video_renderer
 
 
 class YoutubeVideoRecord(VideoRendererInfo, Record):
@@ -87,18 +89,18 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
 
 
 @Plugins.register('channel', Plugins.kind.ACTOR_CONFIG)
-class VideosMonitorConfig(BaseFeedMonitorConfig):
+class VideosMonitorConfig(PagedFeedMonitorConfig):
     pass
 
 
 @Plugins.register('channel', Plugins.kind.ACTOR_ENTITY)
-class VideosMonitorEntity(BaseFeedMonitorEntity):
+class VideosMonitorEntity(PagedFeedMonitorEntity):
     update_interval: float = 1800
     """How often the monitored url will be checked, in seconds"""
 
 
 @Plugins.register('channel', Plugins.kind.ACTOR)
-class VideosMonitor(BaseFeedMonitor):
+class VideosMonitor(PagedFeedMonitor):
     """
     Youtube channel monitor
 
@@ -124,19 +126,41 @@ class VideosMonitor(BaseFeedMonitor):
     loading a single page to check all of them for updates.
     """
 
-    async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeVideoRecord]:
+    async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         raw_page = await self.request(entity.url, entity, session)
         if raw_page is None:
-            return []
+            return None, None
         raw_page_text = await raw_page.text()
-        try:
-            video_info = handle_page(raw_page_text)
-            records = [YoutubeVideoRecord.model_validate(info.model_dump()) for info in video_info]
-        except (ValueError, JSONDecodeError, ValidationError) as e:
-            self.logger.warning(f'[{entity.name}] failed to parse page from "{entity.url}"')
-            self.logger.debug(f'[{entity.name}] {type(e)}: {e}')
-            self.logger.debug(f'[{entity.name}] raw page:\n{raw_page_text}')
-            return []
+        video_renderers, continuation_token, page = get_video_renderers(raw_page_text)
+        current_page_records = self._parse_entries(page, video_renderers, entity)
+        return current_page_records, (page, continuation_token)
+
+    async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+        initial_page, continuation_token = context  # type: ignore
+
+        url, headers, post_body = prepare_next_page_request(initial_page, continuation_token, cookies=session.cookie_jar)
+        raw_page = await utils.request(url, session, self.logger, method='POST', headers=headers,
+                                                data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
+                                                retry_delay=5)
+        if raw_page is None:
+            return None, None
+        video_renderers, continuation_token, page = get_video_renderers(raw_page, anchor='')
+        context = (initial_page, continuation_token) if continuation_token else None
+        current_page_records = self._parse_entries(page, video_renderers, entity)
+        return current_page_records, context
+
+    def _parse_entries(self, page: dict, video_renderers: List[dict], entity: PagedFeedMonitorEntity) -> List[YoutubeVideoRecord]:
+        records: List[YoutubeVideoRecord] = []
+        owner_info = parse_owner_info(page)
+        for item in video_renderers:
+            try:
+                info = parse_video_renderer(item, owner_info, raise_on_error=True)
+                record = YoutubeVideoRecord.model_validate(info.model_dump())
+                records.append(record)
+            except (ValueError, JSONDecodeError, ValidationError) as e:
+                self.logger.warning(f'[{entity.name}] failed to parse video renderer on "{entity.url}": {type(e)}: {e}')
+                self.logger.debug(f'[{entity.name}] raw video renderer:\n{item}')
+                continue
         if not records:
             self.logger.warning(f'[{entity.name}] parsing page "{entity.url}" yielded no videos, check url and cookies')
         records = records[::-1] # records are ordered from old to new on page, reorder in chronological order
