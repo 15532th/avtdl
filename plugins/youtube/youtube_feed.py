@@ -175,8 +175,8 @@ class ChannelFilter(Filter):
 
     def match(self, entity: ChannelFilterEntity, record: YoutubeVideoRecord) -> Optional[YoutubeVideoRecord]:
         if not isinstance(record, YoutubeVideoRecord):
-            self.logger.debug(f'[{entity.name}] record dropped due to unsupported type, expected YoutubeVideoRecord, got {type(record)}')
-            return None
+            self.logger.debug(f'[{entity.name}] record is not a YoutubeVideoRecord, letting it through: {record!r}')
+            return record
         if entity.upcoming and not record.is_upcoming:
             return None
         if entity.live and not record.is_live:
