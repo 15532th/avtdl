@@ -1,16 +1,15 @@
 import asyncio
 import datetime
 import shlex
-import time
 from hashlib import sha1
 from pathlib import Path
-from typing import Dict, List, Sequence, Optional
+from typing import Dict, List, Optional, Sequence
 
 from pydantic import field_validator
 
 from core import utils
 from core.config import Plugins
-from core.interfaces import Actor, ActorConfig, ActorEntity, Record, Event, EventType
+from core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record
 from core.utils import check_dir
 
 
