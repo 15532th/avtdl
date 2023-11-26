@@ -321,8 +321,8 @@ class NitterFilterPick(Filter):
 
     def match(self, entity: NitterFilterEntity, record: NitterRecord) -> Optional[NitterRecord]:
         if not isinstance(record, NitterRecord):
-            self.logger.debug(f'[{entity.name}] record dropped due to unsupported type, expected NitterRecord, got {type(record)}')
-            return None
+            self.logger.debug(f'[{entity.name}] record is not a NitterRecord, letting through: {record!r}')
+            return record
         if entity.retweet and record.retweet_header is not None:
             return record
         if entity.reply and record.reply_header is not None:
@@ -346,8 +346,8 @@ class NitterFilterDrop(Filter):
 
     def match(self, entity: NitterFilterEntity, record: NitterRecord) -> Optional[NitterRecord]:
         if not isinstance(record, NitterRecord):
-            self.logger.debug(f'[{entity.name}] record dropped due to unsupported type, expected NitterRecord, got {type(record)}')
-            return None
+            self.logger.debug(f'[{entity.name}] record is not a NitterRecord, letting through: {record!r}')
+            return record
         if entity.retweet and record.retweet_header is not None:
             return None
         if entity.reply and record.reply_header is not None:
