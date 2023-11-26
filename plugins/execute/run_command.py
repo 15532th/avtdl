@@ -68,6 +68,8 @@ class Command(Actor):
                 value = record_as_dict.get(field)
                 if value is not None:
                     new_arg = new_arg.replace(placeholder, value)
+                else:
+                    self.logger.warning(f'[{entity.name}] configured placeholder "{field}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
             for placeholder, value in entity.static_placeholders.items():
                 new_arg = new_arg.replace(placeholder, value)
             new_args.append(new_arg)
@@ -98,6 +100,7 @@ class Command(Actor):
             msg = f'[{entity.name}] command "{command_line}" for record {record!r} is already running, will not call again'
             self.logger.info(msg)
             return
+        self.logger.debug(f'[{entity.name}] executing command "{command_line}" for record {record!r}')
         task = self.run_subprocess(args, task_id, entity, record)
         self.running_commands[task_id] = asyncio.get_event_loop().create_task(task)
 
