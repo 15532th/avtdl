@@ -1,8 +1,7 @@
-import asyncio
 import datetime
 import re
 from textwrap import shorten
-from typing import List, Optional, Sequence
+from typing import Any, List, Optional, Sequence, Tuple
 from urllib import parse as urllibparse
 
 import aiohttp
@@ -12,7 +11,7 @@ from pydantic import ConfigDict
 
 from core import utils
 from core.interfaces import Filter, FilterEntity, MAX_REPR_LEN, Record
-from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
+from core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
 
@@ -108,18 +107,13 @@ class NitterQuoteRecord(NitterRecord):
 
 
 @Plugins.register('nitter', Plugins.kind.ACTOR_CONFIG)
-class NitterMonitorConfig(BaseFeedMonitorConfig):
+class NitterMonitorConfig(PagedFeedMonitorConfig):
     pass
 
 @Plugins.register('nitter', Plugins.kind.ACTOR_ENTITY)
-class NitterMonitorEntity(BaseFeedMonitorEntity):
+class NitterMonitorEntity(PagedFeedMonitorEntity):
     update_interval: float = 1800
     """How often the monitored url will be checked, in seconds"""
-
-    max_continuation_depth: int = 10
-    next_page_delay: float = 1
-    allow_discontiniuty: bool = False # store already fetched records on failure to load one of older pages
-    fetch_until_the_end_of_feed_mode: bool = False
 
 
 def get_text_content(element: lxml.html.HtmlElement) -> str:
@@ -143,7 +137,7 @@ def get_html_content(element: lxml.html.HtmlElement) -> str:
 
 
 @Plugins.register('nitter', Plugins.kind.ACTOR)
-class NitterMonitor(BaseFeedMonitor):
+class NitterMonitor(PagedFeedMonitor):
     """
     Monitor for Nitter instances
 
@@ -171,50 +165,26 @@ class NitterMonitor(BaseFeedMonitor):
     HEADERS = {'Accept-Language': 'en-US', 'Accept-Encoding': 'gzip, deflate',
                'Cookie': 'Cookie: hideBanner=on; hidePins=on; replaceTwitter=; replaceYouTube=; replaceReddit='}
 
-    async def get_records(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
+    async def handle_first_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         raw_page = await self._get_user_page(entity, session)
         if raw_page is None:
-            return []
+            return None, None
         page = self._parse_html(raw_page, entity.url)
-        records = current_page_records = self._parse_entries(page)
+        records = self._parse_entries(page)
         next_page_url = self._get_continuation_url(page)
+        return records, next_page_url
 
-        if entity.fetch_until_the_end_of_feed_mode:
-            self.logger.info(f'[{entity.name}] "fetch_until_the_end_of_feed_mode" setting is enabled, will keep loading through already seen pages until the end. Disable it in config after it succeeds once')
-
-        current_page = 1
-        while True:
-            if next_page_url is None:
-                self.logger.debug(f'[{entity.name}] no continuation link on {current_page - 1} page, end of feed reached')
-                entity.fetch_until_the_end_of_feed_mode = False
-                break
-            if not entity.fetch_until_the_end_of_feed_mode:
-                if current_page > entity.max_continuation_depth:
-                    self.logger.info(f'[{entity.name}] reached continuation limit of {entity.max_continuation_depth}, aborting update')
-                    break
-                if not all(self.record_is_new(record, entity) for record in current_page_records):
-                    self.logger.debug(f'[{entity.name}] found already stored records on {current_page - 1} page')
-                    break
-            self.logger.debug(f'[{entity.name}] all records on page {current_page - 1} are new, loading next one')
-            raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=3, retry_multiplier=2, retry_delay=5)
-            if raw_page is None:
-                if entity.allow_discontiniuty or entity.fetch_until_the_end_of_feed_mode:
-                    # when unable to load _all_ new records, return at least current progress
-                    return records
-                else:
-                    # when unable to load _all_ new records, throw away all already parsed and return nothing
-                    # to not cause discontinuity in stored data
-                    return []
-            page = self._parse_html(raw_page, entity.url)
-            current_page_records = self._parse_entries(page) or [] # perhaps should also issue total failure if no records on the page?
-            records.extend(current_page_records)
-            next_page_url = self._get_continuation_url(page)
-
-            current_page += 1
-            await asyncio.sleep(entity.next_page_delay)
-
-        records = records[::-1] # feed is naturally sorted from newer to older, reverse it
-        return records
+    async def handle_next_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+        next_page_url: Optional[str] = context  # type: ignore
+        if next_page_url is None:
+            return None, None
+        raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=3, retry_multiplier=2, retry_delay=5)
+        if raw_page is None:
+            return None, None
+        page = self._parse_html(raw_page, entity.url)
+        records = self._parse_entries(page)
+        next_page_url = self._get_continuation_url(page)
+        return records, next_page_url
 
     def get_record_id(self, record: NitterRecord) -> str:
         return record.url

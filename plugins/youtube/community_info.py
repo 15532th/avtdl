@@ -1,13 +1,9 @@
-import time
-from hashlib import sha1
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
 from pydantic import BaseModel
 
 from plugins.youtube.common import find_all, find_one
-
-CLIENT_VERSION = '2.20231023.04.02'
 
 
 class CommunityPostInfo(BaseModel):
@@ -91,41 +87,3 @@ class CommunityPostInfo(BaseModel):
 def get_posts_renderers(data: dict) -> list:
     items = find_all(data, '$..post.backstagePostRenderer')
     return items
-
-def get_continuation_token(data: dict) -> Optional[str]:
-    token = find_one(data, '$..continuationEndpoint.continuationCommand.token')
-    return token
-
-def get_auth_header(sapisid: str) -> str:
-    timestamp = str(int(time.time()))
-    sapisidhash = sha1(' '.join([timestamp, sapisid, 'https://www.youtube.com']).encode()).hexdigest()
-    return f'SAPISIDHASH {timestamp}_{sapisidhash}'
-
-def prepare_next_page_request(initial_page_data: dict, continuation_token, cookies=None, client_version=None) -> Tuple[str, dict, dict]:
-    BROWSE_ENDPOINT = 'https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
-    cookies = cookies or {}
-
-    response_context = find_one(initial_page_data, '$.responseContext')
-    session_index = find_one(response_context, '$.webResponseContextExtensionData.ytConfigData.sessionIndex') or ''
-
-    if client_version is None:
-        client_version = find_one(initial_page_data, '$..serviceTrackingParams..params[?(@.key=="client.version")].value')
-        if client_version is None:
-            client_version = CLIENT_VERSION
-
-    headers = {
-        'X-Goog-AuthUser': session_index,
-        'X-Origin': 'https://www.youtube.com',
-        'X-Youtube-Client-Name': '1',
-        'Content-Type': 'application/json'
-    }
-    if 'SAPISID' in cookies:
-        headers['Authorization'] = get_auth_header(cookies['SAPISID'])
-
-    post_body = {
-        'context': {
-            'client': {'clientName': 'WEB', 'clientVersion': client_version}},
-        'continuation': continuation_token
-    }
-    return BROWSE_ENDPOINT, headers, post_body
-

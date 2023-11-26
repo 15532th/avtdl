@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from plugins.youtube.common import find_all, find_one, extract_keys, get_continuation_token
+from plugins.youtube.common import extract_keys, find_all, find_one, get_continuation_token
 
 
 class VideoRendererInfo(BaseModel):
@@ -24,15 +24,14 @@ class VideoRendererInfo(BaseModel):
     is_live: bool
     is_member_only: bool
 
-def get_video_renderers(page: str) -> Tuple[list, Optional[dict], dict]:
-    anchor = 'var ytInitialData = {'
+def get_video_renderers(page: str, anchor: str = 'var ytInitialData = ') -> Tuple[list, Optional[str], dict]:
     keys = ['gridVideoRenderer', 'videoRenderer', 'playlistVideoRenderer', 'continuationEndpoint']
     items, data = extract_keys(page, keys, anchor)
-    continuation = get_continuation_token(items.pop('continuationEndpoint', {}))
+    continuation_token = get_continuation_token(items.pop('continuationEndpoint', {}))
     renderers = []
     for item in items.values():
         renderers.extend(item)
-    return renderers, continuation, data
+    return renderers, continuation_token, data
 
 def parse_scheduled(timestamp: Optional[str]) -> Optional[datetime.datetime]:
     if timestamp is None:
@@ -112,7 +111,7 @@ def parse_owner_info(page: dict) -> Optional[AuthorInfo]:
     except ValidationError:
         return None
 
-def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> Optional[VideoRendererInfo]:
+def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_error: bool = False) -> Optional[VideoRendererInfo]:
     video_id = item.get('videoId')
     url = f'https://www.youtube.com/watch?v={video_id}'
     title = find_one(item, '$.title..text,simpleText')
@@ -155,6 +154,8 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> Option
                                  is_member_only=is_member_only)
         return info
     except ValidationError:
+        if raise_on_error:
+            raise
         return None
 
 def handle_page(page: str) -> list:

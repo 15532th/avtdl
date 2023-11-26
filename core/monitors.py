@@ -1,10 +1,10 @@
 import asyncio
 import sqlite3
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional, Sequence, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import aiohttp
 from pydantic import Field, FilePath, field_validator, model_validator
@@ -341,3 +341,87 @@ class BaseFeedMonitor(HttpTaskMonitor):
         records = await self.get_records(entity, session)
         new_records = self.filter_new_records(records, entity)
         return new_records
+
+
+class PagedFeedMonitorConfig(BaseFeedMonitorConfig):
+    pass
+
+
+class PagedFeedMonitorEntity(BaseFeedMonitorEntity):
+    max_continuation_depth: int = 10
+    next_page_delay: float = 1
+    allow_discontinuity: bool = False # store already fetched records on failure to load one of older pages
+    fetch_until_the_end_of_feed_mode: bool = False
+
+
+class PagedFeedMonitor(BaseFeedMonitor, ABC):
+    '''Provide support for loading and parsing feeds with pagination or lazy loading'''
+
+    @abstractmethod
+    async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+        '''Download and parse first page of the feed
+
+        Returns two-elements tuple with processed records as first element and
+        anything required to load and process next page as second.
+
+        If loading or parsing page failed, warning should be issued using self.logger, update_interval
+        adjusted if required (by using self.request to fetch data or manually)
+        and first return element of the tuple should be None.
+
+        If there is no next page or there is no new records, or limit of continuation depth reached,
+        then second element should be None'''
+
+    @abstractmethod
+    async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+        '''Download and parse continuation  page
+
+        Parameters:
+            context (Optional[Any]): any data required to load next page, such as continuation token
+        Returns same values as handle_first_page'''
+
+    async def get_records(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
+        records: List[Record] = []
+        current_page_records, continuation_context = await self.handle_first_page(entity, session)
+        if current_page_records is None:
+            return records
+        records.extend(current_page_records)
+
+        if entity.fetch_until_the_end_of_feed_mode:
+            self.logger.info(
+                f'[{entity.name}] "fetch_until_the_end_of_feed_mode" setting is enabled, will keep loading through already seen pages until the end. Disable it in config after it succeeds once')
+
+        current_page = 1
+        while True:
+            if continuation_context is None:
+                self.logger.debug(f'[{entity.name}] no continuation link on {current_page - 1} page, end of feed reached')
+                entity.fetch_until_the_end_of_feed_mode = False
+                break
+            if not entity.fetch_until_the_end_of_feed_mode:
+                if current_page > entity.max_continuation_depth:
+                    self.logger.info(
+                        f'[{entity.name}] reached continuation limit of {entity.max_continuation_depth}, aborting update')
+                    break
+                if not all(self.record_is_new(record, entity) for record in current_page_records):
+                    self.logger.debug(f'[{entity.name}] found already stored records on {current_page - 1} page')
+                    break
+            self.logger.debug(f'[{entity.name}] all records on page {current_page - 1} are new, loading next one')
+
+            current_page_records, continuation_context = await self.handle_next_page(entity, session, continuation_context)
+            if current_page_records is None:
+                if entity.allow_discontinuity or entity.fetch_until_the_end_of_feed_mode:
+                    # when unable to load _all_ new records, return at least current progress
+                    return records
+                else:
+                    # when unable to load _all_ new records, throw away all already parsed and return nothing
+                    # to not cause discontinuity in stored data
+                    return []
+            records.extend(current_page_records)
+
+            if continuation_context is None:
+                return records
+
+            current_page += 1
+            await asyncio.sleep(entity.next_page_delay)
+
+        records = records[::-1]
+        return records
