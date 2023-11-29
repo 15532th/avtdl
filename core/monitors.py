@@ -154,8 +154,8 @@ class HttpTaskMonitor(BaseTaskMonitor):
             new_update_interval = min(new_update_interval, 10 * entity.base_update_interval, HIGHEST_UPDATE_INTERVAL) # in case ttl is overly long
             new_update_interval = max(new_update_interval, entity.base_update_interval)
             if entity.update_interval != new_update_interval:
-                logger.info(f'[{entity.name}] next update in {entity.update_interval}')
                 entity.update_interval = new_update_interval
+                logger.info(f'[{entity.name}] next update in {entity.update_interval}')
         else:
             # restore update interval after backoff on failure
             if entity.update_interval != entity.base_update_interval:
