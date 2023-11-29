@@ -333,7 +333,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
             if self.record_is_new(record, entity):
                 new_records.append(record)
                 self.store_record(record, entity)
-                self.logger.debug(f'fetched record is new: "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
+                self.logger.debug(f'[{entity.name}] fetched record is new: "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
             if self.record_got_updated(record, entity):
                 self._log_changes(record, entity)
                 self.store_record(record, entity)
