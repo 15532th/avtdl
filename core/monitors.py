@@ -125,16 +125,18 @@ class HttpTaskMonitor(BaseTaskMonitor):
                 logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {url}')
                 retry_after = get_retry_after(response.headers)
                 if retry_after is not None:
-                    self.logger.debug(f'got Retry-After header with value {retry_after}')
-                    entity.update_interval = float(retry_after)
+                    entity.update_interval = max(float(retry_after), HIGHEST_UPDATE_INTERVAL)
+                    raw_header = response.headers.get("Retry-After")
+                    self.logger.debug(f'got Retry-After header with value {raw_header}')
+                    logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url} as requested by response headers')
+                    return None
             else:
-                logger.warning(f'[{entity.name}] error while fetching {url}: {e}')
-
-            update_interval = int(Delay.get_next(entity.update_interval))
-            if entity.update_interval != update_interval:
-                entity.update_interval = update_interval
-                logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url}')
-            return None
+                logger.warning(f'[{entity.name}] error while fetching {url}: {str(e) or type(e)}')
+                update_interval = int(Delay.get_next(entity.update_interval))
+                if entity.update_interval != update_interval:
+                    entity.update_interval = update_interval
+                    logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url}')
+                return None
 
         if response.status == 304:
             logger.debug(f'[{entity.name}] got {response.status} ({response.reason}) from {url}')
