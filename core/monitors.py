@@ -105,7 +105,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
         self.sessions: Dict[str, aiohttp.ClientSession] = {}
         super().__init__(conf, entities)
 
-    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None) -> Optional[aiohttp.ClientResponse]:
+    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, json: Optional[Any] = None) -> Optional[aiohttp.ClientResponse]:
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
         logger = self.logger.parent.getChild('request').getChild(self.conf.name)
         request_headers: Dict[str, Any] = headers or {}
@@ -114,7 +114,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
         if entity.etag is not None:
             request_headers['If-None-Match'] = entity.etag
         try:
-            async with session.request(method, url, headers=request_headers, params=params, data=data) as response:
+            async with session.request(method, url, headers=request_headers, params=params, data=data, json=json) as response:
                 response.raise_for_status()
                 # fully read http response to get it cached inside ClientResponse object
                 # client code can then use it by awaiting .text() again without causing
