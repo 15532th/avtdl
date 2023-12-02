@@ -129,7 +129,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
                     raw_header = response.headers.get("Retry-After")
                     self.logger.debug(f'got Retry-After header with value {raw_header}')
                     logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url} as requested by response headers')
-                    return None
+                return None
             else:
                 logger.warning(f'[{entity.name}] error while fetching {url}: {str(e) or type(e)}')
                 update_interval = int(Delay.get_next(entity.update_interval))
