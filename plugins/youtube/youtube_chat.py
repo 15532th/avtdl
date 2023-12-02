@@ -61,13 +61,15 @@ class Context(BaseModel):
     initial_data: Optional[dict] = None
     continuation_url: Optional[str] = None
     continuation_token: Optional[str] = None
+    base_update_interval: float = 120
     # is_replay: Optional[bool] = None
     # done: Optional[bool] = None
 
 @Plugins.register('prechat', Plugins.kind.ACTOR_ENTITY)
 class YoutubeChatMonitorEntity(HttpTaskMonitorEntity):
     url: str
-    update_interval: float = 300
+    update_interval: float = 120
+    adjust_update_interval: bool = Field(exclude=True, default=False)
     context: Context = Field(exclude=True, default=Context())
 
 
@@ -95,7 +97,13 @@ class YoutubeChatMonitor(HttpTaskMonitor):
             actions, continuation, _ = self._get_actions(page)
             records = Parser().run_parsers(actions)
             entity.context.continuation_token = continuation
-            entity.update_interval = self._new_update_interval(entity.update_interval, len(records))
+            new_update_interval = self._new_update_interval(entity.update_interval, entity.context.base_update_interval, len(records))
+            # entity.update_interval gets updated by self.request()
+            # which doesn't expect anyone else to touch it
+            # in order to work together with it entity.base_update_interval
+            # is overwritten with current update interval, while original value
+            # is stored in entity.context.base_update_interval
+            entity.base_update_interval = entity.update_interval = new_update_interval
             return records
         else:
             response = await self.request(entity.url, entity, session)
@@ -113,21 +121,23 @@ class YoutubeChatMonitor(HttpTaskMonitor):
             records = Parser().run_parsers(actions)
             entity.context.initial_data = initial_data
             entity.context.continuation_token = continuation
-            # entity.update_interval = self._new_update_interval(entity.update_interval, len(records))
-            entity.update_interval = 0
+            # store copy of base_update_interval before overwriting it
+            entity.context.base_update_interval = entity.base_update_interval
+            entity.update_interval = entity.base_update_interval = 0
             return records
 
-    def _new_update_interval(self, old_update_interval: float, new_records: int) -> float:
-        if new_records == 0:
-            return min(old_update_interval * 1.2, 120)
+    def _new_update_interval(self, old_update_interval: float, base_update_interval: float, new_records: int) -> float:
+        if new_records > 0:
+            return 20
         if new_records > 50:
             return 2
-        return 20
+        return min(old_update_interval * 1.2, base_update_interval)
 
     def _get_continuation_url(self, info: VideoInfo) -> str:
         if info.is_upcoming or info.is_livestream:
             return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'
         else:
+            # loading chat replay is not implemented yet though
             return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat_replay?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'
 
     def _get_actions(self, page: str, first_page=False) -> Tuple[Dict[str, list], Optional[str], dict]:
