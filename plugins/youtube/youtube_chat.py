@@ -81,31 +81,10 @@ class YoutubeChatMonitor(HttpTaskMonitor):
         return raw_page_text
 
     def _get_actions(self, page: str) -> Tuple[Dict[str, list], dict]:
-        keys = list(Parser.parsers.keys())
+        keys = list(Parser.known_actions)
         actions, data = extract_keys(page, keys, anchor='var ytInitialData = ')
         return actions, data
 
-
-def runs_to_text(runs: dict) -> str:
-    parts = []
-    for run in runs.get('runs', []):
-        text = run.get('text')
-        if text is not None:
-            parts.append(text)
-        emoji = run.get('emoji')
-        if emoji is not None:
-            try:
-                shortcut = str(emoji['shortcuts'][0])
-            except (KeyError, IndexError, TypeError):
-                shortcut = ''
-            try:
-                label = emoji['image']['accessibility']['accessibilityData']['label']
-            except (KeyError, IndexError, TypeError):
-                continue
-            text = shortcut if shortcut.startswith(':_') else label
-            parts.append(text)
-    message = ''.join(parts)
-    return message
 
 class Parser:
 
@@ -118,10 +97,31 @@ class Parser:
     def drop(self, action_type, renderer_type, renderer):
         return None
 
+    def runs_to_text(self, runs: dict) -> str:
+        parts = []
+        for run in runs.get('runs', []):
+            text = run.get('text')
+            if text is not None:
+                parts.append(text)
+            emoji = run.get('emoji')
+            if emoji is not None:
+                try:
+                    shortcut = str(emoji['shortcuts'][0])
+                except (KeyError, IndexError, TypeError):
+                    shortcut = ''
+                try:
+                    label = emoji['image']['accessibility']['accessibilityData']['label']
+                except (KeyError, IndexError, TypeError):
+                    continue
+                text = shortcut if shortcut.startswith(':_') else label
+                parts.append(text)
+        message = ''.join(parts)
+        return message
+
     def parse_chat_renderer(self, action_type: str, renderer_type: str, renderer: dict) -> YoutubeChatRecord:
         uid = renderer.get('id')
 
-        text = runs_to_text(renderer.get('message', {}))
+        text = self.runs_to_text(renderer.get('message', {}))
         author = renderer.get('authorName', {}).get('simpleText', '[no author]')
         channel_id = renderer.get('authorExternalChannelId') or find_one(renderer, '$..authorExternalChannelId')
         channel = f'https://www.youtube.com/channel/{channel_id}'
@@ -129,7 +129,7 @@ class Parser:
         badges = renderer.get('authorBadges', []) and find_all(renderer['authorBadges'], '$..label')
         amount = renderer.get('purchaseAmountText', {}).get('simpleText')
         header = renderer.get('headerSubtext')
-        header_text = runs_to_text(header) if header else None
+        header_text = self.runs_to_text(header) if header else None
         sticker = find_one(renderer, '$.sticker.accessibility..label')
         record = YoutubeChatRecord(uid=uid,
                                     action=action_type,
@@ -147,7 +147,7 @@ class Parser:
 
     def parse_banner(self, action_type: str, renderer_type: str, renderer: dict) -> YoutubeChatRecord:
         header = find_one(renderer, '$..liveChatBannerHeaderRenderer.text') or {}
-        header_text = runs_to_text(header)
+        header_text = self.runs_to_text(header)
         message = find_one(renderer, '$..liveChatTextMessageRenderer')
         if message is None:
             self.logger.debug(f'[{action_type}.{renderer_type}] encounted banner with renderer other than liveChatTextMessageRenderer: {renderer}')
@@ -164,7 +164,7 @@ class Parser:
         author = find_one(renderer, '$..authorName.simpleText') or '[no author]'
         badges = find_all(renderer, '$..authorBadges..label')
         header = find_one(renderer, '$.primaryText')
-        header_text = runs_to_text(header) if header else None
+        header_text = self.runs_to_text(header) if header else None
         record = YoutubeChatRecord(uid=uid,
                                    action=action_type,
                                    renderer=renderer_type,
@@ -217,12 +217,13 @@ class Parser:
         }
     }
 
+    known_actions = set(parsers.keys())
+    known_renderers = set(sum([list(x.keys()) for x in parsers.values()], start=[]))
+
     def run_parsers(self, actions: Dict[str, list]) -> list:
-        known_actions = set(self.parsers.keys())
-        known_renderers = set(sum([list(x.keys()) for x in self.parsers.values()], start=[]))
         records = []
         for action_type, renderers_list in actions.items():
-            if not action_type in known_actions:
+            if not action_type in self.known_actions:
                 self.logger.debug(f'action "{action_type}" is not registered, skipping')
                 continue
             for renderer_items in renderers_list:
@@ -230,7 +231,7 @@ class Parser:
                     if not isinstance(renderers, dict):
                         continue
                     for renderer_type, renderer in renderers.items():
-                        if not renderer_type in known_renderers:
+                        if not renderer_type in self.known_renderers:
                             self.logger.debug(f'action "{action_type}" has no renderer "{renderer_type}" registered, skipping')
                             continue
                         try:
