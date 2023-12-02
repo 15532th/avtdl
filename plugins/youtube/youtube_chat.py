@@ -9,12 +9,14 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import aiohttp
 import requests
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 from core.plugins import Plugins
+from plugins.youtube import video_info
 from plugins.youtube.common import extract_keys, find_all, find_one, prepare_next_page_request
+from plugins.youtube.video_info import VideoInfo
 
 
 class YoutubeChatRecord(Record):
@@ -55,12 +57,18 @@ class YoutubeChatRecord(Record):
         text = shorten(self._main_text(), MAX_REPR_LEN)
         return f'[{self.action}: {self.renderer}] [{self.author}] {text}'
 
+class Context(BaseModel):
+    initial_data: Optional[dict] = None
+    continuation_url: Optional[str] = None
+    continuation_token: Optional[str] = None
+    # is_replay: Optional[bool] = None
+    # done: Optional[bool] = None
 
 @Plugins.register('prechat', Plugins.kind.ACTOR_ENTITY)
 class YoutubeChatMonitorEntity(HttpTaskMonitorEntity):
     url: str
-    update_interval: int = 300
-    continuation_url: Optional[str] = Field(exclude=True, default=None)
+    update_interval: float = 300
+    context: Context = Field(exclude=True, default=Context())
 
 
 @Plugins.register('prechat', Plugins.kind.ACTOR_CONFIG)
@@ -71,19 +79,63 @@ class YoutubeChatMonitorConfig(ActorConfig):
 @Plugins.register('prechat', Plugins.kind.ACTOR)
 class YoutubeChatMonitor(HttpTaskMonitor):
     async def get_new_records(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeChatRecord]:
-        return []
+        if entity.context.continuation_token is not None:
+            if entity.context.initial_data is None:
+                self.logger.warning(f'[{entity}] continuation token is present in absence of initial data. This is a bug')
+                return []
+            if entity.context.continuation_url is None:
+                self.logger.warning(f'[{entity}] continuation token is present in absence of continuation url. This is a bug')
+                return []
+            _, headers, post_body = prepare_next_page_request(entity.context.initial_data, entity.context.continuation_token)
+            response = await self.request(entity.context.continuation_url, entity, session, method='POST', headers=headers, json=post_body)
+            if response is None:
+                entity.context.continuation_token = None
+                return []
+            page = await response.text()
+            actions, continuation, _ = self._get_actions(page)
+            records = Parser().run_parsers(actions)
+            entity.context.continuation_token = continuation
+            entity.update_interval = self._new_update_interval(entity.update_interval, len(records))
+            return records
+        else:
+            response = await self.request(entity.url, entity, session)
+            if response is None:
+                return []
+            page = await response.text()
+            try:
+                info = video_info.parse_video_page(page, entity.url)
+            except Exception as e:
+                self.logger.warning(f'[{entity.name}] error parsing page {entity.url}: {e}')
+                return []
+            entity.context.continuation_url = self._get_continuation_url(info)
 
-    async def _get_page(self, url: str, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
-        raw_page = await self.request(url, entity, session)
-        if raw_page is None:
-            return None
-        raw_page_text = await raw_page.text()
-        return raw_page_text
+            actions, continuation, initial_data = self._get_actions(page, first_page=True)
+            records = Parser().run_parsers(actions)
+            entity.context.initial_data = initial_data
+            entity.context.continuation_token = continuation
+            # entity.update_interval = self._new_update_interval(entity.update_interval, len(records))
+            entity.update_interval = 0
+            return records
 
-    def _get_actions(self, page: str) -> Tuple[Dict[str, list], dict]:
+    def _new_update_interval(self, old_update_interval: float, new_records: int) -> float:
+        if new_records == 0:
+            return min(old_update_interval * 1.2, 120)
+        if new_records > 50:
+            return 2
+        return 20
+
+    def _get_continuation_url(self, info: VideoInfo) -> str:
+        if info.is_upcoming or info.is_livestream:
+            return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'
+        else:
+            return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat_replay?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'
+
+    def _get_actions(self, page: str, first_page=False) -> Tuple[Dict[str, list], Optional[str], dict]:
         keys = list(Parser.known_actions)
-        actions, data = extract_keys(page, keys, anchor='var ytInitialData = ')
-        return actions, data
+        anchor = 'var ytInitialData = ' if first_page else ''
+        actions, data = extract_keys(page, keys, anchor=anchor)
+        continuation = find_one(data, '$..invalidationContinuationData,timedContinuationData,liveChatReplayContinuationData,reloadContinuationData..continuation')
+        return actions, continuation, data
 
 
 class Parser:
