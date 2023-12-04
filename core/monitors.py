@@ -383,6 +383,8 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
         '''Download and parse continuation  page
 
         Parameters:
+            entity (PagedFeedMonitorEntity): working entity
+            session (aiohttp.ClientSession): session object to make requests with
             context (Optional[Any]): any data required to load next page, such as continuation token
         Returns same values as handle_first_page'''
 
