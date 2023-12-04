@@ -6,13 +6,14 @@ import logging
 import os
 import re
 import sqlite3
+from collections import OrderedDict
 from email.utils import mktime_tz, parsedate_to_datetime
 from http import cookiejar
 from math import log2
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter_ns
-from typing import Any, Dict, Optional, Union, Callable
+from typing import Any, Callable, Dict, Hashable, Optional, Union
 
 import aiohttp
 import multidict
@@ -306,3 +307,20 @@ def timeit(func: Callable) -> Callable:
       logging.warning(f'{func.__name__}: {duration/10**6:10}')
       return result
   return timer
+
+
+class LRUCache:
+
+    def __init__(self, max_size: int = 100):
+        if max_size <= 0:
+            raise ValueError('Maximum cache size must be a positive integer')
+        self._max_size = max_size
+        self._data: OrderedDict = OrderedDict()
+
+    def put(self, item: Hashable):
+        """Put item in the cache, resize the cache if needed"""
+        if not item in self._data:
+            self._data[item] = 1
+        self._data.move_to_end(item)
+        while len(self._data) > self._max_size:
+            self._data.popitem(last=False)
