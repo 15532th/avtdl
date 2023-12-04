@@ -5,6 +5,7 @@ from collections import defaultdict
 from hashlib import sha1
 from json import JSONDecodeError
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import parse_qs, unquote, urlparse
 
 from jsonpath import JSONPath
 
@@ -127,3 +128,18 @@ def prepare_next_page_request(initial_page_data: dict, continuation_token, cooki
         'continuation': continuation_token
     }
     return BROWSE_ENDPOINT, headers, post_body
+
+
+def parse_navigation_endpoint(item: dict) -> str:
+    """Parse url from 'navigationEndpoint' item"""
+    url = item['navigationEndpoint']['commandMetadata']['webCommandMetadata']['url']
+    if url.startswith('https://www.youtube.com/redirect'):
+        parsed_url = urlparse(url)
+        redirect_url = parse_qs(parsed_url.query)['q'][0]
+        url = unquote(redirect_url)
+    elif url.startswith('/hashtag'):
+        url = item['text']
+    elif url.startswith('/'):
+        site = 'https://www.youtube.com'
+        url = site + url
+    return url

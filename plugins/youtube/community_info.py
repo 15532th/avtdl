@@ -1,9 +1,8 @@
 from typing import List, Optional
-from urllib.parse import parse_qs, unquote, urlparse
 
 from pydantic import BaseModel
 
-from plugins.youtube.common import find_all, find_one
+from plugins.youtube.common import find_all, find_one, parse_navigation_endpoint
 
 
 class CommunityPostInfo(BaseModel):
@@ -31,17 +30,7 @@ class CommunityPostInfo(BaseModel):
             video_id = item['watchEndpoint']['videoId']
             text = video_template.format(video_id)
         elif 'navigationEndpoint' in item:
-            url = item['navigationEndpoint']['commandMetadata']['webCommandMetadata']['url']
-            if url.startswith('https://www.youtube.com/redirect'):
-                parsed_url = urlparse(url)
-                redirect_url = parse_qs(parsed_url.query)['q'][0]
-                url = unquote(redirect_url)
-            elif url.startswith('/hashtag'):
-                url = item['text']
-            elif url.startswith('/'):
-                site = 'https://www.youtube.com'
-                url = site + url
-            text = url
+            text = parse_navigation_endpoint(item)
         else:
             text = ''.join(item['text'])
         return text.replace('\r', '')
