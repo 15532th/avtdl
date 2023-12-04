@@ -36,7 +36,7 @@ class CommunityPostInfo(BaseModel):
         return text.replace('\r', '')
 
     @classmethod
-    def from_post_renderer(cls, post_renderer: str) -> 'CommunityPostInfo':
+    def from_post_renderer(cls, post_renderer: dict) -> 'CommunityPostInfo':
         author = find_one(post_renderer, '$.authorText..text')
         channel_id = find_one(post_renderer, '$.authorText..browseId')
         post_id = find_one(post_renderer, '$.postId')
