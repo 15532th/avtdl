@@ -107,7 +107,11 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
     async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, json: Optional[Any] = None) -> Optional[aiohttp.ClientResponse]:
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
-        logger = self.logger.parent.getChild('request').getChild(self.conf.name)
+        if self.logger.parent is None:
+            # should never happen since Actor().logger is constructed with getChild()
+            logger = self.logger.getChild('request').getChild(self.conf.name)
+        else:
+            logger = self.logger.parent.getChild('request').getChild(self.conf.name)
         request_headers: Dict[str, Any] = headers or {}
         if entity.last_modified is not None and method in ['GET', 'HEAD']:
             request_headers['If-Modified-Since'] = entity.last_modified
