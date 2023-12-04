@@ -11,12 +11,11 @@ import aiohttp
 import requests
 from pydantic import BaseModel, Field
 
-from core.interfaces import ActorConfig, MAX_REPR_LEN, Record
-from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
+from core.interfaces import MAX_REPR_LEN, Record
+from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
 from plugins.youtube import video_info
-from plugins.youtube.common import extract_keys, find_all, find_one, prepare_next_page_request
-from plugins.youtube.video_info import VideoInfo
+from plugins.youtube.common import extract_keys, find_all, find_one, parse_navigation_endpoint, prepare_next_page_request
 
 
 class YoutubeChatRecord(Record):
@@ -62,11 +61,11 @@ class Context(BaseModel):
     continuation_url: Optional[str] = None
     continuation_token: Optional[str] = None
     base_update_interval: float = 120
-    # is_replay: Optional[bool] = None
-    # done: Optional[bool] = None
+    is_replay: Optional[bool] = None
+    done: bool = False
 
 @Plugins.register('prechat', Plugins.kind.ACTOR_ENTITY)
-class YoutubeChatMonitorEntity(HttpTaskMonitorEntity):
+class YoutubeChatMonitorEntity(BaseFeedMonitorEntity):
     url: str
     update_interval: float = 120
     adjust_update_interval: bool = Field(exclude=True, default=False)
@@ -74,57 +73,79 @@ class YoutubeChatMonitorEntity(HttpTaskMonitorEntity):
 
 
 @Plugins.register('prechat', Plugins.kind.ACTOR_CONFIG)
-class YoutubeChatMonitorConfig(ActorConfig):
+class YoutubeChatMonitorConfig(BaseFeedMonitorConfig):
     pass
 
 
 @Plugins.register('prechat', Plugins.kind.ACTOR)
-class YoutubeChatMonitor(HttpTaskMonitor):
-    async def get_new_records(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeChatRecord]:
-        if entity.context.continuation_token is not None:
-            if entity.context.initial_data is None:
-                self.logger.warning(f'[{entity}] continuation token is present in absence of initial data. This is a bug')
-                return []
-            if entity.context.continuation_url is None:
-                self.logger.warning(f'[{entity}] continuation token is present in absence of continuation url. This is a bug')
-                return []
-            _, headers, post_body = prepare_next_page_request(entity.context.initial_data, entity.context.continuation_token)
-            response = await self.request(entity.context.continuation_url, entity, session, method='POST', headers=headers, json=post_body)
-            if response is None:
-                entity.context.continuation_token = None
-                return []
-            page = await response.text()
-            actions, continuation, _ = self._get_actions(page)
-            records = Parser().run_parsers(actions)
-            entity.context.continuation_token = continuation
-            new_update_interval = self._new_update_interval(entity.update_interval, entity.context.base_update_interval, len(records))
-            # entity.update_interval gets updated by self.request()
-            # which doesn't expect anyone else to touch it
-            # in order to work together with it entity.base_update_interval
-            # is overwritten with current update interval, while original value
-            # is stored in entity.context.base_update_interval
-            entity.base_update_interval = entity.update_interval = new_update_interval
-            return records
-        else:
-            response = await self.request(entity.url, entity, session)
-            if response is None:
-                return []
-            page = await response.text()
-            try:
-                info = video_info.parse_video_page(page, entity.url)
-            except Exception as e:
-                self.logger.warning(f'[{entity.name}] error parsing page {entity.url}: {e}')
-                return []
-            entity.context.continuation_url = self._get_continuation_url(info)
+class YoutubeChatMonitor(BaseFeedMonitor):
 
-            actions, continuation, initial_data = self._get_actions(page, first_page=True)
-            records = Parser().run_parsers(actions)
-            entity.context.initial_data = initial_data
-            entity.context.continuation_token = continuation
-            # store copy of base_update_interval before overwriting it
-            entity.context.base_update_interval = entity.base_update_interval
-            entity.update_interval = entity.base_update_interval = 0
-            return records
+    def get_record_id(self, record: YoutubeChatRecord) -> str:
+       return record.uid
+
+    async def get_records(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeChatRecord]:
+        if entity.context.done:
+            return []
+        actions = {}
+        if entity.context.continuation_token is None:
+            actions.update(await self._get_first(entity, session))
+        if entity.context.continuation_token is not None:
+            actions.update(await self._get_next(entity, session))
+        records = Parser().run_parsers(actions)
+        new_update_interval = self._new_update_interval(entity.update_interval, entity.context.base_update_interval, len(records))
+        # entity.update_interval gets updated by self.request()
+        # which doesn't expect anyone else to touch it
+        # in order to work together with it entity.base_update_interval
+        # is overwritten with current update interval, while original value
+        # is stored in entity.context.base_update_interval
+        entity.base_update_interval = entity.update_interval = new_update_interval
+        return records
+
+    async def _get_first(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
+        response = await self.request(entity.url, entity, session)
+        if response is None:
+            return {}
+        page = await response.text()
+        try:
+            info = video_info.parse_video_page(page, entity.url)
+        except Exception as e:
+            self.logger.warning(f'[{entity.name}] error parsing page {entity.url}: {e}')
+            return {}
+        entity.context.is_replay = not (info.is_upcoming or info.is_livestream)
+        entity.context.continuation_url = self._get_continuation_url(entity.context.is_replay)
+        actions, continuation, initial_data = self._get_actions(page, first_page=True)
+        entity.context.initial_data = initial_data
+        entity.context.continuation_token = continuation
+
+        message = find_one(initial_data, '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
+        if message is not None:
+            text = Parser.runs_to_text(message)
+            self.logger.debug(f'[{entity.name}] {text}')
+
+        if continuation is None:
+            self.logger.debug(f'[{entity.name}] first page has no continuation token. Video has no chat or error loading it happened')
+            entity.context.done = True
+        return actions
+
+    async def _get_next(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
+        if entity.context.initial_data is None:
+            self.logger.warning(f'[{entity}] continuation token is present in absence of initial data. This is a bug')
+            return {}
+        if entity.context.continuation_url is None:
+            self.logger.warning(f'[{entity}] continuation token is present in absence of continuation url. This is a bug')
+            return {}
+        _, headers, post_body = prepare_next_page_request(entity.context.initial_data, entity.context.continuation_token)
+        response = await self.request(entity.context.continuation_url, entity, session, method='POST', headers=headers, json=post_body)
+        if response is None:
+            entity.context.continuation_token = None
+            return {}
+        page = await response.text()
+        actions, continuation, _ = self._get_actions(page)
+        entity.context.continuation_token = continuation
+        if continuation is None and entity.context.is_replay:
+            self.logger.info(f'[{entity.name}] finished downloading chat replay')
+            entity.context.done = True
+        return actions
 
     def _new_update_interval(self, old_update_interval: float, base_update_interval: float, new_records: int) -> float:
         if new_records > 0:
@@ -133,12 +154,12 @@ class YoutubeChatMonitor(HttpTaskMonitor):
             return 2
         return min(old_update_interval * 1.2, base_update_interval)
 
-    def _get_continuation_url(self, info: VideoInfo) -> str:
-        if info.is_upcoming or info.is_livestream:
-            return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'
-        else:
+    def _get_continuation_url(self, replay: bool) -> str:
+        if replay:
             # loading chat replay is not implemented yet though
             return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat_replay?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'
+        else:
+            return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'
 
     def _get_actions(self, page: str, first_page=False) -> Tuple[Dict[str, list], Optional[str], dict]:
         keys = list(Parser.known_actions)
@@ -159,7 +180,8 @@ class Parser:
     def drop(self, action_type, renderer_type, renderer):
         return None
 
-    def runs_to_text(self, runs: dict) -> str:
+    @staticmethod
+    def runs_to_text(runs: dict) -> str:
         parts = []
         for run in runs.get('runs', []):
             text = run.get('text')
@@ -177,6 +199,15 @@ class Parser:
                     continue
                 text = shortcut if shortcut.startswith(':_') else label
                 parts.append(text)
+            if run.get('navigationEndpoint') is not None:
+                link = find_one(run, '$..url')
+                if link is not None:
+                    try:
+                        url = parse_navigation_endpoint(link)
+                    except Exception as e:
+                        logging.debug(f'failed to parse navigationEndpoint in chat message: {link}: {e}')
+                    else:
+                        parts.append(url)
         message = ''.join(parts)
         return message
 
@@ -239,7 +270,7 @@ class Parser:
         return record
 
 
-    # most of actions and renderers names come from chat-downloader:
+    # most of actions and renderers names comes from chat-downloader:
     # https://github.com/xenova/chat-downloader/blob/master/chat_downloader/sites/youtube.py
     parsers: Dict[str, Dict[str, Callable]] = {
         'addChatItemAction': {
