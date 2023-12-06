@@ -87,6 +87,7 @@ class FileAction(Actor):
             text = f'{record}{entity.separator}'
             with open(entity.path, 'at', encoding='utf8') as fp:
                 fp.write(text)
+                fp.flush()
         except Exception as e:
             message = f'error in {self.conf.name}.{entity}: {e}'
             self.on_record(entity, Event(event_type=EventType.error, text=message))
