@@ -102,7 +102,11 @@ def get_retry_after(headers: multidict.CIMultiDictProxy) -> Optional[int]:
     except ValueError:
         pass
     try:
-        return parsedate_to_datetime(retry_after)
+        retry_at = parsedate_to_datetime(retry_after)
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        delay = int((retry_at - now).total_seconds())
+        if delay > 0:
+            return delay
     except (TypeError, ValueError):
         pass
     return None
