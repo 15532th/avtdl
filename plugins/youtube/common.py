@@ -105,8 +105,10 @@ def prepare_next_page_request(initial_page_data: dict, continuation_token, cooki
     response_context = find_one(initial_page_data, '$.responseContext')
     if response_context is not None:
         session_index = find_one(response_context, '$.webResponseContextExtensionData.ytConfigData.sessionIndex') or ''
+        visitor_data = find_one(response_context, '$..visitorData') or ''
     else:
         session_index = ''
+        visitor_data = ''
 
     if client_version is None:
         client_version = find_one(initial_page_data, '$..serviceTrackingParams..params[?(@.key=="client.version")].value')
@@ -124,7 +126,7 @@ def prepare_next_page_request(initial_page_data: dict, continuation_token, cooki
 
     post_body = {
         'context': {
-            'client': {'clientName': 'WEB', 'clientVersion': client_version}},
+            'client': {'clientName': 'WEB', 'clientVersion': client_version, 'visitorData': visitor_data}},
         'continuation': continuation_token
     }
     return BROWSE_ENDPOINT, headers, post_body
