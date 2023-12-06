@@ -132,15 +132,17 @@ def prepare_next_page_request(initial_page_data: dict, continuation_token, cooki
     return BROWSE_ENDPOINT, headers, post_body
 
 
-def parse_navigation_endpoint(item: dict) -> str:
+def parse_navigation_endpoint(run: dict) -> str:
     """Parse url from 'navigationEndpoint' item"""
-    url = item['navigationEndpoint']['commandMetadata']['webCommandMetadata']['url']
+    url = find_one(run, '$..url')
+    if url is None:
+        raise ValueError(f'no url in navigationEndpoint "{run}"')
     if url.startswith('https://www.youtube.com/redirect'):
         parsed_url = urlparse(url)
         redirect_url = parse_qs(parsed_url.query)['q'][0]
         url = unquote(redirect_url)
     elif url.startswith('/hashtag'):
-        url = item['text']
+        url = run['text']
     elif url.startswith('/'):
         site = 'https://www.youtube.com'
         url = site + url
