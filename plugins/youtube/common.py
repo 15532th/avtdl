@@ -28,6 +28,7 @@ def get_initial_data(page: str) -> dict:
     except (ValueError, JSONDecodeError):
         return get_initial_data_slow(page)
 
+
 def get_initial_data_fast(page: str) -> dict:
     re_initial_data = 'var ytInitialData = ([^;]*);'
     match = re.search(re_initial_data, page)
@@ -36,6 +37,7 @@ def get_initial_data_fast(page: str) -> dict:
     raw_data = match.groups()[0]
     data = json.loads(raw_data)
     return data
+
 
 def get_initial_data_slow(page: str) -> dict:
     anchor = 'var ytInitialData = {'
@@ -51,7 +53,7 @@ def get_initial_data_slow(page: str) -> dict:
     while True:
         parentheses += parenthesses_values[page[position]]
         if parentheses == 0:
-            raw_data = page[pos_start:position+1]
+            raw_data = page[pos_start:position + 1]
             response = json.loads(raw_data)
             return response
         position_match = re_parenthesses.search(page, position + 1)
@@ -60,8 +62,10 @@ def get_initial_data_slow(page: str) -> dict:
         except AttributeError:
             raise ValueError(f'Failed to find matching set of parentheses after initial data')
 
+
 def thumbnail_url(video_id: str) -> str:
     return f'https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg'
+
 
 def video_url(video_id: str) -> str:
     return f'https://www.youtube.com/watch?v={video_id}'
@@ -71,6 +75,7 @@ def get_continuation_token(data: Union[dict, list]) -> Optional[str]:
     token = find_one(data, '$..continuationCommand.token')
     return token
 
+
 def extract_keys(page: str, keys: List[str], anchor: str = '') -> Tuple[Dict[str, list], dict]:
     pos_start = page.find(anchor)
     if pos_start == -1:
@@ -78,11 +83,13 @@ def extract_keys(page: str, keys: List[str], anchor: str = '') -> Tuple[Dict[str
     pos_start += len(anchor)
 
     items = defaultdict(list)
+
     def append_search(obj):
         for k in keys:
             if k in obj:
                 items[k].append(obj[k])
         return obj
+
     decoder = json.JSONDecoder(object_hook=append_search)
     page = page[pos_start:]
     data, pos_end = decoder.raw_decode(page)
