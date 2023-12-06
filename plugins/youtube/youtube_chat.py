@@ -11,6 +11,7 @@ import aiohttp
 import requests
 from pydantic import BaseModel, Field
 
+from core import utils
 from core.interfaces import MAX_REPR_LEN, Record
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
@@ -67,7 +68,7 @@ class Context(BaseModel):
 @Plugins.register('prechat', Plugins.kind.ACTOR_ENTITY)
 class YoutubeChatMonitorEntity(BaseFeedMonitorEntity):
     url: str
-    update_interval: float = 120
+    update_interval: float = 20
     adjust_update_interval: bool = Field(exclude=True, default=False)
     context: Context = Field(exclude=True, default=Context())
 
@@ -84,21 +85,26 @@ class YoutubeChatMonitor(BaseFeedMonitor):
        return record.uid
 
     async def get_records(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeChatRecord]:
+        first_time = False
         if entity.context.done:
             return []
         actions = {}
         if entity.context.continuation_token is None:
             actions.update(await self._get_first(entity, session))
+            first_time = True
         if entity.context.continuation_token is not None:
             actions.update(await self._get_next(entity, session))
         records = Parser().run_parsers(actions)
-        new_update_interval = self._new_update_interval(entity.update_interval, entity.context.base_update_interval, len(records))
-        # entity.update_interval gets updated by self.request()
-        # which doesn't expect anyone else to touch it
-        # in order to work together with it entity.base_update_interval
-        # is overwritten with current update interval, while original value
-        # is stored in entity.context.base_update_interval
-        entity.base_update_interval = entity.update_interval = new_update_interval
+        if not first_time:
+            new_update_interval = self._new_update_interval(entity, len(records))
+            # if new_update_interval != entity.update_interval:
+            #     self.logger.debug(f'[{entity.name}] update interval changed from {entity.update_interval} to {new_update_interval}')
+            # entity.update_interval gets updated by self.request()
+            # which doesn't expect anyone else to touch it
+            # in order to work together with it entity.base_update_interval
+            # is overwritten with current update interval, while original value
+            # is stored in entity.context.base_update_interval
+            entity.base_update_interval = entity.update_interval = new_update_interval
         return records
 
     async def _get_first(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
@@ -111,7 +117,7 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         except Exception as e:
             self.logger.warning(f'[{entity.name}] error parsing page {entity.url}: {e}')
             return {}
-        entity.context.is_replay = not (info.is_upcoming or info.is_livestream)
+        entity.context.is_replay = not (info.is_upcoming or (info.live_start is not None and info.live_end is None))
         entity.context.continuation_url = self._get_continuation_url(entity.context.is_replay)
         actions, continuation, initial_data = self._get_actions(page, first_page=True)
         entity.context.initial_data = initial_data
@@ -123,7 +129,7 @@ class YoutubeChatMonitor(BaseFeedMonitor):
             self.logger.debug(f'[{entity.name}] {text}')
 
         if continuation is None:
-            self.logger.debug(f'[{entity.name}] first page has no continuation token. Video has no chat or error loading it happened')
+            self.logger.warning(f'[{entity.name}] first page has no continuation token. Video has no chat or error loading it happened')
             entity.context.done = True
         return actions
 
@@ -135,11 +141,16 @@ class YoutubeChatMonitor(BaseFeedMonitor):
             self.logger.warning(f'[{entity}] continuation token is present in absence of continuation url. This is a bug')
             return {}
         _, headers, post_body = prepare_next_page_request(entity.context.initial_data, entity.context.continuation_token)
-        response = await self.request(entity.context.continuation_url, entity, session, method='POST', headers=headers, json=post_body)
-        if response is None:
+        page = await utils.request(entity.context.continuation_url, session, self.logger, method='POST', headers=headers,
+                                       data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
+                                       retry_delay=5)
+        if page is None:
             entity.context.continuation_token = None
+            self.logger.warning(f'[{entity.name}] downloading chat continuation for {entity.url} failed')
+            if entity.context.is_replay:
+                entity.context.done = True
+                self.logger.info(f'[{entity.name}] giving up on downloading chat replay for {entity.url}')
             return {}
-        page = await response.text()
         actions, continuation, _ = self._get_actions(page)
         entity.context.continuation_token = continuation
         if continuation is None and entity.context.is_replay:
@@ -147,12 +158,17 @@ class YoutubeChatMonitor(BaseFeedMonitor):
             entity.context.done = True
         return actions
 
-    def _new_update_interval(self, old_update_interval: float, base_update_interval: float, new_records: int) -> float:
+    def _new_update_interval(self, entity: YoutubeChatMonitorEntity, new_records: int) -> float:
+        if entity.context.is_replay:
+            return 0
+        entity.update_interval = max(entity.update_interval, 1)
         if new_records > 0:
-            return 20
-        if new_records > 50:
-            return 2
-        return min(old_update_interval * 1.2, base_update_interval)
+            speed = new_records / entity.update_interval
+            new_update_interval = int(10 / speed)
+            self.logger.debug(f'[{entity.name}] speed: {new_records}/{entity.update_interval:.2f}={speed:.2f}, from {entity.update_interval:.2f} to {new_update_interval:.2f}')
+            if new_update_interval < 60:
+                return new_update_interval
+        return min(entity.update_interval * 1.2, entity.context.base_update_interval)
 
     def _get_continuation_url(self, replay: bool) -> str:
         if replay:
