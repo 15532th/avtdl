@@ -184,9 +184,15 @@ class Parser:
     def runs_to_text(runs: dict) -> str:
         parts = []
         for run in runs.get('runs', []):
-            text = run.get('text')
-            if text is not None:
-                parts.append(text)
+            if 'navigationEndpoint' in run:
+                try:
+                    url = parse_navigation_endpoint(run)
+                except Exception as e:
+                    logging.debug(f'failed to parse navigationEndpoint in chat message: {run}: {e}')
+                else:
+                    parts.append(url)
+                continue # "navigationEndpoint" comes with "text", so skipping parsing "text" is necessarily
+
             emoji = run.get('emoji')
             if emoji is not None:
                 try:
@@ -197,17 +203,18 @@ class Parser:
                     label = emoji['image']['accessibility']['accessibilityData']['label']
                 except (KeyError, IndexError, TypeError):
                     continue
-                text = shortcut if shortcut.startswith(':_') else label
+                if shortcut.startswith(':_'):
+                    text = shortcut
+                elif label == shortcut.strip(':'):
+                    text = shortcut
+                else:
+                    text = label
                 parts.append(text)
-            if run.get('navigationEndpoint') is not None:
-                link = find_one(run, '$..url')
-                if link is not None:
-                    try:
-                        url = parse_navigation_endpoint(link)
-                    except Exception as e:
-                        logging.debug(f'failed to parse navigationEndpoint in chat message: {link}: {e}')
-                    else:
-                        parts.append(url)
+                continue
+
+            text = run.get('text')
+            if text is not None:
+                parts.append(text)
         message = ''.join(parts)
         return message
 
