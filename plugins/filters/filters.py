@@ -1,12 +1,12 @@
 import json
 import re
 from collections import OrderedDict
-from typing import List, Sequence, Optional
+from typing import List, Optional, Sequence
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from core.config import Plugins
-from core.interfaces import Filter, Record, FilterEntity, ActorConfig, Event, TextRecord
+from core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, TextRecord
 
 
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_CONFIG)
@@ -170,6 +170,7 @@ class FormatFilter(Filter):
 class DeduplicateFilterEntity(FilterEntity):
     field: str = 'hash'
     history_size: int = 10000
+    history: OrderedDict = Field(exclude=True, default=OrderedDict())
 
 
 @Plugins.register('filter.deduplicate', Plugins.kind.ACTOR)
@@ -177,7 +178,6 @@ class DeduplicateFilter(Filter):
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[DeduplicateFilterEntity]):
         super().__init__(config, entities)
-        self.seen: OrderedDict = OrderedDict()
 
     def match(self, entity: DeduplicateFilterEntity, record: Record) -> Optional[Record]:
         field = getattr(record, entity.field, None)
@@ -195,12 +195,13 @@ class DeduplicateFilter(Filter):
 
         value = str(value) # support non-hashable fields
 
-        if self.seen.get(value, False):
+        if value in entity.history:
             self.logger.debug(f'[{entity.name}] record with {entity.field}={value} has already been seen, dropping')
             return None
 
-        while len(self.seen) >= entity.history_size:
-            self.seen.popitem(last=False)
+        while len(entity.history) >= entity.history_size:
+            entity.history.popitem(last=False)
 
-        self.seen[value] = True
+        entity.history[value] = True
+        entity.history.move_to_end(value)
         return record
