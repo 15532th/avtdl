@@ -13,7 +13,7 @@ from core.config import ConfigParser
 from core.loggers import set_logging_format, silence_library_loggers
 
 
-def load_config(path):
+def load_config(path: Path):
     if not os.path.exists(path):
         print('Configuration file {} does not exist'.format(path))
         raise SystemExit
