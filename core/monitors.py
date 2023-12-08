@@ -163,7 +163,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
         else:
             # restore update interval after backoff on failure
             if entity.update_interval != entity.base_update_interval:
-                logger.info(f'[{entity.name}] restoring update interval {entity.update_interval} seconds for {url}')
+                logger.info(f'[{entity.name}] restoring update interval {entity.base_update_interval} seconds for {url}')
                 entity.update_interval = entity.base_update_interval
 
         return response
