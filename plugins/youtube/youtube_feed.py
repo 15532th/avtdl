@@ -137,12 +137,16 @@ class VideosMonitor(PagedFeedMonitor):
 
     async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         initial_page, continuation_token = context  # type: ignore
+        if continuation_token is None:
+            self.logger.debug(f'[{entity.name}] no continuation for next page, done loading')
+            return [], None
 
         url, headers, post_body = prepare_next_page_request(initial_page, continuation_token, cookies=session.cookie_jar)
         raw_page = await utils.request(url, session, self.logger, method='POST', headers=headers,
                                                 data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
                                                 retry_delay=5)
         if raw_page is None:
+            self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
         video_renderers, continuation_token, page = get_video_renderers(raw_page, anchor='')
         context = (initial_page, continuation_token) if continuation_token else None
