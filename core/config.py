@@ -63,16 +63,12 @@ class SpecificActorConfigSection(BaseModel, Generic[TConfig, TEntity]):
 class ActorParser:
 
     @staticmethod
-    def flatten_actor_section(name: str, section: ActorConfigSection) -> Dict[str, Any]:
+    def flatten_actor_section(name: str, section: ActorConfigSection) -> ActorConfigSection:
         config = {**section.config, **{'name': name}}
         data: Dict[str, Any] = {'name': name, 'config': config, 'entities': []}
         for entity in section.entities:
             data['entities'].append({**section.defaults, **entity})
-        return data
-
-    @classmethod
-    def flatten_actors_section(cls, section: Dict[str, ActorConfigSection]):
-        return {n: cls.flatten_actor_section(n, s) for n, s in section.items()}
+        return ActorConfigSection(**data)
 
     @staticmethod
     def load_actors_plugins_model(actor_section: dict) -> Dict[str, SpecificActorConfigSection]:
@@ -98,7 +94,10 @@ class ConfigParser:
     @staticmethod
     def flatten_config(config: Config) -> Config:
         conf = config.model_dump()
-        conf['Actors'] = ActorParser.flatten_actors_section(config.Actors)
+        actors_section: Dict[str, ActorConfigSection] = {}
+        for name, section in config.Actors.items():
+            actors_section[name] = ActorParser.flatten_actor_section(name, section)
+        conf['Actors'] = actors_section
         return Config(**conf)
 
     @staticmethod
