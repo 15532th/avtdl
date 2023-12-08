@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import time
@@ -40,6 +41,12 @@ class YoutubeChatRecord(Record):
             items.append(f'{self.banner_header}:')
         if self.amount:
             items.append(f'{self.amount}:')
+        items.extend(self._body_text())
+        text = ' '.join(items)
+        return text
+
+    def _body_text(self):
+        items = []
         if self.sticker:
             items.append(self.sticker)
         if self.message_header:
@@ -49,6 +56,14 @@ class YoutubeChatRecord(Record):
         text = ' '.join(items)
         return text
 
+    def parse_timestamp(self) -> Optional[datetime.datetime]:
+        try:
+            ts = int(self.timestamp)
+            dt = datetime.datetime.fromtimestamp(int(ts/1000000), tz=datetime.timezone.utc)
+            return dt
+        except Exception:
+            return None
+
     def __str__(self):
         text = self._main_text()
         return f'[{self.author}] {text}'
@@ -56,6 +71,25 @@ class YoutubeChatRecord(Record):
     def __repr__(self):
         text = shorten(self._main_text(), MAX_REPR_LEN)
         return f'[{self.action}: {self.renderer}] [{self.author}] {text}'
+
+    def discord_embed(self) -> List[dict]:
+        dt = self.parse_timestamp()
+        timestamp = dt.isoformat() if dt is not None else None
+        author = self.author
+        if self.badges:
+            author += ' [{}]'.format(', '.join(self.badges))
+        if self.amount:
+            author += f' [{self.amount}]'
+        embed = {
+            'title': self.banner_header,
+            'description': self._body_text(),
+            'url': None,
+            'color': None,
+            'timestamp': timestamp,
+            'author': {'name': author, 'url': self.channel},
+            'fields': []
+        }
+        return [embed]
 
 class Context(BaseModel):
     initial_data: Optional[dict] = None
