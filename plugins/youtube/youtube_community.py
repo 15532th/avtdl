@@ -130,12 +130,12 @@ class CommunityPostsMonitor(PagedFeedMonitor):
         post_renderers = get_posts_renderers(page)
         records: List[CommunityPostRecord] = []
         for item in post_renderers:
-           try:
-               info = CommunityPostInfo.from_post_renderer(item)
-               record = CommunityPostRecord(**info.model_dump())
-               records.append(record)
-           except ValidationError as e:
-               self.logger.debug(f'error parsing item {item}: {e}')
-               continue
+            try:
+                info = CommunityPostInfo.from_post_renderer(item)
+                record = CommunityPostRecord(**info.model_dump())
+                records.append(record)
+            except ValidationError as e:
+                self.logger.debug(f'error parsing item {item}: {e}')
+                continue
         return records
 
