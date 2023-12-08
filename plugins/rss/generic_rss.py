@@ -1,13 +1,13 @@
 import datetime
 from textwrap import shorten
-from typing import Sequence, Optional, Any, Dict
+from typing import Any, Dict, Optional, Sequence
 
 import aiohttp
 import feedparser
-from pydantic import ValidationError, ConfigDict
+from pydantic import ConfigDict, ValidationError
 
-from core.interfaces import Record, MAX_REPR_LEN, TextRecord
-from core.monitors import BaseFeedMonitor, BaseFeedMonitorEntity, BaseFeedMonitorConfig
+from core.interfaces import MAX_REPR_LEN, Record, TextRecord
+from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
 from core.utils import make_datetime
 
@@ -42,7 +42,7 @@ class GenericRSSMonitorEntity(BaseFeedMonitorEntity):
 
 @Plugins.register('generic_rss', Plugins.kind.ACTOR)
 class GenericRSSMonitor(BaseFeedMonitor):
-    async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
+    async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[GenericRSSRecord]:
         raw_feed = await self._get_feed(entity, session)
         if raw_feed is None:
             return []
