@@ -49,7 +49,6 @@ class FC2Monitor(HttpTaskMonitor):
         try:
             record = self.parse_metadata(data)
             if record is None:
-                self.logger.debug(f'FC2Monitor for {entity.name}: channel {entity.user_id} is not live')
                 return None
         except (KeyError, TypeError, JSONDecodeError, pydantic.ValidationError) as e:
             self.logger.warning(f'FC2Monitor for {entity.name}: failed to parse channel info. Raw response: {data}')
