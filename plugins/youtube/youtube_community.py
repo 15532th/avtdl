@@ -1,7 +1,4 @@
 import json
-from typing import List, Optional, Sequence, Any, Tuple
-
-import json
 from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
@@ -11,7 +8,8 @@ from core import utils
 from core.interfaces import MAX_REPR_LEN, Record
 from core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from core.plugins import Plugins
-from plugins.youtube.common import get_continuation_token, get_initial_data, prepare_next_page_request, thumbnail_url, video_url
+from plugins.youtube.common import get_continuation_token, get_initial_data, prepare_next_page_request, thumbnail_url, \
+    video_url
 from plugins.youtube.community_info import CommunityPostInfo, get_posts_renderers
 
 
