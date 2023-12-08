@@ -376,7 +376,7 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
         and first return element of the tuple should be None.
 
         If there is no next page or there is no new records, or limit of continuation depth reached,
-        then second element should be None'''
+        then first element should be an empty list and second element should be None'''
 
     @abstractmethod
     async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
@@ -392,7 +392,7 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
         records: List[Record] = []
         current_page_records, continuation_context = await self.handle_first_page(entity, session)
         if current_page_records is None:
-            return records
+            return []
         records.extend(current_page_records)
 
         if entity.fetch_until_the_end_of_feed_mode:
