@@ -42,7 +42,6 @@ class TwitcastMonitor(HttpTaskMonitor):
 
     async def check_channel(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> Optional[TwitcastRecord]:
         if not await self.is_live(entity, session):
-            self.logger.debug(f'[{entity.name}] user {entity.user_id} is not live')
             return None
 
         movie_id = await self.get_movie_id(entity, session)
