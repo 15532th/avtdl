@@ -110,13 +110,17 @@ class CommunityPostsMonitor(PagedFeedMonitor):
 
     async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         initial_page, continuation_token = context  # type: ignore
+        if continuation_token is None:
+            self.logger.debug(f'[{entity.name}] no continuation for next page, done loading')
+            return [], None
 
         url, headers, post_body = prepare_next_page_request(initial_page, continuation_token, cookies=session.cookie_jar)
         current_page = await utils.request_json(url, session, self.logger, method='POST', headers=headers,
                                              data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
                                              retry_delay=5)
         if current_page is None:
-                return None, None
+            self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
+            return None, None
         current_page_records = self._parse_entries(current_page) or []
         continuation_token = get_continuation_token(current_page)
         context = (initial_page, continuation_token) if continuation_token else None
