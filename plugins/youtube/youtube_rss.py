@@ -109,6 +109,9 @@ class RecordDB(utils.RecordDB):
 @Plugins.register('rss', Plugins.kind.ACTOR_ENTITY)
 class FeedMonitorEntity(GenericRSSMonitorEntity):
     update_interval : float = 900
+    """How often the feed should be updated, in seconds"""
+    track_reschedule: bool = True
+    """Keep track of scheduled time of upcoming streams, emit record again if it changed to earlier date"""
 
 @Plugins.register('rss', Plugins.kind.ACTOR_CONFIG)
 class FeedMonitorConfig(GenericRSSMonitorConfig):
@@ -131,6 +134,8 @@ class FeedMonitor(GenericRSSMonitor):
             previous = self.load_record(record, entity)
             if previous is None:
                 await record.check_scheduled(session)
+                continue
+            if not entity.track_reschedule:
                 continue
             if previous is not None and previous.scheduled is not None:
                 self.logger.debug(f'{record.video_id=} has last {previous.scheduled=}, updating')
