@@ -50,7 +50,12 @@ class DiscordWebhook:
             if len(to_be_sent) == 0:
                 continue
             message, pending_records = MessageFormatter.format(to_be_sent)
-            if not MessageFormatter.check_limits(message):
+            try:
+                limits_ok = MessageFormatter.check_limits(message)
+            except Exception as e:
+                self.logger.debug(f'error checking content length limits for message: {e}\nRaw message: "{message}"')
+                continue
+            if not limits_ok:
                 self.logger.warning(f'[{self.name}] prepared message exceeded Discord length limits. Records will be discarded')
                 self.logger.debug(f'[{self.name}] message content:\n{message}')
                 to_be_sent = pending_records
@@ -164,9 +169,9 @@ class MessageFormatter:
         embeds = message.get('embeds', [])
         for embed in embeds:
             author_name = len(embed.get('author', {}).get('name', ''))
-            title = len(embed.get('title', ''))
-            description = len(embed.get('description', ''))
-            footer_text = len(embed.get('footer', {}).get('text', ''))
+            title = len(embed.get('title') or '')
+            description = len(embed.get('description') or '')
+            footer_text = len((embed.get('footer') or {}).get('text') or '')
             if author_name > Limits.AUTHOR_NAME:
                 return False
             if title > Limits.TITLE:
