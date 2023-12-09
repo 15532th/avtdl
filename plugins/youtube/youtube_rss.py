@@ -130,7 +130,7 @@ class FeedMonitor(GenericRSSMonitor):
     Example of supported url:
     https://www.youtube.com/feeds/videos.xml?channel_id=UCK0V3b23uJyU4N8eR_BR0QA
 
-    RSS feed is smaller and easier to parse compared to normal channel page,
+    RSS feed is smaller and faster to parse compared to HTML channel page,
     but by design only shows updates of a single channel and doesn't support
     authentication and therefore unable to show member-only streams.
 
