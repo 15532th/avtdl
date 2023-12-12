@@ -7,6 +7,7 @@ from pydantic import Field, field_validator
 
 from core.config import Plugins
 from core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, TextRecord
+from core.utils import find_matching_field
 
 
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_CONFIG)
@@ -59,7 +60,9 @@ class MatchFilter(Filter):
 
     def match(self, entity: MatchFilterEntity, record: Record) -> Optional[Record]:
         for pattern in entity.patterns:
-            if str(record).find(pattern) > -1:
+            field = find_matching_field(record, pattern)
+            if field is not None:
+                self.logger.debug(f'[{entity.name}] found pattern "{pattern}" in the field "{field}" of record "{record!r}", letting through')
                 return record
         return None
 
@@ -71,7 +74,9 @@ class ExcludeFilter(Filter):
 
     def match(self, entity: MatchFilterEntity, record: Record) -> Optional[Record]:
         for pattern in entity.patterns:
-            if str(record).find(pattern) > -1:
+            field = find_matching_field(record, pattern)
+            if field is not None:
+                self.logger.debug(f'[{entity.name}] found pattern "{pattern}" in the field "{field}" of record "{record!r}", dropping')
                 return None
         return record
 
