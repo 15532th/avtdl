@@ -18,6 +18,8 @@ from typing import Any, Callable, Dict, Hashable, Optional, Union
 import aiohttp
 import multidict
 
+from core.interfaces import Record
+
 
 def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional[cookiejar.CookieJar]:
     logger = logging.getLogger('cookies')
@@ -324,3 +326,23 @@ class LRUCache:
         self._data.move_to_end(item)
         while len(self._data) > self._max_size:
             self._data.popitem(last=False)
+
+
+def find_matching_field(record: Record, pattern: str) -> Optional[str]:
+    """
+    Return name of the first field of the record that contains pattern,
+    return None if nothing found
+    """
+    for field, value in record:
+        if isinstance(value, Record):
+            subrecord_search_result = find_matching_field(value, pattern)
+            if subrecord_search_result is not None:
+                return subrecord_search_result
+        else:
+            if str(value).find(pattern) > -1:
+                return field
+    return None
+
+
+def record_has_text(record: Record, text: str) -> bool:
+    return find_matching_field(record, text) is not None
