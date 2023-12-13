@@ -193,11 +193,11 @@ async def submit_consent(url: str, session: aiohttp.ClientSession, logger: loggi
 def find_consent_url(page: str) -> Optional[str]:
     CONSENT_URL_PATTERN = 'consent.youtube.com'
 
-    root = lxml.html.fromstring(page)
-    for _, _, link, _ in root.iterlinks():
-        if link.find(CONSENT_URL_PATTERN) > -1:
-            return link
-    return None
+    if page.find(CONSENT_URL_PATTERN) == -1:
+        return None
+    initial_data = get_initial_data(page)
+    url = find_one(initial_data, '$..feedNudgeRenderer..primaryButton..url')
+    return url
 
 
 async def handle_consent(page: str, session: aiohttp.ClientSession, logger: Optional[logging.Logger] = None) -> str:
