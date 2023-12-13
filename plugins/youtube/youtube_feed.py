@@ -11,7 +11,7 @@ from core.interfaces import Filter, FilterEntity, Record
 from core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
-from plugins.youtube.common import prepare_next_page_request, thumbnail_url
+from plugins.youtube.common import handle_consent, prepare_next_page_request, thumbnail_url
 from plugins.youtube.feed_info import VideoRendererInfo, get_video_renderers, parse_owner_info, parse_video_renderer
 
 
@@ -131,6 +131,7 @@ class VideosMonitor(PagedFeedMonitor):
         if raw_page is None:
             return None, None
         raw_page_text = await raw_page.text()
+        raw_page_text = await handle_consent(raw_page_text, session, self.logger)
         video_renderers, continuation_token, page = get_video_renderers(raw_page_text)
         current_page_records = self._parse_entries(page, video_renderers, entity)
         return current_page_records, (page, continuation_token)

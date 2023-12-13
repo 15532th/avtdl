@@ -1,13 +1,20 @@
+import asyncio
 import json
+import logging
 import re
 import time
 from collections import defaultdict
 from hashlib import sha1
+from http import cookies
 from json import JSONDecodeError
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qs, unquote, urlparse
 
+import aiohttp
+import lxml.html
 from jsonpath import JSONPath
+
+from core.utils import request, request_raw
 
 
 def find_all(data: Union[dict, list], jsonpath: str, cache={}) -> list:
@@ -154,3 +161,80 @@ def parse_navigation_endpoint(run: dict) -> str:
         site = 'https://www.youtube.com'
         url = site + url
     return url
+
+
+async def submit_consent(url: str, session: aiohttp.ClientSession, logger: logging.Logger) -> Optional[str]:
+    consent_page = await request(url, session)
+    if consent_page is None:
+        logger.debug(f'requesting personalization settings url {url} failed')
+        return None
+    root = lxml.html.fromstring(consent_page)
+    root.make_links_absolute(url)
+    [form] = root.xpath("//form[button[@value='false']]") or [None]
+    if not isinstance(form, lxml.html.FormElement):
+        logger.debug(f'unable to locate form with confirmation button on page {url}')
+        return None
+    try:
+        submit_button = form.xpath('.//button')[0]
+        submit_name = submit_button.attrib['name']
+        submit_value = submit_button.attrib['value']
+    except (IndexError, KeyError, TypeError) as e:
+        logger.debug(f'failed to extract values from confirmation button ({type(e)}: {e}) on page {url}')
+        return None
+    data = {i.name: i.value if i.value is not None else False for i in form.inputs}
+    data[submit_name] = submit_value
+    response = await request_raw(form.action, session, method='POST', data=data)
+    if response is None:
+        logger.debug(f'submitting confirmation to "{url}" failed. Raw data that was submitted: {data}')
+    target_page = await response.text() if response else None
+    return target_page
+
+
+def find_consent_url(page: str) -> Optional[str]:
+    CONSENT_URL_PATTERN = 'consent.youtube.com'
+
+    root = lxml.html.fromstring(page)
+    for _, _, link, _ in root.iterlinks():
+        if link.find(CONSENT_URL_PATTERN) > -1:
+            return link
+    return None
+
+
+async def handle_consent(page: str, session: aiohttp.ClientSession, logger: Optional[logging.Logger] = None) -> str:
+    """
+    Take Youtube page that might contain popup asking to accept cookies,
+    if the popup is present try to submit it and return response,
+    if there is none or error happened return original page.
+    """
+    if logger is None:
+        logger = logging.getLogger()
+    logger = logger.getChild('cookies_consent')
+
+    consent_url = find_consent_url(page)
+    if consent_url is None:
+        logger.debug(f'page is not asking to accept cookies')
+        return page
+    redirect_page_text = await submit_consent(consent_url, session, logger)
+    if redirect_page_text is None:
+        logger.debug(f'failed to submit cookies consent')
+        return page
+    for morsel in session.cookie_jar:
+        if isinstance(morsel, cookies.Morsel):
+            if morsel.key == 'SOCS':
+                logger.debug(f'cookie indicating cookies usage consent was set successfully')
+                break
+    return redirect_page_text
+
+
+async def main():
+    logging.basicConfig(level=logging.DEBUG)
+    url = 'https://consent.youtube.com/dl?continue=https://www.youtube.com/?cbrd%3D1&gl=FR&hl=ru&cm=6&pc=yt&src=4&oyh=1'
+    url = 'https://youtube.com'
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as request:
+            page = await request.text()
+        await handle_consent(page, session, logging.getLogger('main'))
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
