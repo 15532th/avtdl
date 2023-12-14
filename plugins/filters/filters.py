@@ -209,4 +209,5 @@ class DeduplicateFilter(Filter):
 
         entity.history[value] = True
         entity.history.move_to_end(value)
+        self.logger.debug(f'[{entity.name}] record with {entity.field}={value} has not yet been seen, letting through')
         return record
