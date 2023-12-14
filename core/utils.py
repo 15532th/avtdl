@@ -163,6 +163,8 @@ async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger
         last_attempt = attempt == retry_times
         try:
             if session is not None:
+                if session.headers is not None and headers is not None:
+                    headers.update(session.headers)
                 async with session.request(method=method, url=url, headers=headers, params=params, data=data) as response:
                     response.raise_for_status()
                     _ = await response.text()
