@@ -175,7 +175,7 @@ class FormatFilter(Filter):
 class DeduplicateFilterEntity(FilterEntity):
     field: str = 'hash'
     history_size: int = 10000
-    history: OrderedDict = Field(exclude=True, default=OrderedDict())
+    history: OrderedDict = Field(exclude=True, repr=False, default=OrderedDict())
 
 
 @Plugins.register('filter.deduplicate', Plugins.kind.ACTOR)
