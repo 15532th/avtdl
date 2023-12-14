@@ -189,7 +189,7 @@ class Filter(Actor):
         if filtered is not None:
             self.on_record(entity, filtered)
         else:
-            self.logger.debug(f'record "{record!r}" dropped on filter {entity}')
+            self.logger.debug(f'record "{record!r}" dropped on filter {entity!r}')
 
     @abstractmethod
     def match(self, entity: FilterEntity, record: Record) -> Optional[Record]:
