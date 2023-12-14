@@ -180,7 +180,16 @@ async def submit_consent(url: str, session: aiohttp.ClientSession, logger: loggi
     except (IndexError, KeyError, TypeError) as e:
         logger.debug(f'failed to extract values from confirmation button ({type(e)}: {e}) on page {url}')
         return None
-    data = {i.name: i.value if i.value is not None else False for i in form.inputs}
+    data = {}
+    for i in form.inputs:
+        # must accept enabling watch history to get videos on main page
+        if i.type == 'radio':
+            # when submitting the form, radiobutton choice is converted
+            # to string with bool value, "true" meaning consent
+            value = 'true'
+        else:
+            value = i.value
+        data[i.name] = value
     data[submit_name] = submit_value
     response = await request_raw(form.action, session, method='POST', data=data)
     if response is None:
