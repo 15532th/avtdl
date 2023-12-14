@@ -61,16 +61,15 @@ class TwitcastMonitor(HttpTaskMonitor):
 
     async def is_live(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> bool:
         url = f"https://twitcasting.tv/userajax.php?c=islive&u={entity.user_id}"
-        response = await self.request(url, entity, session)
-        if response is None:
+        text = await self.request(url, entity, session)
+        if text is None:
             self.logger.warning(f'[{entity.name}] failed to check if channel {entity.user_id} is live')
             return False
-        text = await response.text()
         return text != '0'
 
     async def get_movie_id(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
         url = f'https://en.twitcasting.tv/streamserver.php?target={entity.user_id}&mode=client'
-        response = await self.request(url, entity, session)
+        response = await self.request_raw(url, entity, session)
         if response is None:
             return None
         try:

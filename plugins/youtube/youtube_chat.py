@@ -142,10 +142,9 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         return records
 
     async def _get_first(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
-        response = await self.request(entity.url, entity, session)
-        if response is None:
+        page = await self.request(entity.url, entity, session)
+        if page is None:
             return {}
-        page = await response.text()
         try:
             info = video_info.parse_video_page(page, entity.url)
         except Exception as e:
