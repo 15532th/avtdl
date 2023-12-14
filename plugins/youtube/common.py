@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import re
@@ -200,14 +199,11 @@ def find_consent_url(page: str) -> Optional[str]:
     return url
 
 
-async def handle_consent(page: str, session: aiohttp.ClientSession, logger: Optional[logging.Logger] = None) -> bool:
+async def handle_consent(page: str, url: str, session: aiohttp.ClientSession, logger: Optional[logging.Logger] = None) -> str:
     """
     Take Youtube page that might contain popup asking to accept cookies,
     if the popup is present try to submit it and return response,
     if there is none or error happened return original page.
-
-    Return value indicates if reload of page is required
-    (meaning page asked for consent and it was successfully submitted)
     """
     if logger is None:
         logger = logging.getLogger()
@@ -216,28 +212,18 @@ async def handle_consent(page: str, session: aiohttp.ClientSession, logger: Opti
     consent_url = find_consent_url(page)
     if consent_url is None:
         logger.debug(f'page is not asking to accept cookies')
-        return False
+        return page
     redirect_page_text = await submit_consent(consent_url, session, logger)
     if redirect_page_text is None:
         logger.debug(f'failed to submit cookies consent')
-        return False
+        return page
     for morsel in session.cookie_jar:
         if isinstance(morsel, cookies.Morsel):
             if morsel.key == 'SOCS':
                 logger.debug(f'cookie indicating cookies usage consent was set successfully')
                 break
-    return True
-
-
-async def main():
-    logging.basicConfig(level=logging.DEBUG)
-    url = 'https://consent.youtube.com/dl?continue=https://www.youtube.com/?cbrd%3D1&gl=FR&hl=ru&cm=6&pc=yt&src=4&oyh=1'
-    url = 'https://youtube.com'
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as request:
-            page = await request.text()
-        await handle_consent(page, session, logging.getLogger('main'))
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
+    reloaded_page = await request(url, session, logger)
+    if reloaded_page is None:
+        logger.debug(f'reloading original page failed, page content might be invalid this time')
+        return redirect_page_text
+    return reloaded_page
