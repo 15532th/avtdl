@@ -130,12 +130,7 @@ class VideosMonitor(PagedFeedMonitor):
         raw_page_text = await self.request(entity.url, entity, session)
         if raw_page_text is None:
             return None, None
-        reload_required = await handle_consent(raw_page_text, session, self.logger)
-        if reload_required:
-            self.logger.debug(f'submitted cookies consent, reloading {entity.url}')
-            raw_page_text = await self.request(entity.url, entity, session)
-            if raw_page_text is None:
-                return None, None
+        raw_page_text = await handle_consent(raw_page_text, entity.url, session, self.logger)
         video_renderers, continuation_token, page = get_video_renderers(raw_page_text)
         current_page_records = self._parse_entries(page, video_renderers, entity)
         return current_page_records, (page, continuation_token)
