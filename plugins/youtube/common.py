@@ -200,11 +200,14 @@ def find_consent_url(page: str) -> Optional[str]:
     return url
 
 
-async def handle_consent(page: str, session: aiohttp.ClientSession, logger: Optional[logging.Logger] = None) -> str:
+async def handle_consent(page: str, session: aiohttp.ClientSession, logger: Optional[logging.Logger] = None) -> bool:
     """
     Take Youtube page that might contain popup asking to accept cookies,
     if the popup is present try to submit it and return response,
     if there is none or error happened return original page.
+
+    Return value indicates if reload of page is required
+    (meaning page asked for consent and it was successfully submitted)
     """
     if logger is None:
         logger = logging.getLogger()
@@ -213,17 +216,17 @@ async def handle_consent(page: str, session: aiohttp.ClientSession, logger: Opti
     consent_url = find_consent_url(page)
     if consent_url is None:
         logger.debug(f'page is not asking to accept cookies')
-        return page
+        return False
     redirect_page_text = await submit_consent(consent_url, session, logger)
     if redirect_page_text is None:
         logger.debug(f'failed to submit cookies consent')
-        return page
+        return False
     for morsel in session.cookie_jar:
         if isinstance(morsel, cookies.Morsel):
             if morsel.key == 'SOCS':
                 logger.debug(f'cookie indicating cookies usage consent was set successfully')
                 break
-    return redirect_page_text
+    return True
 
 
 async def main():
