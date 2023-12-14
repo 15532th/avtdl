@@ -283,10 +283,8 @@ class BaseFeedMonitor(HttpTaskMonitor):
 
     async def run(self):
         for entity in self.entities.values():
-            netscape_cookies = load_cookies(entity.cookies_file)
-            cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
-            async with aiohttp.ClientSession(cookie_jar=cookies) as session:
-                await self.prime_db(entity, session)
+            session = self._get_session(entity)
+            await self.prime_db(entity, session)
         await super().run()
 
     async def prime_db(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> None:
