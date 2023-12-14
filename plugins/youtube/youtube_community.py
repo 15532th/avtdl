@@ -91,10 +91,9 @@ class CommunityPostsMonitor(PagedFeedMonitor):
         return f'{record.channel_id}:{record.post_id}'
 
     async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
-        raw_page = await self.request(entity.url, entity, session)
-        if raw_page is None:
+        raw_page_text = await self.request(entity.url, entity, session)
+        if raw_page_text is None:
             return None, None
-        raw_page_text = await raw_page.text()
 
         try:
             initial_page = get_initial_data(raw_page_text)

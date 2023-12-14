@@ -59,11 +59,10 @@ class FC2Monitor(HttpTaskMonitor):
         entity.latest_live_start = record.start
         return record
 
-    async def get_metadata(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession):
+    async def get_metadata(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
         url = 'https://live.fc2.com/api/memberApi.php'
         data = {'channel': 1, 'streamid': entity.user_id}
-        response = await self.request(url, entity, session, method='POST', data=data)
-        text = await response.text() if response is not None else None
+        text = await self.request(url, entity, session, method='POST', data=data)
         return text
 
     @staticmethod

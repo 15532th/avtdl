@@ -82,7 +82,7 @@ class TwitchMonitor(HttpTaskMonitor):
         api_url = 'https://gql.twitch.tv/gql'
         headers = {'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko', 'Content-Type': 'application/json'}
         body = self._prepare_body(entity.username)
-        response = await self.request(api_url, entity, session, method='POST', headers=headers, data=body)
+        response = await self.request_raw(api_url, entity, session, method='POST', headers=headers, data=body)
         if response is None:
             return None
         try:

@@ -105,7 +105,13 @@ class HttpTaskMonitor(BaseTaskMonitor):
         self.sessions: Dict[str, aiohttp.ClientSession] = {}
         super().__init__(conf, entities)
 
-    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, json: Optional[Any] = None) -> Optional[aiohttp.ClientResponse]:
+    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, json: Optional[Any] = None) -> Optional[str]:
+        response = await self.request_raw(url, entity, session, method, headers, params, data, json)
+        if response is None:
+            return None
+        return await response.text()
+
+    async def request_raw(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, json: Optional[Any] = None) -> Optional[aiohttp.ClientResponse]:
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
         if self.logger.parent is None:
             # should never happen since Actor().logger is constructed with getChild()

@@ -190,8 +190,7 @@ class NitterMonitor(PagedFeedMonitor):
         return record.url
 
     async def _get_user_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
-        response = await self.request(entity.url, entity, session, headers=self.HEADERS)
-        text = await response.text() if response else None
+        text = await self.request(entity.url, entity, session, headers=self.HEADERS)
         return text
 
     def _parse_entries(self, page: lxml.html.HtmlElement) -> List[NitterRecord]:

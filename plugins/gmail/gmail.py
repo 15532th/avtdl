@@ -1,15 +1,14 @@
 import logging
 import re
-from datetime import datetime
 from textwrap import shorten
-from typing import Sequence, Optional
+from typing import Optional, Sequence
 
 import aiohttp
 import lxml.html
-from pydantic import FilePath, Field, ValidationError
+from pydantic import Field, FilePath, ValidationError
 
-from core.interfaces import Record, MAX_REPR_LEN
-from core.monitors import BaseFeedMonitorEntity, BaseFeedMonitor, BaseFeedMonitorConfig
+from core.interfaces import MAX_REPR_LEN, Record
+from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
 
 GMAIL_SIMPLE_INTERFACE_URL = 'https://mail.google.com/mail/u/0/h/'
@@ -67,10 +66,9 @@ class SimpleGmail(BaseFeedMonitor):
         return record.hash()
 
     async def _get_page(self, entity: SimpleGmailEntity, session: aiohttp.ClientSession) -> Optional[str]:
-        response = await self.request(entity.url, entity, session)
-        if response is None:
+        page = await self.request(entity.url, entity, session)
+        if page is None:
             return None
-        page = await response.text()
         return page
 
     def _parse_page(self, raw_page: str, base_url: str) -> Sequence[lxml.html.HtmlElement]:
