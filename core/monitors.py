@@ -86,8 +86,12 @@ class TaskMonitor(BaseTaskMonitor):
 
 class HttpTaskMonitorEntity(TaskMonitorEntity):
     cookies_file: Optional[FilePath] = None
+    """path to text file containing cookies in Netscape format"""
+    headers: Optional[Dict[str, str]] = None
+    """custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use "cookies_file" option instead"""
 
     adjust_update_interval: bool = True
+    """change time until next update based on response headers. This setting doesn't affect timeouts after failed requests"""
     base_update_interval: float = Field(exclude=True, default=60)
     last_modified: Optional[str] = Field(exclude=True, default=None)
     etag: Optional[str] = Field(exclude=True, default=None)
@@ -119,6 +123,8 @@ class HttpTaskMonitor(BaseTaskMonitor):
         else:
             logger = self.logger.parent.getChild('request').getChild(self.conf.name)
         request_headers: Dict[str, Any] = headers or {}
+        if session.headers is not None:
+            request_headers.update(session.headers)
         if entity.last_modified is not None and method in ['GET', 'HEAD']:
             request_headers['If-Modified-Since'] = entity.last_modified
         if entity.etag is not None:
@@ -175,12 +181,12 @@ class HttpTaskMonitor(BaseTaskMonitor):
         return response
 
     def _get_session(self, entity: HttpTaskMonitorEntity) -> aiohttp.ClientSession:
-        session_id = str(entity.cookies_file)
+        session_id = str((entity.cookies_file, entity.headers))
         session = self.sessions.get(session_id)
         if session is None:
             netscape_cookies = load_cookies(entity.cookies_file)
             cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
-            session = aiohttp.ClientSession(cookie_jar=cookies)
+            session = aiohttp.ClientSession(cookie_jar=cookies, headers=entity.headers)
             self.sessions[session_id] = session
         else:
             self.logger.debug(f'[{entity.name}] reusing session with cookies from {session_id}')
