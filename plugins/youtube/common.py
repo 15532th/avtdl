@@ -5,6 +5,7 @@ import re
 import time
 from collections import defaultdict
 from hashlib import sha1
+from html import unescape
 from http import cookies
 from json import JSONDecodeError
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -224,13 +225,20 @@ async def submit_consent(url: str, session: aiohttp.ClientSession, logger: loggi
 
 
 def find_consent_url(page: str) -> Optional[str]:
-    CONSENT_URL_PATTERN = r'"(https://consent.youtube.com/dl\?continue[^"]+)"'
-    consent_match = re.findall(CONSENT_URL_PATTERN, page)
-    if not consent_match:
+    has_consent = page.find('consent.youtube.com') > -1
+    if not has_consent:
         return None
-    url = unquote(consent_match[0])
-    return url
-
+    try:
+        initial_data = get_initial_data(page)
+        url = find_one(initial_data, '$..feedNudgeRenderer..primaryButton..url')
+        return url
+    except ValueError:
+        CONSENT_URL_PATTERN = r'"(https://consent.youtube.com/dl\?continue[^"]+)"'
+        consent_match = re.findall(CONSENT_URL_PATTERN, page)
+        if not consent_match:
+            return None
+        url = unquote(unescape(consent_match[0]))
+        return url
 
 
 async def handle_consent(page: str, url: str, session: aiohttp.ClientSession, logger: Optional[logging.Logger] = None) -> str:
