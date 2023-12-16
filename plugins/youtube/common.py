@@ -224,13 +224,13 @@ async def submit_consent(url: str, session: aiohttp.ClientSession, logger: loggi
 
 
 def find_consent_url(page: str) -> Optional[str]:
-    CONSENT_URL_PATTERN = 'consent.youtube.com'
-
-    if page.find(CONSENT_URL_PATTERN) == -1:
+    CONSENT_URL_PATTERN = r'"(https://consent.youtube.com/dl\?continue[^"]+)"'
+    consent_match = re.findall(CONSENT_URL_PATTERN, page)
+    if not consent_match:
         return None
-    initial_data = get_initial_data(page)
-    url = find_one(initial_data, '$..feedNudgeRenderer..primaryButton..url')
+    url = unquote(consent_match[0])
     return url
+
 
 
 async def handle_consent(page: str, url: str, session: aiohttp.ClientSession, logger: Optional[logging.Logger] = None) -> str:
