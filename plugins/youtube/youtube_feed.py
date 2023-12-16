@@ -11,7 +11,7 @@ from core.interfaces import Filter, FilterEntity, Record
 from core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
-from plugins.youtube.common import handle_consent, prepare_next_page_request, thumbnail_url
+from plugins.youtube.common import get_innertube_context, handle_consent, prepare_next_page_request, thumbnail_url
 from plugins.youtube.feed_info import VideoRendererInfo, get_video_renderers, parse_owner_info, parse_video_renderer
 
 
@@ -133,15 +133,16 @@ class VideosMonitor(PagedFeedMonitor):
         raw_page_text = await handle_consent(raw_page_text, entity.url, session, self.logger)
         video_renderers, continuation_token, page = get_video_renderers(raw_page_text)
         current_page_records = self._parse_entries(page, video_renderers, entity)
-        return current_page_records, (page, continuation_token)
+        innertube_context = get_innertube_context(raw_page_text)
+        return current_page_records, (innertube_context, continuation_token)
 
     async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
-        initial_page, continuation_token = context  # type: ignore
+        innertube_context, continuation_token = context  # type: ignore
         if continuation_token is None:
             self.logger.debug(f'[{entity.name}] no continuation for next page, done loading')
             return [], None
 
-        url, headers, post_body = prepare_next_page_request(initial_page, continuation_token, cookies=session.cookie_jar)
+        url, headers, post_body = prepare_next_page_request(innertube_context, continuation_token, cookies=session.cookie_jar)
         raw_page = await utils.request(url, session, self.logger, method='POST', headers=headers,
                                                 data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
                                                 retry_delay=5)
@@ -149,7 +150,7 @@ class VideosMonitor(PagedFeedMonitor):
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
         video_renderers, continuation_token, page = get_video_renderers(raw_page, anchor='')
-        context = (initial_page, continuation_token) if continuation_token else None
+        context = (innertube_context, continuation_token) if continuation_token else None
         current_page_records = self._parse_entries(page, video_renderers, entity)
         return current_page_records, context
 
