@@ -17,7 +17,7 @@ from core.interfaces import MAX_REPR_LEN, Record
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
 from plugins.youtube import video_info
-from plugins.youtube.common import extract_keys, find_all, find_one, parse_navigation_endpoint, prepare_next_page_request
+from plugins.youtube.common import extract_keys, find_all, find_one, get_innertube_context, handle_consent, parse_navigation_endpoint, prepare_next_page_request
 
 
 class YoutubeChatRecord(Record):
@@ -92,7 +92,7 @@ class YoutubeChatRecord(Record):
         return [embed]
 
 class Context(BaseModel):
-    initial_data: Optional[dict] = None
+    innertube_context: Optional[dict] = None
     continuation_url: Optional[str] = None
     continuation_token: Optional[str] = None
     base_update_interval: float = 120
@@ -142,18 +142,20 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         return records
 
     async def _get_first(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
-        page = await self.request(entity.url, entity, session)
-        if page is None:
+        raw_page_text = await self.request(entity.url, entity, session)
+        if raw_page_text is None:
             return {}
+        raw_page_text = await handle_consent(raw_page_text, entity.url, session, self.logger)
         try:
-            info = video_info.parse_video_page(page, entity.url)
+            info = video_info.parse_video_page(raw_page_text, entity.url)
         except Exception as e:
             self.logger.warning(f'[{entity.name}] error parsing page {entity.url}: {e}')
             return {}
         entity.context.is_replay = not (info.is_upcoming or (info.live_start is not None and info.live_end is None))
         entity.context.continuation_url = self._get_continuation_url(entity.context.is_replay)
-        actions, continuation, initial_data = self._get_actions(page, first_page=True)
-        entity.context.initial_data = initial_data
+        actions, continuation, initial_data = self._get_actions(raw_page_text, first_page=True)
+        innertube_context = get_innertube_context(raw_page_text)
+        entity.context.innertube_context = innertube_context
         entity.context.continuation_token = continuation
 
         message = find_one(initial_data, '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
@@ -167,13 +169,13 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         return actions
 
     async def _get_next(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
-        if entity.context.initial_data is None:
+        if entity.context.innertube_context is None:
             self.logger.warning(f'[{entity}] continuation token is present in absence of initial data. This is a bug')
             return {}
         if entity.context.continuation_url is None:
             self.logger.warning(f'[{entity}] continuation token is present in absence of continuation url. This is a bug')
             return {}
-        _, headers, post_body = prepare_next_page_request(entity.context.initial_data, entity.context.continuation_token)
+        _, headers, post_body = prepare_next_page_request(entity.context.innertube_context, entity.context.continuation_token)
         page = await utils.request(entity.context.continuation_url, session, self.logger, method='POST', headers=headers,
                                        data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
                                        retry_delay=5)

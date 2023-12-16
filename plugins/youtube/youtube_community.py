@@ -8,7 +8,7 @@ from core import utils
 from core.interfaces import MAX_REPR_LEN, Record
 from core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from core.plugins import Plugins
-from plugins.youtube.common import get_continuation_token, get_initial_data, prepare_next_page_request, thumbnail_url, \
+from plugins.youtube.common import get_continuation_token, get_initial_data, get_innertube_context, handle_consent, prepare_next_page_request, thumbnail_url, \
     video_url
 from plugins.youtube.community_info import CommunityPostInfo, get_posts_renderers
 
@@ -94,7 +94,7 @@ class CommunityPostsMonitor(PagedFeedMonitor):
         raw_page_text = await self.request(entity.url, entity, session)
         if raw_page_text is None:
             return None, None
-
+        raw_page_text = await handle_consent(raw_page_text, entity.url, session, self.logger)
         try:
             initial_page = get_initial_data(raw_page_text)
         except Exception as e:
@@ -102,16 +102,17 @@ class CommunityPostsMonitor(PagedFeedMonitor):
             return None, None
         records = self._parse_entries(initial_page)
         continuation_token = get_continuation_token(initial_page)
+        innertube_context = get_innertube_context(raw_page_text)
 
-        return records, (initial_page, continuation_token)
+        return records, (innertube_context, continuation_token)
 
     async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
-        initial_page, continuation_token = context  # type: ignore
+        innertube_context, continuation_token = context  # type: ignore
         if continuation_token is None:
             self.logger.debug(f'[{entity.name}] no continuation for next page, done loading')
             return [], None
 
-        url, headers, post_body = prepare_next_page_request(initial_page, continuation_token, cookies=session.cookie_jar)
+        url, headers, post_body = prepare_next_page_request(innertube_context, continuation_token, cookies=session.cookie_jar)
         current_page = await utils.request_json(url, session, self.logger, method='POST', headers=headers,
                                              data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
                                              retry_delay=5)
@@ -120,7 +121,7 @@ class CommunityPostsMonitor(PagedFeedMonitor):
             return None, None
         current_page_records = self._parse_entries(current_page) or []
         continuation_token = get_continuation_token(current_page)
-        context = (initial_page, continuation_token) if continuation_token else None
+        context = (innertube_context, continuation_token) if continuation_token else None
         return current_page_records, context
 
     def _parse_entries(self, page: dict) -> List[CommunityPostRecord]:

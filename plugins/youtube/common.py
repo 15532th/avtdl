@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import re
@@ -102,13 +103,24 @@ def extract_keys(page: str, keys: List[str], anchor: str = '') -> Tuple[Dict[str
     return items, data
 
 
-CLIENT_VERSION = '2.20231023.04.02'
-
-
 def get_auth_header(sapisid: str) -> str:
     timestamp = str(int(time.time()))
     sapisidhash = sha1(' '.join([timestamp, sapisid, 'https://www.youtube.com']).encode()).hexdigest()
     return f'SAPISIDHASH {timestamp}_{sapisidhash}'
+
+
+def get_innertube_context(page: str) -> Optional[dict]:
+    anchor = '"INNERTUBE_CONTEXT":'
+    _, context = extract_keys(page, [], anchor)
+    return context
+
+
+def get_utc_offset() -> int:
+    offset = datetime.datetime.now(datetime.timezone.utc).astimezone().utcoffset()
+    if offset is None:
+        # should never happen since astimezone() returns tz-aware object
+        return 0
+    return offset // datetime.timedelta(minutes=1)
 
 
 def get_cookie_value(jar: aiohttp.CookieJar, key: str) -> Optional[str]:
@@ -118,22 +130,17 @@ def get_cookie_value(jar: aiohttp.CookieJar, key: str) -> Optional[str]:
     return None
 
 
-def prepare_next_page_request(initial_page_data: dict, continuation_token, cookies=None, client_version=None) -> Tuple[str, dict, dict]:
+CLIENT_VERSION = '2.20231023.04.02'
+
+def prepare_next_page_request(innertube_context: dict, continuation_token, cookies=None) -> Tuple[str, dict, dict]:
     BROWSE_ENDPOINT = 'https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
     cookies = cookies or {}
 
-    response_context = find_one(initial_page_data, '$.responseContext')
-    if response_context is not None:
-        session_index = find_one(response_context, '$.webResponseContextExtensionData.ytConfigData.sessionIndex') or ''
-        visitor_data = find_one(response_context, '$..visitorData') or ''
-    else:
-        session_index = ''
-        visitor_data = ''
-
-    if client_version is None:
-        client_version = find_one(initial_page_data, '$..serviceTrackingParams..params[?(@.key=="client.version")].value')
-        if client_version is None:
-            client_version = CLIENT_VERSION
+    session_index = find_one(innertube_context, '$..sessionIndex') or ''
+    visitor_data = find_one(innertube_context, '$..visitorData') or ''
+    client_version = find_one(innertube_context, '$..clientVersion') or CLIENT_VERSION
+    hl = find_one(innertube_context, '$..hl') or 'en'
+    timezone = find_one(innertube_context, '$..timeZone') or ''
 
     headers = {
         'X-Goog-AuthUser': session_index,
@@ -147,7 +154,17 @@ def prepare_next_page_request(initial_page_data: dict, continuation_token, cooki
 
     post_body = {
         'context': {
-            'client': {'clientName': 'WEB', 'clientVersion': client_version, 'visitorData': visitor_data}},
+            'client': {
+                'clientName': 'WEB',
+                'clientVersion': client_version,
+                'visitorData': visitor_data,
+                'hl': hl,
+                # only reason timeZone might be present is "PREF" cookie being set in cookies file
+                'timeZone': timezone,
+                # Disabled until it gets better testing:
+                # 'utcOffsetMinutes': get_utc_offset() if not timezone else ''
+            }
+        },
         'continuation': continuation_token
     }
     return BROWSE_ENDPOINT, headers, post_body
