@@ -111,6 +111,13 @@ def get_auth_header(sapisid: str) -> str:
     return f'SAPISIDHASH {timestamp}_{sapisidhash}'
 
 
+def get_cookie_value(jar: aiohttp.CookieJar, key: str) -> Optional[str]:
+    for morsel in jar:
+        if morsel.key == key:
+            return morsel.value
+    return None
+
+
 def prepare_next_page_request(initial_page_data: dict, continuation_token, cookies=None, client_version=None) -> Tuple[str, dict, dict]:
     BROWSE_ENDPOINT = 'https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
     cookies = cookies or {}
@@ -134,8 +141,9 @@ def prepare_next_page_request(initial_page_data: dict, continuation_token, cooki
         'X-Youtube-Client-Name': '1',
         'Content-Type': 'application/json'
     }
-    if 'SAPISID' in cookies:
-        headers['Authorization'] = get_auth_header(cookies['SAPISID'])
+    sapisid = get_cookie_value(cookies, 'SAPISID')
+    if sapisid is not None:
+        headers['Authorization'] = get_auth_header(sapisid)
 
     post_body = {
         'context': {
