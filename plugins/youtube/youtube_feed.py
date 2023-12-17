@@ -99,7 +99,6 @@ class VideosMonitorConfig(PagedFeedMonitorConfig):
 @Plugins.register('channel', Plugins.kind.ACTOR_ENTITY)
 class VideosMonitorEntity(PagedFeedMonitorEntity):
     update_interval: float = 1800
-    """How often the monitored url will be checked, in seconds"""
 
 
 @Plugins.register('channel', Plugins.kind.ACTOR)
