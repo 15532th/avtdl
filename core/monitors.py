@@ -17,6 +17,7 @@ HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
 class TaskMonitorEntity(ActorEntity):
     update_interval: float
+    """How often the monitored url will be checked, in seconds"""
 
 
 class BaseTaskMonitor(Actor):
