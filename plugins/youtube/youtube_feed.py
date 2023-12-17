@@ -76,14 +76,17 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
             'url': self.url,
             'color': None,
             'author': {'name': self.author, 'url': self.channel_link, 'icon_url': self.avatar_url},
-            'image': {'url': thumbnail_url(self.video_id)}
+            'image': {'url': thumbnail_url(self.video_id)},
+            'fields': []
         }
         footer = ''
         if self.published_text:
             footer += self.published_text
+        if self.length:
+            embed['fields'].append({'name': f'[{self.length}]', 'value': '', 'inline': True})
         if self.scheduled is not None:
             scheduled = self.scheduled.strftime('%Y-%m-%d %H:%M')
-            embed['fields'] = [{'name': 'Scheduled:', 'value': scheduled, 'inline': True}]
+            embed['fields'].append({'name': 'Scheduled:', 'value': scheduled, 'inline': True})
         embed['footer'] = {'text': footer}
         return embed
 
