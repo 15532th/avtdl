@@ -87,7 +87,7 @@ class TaskMonitor(BaseTaskMonitor):
 class HttpTaskMonitorEntity(TaskMonitorEntity):
     cookies_file: Optional[FilePath] = None
     """path to text file containing cookies in Netscape format"""
-    headers: Optional[Dict[str, str]] = None
+    headers: Optional[Dict[str, str]] = {'Accept-Language': 'en-US,en;q=0.9'}
     """custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use "cookies_file" option instead"""
 
     adjust_update_interval: bool = True
