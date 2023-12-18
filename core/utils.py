@@ -8,12 +8,13 @@ import re
 import sqlite3
 from collections import OrderedDict
 from email.utils import mktime_tz, parsedate_to_datetime
+from enum import Enum
 from http import cookiejar
 from math import log2
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter_ns
-from typing import Any, Callable, Dict, Hashable, Optional, Union
+from typing import Any, Callable, Dict, Hashable, List, Optional, Union
 
 import aiohttp
 import multidict
@@ -348,3 +349,51 @@ def find_matching_field(record: Record, pattern: str) -> Optional[str]:
 
 def record_has_text(record: Record, text: str) -> bool:
     return find_matching_field(record, text) is not None
+
+
+class OutputFormat(str, Enum):
+    str = 'text'
+    repr = 'short'
+    json = 'json'
+    pretty_json = 'pretty_json'
+    hash = 'hash'
+
+
+class Fmt:
+    """Helper class to interpolate format string from config using data from Record"""
+
+    @classmethod
+    def format(cls, fmt: str, record: Record) -> str:
+        """Take string with placeholders like {field} and replace them with record fields"""
+        logger = logging.getLogger().getChild('format')
+        result = fmt
+        record_as_dict = record.model_dump()
+        placeholders: List[str] = re.findall(r'(?:[^\\]|^)({[^{}\\]+})', fmt)
+        if not placeholders:
+            logger.debug(f'format string "{fmt}" has no placeholders, it will be the same for all records')
+        for placeholder in placeholders:
+            field = placeholder.strip('{}')
+            value = record_as_dict.get(field)
+            if value is not None:
+                if isinstance(value, datetime.datetime):
+                    value = value.strftime('%Y-%m-%d %H:%M')
+                else:
+                    value = str(value)
+                result = result.replace(placeholder, value)
+            else:
+                logger.warning(f'placeholder "{placeholder}" used by format string "{fmt}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
+        return result
+
+    @classmethod
+    def save_as(cls, record: Record, output_format: OutputFormat = OutputFormat.str) -> str:
+        """Take a record and convert in to string as text/json or sha1"""
+        if output_format == OutputFormat.str:
+            return str(record)
+        if output_format == OutputFormat.repr:
+            return repr(record)
+        if output_format == OutputFormat.json:
+            return record.as_json()
+        if output_format == OutputFormat.pretty_json:
+            return record.as_json(2)
+        if output_format == OutputFormat.hash:
+            return record.hash()

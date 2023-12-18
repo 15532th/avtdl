@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-import datetime
 import os
-from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
@@ -12,6 +10,7 @@ from core import utils
 from core.config import Plugins
 from core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record, TextRecord
 from core.monitors import TaskMonitor, TaskMonitorEntity
+from core.utils import Fmt, OutputFormat
 
 
 @Plugins.register('from_file', Plugins.kind.ACTOR_CONFIG)
@@ -77,6 +76,7 @@ class FileActionConfig(ActorConfig):
 class FileActionEntity(ActorEntity):
     path: Path
     separator: str = '\n'
+    output_format: OutputFormat = OutputFormat.str
 
 @Plugins.register('to_file', Plugins.kind.ACTOR)
 class FileAction(Actor):
@@ -84,7 +84,7 @@ class FileAction(Actor):
 
     def handle(self, entity: FileActionEntity, record: Record):
         try:
-            text = f'{record}{entity.separator}'
+            text = Fmt.save_as(record, entity.output_format) + entity.separator
             with open(entity.path, 'at', encoding='utf8') as fp:
                 fp.write(text)
                 fp.flush()
@@ -93,9 +93,6 @@ class FileAction(Actor):
             self.on_record(entity, Event(event_type=EventType.error, text=message))
             self.logger.exception(message)
 
-class SuffixType(str, Enum):
-    timestamp = 'timestamp'
-    date = 'date'
 
 @Plugins.register('as_file', Plugins.kind.ACTOR_CONFIG)
 class SaveAsFileActionConfig(ActorConfig):
@@ -104,11 +101,10 @@ class SaveAsFileActionConfig(ActorConfig):
 @Plugins.register('as_file', Plugins.kind.ACTOR_ENTITY)
 class SaveAsFileActionEntity(ActorEntity):
     save_path: Path
-    base_name: str
-    suffix_type: SuffixType = SuffixType.timestamp
-    save_as_json: bool = False
-    only_save_changed: bool = True
-    hash: Optional[str] = None
+    save_name: str
+    output_format: OutputFormat = OutputFormat.str
+    encoding: Optional[str] = 'utf8'
+    overwrite: bool = False
 
     @field_validator('save_path')
     @classmethod
@@ -121,35 +117,18 @@ class SaveAsFileActionEntity(ActorEntity):
 class SaveAsFileAction(Actor):
     supported_record_types = [Record, TextRecord, Event]
 
-    @staticmethod
-    def has_changed(entity: SaveAsFileActionEntity, record: Record) -> bool:
-        record_hash = record.hash()
-        changed = record_hash != entity.hash
-        entity.hash = record_hash
-        return changed
-
-    @staticmethod
-    def get_filename(entity: SaveAsFileActionEntity) -> Path:
-        now = datetime.datetime.now()
-        if entity.suffix_type == SuffixType.timestamp:
-            suffix = int(now.timestamp())
-        elif entity.suffix_type == SuffixType.date:
-            suffix = now.isoformat()
-        else:
-            suffix = '-'
-        path = Path(entity.save_path).joinpath(entity.base_name)
-        extension = 'txt' if not entity.save_as_json else 'json'
-        path = path.with_suffix(f'.{suffix}{path.suffix}.{extension}')
-        return path
-
     def handle(self, entity: SaveAsFileActionEntity, record: Record):
-        if entity.only_save_changed and not self.has_changed(entity, record):
-            self.logger.debug(f'{self.conf.name}.{entity}: record did not change since last time, not saving')
-            return
-        path = self.get_filename(entity)
+        filename = Fmt.format(entity.save_name, record)
+        path = Path(entity.save_path).joinpath(filename)
+        if path.exists():
+            if not entity.overwrite:
+                self.logger.debug(f'[{entity.name}] file {path} already exists, not overwriting')
+                return
+            else:
+                self.logger.debug(f'[{entity.name}] file {path} already exists, overwriting with new record')
         try:
-            text = str(record) if not entity.save_as_json else record.as_json(indent=4)
-            with open(path, 'wt', encoding='utf8') as fp:
+            text = Fmt.save_as(record, entity.output_format)
+            with open(path, 'wt', encoding=entity.encoding) as fp:
                 fp.write(text)
         except Exception as e:
             message = f'error in {self.conf.name}.{entity}: {e}'
