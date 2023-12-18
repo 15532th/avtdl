@@ -430,7 +430,7 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
             if current_page_records is None:
                 if entity.allow_discontinuity or entity.fetch_until_the_end_of_feed_mode:
                     # when unable to load _all_ new records, return at least current progress
-                    return records
+                    break
                 else:
                     # when unable to load _all_ new records, throw away all already parsed and return nothing
                     # to not cause discontinuity in stored data
@@ -438,7 +438,7 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
             records.extend(current_page_records)
 
             if continuation_context is None:
-                return records
+                break
 
             current_page += 1
             await asyncio.sleep(entity.next_page_delay)
