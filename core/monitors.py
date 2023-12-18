@@ -371,6 +371,12 @@ class PagedFeedMonitorEntity(BaseFeedMonitorEntity):
     allow_discontinuity: bool = False # store already fetched records on failure to load one of older pages
     fetch_until_the_end_of_feed_mode: bool = False
 
+    def model_post_init(self, __context: Any) -> None:
+        if self.fetch_until_the_end_of_feed_mode:
+            self.quiet_first_time = False
+            self.quiet_start = False
+        super().model_post_init(__context)
+
 
 class PagedFeedMonitor(BaseFeedMonitor, ABC):
     '''Provide support for loading and parsing feeds with pagination or lazy loading'''
