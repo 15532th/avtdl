@@ -1,8 +1,7 @@
 import json
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import aiohttp
-from pydantic import ValidationError
 
 from core import utils
 from core.interfaces import MAX_REPR_LEN, Record
@@ -10,7 +9,7 @@ from core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMon
 from core.plugins import Plugins
 from plugins.youtube.common import get_continuation_token, get_initial_data, get_innertube_context, handle_consent, prepare_next_page_request, thumbnail_url, \
     video_url
-from plugins.youtube.community_info import CommunityPostInfo, get_posts_renderers
+from plugins.youtube.community_info import CommunityPostInfo, SharedCommunityPostInfo, get_posts_renderers, get_renderers, get_shared_posts_renderers
 
 
 class CommunityPostRecord(Record, CommunityPostInfo):
@@ -75,6 +74,46 @@ class CommunityPostRecord(Record, CommunityPostInfo):
             embeds = [embed]
         return embeds
 
+class SharedCommunityPostRecord(Record, SharedCommunityPostInfo):
+    channel_id: str
+    post_id: str
+    author: str
+    avatar_url: Optional[str] = None
+    published_text: str
+    full_text: str
+    original_post: Optional['CommunityPostRecord'] = None
+
+    def __repr__(self) -> str:
+        text = self.full_text.replace('\n', ' • ')[:MAX_REPR_LEN]
+        return f'{self.post_id} [{self.author}] {text}'
+
+    def __str__(self) -> str:
+        channel_post_url = f'https://www.youtube.com/channel/{self.channel_id}/community?lb={self.post_id}'
+
+        header = f'[{self.author}, {self.published_text} ]'
+        body = self.full_text
+        original_post = str(self.original_post) if self.original_post else ''
+        return '\n'.join((channel_post_url, header, body, original_post))
+
+    def discord_embed(self) -> List[dict]:
+        channel_url = f'https://www.youtube.com/channel/{self.channel_id}'
+        post_url = f'https://www.youtube.com/post/{self.post_id}'
+
+        original_post = str(self.original_post) if self.original_post else ''
+        text = '\n'.join([self.full_text, '', original_post])
+
+        embed = {
+            'title': self.post_id,
+            'description': text,
+            'url': post_url,
+            'color': None,
+            'author': {'name': self.author, 'url': channel_url, 'icon_url': self.avatar_url},
+            'footer': {'text': self.published_text}
+        }
+        embeds = [embed]
+        return embeds
+
+
 @Plugins.register('community', Plugins.kind.ACTOR_CONFIG)
 class CommunityPostsMonitorConfig(PagedFeedMonitorConfig):
     pass
@@ -124,16 +163,26 @@ class CommunityPostsMonitor(PagedFeedMonitor):
         context = (innertube_context, continuation_token) if continuation_token else None
         return current_page_records, context
 
-    def _parse_entries(self, page: dict) -> List[CommunityPostRecord]:
-        post_renderers = get_posts_renderers(page)
-        records: List[CommunityPostRecord] = []
+    def _parse_entries(self, page: dict) -> List[Union[CommunityPostRecord, SharedCommunityPostRecord]]:
+        renderers = get_renderers(page)
+        records: List[Union[CommunityPostRecord, SharedCommunityPostRecord]] = []
+        post_renderers = get_posts_renderers(renderers)
         for item in post_renderers:
             try:
                 info = CommunityPostInfo.from_post_renderer(item)
                 record = CommunityPostRecord(**info.model_dump())
                 records.append(record)
-            except ValidationError as e:
-                self.logger.debug(f'error parsing item {item}: {e}')
+            except Exception as e:
+                self.logger.debug(f'error parsing post renderer {item}: {e}')
+                continue
+        shared_post_renderers = get_shared_posts_renderers(renderers)
+        for item in shared_post_renderers:
+            try:
+                info = SharedCommunityPostInfo.from_post_renderer(item)
+                record = SharedCommunityPostRecord(**info.model_dump())
+                records.append(record)
+            except Exception as e:
+                self.logger.debug(f'error parsing shared post renderer {item}: {e}')
                 continue
         return records
 
