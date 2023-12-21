@@ -363,7 +363,7 @@ class Fmt:
     """Helper class to interpolate format string from config using data from Record"""
 
     @classmethod
-    def format(cls, fmt: str, record: Record) -> str:
+    def format(cls, fmt: str, record: Record, missing: Optional[str] = None) -> str:
         """Take string with placeholders like {field} and replace them with record fields"""
         logger = logging.getLogger().getChild('format')
         result = fmt
@@ -381,7 +381,10 @@ class Fmt:
                     value = str(value)
                 result = result.replace(placeholder, value)
             else:
-                logger.warning(f'placeholder "{placeholder}" used by format string "{fmt}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
+                if missing is not None:
+                    result = result.replace(placeholder, missing)
+                else:
+                    logger.warning(f'placeholder "{placeholder}" used by format string "{fmt}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
         return result
 
     @classmethod
