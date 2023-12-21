@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from core import utils
 from core.config import Plugins
@@ -72,63 +72,40 @@ class FileMonitor(TaskMonitor):
 class FileActionConfig(ActorConfig):
     pass
 
+
 @Plugins.register('to_file', Plugins.kind.ACTOR_ENTITY)
 class FileActionEntity(ActorEntity):
-    path: Path
-    separator: str = '\n'
+    path: Path = Field(default=Path.cwd())
+    filename: str
+    encoding: Optional[str] = 'utf8'
     output_format: OutputFormat = OutputFormat.str
+    overwrite: bool = True
+    append: bool = True
+    prefix: str = ''
+    postfix: str = '\n'
+
+    @field_validator('path')
+    @classmethod
+    def check_dir(cls, path: Path) -> Path:
+        if utils.check_dir(path):
+            return path
+        raise ValueError(f'check if provided path points to a writeable directory')
+
 
 @Plugins.register('to_file', Plugins.kind.ACTOR)
 class FileAction(Actor):
     supported_record_types = [Record, TextRecord, Event]
 
     def handle(self, entity: FileActionEntity, record: Record):
+        filename = Fmt.format(entity.filename, record)
+        path = Path(entity.path).joinpath(filename)
+        if path.exists() and not entity.overwrite:
+            self.logger.debug(f'[{entity.name}] file {path} already exists, not overwriting')
+            return
+        mode = 'at' if entity.append else 'wt'
         try:
-            text = Fmt.save_as(record, entity.output_format) + entity.separator
-            with open(entity.path, 'at', encoding='utf8') as fp:
-                fp.write(text)
-                fp.flush()
-        except Exception as e:
-            message = f'error in {self.conf.name}.{entity}: {e}'
-            self.on_record(entity, Event(event_type=EventType.error, text=message))
-            self.logger.exception(message)
-
-
-@Plugins.register('as_file', Plugins.kind.ACTOR_CONFIG)
-class SaveAsFileActionConfig(ActorConfig):
-    pass
-
-@Plugins.register('as_file', Plugins.kind.ACTOR_ENTITY)
-class SaveAsFileActionEntity(ActorEntity):
-    save_path: Path
-    save_name: str
-    output_format: OutputFormat = OutputFormat.str
-    encoding: Optional[str] = 'utf8'
-    overwrite: bool = False
-
-    @field_validator('save_path')
-    @classmethod
-    def check_dir(cls, path: Path):
-        if utils.check_dir(path):
-            return path
-        raise ValueError(f'check if provided path points to a writeable directory')
-
-@Plugins.register('as_file', Plugins.kind.ACTOR)
-class SaveAsFileAction(Actor):
-    supported_record_types = [Record, TextRecord, Event]
-
-    def handle(self, entity: SaveAsFileActionEntity, record: Record):
-        filename = Fmt.format(entity.save_name, record)
-        path = Path(entity.save_path).joinpath(filename)
-        if path.exists():
-            if not entity.overwrite:
-                self.logger.debug(f'[{entity.name}] file {path} already exists, not overwriting')
-                return
-            else:
-                self.logger.debug(f'[{entity.name}] file {path} already exists, overwriting with new record')
-        try:
-            text = Fmt.save_as(record, entity.output_format)
-            with open(path, 'wt', encoding=entity.encoding) as fp:
+            text = entity.prefix + Fmt.save_as(record, entity.output_format) + entity.postfix
+            with open(path, mode, encoding=entity.encoding) as fp:
                 fp.write(text)
         except Exception as e:
             message = f'error in {self.conf.name}.{entity}: {e}'
