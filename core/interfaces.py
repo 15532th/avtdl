@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from hashlib import sha1
 from textwrap import shorten
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from pydantic import BaseModel
 
@@ -129,8 +129,6 @@ class ActorEntity(BaseModel):
 
 class Actor(ABC):
 
-    supported_record_types: List[Type] = [Record]
-
     def __init__(self, conf: ActorConfig, entities: Sequence[ActorEntity]):
         self.conf = conf
         self.logger = logging.getLogger(f'actor').getChild(conf.name)
@@ -147,12 +145,6 @@ class Actor(ABC):
             logging.warning(f'received record on topic {topic}, but have no entity with name {entity_name} configured, dropping record {record!r}')
             return
         entity = self.entities[entity_name]
-        for record_type in self.supported_record_types:
-            if isinstance(record, record_type):
-                break
-        else:
-            self.logger.debug(f'forwarding record with unsupported type "{record.__class__.__name__}" down the chain: {record!r}')
-            self.on_record(entity, record)
         try:
             self.handle(entity, record)
         except Exception:

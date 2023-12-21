@@ -44,7 +44,6 @@ class CommandEntity(ActorEntity):
 
 @Plugins.register('execute', Plugins.kind.ACTOR)
 class Command(Actor):
-    supported_record_types = [Record]
 
     def __init__(self, conf: CommandConfig, entities: Sequence[CommandEntity]):
         super().__init__(conf, entities)
