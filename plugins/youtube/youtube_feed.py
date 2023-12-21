@@ -12,7 +12,7 @@ from core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMon
 from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
 from plugins.youtube.common import get_innertube_context, handle_consent, prepare_next_page_request, thumbnail_url
-from plugins.youtube.feed_info import VideoRendererInfo, get_video_renderers, parse_owner_info, parse_video_renderer
+from plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_renderers, parse_owner_info, parse_video_renderer
 
 
 class YoutubeVideoRecord(VideoRendererInfo, Record):
@@ -67,7 +67,7 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
 
     def __repr__(self):
         template = '{:<8} [{}] {}'
-        return template.format(self.author, self.video_id, self.title[:60])
+        return template.format(self.author or 'Unknown author', self.video_id, self.title[:60])
 
     def discord_embed(self) -> dict:
         embed = {
@@ -134,12 +134,13 @@ class VideosMonitor(PagedFeedMonitor):
             return None, None
         raw_page_text = await handle_consent(raw_page_text, entity.url, session, self.logger)
         video_renderers, continuation_token, page = get_video_renderers(raw_page_text)
-        current_page_records = self._parse_entries(page, video_renderers, entity)
+        owner_info = parse_owner_info(page)
+        current_page_records = self._parse_entries(owner_info, video_renderers, entity)
         innertube_context = get_innertube_context(raw_page_text)
-        return current_page_records, (innertube_context, continuation_token)
+        return current_page_records, (innertube_context, owner_info, continuation_token)
 
     async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
-        innertube_context, continuation_token = context  # type: ignore
+        innertube_context, owner_info, continuation_token = context  # type: ignore
         if continuation_token is None:
             self.logger.debug(f'[{entity.name}] no continuation for next page, done loading')
             return [], None
@@ -152,13 +153,12 @@ class VideosMonitor(PagedFeedMonitor):
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
         video_renderers, continuation_token, page = get_video_renderers(raw_page, anchor='')
-        context = (innertube_context, continuation_token) if continuation_token else None
-        current_page_records = self._parse_entries(page, video_renderers, entity)
+        context = (innertube_context, owner_info, continuation_token) if continuation_token else None
+        current_page_records = self._parse_entries(owner_info, video_renderers, entity)
         return current_page_records, context
 
-    def _parse_entries(self, page: dict, video_renderers: List[dict], entity: PagedFeedMonitorEntity) -> List[YoutubeVideoRecord]:
+    def _parse_entries(self, owner_info: Optional[AuthorInfo], video_renderers: List[dict], entity: PagedFeedMonitorEntity) -> List[YoutubeVideoRecord]:
         records: List[YoutubeVideoRecord] = []
-        owner_info = parse_owner_info(page)
         for item in video_renderers:
             try:
                 info = parse_video_renderer(item, owner_info, raise_on_error=True)
