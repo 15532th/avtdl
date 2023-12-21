@@ -5,14 +5,15 @@ import aiohttp
 from pydantic import Field
 
 from core.config import Plugins
-from core.interfaces import ActorConfig, LivestreamRecord, MAX_REPR_LEN
+from core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 
-class TwitcastRecord(LivestreamRecord):
+class TwitcastRecord(Record):
 
     user_id: str
     movie_id: str
+    url: str
     movie_url: str
     title: str
 

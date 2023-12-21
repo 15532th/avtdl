@@ -9,13 +9,13 @@ from pydantic import ConfigDict
 
 from core import utils
 from core.config import Plugins
-from core.interfaces import LivestreamRecord
+from core.interfaces import Record
 from plugins.rss.generic_rss import GenericRSSMonitor, GenericRSSMonitorConfig, GenericRSSMonitorEntity
 from plugins.youtube import video_info
 from plugins.youtube.common import thumbnail_url
 
 
-class YoutubeFeedRecord(LivestreamRecord):
+class YoutubeFeedRecord(Record):
     model_config = ConfigDict(extra='allow')
 
     url: str

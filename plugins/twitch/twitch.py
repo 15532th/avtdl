@@ -6,12 +6,13 @@ import aiohttp
 from pydantic import Field
 
 from core.config import Plugins
-from core.interfaces import ActorConfig, LivestreamRecord, MAX_REPR_LEN
+from core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 
-class TwitchRecord(LivestreamRecord):
+class TwitchRecord(Record):
 
+    url: str
     username: str
     title: str
 
