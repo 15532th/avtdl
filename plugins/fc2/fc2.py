@@ -8,12 +8,13 @@ import pydantic
 from pydantic import Field
 
 from core.config import Plugins
-from core.interfaces import ActorConfig, LivestreamRecord, MAX_REPR_LEN
+from core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 
-class FC2Record(LivestreamRecord):
+class FC2Record(Record):
 
+    url: str
     user_id: str
     title: str
     start: str

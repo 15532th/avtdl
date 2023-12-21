@@ -50,10 +50,6 @@ class TextRecord(Record):
         return f'TextRecord("{shorten(self.text, MAX_REPR_LEN)}")'
 
 
-class LivestreamRecord(Record, ABC):
-    '''Record that has a downloadable url'''
-    url: str
-
 class EventType:
     generic: str = 'generic'
     error: str = 'error'
