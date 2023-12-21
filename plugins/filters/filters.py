@@ -1,13 +1,12 @@
 import json
-import re
 from collections import OrderedDict
 from typing import List, Optional, Sequence
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from core.config import Plugins
 from core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, TextRecord
-from core.utils import find_matching_field
+from core.utils import Fmt, find_matching_field
 
 
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_CONFIG)
@@ -149,13 +148,9 @@ class JsonFilter(Filter):
 
 @Plugins.register('filter.format', Plugins.kind.ACTOR_ENTITY)
 class FormatFilterEntity(FilterEntity):
-    fmt: str
-    missing: str = ''
+    template: str
+    missing: Optional[str] = None
 
-    @field_validator('fmt')
-    @classmethod
-    def valid_fmt(cls, fmt: str) -> str:
-       return fmt
 
 @Plugins.register('filter.format', Plugins.kind.ACTOR)
 class FormatFilter(Filter):
@@ -164,10 +159,7 @@ class FormatFilter(Filter):
         super().__init__(config, entities)
 
     def match(self, entity: FormatFilterEntity, record: Record) -> TextRecord:
-        placeholders = re.findall('({[^{}]+})', entity.fmt)
-        text = entity.fmt
-        for placeholder in placeholders:
-           text = text.replace(placeholder, getattr(record, placeholder[1:-1], entity.missing))
+        text = Fmt.format(entity.template, record, entity.missing)
         return TextRecord(text=text)
 
 
