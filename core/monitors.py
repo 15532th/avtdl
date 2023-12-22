@@ -131,29 +131,36 @@ class HttpTaskMonitor(BaseTaskMonitor):
         if entity.etag is not None:
             request_headers['If-None-Match'] = entity.etag
         try:
+            text = ''
             async with session.request(method, url, headers=request_headers, params=params, data=data, json=json) as response:
+                # fully read http response to get it cached inside ClientResponse object
+                # client code can then use it by awaiting .text() again without causing
+                # network activity and potentially triggering associated errors
+                text = await response.text()
                 response.raise_for_status()
                 # fully read http response to get it cached inside ClientResponse object
                 # client code can then use it by awaiting .text() again without causing
                 # network activity and potentially triggering associated errors
-                _ = await response.text()
         except Exception as e:
             if isinstance(e, aiohttp.ClientResponseError):
                 logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {url}')
+                if text:
+                    logger.debug(f'[{entity.name}] response body: "{text}"')
                 retry_after = get_retry_after(response.headers)
                 if retry_after is not None:
-                    entity.update_interval = max(float(retry_after), HIGHEST_UPDATE_INTERVAL)
                     raw_header = response.headers.get("Retry-After")
-                    self.logger.debug(f'got Retry-After header with value {raw_header}')
+                    logger.debug(f'[{entity.name}] got Retry-After header with value {raw_header}')
+                    entity.update_interval = max(float(retry_after), HIGHEST_UPDATE_INTERVAL)
                     logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url} as requested by response headers')
-                return None
+                    return None
             else:
                 logger.warning(f'[{entity.name}] error while fetching {url}: {e.__class__.__name__} {e}')
-                update_interval = int(Delay.get_next(entity.update_interval))
-                if entity.update_interval != update_interval:
-                    entity.update_interval = update_interval
-                    logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url}')
-                return None
+
+            update_interval = int(Delay.get_next(entity.update_interval))
+            if entity.update_interval != update_interval:
+                entity.update_interval = update_interval
+                logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url}')
+            return None
 
         if response.status == 304:
             logger.debug(f'[{entity.name}] got {response.status} ({response.reason}) from {url}')
@@ -164,7 +171,6 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
         cache_control = response.headers.get('Cache-control')
         logger.debug(f'[{entity.name}] Last-Modified={entity.last_modified or "absent"}, ETAG={entity.etag or "absent"}, Cache-control="{cache_control or "absent"}"')
-
 
         if entity.adjust_update_interval:
             new_update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
