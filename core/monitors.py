@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 import aiohttp
 from pydantic import Field, FilePath, field_validator, model_validator
 
-from core import utils
+from core.db import BaseRecordDB
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
 from core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff
 
@@ -220,7 +220,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
 
 
-class RecordDB(utils.RecordDB):
+class RecordDB(BaseRecordDB):
     table_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
     row_structure = ':parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json'
     id_field = 'uid'
