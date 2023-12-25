@@ -17,9 +17,6 @@ from core.plugins import Plugins
 from plugins.youtube.common import extract_keys, find_all, find_one, prepare_next_page_request
 
 
-def profile(func):
-    return func
-
 class YoutubeChatRecord(Record):
     uid: str
     action: str
@@ -89,7 +86,6 @@ class YoutubeChatMonitor(HttpTaskMonitor):
         return actions, data
 
 
-@profile
 def runs_to_text(runs: dict) -> str:
     parts = []
     for run in runs.get('runs', []):
@@ -122,7 +118,6 @@ class Parser:
     def drop(self, action_type, renderer_type, renderer):
         return None
 
-    @profile
     def parse_chat_renderer(self, action_type: str, renderer_type: str, renderer: dict) -> YoutubeChatRecord:
         uid = renderer.get('id')
 
@@ -150,7 +145,6 @@ class Parser:
                     )
         return record
 
-    @profile
     def parse_banner(self, action_type: str, renderer_type: str, renderer: dict) -> YoutubeChatRecord:
         header = find_one(renderer, '$..liveChatBannerHeaderRenderer.text') or {}
         header_text = runs_to_text(header)
@@ -161,7 +155,6 @@ class Parser:
         record.banner_header = header_text
         return record
 
-    @profile
     def parse_gift_purchase(self, action_type: str, renderer_type: str, renderer: dict) -> YoutubeChatRecord:
         uid = renderer.get('id')
         channel_id = find_one(renderer, '$..authorExternalChannelId')
@@ -224,7 +217,6 @@ class Parser:
         }
     }
 
-    @profile
     def run_parsers(self, actions: Dict[str, list]) -> list:
         known_actions = set(self.parsers.keys())
         known_renderers = set(sum([list(x.keys()) for x in self.parsers.values()], start=[]))
@@ -280,7 +272,6 @@ def get_next(initial_data: dict, continuation_token: str):
     return initial_data, messages, continuation
 
 
-@profile
 def get_actions(page: str, first_page=False) -> Tuple[Dict[str, list], dict]:
     keys = ['addChatItemAction', 'replaceChatItemAction', 'removeChatItemAction', 'removeChatItemByAuthorAction', 'markChatItemsByAuthorAsDeletedAction', 'markChatItemAsDeletedAction', 'addBannerToLiveChatCommand', 'removeBannerForLiveChatCommand']
     anchor = 'var ytInitialData = ' if first_page else ''
