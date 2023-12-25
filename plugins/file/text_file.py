@@ -25,7 +25,7 @@ class FileMonitorEntity(TaskMonitorEntity):
     """Path to monitored file"""
     split_lines: bool = False
     """If true, each line of the file will create a separate record. Otherwise a single record will be generated with entire file content"""
-    mtime: float = -1
+    mtime: float = Field(exclude=True, default=-1)
 
     def __post_init__(self):
         self.path = Path(self.path)
