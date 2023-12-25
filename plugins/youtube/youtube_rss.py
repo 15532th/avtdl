@@ -9,6 +9,7 @@ from pydantic import ConfigDict
 
 from core import utils
 from core.config import Plugins
+from core.db import BaseRecordDB
 from core.interfaces import Record
 from plugins.rss.generic_rss import GenericRSSMonitor, GenericRSSMonitorConfig, GenericRSSMonitorEntity
 from plugins.youtube import video_info
@@ -84,7 +85,7 @@ class YoutubeFeedRecord(Record):
         return embed
 
 
-class RecordDB(utils.RecordDB):
+class RecordDB(BaseRecordDB):
     table_structure = 'parsed_at datetime, feed_name text, author text, video_id text, link text, title text, summary text, published datetime, updated datetime, scheduled datetime DEFAULT NULL, views integer, PRIMARY KEY(video_id, updated)'
     row_structure = ':parsed_at, :feed_name, :author, :video_id, :url, :title, :summary, :published, :updated, :scheduled, :views'
     id_field = 'video_id'
