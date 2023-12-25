@@ -20,8 +20,11 @@ class FileMonitorConfig(ActorConfig):
 @Plugins.register('from_file', Plugins.kind.ACTOR_ENTITY)
 class FileMonitorEntity(TaskMonitorEntity):
     encoding: Optional[str] = None
+    """Input file encoding. If not specified default system-wide encoding is used"""
     path: Path
+    """Path to monitored file"""
     split_lines: bool = False
+    """If true, each line of the file will create a separate record. Otherwise a single record will be generated with entire file content"""
     mtime: float = -1
 
     def __post_init__(self):
@@ -63,6 +66,13 @@ class FileMonitorEntity(TaskMonitorEntity):
 
 @Plugins.register('from_file', Plugins.kind.ACTOR)
 class FileMonitor(TaskMonitor):
+    """
+    Monitor content of a text file
+
+    On specified intervals check existence and last modification time
+    of target file, and if it changed read file content
+    (either line by line or as a whole) and make it to a text record(s).
+    """
 
     async def get_new_records(self, entity: FileMonitorEntity):
         return entity.get_new_records()
@@ -75,14 +85,22 @@ class FileActionConfig(ActorConfig):
 
 @Plugins.register('to_file', Plugins.kind.ACTOR_ENTITY)
 class FileActionEntity(ActorEntity):
-    path: Path = Field(default=Path.cwd())
+    path: Path = Path.cwd()
+    """Directory where output file should be created. Default is current directory"""
     filename: str
+    """Name of the output file. Supports templating with {...}""" # FIXME: describe templating
     encoding: Optional[str] = 'utf8'
+    """Output file encoding. Defaults to UTF8."""
     output_format: OutputFormat = OutputFormat.str
+    """Should record be written in output file as plain text or json""" # FIXME: list all valid values
     overwrite: bool = True
+    """Whether file should be written in if it already exists"""
     append: bool = True
+    """If true, new record will be written in the end of the file without overwriting already present lines"""
     prefix: str = ''
+    """String that will be appended before record text. Can be used to separate records from each other or for simple templating"""
     postfix: str = '\n'
+    """String that will be appended after record text"""
 
     @field_validator('path')
     @classmethod
@@ -94,6 +112,15 @@ class FileActionEntity(ActorEntity):
 
 @Plugins.register('to_file', Plugins.kind.ACTOR)
 class FileAction(Actor):
+    """
+    Write text representation of a record to file
+
+    Takes record coming from a Chain, converts it to text representation,
+    and write to a file in given directory. Output file can be generated
+    dynamically based on template filled with values from the record or
+    be static. When file already exists, new records can be appended to
+    the end of the file or overwrite it.
+    """
 
     def handle(self, entity: FileActionEntity, record: Record):
         filename = Fmt.format(entity.filename, record)
