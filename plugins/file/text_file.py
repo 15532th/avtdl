@@ -2,20 +2,21 @@
 
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 from pydantic import Field, field_validator
 
 from core import utils
 from core.config import Plugins
 from core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record, TextRecord
-from core.monitors import TaskMonitor, TaskMonitorEntity
+from core.monitors import HIGHEST_UPDATE_INTERVAL, TaskMonitor, TaskMonitorEntity
 from core.utils import Fmt, OutputFormat
 
 
 @Plugins.register('from_file', Plugins.kind.ACTOR_CONFIG)
 class FileMonitorConfig(ActorConfig):
     pass
+
 
 @Plugins.register('from_file', Plugins.kind.ACTOR_ENTITY)
 class FileMonitorEntity(TaskMonitorEntity):
@@ -26,42 +27,11 @@ class FileMonitorEntity(TaskMonitorEntity):
     split_lines: bool = False
     """If true, each line of the file will create a separate record. Otherwise a single record will be generated with entire file content"""
     mtime: float = Field(exclude=True, default=-1)
+    base_update_interval: float = Field(exclude=True, default=60)
 
     def __post_init__(self):
         self.path = Path(self.path)
-
-    def exists(self) -> bool:
-        if not self.path.exists():
-            self.mtime = -1
-            return False
-        else:
-            return True
-
-    def changed(self) -> bool:
-        if not self.exists():
-            return False
-        current_mtime = os.stat(self.path).st_mtime
-        if current_mtime == self.mtime:
-            return False
-        else:
-            self.mtime = current_mtime
-            return True
-
-    def get_records(self) -> List[TextRecord]:
-        records = []
-        if self.exists():
-            with open(self.path, 'rt', encoding=self.encoding) as fp:
-                if self.split_lines:
-                    lines = fp.readlines()
-                else:
-                    lines = [fp.read()]
-                for line in lines:
-                    record = TextRecord(text=line.strip())
-                    records.append(record)
-        return records
-
-    def get_new_records(self) -> List[TextRecord]:
-        return self.get_records() if self.changed() else []
+        self.base_update_interval = self.update_interval
 
 
 @Plugins.register('from_file', Plugins.kind.ACTOR)
@@ -74,8 +44,52 @@ class FileMonitor(TaskMonitor):
     (either line by line or as a whole) and make it to a text record(s).
     """
 
-    async def get_new_records(self, entity: FileMonitorEntity):
-        return entity.get_new_records()
+    async def get_new_records(self, entity: FileMonitorEntity) -> Sequence[TextRecord]:
+        if not self.has_changed(entity):
+            return []
+        try:
+            records = self.get_records(entity)
+            if entity.update_interval != entity.base_update_interval:
+                entity.update_interval = entity.base_update_interval
+            return records
+        except Exception as e:
+            self.logger.warning(f'[{entity.name}] error when processing file "{entity.path}": {e}')
+            entity.update_interval = max(entity.update_interval * 1.2, HIGHEST_UPDATE_INTERVAL)
+            return []
+
+    def exists(self, entity: FileMonitorEntity) -> bool:
+        if not entity.path.exists():
+            entity.mtime = -1
+            return False
+        else:
+            return True
+
+    def has_changed(self, entity: FileMonitorEntity) -> bool:
+        if not self.exists(entity):
+            return False
+        try:
+            current_mtime = os.stat(entity.path).st_mtime
+        except OSError as e:
+            self.logger.debug(f'[{entity.name}] failed to get file info for "{entity.path}": {e}')
+            return False
+        if current_mtime == entity.mtime:
+            return False
+        else:
+            entity.mtime = current_mtime
+            return True
+
+    def get_records(self, entity: FileMonitorEntity) -> List[TextRecord]:
+        records = []
+        if self.exists(entity):
+            with open(entity.path, 'rt', encoding=entity.encoding) as fp:
+                if entity.split_lines:
+                    lines = fp.readlines()
+                else:
+                    lines = [fp.read()]
+                for line in lines:
+                    record = TextRecord(text=line.strip())
+                    records.append(record)
+        return records
 
 
 @Plugins.register('to_file', Plugins.kind.ACTOR_CONFIG)
