@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from core.utils import check_dir
 
@@ -32,9 +32,11 @@ class BaseRecordDB:
         else:
             self.logger.debug(f'successfully connected to sqlite database at "{db_path}"')
 
-    def store(self, row: Dict[str, Any]) -> None:
-        sql = "INSERT INTO {} VALUES({})".format(self.table_name, self.row_structure)
-        self.cursor.execute(sql, row)
+    def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
+        sql = "INSERT OR IGNORE INTO {} VALUES({})".format(self.table_name, self.row_structure)
+        if not isinstance(rows, list):
+            rows = [rows]
+        self.cursor.executemany(sql, rows)
         self.db.commit()
 
     def fetch_row(self, uid: Any, exact_id: Optional[Any] = None) -> Optional[sqlite3.Row]:

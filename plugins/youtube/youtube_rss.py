@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 from datetime import datetime, timezone
-from typing import Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import aiohttp
 import feedparser
@@ -93,8 +93,8 @@ class RecordDB(BaseRecordDB):
     group_id_field = 'feed_name'
     sorting_field = 'parsed_at'
 
-    def store(self, row: dict) -> None:
-        return super().store(row)
+    def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
+        return super().store(rows)
 
     def row_exists(self, video_id: str, updated: Optional[datetime] = None) -> bool:
         return super().row_exists(video_id, updated)
@@ -190,11 +190,14 @@ class FeedMonitor(GenericRSSMonitor):
     def record_got_updated(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity) -> bool:
         return self.db.row_exists(record.video_id) and not self.db.row_exists(record.video_id, record.updated)
 
-    def store_record(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity):
-        now = datetime.now(tz=timezone.utc).isoformat(timespec='seconds')
-        additional_fields = {'feed_name': entity.name, 'parsed_at': now}
-        row = record.as_dict(additional_fields)
-        self.db.store(row)
+    def store_records(self, records: Sequence[YoutubeFeedRecord], entity: FeedMonitorEntity):
+        rows = []
+        for record in records:
+            now = datetime.now(tz=timezone.utc).isoformat(timespec='seconds')
+            additional_fields = {'feed_name': entity.name, 'parsed_at': now}
+            row = record.as_dict(additional_fields)
+            rows.append(row)
+        self.db.store(rows)
 
     def load_record(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity) -> Optional[YoutubeFeedRecord]:
         raw_latest_row = self.db.fetch_row(record.video_id)
