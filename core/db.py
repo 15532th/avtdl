@@ -49,7 +49,13 @@ class BaseRecordDB:
         return self.cursor.fetchone()
 
     def row_exists(self, uid: Any, exact_id: Optional[Any] = None) -> bool:
-        return self.fetch_row(uid, exact_id) is not None
+        if exact_id is not None:
+            sql = f'SELECT 1 FROM records WHERE {self.id_field}=:uid AND {self.exact_id_field}=:exact_id LIMIT 1'
+        else:
+            sql = f'SELECT 1 FROM records WHERE {self.id_field}=:uid LIMIT 1'
+        keys = {'uid': uid, 'exact_id': exact_id}
+        self.cursor.execute(sql, keys)
+        return self.cursor.fetchone() is not None
 
     def get_size(self, group: Optional[Any] = None) -> int:
         '''return number of records, total or for specified feed, are stored in db'''
