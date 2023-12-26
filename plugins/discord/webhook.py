@@ -187,20 +187,19 @@ class MessageFormatter:
         return True
 
 
-
-
-
-
-
 @Plugins.register('discord.hook', Plugins.kind.ACTOR_CONFIG)
 class DiscordHookConfig(ActorConfig):
     pass
 
+
 @Plugins.register('discord.hook', Plugins.kind.ACTOR_ENTITY)
 class DiscordHookEntity(ActorEntity):
     url: str
+    """webhook url"""
     timezone: Optional[str] = None # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+    """takes timezone name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones or OS settings if omitted, converts record fields containing date and time to this timezone"""
     hook: Optional[Any] = Field(exclude=True, default=None)
+    """internal variable to persist state between update calls, holds DiscordWebhook object for this entity"""
 
     @field_validator('timezone')
     @classmethod
@@ -212,6 +211,22 @@ class DiscordHookEntity(ActorEntity):
 
 @Plugins.register('discord.hook', Plugins.kind.ACTOR)
 class DiscordHook(Actor):
+    """
+    Send record to Discord using webhook
+
+    To generate webhook url follow instructions in "Making a Webhook" section of
+    https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks
+
+    Some record types support rich formatting when sent to Discord, such as
+    showing author's avatar and links to attached images. Youtube videos will
+    show thumbnail, however embedding video itself is not supported.
+
+    Records coming within six seconds one after another will be batched into a single message.
+    When many records come at once they will be sent with delays to conform Discord
+    rate limits. Records deemed too long to fit in Discord message length limits
+    will be dropped with a warning.
+    """
+
     def __init__(self, conf: DiscordHookConfig, entities: Sequence[DiscordHookEntity]):
         super().__init__(conf, entities)
         for entity in entities:
@@ -225,4 +240,3 @@ class DiscordHook(Actor):
     async def run(self):
         tasks = [asyncio.create_task(entity.hook.run()) for entity in self.entities.values()]
         await asyncio.wait(tasks)
-
