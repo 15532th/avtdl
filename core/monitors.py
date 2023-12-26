@@ -449,9 +449,6 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
                     return []
             records.extend(current_page_records)
 
-            if continuation_context is None:
-                break
-
             current_page += 1
             await asyncio.sleep(entity.next_page_delay)
 
