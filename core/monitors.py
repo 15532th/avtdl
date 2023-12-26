@@ -11,7 +11,7 @@ from pydantic import Field, FilePath, field_validator, model_validator
 
 from core.db import BaseRecordDB
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
-from core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff
+from core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff, timeit
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
@@ -228,8 +228,8 @@ class RecordDB(BaseRecordDB):
     group_id_field = 'feed_name'
     sorting_field = 'parsed_at'
 
-    def store(self, row: Dict[str, Any]) -> None:
-        return super().store(row)
+    def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
+        return super().store(rows)
 
     def fetch_row(self, uid: str, hashsum: Optional[str] = None) -> Optional[sqlite3.Row]:
         return super().fetch_row(uid, hashsum)
@@ -313,15 +313,18 @@ class BaseFeedMonitor(HttpTaskMonitor):
         else:
             self.logger.info(f'[{entity.name}] {size} records stored in database')
 
-    def store_record(self, record: Record, entity: BaseFeedMonitorEntity):
-        uid = self._get_record_id(record, entity)
-        parsed_at = datetime.utcnow()
-        hashsum = record.hash()
-        feed_name = entity.name
-        class_name = record.__class__.__name__
-        as_json = record.as_json()
-        row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum, 'class_name': class_name, 'as_json': as_json}
-        self.db.store(row)
+    def store_records(self, records: Sequence[Record], entity: BaseFeedMonitorEntity):
+        rows = []
+        for record in records:
+            uid = self._get_record_id(record, entity)
+            parsed_at = datetime.utcnow()
+            hashsum = record.hash()
+            feed_name = entity.name
+            class_name = record.__class__.__name__
+            as_json = record.as_json()
+            row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum, 'class_name': class_name, 'as_json': as_json}
+            rows.append(row)
+        self.db.store(rows)
 
     def load_record(self, record: Record, entity: BaseFeedMonitorEntity) -> Optional[Record]:
         uid = self._get_record_id(record, entity)
@@ -353,12 +356,11 @@ class BaseFeedMonitor(HttpTaskMonitor):
         for record in records:
             if self.record_is_new(record, entity):
                 new_records.append(record)
-                self.store_record(record, entity)
                 self.logger.debug(f'[{entity.name}] fetched record is new: "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
             if self.record_got_updated(record, entity):
                 self._log_changes(record, entity)
-                self.store_record(record, entity)
                 self.logger.debug(f'[{entity.name}] storing new version of record "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
+        self.store_records(records, entity)
         return new_records
 
     async def get_new_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
