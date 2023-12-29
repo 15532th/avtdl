@@ -17,7 +17,9 @@ class FC2Record(Record):
     url: str
     user_id: str
     title: str
+    info: str
     start: str
+    avatar_url: str
 
     def __str__(self):
         return f'{self.url}\n{self.title}'
@@ -75,11 +77,13 @@ class FC2Monitor(HttpTaskMonitor):
             return None
         start = str(data['start'])
         title = data['title']
+        info = data['info']
+        avatar_url = data['image']
 
         channel_id = str(data['channelid'])
         channel_url = f'https://live.fc2.com/{channel_id}/'
 
-        return FC2Record(url=channel_url, title=title, user_id=channel_id, start=start)
+        return FC2Record(url=channel_url, title=title, user_id=channel_id, start=start, info=info, avatar_url=avatar_url)
 
 
 
