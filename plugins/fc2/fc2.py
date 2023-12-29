@@ -13,13 +13,20 @@ from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 
 class FC2Record(Record):
+    """Represents event of a stream going live on live.fc2.com"""
 
     url: str
+    """url of the user stream"""
     user_id: str
+    """unique for given user/channel part of the stream url"""
     title: str
+    """stream title"""
     info: str
+    """stream description"""
     start: str
+    """timestamp of the stream start"""
     avatar_url: str
+    """link to user's avatar"""
 
     def __str__(self):
         return f'{self.url}\n{self.title}'
@@ -28,18 +35,31 @@ class FC2Record(Record):
         title = shorten(self.title, MAX_REPR_LEN)
         return f'FC2Record(user_id={self.user_id}, start={self.start}, title={title})'
 
-@Plugins.register('fc2', Plugins.kind.ACTOR_ENTITY)
-class FC2MonitorEntity(HttpTaskMonitorEntity):
-    user_id: str
-    update_interval: int = 300
-    latest_live_start: str = Field(exclude=True, default='')
 
 @Plugins.register('fc2', Plugins.kind.ACTOR_CONFIG)
 class FC2MonitorConfig(ActorConfig):
     pass
 
+
+@Plugins.register('fc2', Plugins.kind.ACTOR_ENTITY)
+class FC2MonitorEntity(HttpTaskMonitorEntity):
+    user_id: str
+    """user id, numeric part at the end of livestream url"""
+    update_interval: int = 120
+    """how often monitored channel will be checked, in seconds"""
+    latest_live_start: str = Field(exclude=True, default='')
+    """internal variable to persist state between updates. Used to distinguish between different livestreams of the user"""
+
+
 @Plugins.register('fc2', Plugins.kind.ACTOR)
 class FC2Monitor(HttpTaskMonitor):
+    """
+    Monitor for live.fc2.com
+
+    Monitors fc2.com user with given id, produces record when it goes live.
+    For user https://live.fc2.com/24374512/ user id would be "24374512".
+    """
+
 
     async def get_new_records(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession) -> Sequence[FC2Record]:
         record = await self.check_channel(entity, session)
