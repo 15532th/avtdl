@@ -38,6 +38,16 @@ class FC2Record(Record):
         title = shorten(self.title, MAX_REPR_LEN)
         return f'FC2Record(user_id={self.user_id}, start={self.start}, title={title})'
 
+    def discord_embed(self) -> dict:
+        return {
+            'title': self.title,
+            'description': self.url,
+            'color': None,
+            'author': {'name': self.name, 'url': self.url, 'icon_url': self.avatar_url},
+            'footer': self.info,
+            'fields': []
+        }
+
 
 @Plugins.register('fc2', Plugins.kind.ACTOR_CONFIG)
 class FC2MonitorConfig(ActorConfig):
