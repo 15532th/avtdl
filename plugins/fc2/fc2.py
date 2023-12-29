@@ -14,7 +14,8 @@ from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 class FC2Record(Record):
     """Represents event of a stream going live on live.fc2.com"""
-
+    name: str = ''
+    """name of the config entity for this user"""
     url: str
     """url of the user stream"""
     user_id: str
@@ -27,6 +28,8 @@ class FC2Record(Record):
     """timestamp of the stream start"""
     avatar_url: str
     """link to user's avatar"""
+    login_only: bool
+    """Whether logging in is required to view current livestream"""
 
     def __str__(self):
         return f'{self.url}\n{self.title}'
@@ -58,6 +61,9 @@ class FC2Monitor(HttpTaskMonitor):
 
     Monitors fc2.com user with given id, produces record when it goes live.
     For user https://live.fc2.com/24374512/ user id would be "24374512".
+
+    Since endpoint used for monitoring does not provide user name,
+    the name of configuration entity is used instead.
     """
 
 
@@ -80,6 +86,7 @@ class FC2Monitor(HttpTaskMonitor):
             self.logger.debug(f'FC2Monitor for {entity.name}: user {entity.user_id} is live since {entity.latest_live_start}, but record was already created')
             return None
         entity.latest_live_start = record.start
+        record.name = entity.name
         return record
 
     async def get_metadata(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
@@ -99,11 +106,15 @@ class FC2Monitor(HttpTaskMonitor):
         title = data['title']
         info = data['info']
         avatar_url = data['image']
+        login_only = data['login_only']
 
         channel_id = str(data['channelid'])
         channel_url = f'https://live.fc2.com/{channel_id}/'
 
-        return FC2Record(url=channel_url, title=title, user_id=channel_id, start=start, info=info, avatar_url=avatar_url)
-
-
-
+        return FC2Record(url=channel_url,
+                         title=title,
+                         user_id=channel_id,
+                         start=start,
+                         info=info,
+                         avatar_url=avatar_url,
+                         login_only=login_only)
