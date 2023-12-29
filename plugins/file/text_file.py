@@ -27,7 +27,10 @@ class FileMonitorEntity(TaskMonitorEntity):
     split_lines: bool = False
     """If true, each line of the file will create a separate record. Otherwise a single record will be generated with entire file content"""
     mtime: float = Field(exclude=True, default=-1)
+    """internal variable to persist state between updates. Used to check if file has changed"""
     base_update_interval: float = Field(exclude=True, default=60)
+    """internal variable to persist state between updates. Used to restore configured update interval after delay on network request error"""
+
 
     def __post_init__(self):
         self.path = Path(self.path)
@@ -42,6 +45,9 @@ class FileMonitor(TaskMonitor):
     On specified intervals check existence and last modification time
     of target file, and if it changed read file content
     (either line by line or as a whole) and make it to a text record(s).
+
+    Records are not checked to be new, so appending content to the end
+    of the existing file will produce duplicates of already sent records.
     """
 
     async def get_new_records(self, entity: FileMonitorEntity) -> Sequence[TextRecord]:
