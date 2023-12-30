@@ -16,11 +16,17 @@ class GenericRSSRecord(Record):
     model_config = ConfigDict(extra='allow')
 
     uid: str
+    """value that is unique for this entry of RSS feed"""
     url: str
+    """"href" or "link" field value of this entry"""
     summary: str
+    """"summary" or "description" field value of this entry"""
     author: str = ''
+    """"author" field value. Might be empty"""
     title: str = ''
+    """"title" field value. Might be empty"""
     published: datetime.datetime
+    """"published" or "issued" field value of this entry"""
 
     def __str__(self):
         second_line = f'{self.author}: {self.title}\n' if self.author and self.title else ''
@@ -42,6 +48,26 @@ class GenericRSSMonitorEntity(BaseFeedMonitorEntity):
 
 @Plugins.register('generic_rss', Plugins.kind.ACTOR)
 class GenericRSSMonitor(BaseFeedMonitor):
+    """
+    RSS feed monitor
+
+    Monitors RSS feed for new entries. Will attempt to adjust
+    update interval based on HTTP response headers.
+
+    Depending on specific feed format, fields names and content
+    might vary greatly. Commonly present standardized fields are
+    "url", "title" and "author", though they might be empty
+    in some feeds.
+
+    Before defining a command to be executed for a newly set feed
+    records it is recommended to inspect feed entity content by
+    forwarding records in a file in JSON format using "to_file" plugin.
+
+    Normally feeds have some kind of value to unique identify
+    feed entries, but in case there is no one parser will attempt
+    to create one by combining "link" and "title" or "summary" fields.
+    """
+
     async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[GenericRSSRecord]:
         raw_feed = await self._get_feed(entity, session)
         if raw_feed is None:
