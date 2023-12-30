@@ -296,6 +296,10 @@ def record_has_text(record: Record, text: str) -> bool:
     return find_matching_field(record, text) is not None
 
 
+def sanitize_filename(name: str) -> str:
+    """Replace symbols not allowed in file names on NTFS with underscores"""
+    return re.sub(r'[\\/:*?"<>|]', "_", name)
+
 class OutputFormat(str, Enum):
     str = 'text'
     repr = 'short'

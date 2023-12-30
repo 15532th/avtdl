@@ -10,7 +10,7 @@ from pydantic import field_validator
 from core import utils
 from core.config import Plugins
 from core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record
-from core.utils import check_dir
+from core.utils import Fmt, check_dir, sanitize_filename
 
 
 @Plugins.register('execute', Plugins.kind.ACTOR_CONFIG)
@@ -19,18 +19,18 @@ class CommandConfig(ActorConfig):
 
 @Plugins.register('execute', Plugins.kind.ACTOR_ENTITY)
 class CommandEntity(ActorEntity):
-    name: str
     command: str
     working_dir: Optional[Path] = None
+    log_dir: Optional[Path] = None # write stdout to a file in this directory if set
+    log_filename: Optional[str] = None
     placeholders: Dict[str, str] = {'{url}': 'url', '{title}': 'title', '{text}': 'text'} # format {'placeholder': 'record property name'}
     static_placeholders: Dict[str, str] = {} # set in config in format {'placeholder': 'value'}
     forward_failed: bool = False # emit record down the chain if subprocess returned non-zero exit code
     report_failed: bool = True # emit Event(type="error") if subprocess returned non-zero exit code or raised exception
     report_finished: bool = False # emit Event(type="finished") if subprocess returned zero as exit code
     report_started: bool = False # emit Event(type="started") before starting subprocess
-    output_dir: Optional[Path] = None # write stdout to a file in this directory if set
 
-    @field_validator('working_dir')
+    @field_validator('working_dir', 'log_dir')
     @classmethod
     def check_dir(cls, path: Optional[Path]):
         if path is None:
@@ -102,19 +102,23 @@ class Command(Actor):
         task = self.run_subprocess(args, task_id, entity, record)
         self.running_commands[task_id] = asyncio.get_event_loop().create_task(task)
 
-    def _get_output_file(self, entity: CommandEntity, task_id: str) -> Optional[Path]:
-        if entity.output_dir is None:
+    def _get_output_file(self, entity: CommandEntity, record: Record, task_id: str) -> Optional[Path]:
+        if entity.log_dir is None:
             return None
-        ok = check_dir(entity.output_dir)
+        ok = check_dir(entity.log_dir)
         if not ok:
-            self.logger.warning(f'[{entity.name}] check if directory specified in "output_dir" value "{entity.output_dir}" exists and is a writeable directory')
+            self.logger.warning(f'[{entity.name}] check if directory specified in "output_dir" value "{entity.log_dir}" exists and is a writeable directory')
             self.logger.warning(f'[{entity.name}] output of running command will be redirected to stdout')
             return None
-        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')
-        command_pre_hash = sha1(task_id.encode())
-        command_hash = command_pre_hash.hexdigest()
-        filename = f'command_{entity.name}_{timestamp}_{command_hash[:6]}_stdout.log'
-        return entity.output_dir / filename
+        if entity.log_filename is not None:
+            filename = Fmt.format(entity.log_filename, record)
+        else:
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')
+            command_pre_hash = sha1(task_id.encode())
+            command_hash = command_pre_hash.hexdigest()
+            filename = f'command_{entity.name}_{timestamp}_{command_hash[:6]}_stdout.log'
+        filename = sanitize_filename(filename)
+        return entity.log_dir / filename
 
     async def run_subprocess(self, args: List[str], task_id: str, entity: CommandEntity, record: Record):
         command_line = self.shell_for(args)
@@ -122,12 +126,17 @@ class Command(Actor):
         if entity.report_started:
             event = Event(event_type=EventType.started, text=f'Running command: {command_line}')
             self.on_record(entity, event)
-        stdout_path = self._get_output_file(entity, task_id)
+        stdout_path = self._get_output_file(entity, record, task_id)
         try:
-            if stdout_path is None:
+            stdout = open(stdout_path, 'at') if stdout_path is not None else None
+        except OSError as e:
+            self.logger.warning(f'[{entity.name}] failed to open file {stdout_path}, command output will not be written')
+            stdout = None
+        try:
+            if stdout is None:
                 process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
             else:
-                with open(stdout_path, 'at') as stdout:
+                with stdout:
                     stdout.write(f'# [{self.conf.name}.{entity.name}] > {entity.command}\n')
                     stdout.flush()
                     process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir, stdout=stdout, stderr=asyncio.subprocess.STDOUT)
