@@ -11,7 +11,7 @@ from pydantic import Field, FilePath, field_validator, model_validator
 
 from core.db import BaseRecordDB
 from core.interfaces import Actor, ActorConfig, ActorEntity, Record
-from core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff, timeit
+from core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
@@ -94,8 +94,11 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
     adjust_update_interval: bool = True
     """change time until next update based on response headers. This setting doesn't affect timeouts after failed requests"""
     base_update_interval: float = Field(exclude=True, default=60)
+    """internal variable to persist state between updates. Used to keep update_interval while timeout after update error is active"""
     last_modified: Optional[str] = Field(exclude=True, default=None)
+    """internal variable to persist state between updates. Used to keep Last-Modified header value"""
     etag: Optional[str] = Field(exclude=True, default=None)
+    """internal variable to persist state between updates. Used to keep Etag header value"""
 
     def model_post_init(self, __context: Any) -> None:
         self.base_update_interval = self.update_interval
@@ -244,6 +247,7 @@ class RecordDB(BaseRecordDB):
 
 class BaseFeedMonitorConfig(ActorConfig):
     db_path: Union[Path, str] = ':memory:'
+    """path to sqlite database file keeping history of old records of this monitor"""
 
     @field_validator('db_path')
     @classmethod
@@ -266,9 +270,12 @@ class BaseFeedMonitorConfig(ActorConfig):
 
 class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     url: str
+    """url that should be monitored"""
 
     quiet_start: bool = False
+    """throw away new records on the first update after application startup"""
     quiet_first_time: bool = True
+    """throw away new records produced on first update of given url"""
 
 class BaseFeedMonitor(HttpTaskMonitor):
     RecordDB = RecordDB
@@ -375,9 +382,13 @@ class PagedFeedMonitorConfig(BaseFeedMonitorConfig):
 
 class PagedFeedMonitorEntity(BaseFeedMonitorEntity):
     max_continuation_depth: int = 10
+    """when updating feed with pagination support, only continue for this much pages"""
     next_page_delay: float = 1
+    """when updating feed with pagination support, wait this much before loading next page"""
     allow_discontinuity: bool = False # store already fetched records on failure to load one of older pages
+    """when updating feed with pagination support, if this setting is enabled and error happens when loading a page, records from already parsed pages will not be dropped. It will allow update of the feed to finish, but older records from deeper pages will then never be parsed on consecutive updates"""
     fetch_until_the_end_of_feed_mode: bool = False
+    """when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they has been already parsed. Designed for purpose of archiving entire feed content"""
 
     def model_post_init(self, __context: Any) -> None:
         if self.fetch_until_the_end_of_feed_mode:
