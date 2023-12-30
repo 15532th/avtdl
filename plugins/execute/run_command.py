@@ -62,14 +62,14 @@ class Command(Actor):
         new_args = []
         for arg in args:
             new_arg = arg
+            for placeholder, static_value in entity.static_placeholders.items():
+                new_arg = new_arg.replace(placeholder, static_value)
             for placeholder, field in entity.placeholders.items():
                 value = record_as_dict.get(field)
                 if value is not None:
                     new_arg = new_arg.replace(placeholder, value)
                 else:
                     self.logger.warning(f'[{entity.name}] configured placeholder "{field}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
-            for placeholder, value in entity.static_placeholders.items():
-                new_arg = new_arg.replace(placeholder, value)
             new_args.append(new_arg)
         return new_args
 
