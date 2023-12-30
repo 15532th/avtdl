@@ -50,9 +50,16 @@ class VoidFilter(Filter):
 @Plugins.register('filter.exclude', Plugins.kind.ACTOR_ENTITY)
 class MatchFilterEntity(FilterEntity):
     patterns: List[str]
+    """list of strings to search in the record"""
 
 @Plugins.register('filter.match', Plugins.kind.ACTOR)
 class MatchFilter(Filter):
+    """
+    Keep records containing specific words
+
+    This filter lets through records, that has one of values
+    defined by "patterns" list found in any of the record fields.
+    """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity]):
         super().__init__(config, entities)
@@ -67,6 +74,12 @@ class MatchFilter(Filter):
 
 @Plugins.register('filter.exclude', Plugins.kind.ACTOR)
 class ExcludeFilter(Filter):
+    """
+    Drop records containing specific words
+
+    This filter lets through records, that has none of values
+    defined by "patterns" list found in any of the record fields.
+    """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity]):
         super().__init__(config, entities)
@@ -85,6 +98,11 @@ class EventFilterEntity(FilterEntity):
 
 @Plugins.register('filter.event', Plugins.kind.ACTOR)
 class EventFilter(Filter):
+    """
+    Filter for records of "Event" type
+
+    Only lets through Events and not normal Records
+    """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[EventFilterEntity]):
         super().__init__(config, entities)
@@ -103,10 +121,17 @@ class EventFilter(Filter):
 @Plugins.register('filter.type', Plugins.kind.ACTOR_ENTITY)
 class TypeFilterEntity(FilterEntity):
     types: List[str]
+    """list of records class names, such as "Record" and "Event" """
     exact_match: bool = False
+    """whether match should check for exact record type or look in entire records hierarchy up to Record"""
 
 @Plugins.register('filter.type', Plugins.kind.ACTOR)
 class TypeFilter(Filter):
+    """
+    Filter for records of specific type
+
+    Only lets through records of specified types, such as "Event" or "YoutubeVideoRecord".
+    """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[TypeFilterEntity]):
         super().__init__(config, entities)
@@ -127,9 +152,16 @@ class TypeFilter(Filter):
 @Plugins.register('filter.json', Plugins.kind.ACTOR_ENTITY)
 class JsonFilterEntity(FilterEntity):
     prettify: bool = False
+    """whether output should be multiline and indented or a single line"""
 
 @Plugins.register('filter.json', Plugins.kind.ACTOR)
 class JsonFilter(Filter):
+    """
+    Format record as JSON
+
+    Takes record and produces a new TextRecord containing fields of the
+    original record in JSON format, with option for pretty-print.
+    """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[JsonFilterEntity]):
         super().__init__(config, entities)
@@ -149,11 +181,22 @@ class JsonFilter(Filter):
 @Plugins.register('filter.format', Plugins.kind.ACTOR_ENTITY)
 class FormatFilterEntity(FilterEntity):
     template: str
+    """template string with placeholders that will be filled with corresponding values from current record"""
     missing: Optional[str] = None
+    """if specified, will be used to fill template placeholders that do not have corresponding fields in current record"""
 
 
 @Plugins.register('filter.format', Plugins.kind.ACTOR)
 class FormatFilter(Filter):
+    """
+    Format record as text
+
+    Takes record and produces a new TextRecord by taking "template" string
+    and replacing "{placeholder}" with "placeholder" field of the current record,
+    where "placeholder" is any field the record might have. If one of placeholders
+    is not a field of specific record, it will be replaced with value of "missing"
+    setting if it is specified and otherwise left intact.
+    """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[FormatFilterEntity]):
         super().__init__(config, entities)
@@ -166,12 +209,30 @@ class FormatFilter(Filter):
 @Plugins.register('filter.deduplicate', Plugins.kind.ACTOR_ENTITY)
 class DeduplicateFilterEntity(FilterEntity):
     field: str = 'hash'
+    """field name to use for comparison"""
     history_size: int = 10000
+    """how many old records should be kept in memory"""
     history: OrderedDict = Field(exclude=True, repr=False, default=OrderedDict())
+    """internal variable to persist state between updates. Used to keep fields of already seen records"""
 
 
 @Plugins.register('filter.deduplicate', Plugins.kind.ACTOR)
 class DeduplicateFilter(Filter):
+    """
+    Drop already seen records
+
+    Checks if the "field" field value of current record has already been
+    present in one of the previous records and only let it through otherwise.
+
+    "field" might be either a record field name or one of "hash" or "as_json"
+    for sha1 and fulltext comparison. If "field" is not present in the current
+    record, it will be passed through as if it's new.
+
+    This filter will work with records of any type, as long as they have defined
+    field (all records have "hash" and "as_json"). For example, it is possible
+    to ensure no multiple records for a single video will be produced
+    in a chain, that gather records from Youtube channel and Youtube RSS monitors.
+    """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[DeduplicateFilterEntity]):
         super().__init__(config, entities)
