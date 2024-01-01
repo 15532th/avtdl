@@ -20,14 +20,23 @@ class YoutubeFeedRecord(Record):
     model_config = ConfigDict(extra='allow')
 
     url: str
+    """link to the video"""
     title: str
+    """title of the video at time of parsing"""
     published: datetime
+    """published value of the feed item, usually the time when video was uploaded or livestream frame was set up"""
     updated: datetime
+    """updated value of the feed item, """
     author: str
+    """author name, as"""
     video_id: str
+    """short string identifying video on Youtube. Part of video url"""
     summary: str
+    """video description"""
     views: Optional[int]
+    """current number of views. Is zero for upcoming and ongoing livestreams"""
     scheduled: Optional[datetime] = None
+    """for a livestream is a time it is scheduled to go live at, otherwise absent"""
 
     async def check_scheduled(self, session: Optional[aiohttp.ClientSession] = None):
         if self.views == 0:
