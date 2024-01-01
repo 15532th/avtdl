@@ -1,10 +1,6 @@
 import datetime
 import json
 import logging
-import time
-from collections import defaultdict
-from multiprocessing import Pool
-from pathlib import Path
 from textwrap import shorten
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -26,14 +22,21 @@ class YoutubeChatRecord(Record):
     renderer: str
 
     author: str
+    """name of the message author"""
     channel: str
+    """message author channel url"""
     badges: List[str]
+    """list of message author badges (owner, moderator, member, verified and so on)"""
     timestamp: int
+    """time when message was sent"""
     text: Optional[str] = None
+    """message content as plaintext"""
     amount: Optional[str] = None
+    """for superchats, string specifying amount and currency, otherwise empty"""
     banner_header: Optional[str] = None
     message_header: Optional[str] = None
     sticker: Optional[str] = None
+    """supersticker name if message is a supersticker, otherwise empty"""
 
     def _main_text(self) -> str:
         items = []
@@ -114,6 +117,15 @@ class YoutubeChatMonitorConfig(BaseFeedMonitorConfig):
 
 @Plugins.register('prechat', Plugins.kind.ACTOR)
 class YoutubeChatMonitor(BaseFeedMonitor):
+    """
+    Youtube livechat monitor
+
+    Monitor chat of Youtube livestream and produce a record
+    for each chat message. Though it is capable of processing
+    a chat on ongoing stream and chat replay on a stream VOD,
+    the main purpose is to monitor and preserve chat of upcoming
+    livestreams.
+    """
 
     def get_record_id(self, record: YoutubeChatRecord) -> str:
        return record.uid
