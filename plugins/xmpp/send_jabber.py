@@ -1,12 +1,12 @@
 import datetime
 import logging
-from typing import Sequence, Optional
+from typing import Optional, Sequence
 
 import dateutil
 from pydantic import field_validator
 
 from core.config import Plugins
-from core.interfaces import ActorConfig, Record, ActorEntity, Actor
+from core.interfaces import Actor, ActorConfig, ActorEntity, Record
 
 try:
     from plugins.xmpp.msg2jbr_slixmpp import MSG2JBR
@@ -22,13 +22,16 @@ except ImportError:
 @Plugins.register('xmpp', Plugins.kind.ACTOR_CONFIG)
 class JabberConfig(ActorConfig):
     xmpp_username: str
+    """JID of the account to be used to send messages, resource included"""
     xmpp_pass: str
+    """password of the account to be used to send messages"""
 
 @Plugins.register('xmpp', Plugins.kind.ACTOR_ENTITY)
 class JabberEntity(ActorEntity):
-    name: str
     jid: str
-    timezone: Optional[str] = None # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+    """JID to send message to"""
+    timezone: Optional[str] = None
+    """takes timezone name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones or OS settings if omitted, converts record fields containing date and time to this timezone"""
 
     @field_validator('timezone')
     @classmethod
@@ -40,6 +43,15 @@ class JabberEntity(ActorEntity):
 
 @Plugins.register('xmpp', Plugins.kind.ACTOR)
 class SendJabber(Actor):
+    """
+    Send record as a Jabber message
+
+    Converts records to text representation and sends them as messages
+    to specified recipients. Sends each record in separate message,
+    does not impose any limits on frequency or size of messages, leaving
+    it to server side.
+    """
+
     def __init__(self, conf: JabberConfig, entities: Sequence[JabberEntity]):
         super().__init__(conf, entities)
         self.jbr = MSG2JBR(conf.xmpp_username, conf.xmpp_pass, self.logger)
