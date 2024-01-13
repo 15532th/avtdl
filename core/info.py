@@ -1,3 +1,4 @@
+import re
 import textwrap
 from typing import List, Optional, Type
 
@@ -22,8 +23,8 @@ PLUGIN_INFO_TEMPLATE = '''
 def get_plugin_info(plugin_name: str) -> str:
     plugin, config, entity = Plugins.get_actor_factories(plugin_name)
     description = render_doc(plugin)
-    config_info = get_model_info(config, skip_name=True) if issubclass(config, BaseModel) else "Plugin has no configuration options"
-    entity_info = get_model_info(entity) if issubclass(entity, BaseModel) else "Plugin entities has no configuration options"
+    config_info = get_model_info(config, skip_name=True) or "Plugin has no configuration options"
+    entity_info = get_model_info(entity) or "Plugin entities has no configuration options"
     text = PLUGIN_INFO_TEMPLATE.format(name=plugin_name, description=description, config=config_info, entity=entity_info)
     return text.strip('\n')
 
@@ -46,17 +47,11 @@ def get_model_info(model: Type[BaseModel], skip_name: bool = False) -> str:
 
 
 def render_doc(model: Type[BaseModel]) -> str:
-    text = ''
     if model.__doc__:
-        text = model.__doc__
-    elif isinstance(model, type):
-        for predecessor in model.mro():
-            if predecessor.__doc__ and predecessor is not BaseModel:
-                text = predecessor.__doc__
-                break
-            if predecessor is BaseModel:
-                break
-    return textwrap.dedent(text)
+        paragraphs = textwrap.dedent(model.__doc__).split('\n\n')
+        text = '\n\n'.join(re.sub('\n', ' ', paragraph).strip() for paragraph in paragraphs)
+        return text
+    return ''
 
 
 def render_field_info(field_info: FieldInfo) -> str:
