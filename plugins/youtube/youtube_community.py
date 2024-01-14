@@ -148,7 +148,8 @@ class CommunityPostsMonitor(PagedFeedMonitor):
     Youtube community page monitor
 
     Monitors posts on community page of channel, supports
-    member-only posts if login cookies are provided.
+    member-only posts if login cookies are provided. Some features,
+    such as polls, are not supported.
     """
 
     def get_record_id(self, record: CommunityPostRecord) -> str:

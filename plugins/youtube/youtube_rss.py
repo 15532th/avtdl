@@ -138,7 +138,8 @@ class FeedMonitor(GenericRSSMonitor):
     and search for "rss".
 
     Example of supported url:
-    https://www.youtube.com/feeds/videos.xml?channel_id=UCK0V3b23uJyU4N8eR_BR0QA
+
+    - `https://www.youtube.com/feeds/videos.xml?channel_id=UCK0V3b23uJyU4N8eR_BR0QA`
 
     RSS feed is smaller and faster to parse compared to HTML channel page,
     but by design only shows updates of a single channel and doesn't support
@@ -146,14 +147,14 @@ class FeedMonitor(GenericRSSMonitor):
 
     Scheduled date for upcoming streams is not present in feed itself, so it
     is obtained by fetching and parsing video page first time it appears in
-    the feed. It then gets updated until stream goes live unless "track_reschedule"
+    the feed. It then gets updated until stream goes live unless `track_reschedule`
     option is disabled.
 
     No matter how often the url gets fetched, content of the feed only gets
-    changed once every 15 minutes, so setting "update_interval" lower than that
+    changed once every 15 minutes, so setting `update_interval` lower than that
     value is not recommended. This monitor will attempt to calculate time of the
     next update from HTTP headers and schedule next request right after it. Use
-    "adjust_update_interval" to disable this behavior.
+    `adjust_update_interval` to disable this behavior.
     """
 
     RecordDB = RecordDB

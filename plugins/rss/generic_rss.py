@@ -56,16 +56,16 @@ class GenericRSSMonitor(BaseFeedMonitor):
 
     Depending on specific feed format, fields names and content
     might vary greatly. Commonly present standardized fields are
-    "url", "title" and "author", though they might be empty
+    `url`, `title` and `author`, though they might be empty
     in some feeds.
 
-    Before defining a command to be executed for a newly set feed
-    records it is recommended to inspect feed entity content by
-    forwarding records in a file in JSON format using "to_file" plugin.
+    Before defining a command to be executed for records of newly
+    set feed it is recommended to inspect feed entity content by
+    forwarding records in a file in JSON format using `to_file` plugin.
 
     Normally feeds have some kind of value to unique identify
-    feed entries, but in case there is no one parser will attempt
-    to create one by combining "link" and "title" or "summary" fields.
+    feed entries, but in case there is none parser will attempt
+    to create one by combining `link` and `title` or `summary` fields.
     """
 
     async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[GenericRSSRecord]:

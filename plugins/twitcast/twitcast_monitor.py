@@ -48,10 +48,10 @@ class TwitcastMonitor(HttpTaskMonitor):
     Monitor for twitcasting.tv
 
     Monitors twitcasting.tv user with given id, produces record when it goes live.
-    For user https://twitcasting.tv/c:username user id would be "c:username".
+    For user `https://twitcasting.tv/c:username` user id would be `c:username`.
 
     Rate limits for endpoint used to check if user is live are likely relatively high,
-    but it is better to keep "update_interval" big enough for combined amount of updates
+    but it is better to keep `update_interval` big enough for combined amount of updates
     for all monitored users to not exceed one request per second.
     """
 

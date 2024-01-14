@@ -48,7 +48,7 @@ class TwitchMonitor(HttpTaskMonitor):
     Monitor for twitch.tv
 
     Monitors twitch.tv user with given username, produces record when it goes live.
-    For user https://www.twitch.tv/username username would be "username", unsurprisingly.
+    For user `https://www.twitch.tv/username` username would be `username`.
     """
     async def get_new_records(self, entity: TwitchMonitorEntity, session: aiohttp.ClientSession) -> Sequence[TwitchRecord]:
         record = await self.check_channel(entity, session)

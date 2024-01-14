@@ -111,14 +111,15 @@ class VideosMonitor(PagedFeedMonitor):
     with login cookies, subscriptions feed or even the main page.
 
     Examples of supported url:
-    https://www.youtube.com/@ChannelName
-    https://www.youtube.com/@ChannelName/videos
-    https://www.youtube.com/@ChannelName/streams
-    https://www.youtube.com/channel/UCK0V3b23uJyU4N8eR_BR0QA/
-    https://www.youtube.com/playlist?list=PLWGY3fcU-ZeQmBfoJ6SmT8v2zV8NEhrB2
-    https://www.youtube.com/feed/subscriptions (providing cookies is necessarily)
 
-    Unlike RSS monitor, with login cookies it can see videos and streams
+    - `https://www.youtube.com/@ChannelName`
+    - `https://www.youtube.com/@ChannelName/videos`
+    - `https://www.youtube.com/@ChannelName/streams`
+    - `https://www.youtube.com/channel/UCK0V3b23uJyU4N8eR_BR0QA/`
+    - `https://www.youtube.com/playlist?list=PLWGY3fcU-ZeQmBfoJ6SmT8v2zV8NEhrB2`
+    - `https://www.youtube.com/feed/subscriptions` (providing cookies is necessarily)
+
+    Unlike `rss` monitor, with login cookies it can see videos and streams
     with limited access (such as member-only).
 
     While monitoring a single channel is less efficient, both
@@ -193,12 +194,14 @@ class ChannelFilterEntity(FilterEntity):
 
 @Plugins.register('filter.channel', Plugins.kind.ACTOR)
 class ChannelFilter(Filter):
-    """Filter that only lets YoutubeVideoRecord through if it has certain properties
+    """
+    Pick `YoutubeVideoRecord`s with specified properties
 
-    If multiple settings are set to "true", they all should match. Use multiple
-    entities if picking records with one of properties is required.
-
+    Filter that only lets `YoutubeVideoRecord` through if it has certain properties.
     All records from other sources pass through without filtering.
+
+    If multiple settings are set to `true`, they all should match. Use multiple
+    entities if picking records with one of properties is required.
     """
 
     def __init__(self, config: ChannelFilterConfig, entities: Sequence[ChannelFilterEntity]):

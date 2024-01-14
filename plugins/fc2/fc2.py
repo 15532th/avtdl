@@ -70,9 +70,9 @@ class FC2Monitor(HttpTaskMonitor):
     Monitor for live.fc2.com
 
     Monitors fc2.com user with given id, produces record when it goes live.
-    For user https://live.fc2.com/24374512/ user id would be "24374512".
+    For user `https://live.fc2.com/24374512/` user id would be `24374512`.
 
-    Since endpoint used for monitoring does not provide user name,
+    Since endpoint used for monitoring does not provide user nickname,
     the name of configuration entity is used instead.
     """
 

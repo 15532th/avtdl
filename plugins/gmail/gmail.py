@@ -49,6 +49,12 @@ class SimpleGmailEntity(BaseFeedMonitorEntity):
 
 @Plugins.register('gmail', Plugins.kind.ACTOR)
 class SimpleGmail(BaseFeedMonitor):
+    """
+    Check for new mails using Gmail simple interface [deprecated]
+
+    Simple html interface was removed from Gmail since January 2024.
+    R.I.P.
+    """
 
     async def get_records(self, entity: SimpleGmailEntity, session: aiohttp.ClientSession) -> Sequence[SimpleGmailRecord]:
         page = await self._get_page(entity, session)

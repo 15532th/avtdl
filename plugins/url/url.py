@@ -24,9 +24,11 @@ class UrlMonitorEntity(HttpTaskMonitorEntity):
 @Plugins.register('get_url', Plugins.kind.ACTOR)
 class UrlMonitor(HttpTaskMonitor):
     """
-    Monitor url content
+    Monitor web page text
 
-    Download web-page content and emit it as a text record if it has changed.
+    Download content of web page at `url` and emit it as a `TextRecord`
+    if it has changed since last update. Intended for working with simple
+    text endpoints.
     """
 
     async def get_new_records(self, entity: UrlMonitorEntity, session: aiohttp.ClientSession):
