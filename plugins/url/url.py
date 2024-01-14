@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from dataclasses import dataclass
 from typing import Optional
 
 import aiohttp
@@ -12,12 +11,10 @@ from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 
 @Plugins.register('get_url', Plugins.kind.ACTOR_CONFIG)
-@dataclass
 class UrlMonitorConfig(ActorConfig):
     pass
 
 @Plugins.register('get_url', Plugins.kind.ACTOR_ENTITY)
-@dataclass
 class UrlMonitorEntity(HttpTaskMonitorEntity):
     url: str
     """url to monitor"""
