@@ -125,6 +125,8 @@ class YoutubeChatMonitor(BaseFeedMonitor):
     a chat on ongoing stream and chat replay on a stream VOD,
     the main purpose is to monitor and preserve chat of upcoming
     livestreams.
+
+    Some features, such as polls, are not supported.
     """
 
     def get_record_id(self, record: YoutubeChatRecord) -> str:

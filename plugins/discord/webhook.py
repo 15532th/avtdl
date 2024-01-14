@@ -215,7 +215,7 @@ class DiscordHook(Actor):
     Send record to Discord using webhook
 
     To generate webhook url follow instructions in "Making a Webhook" section of
-    https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks
+    <https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks>
 
     Some record types support rich formatting when sent to Discord, such as
     showing author's avatar and links to attached images. Youtube videos will

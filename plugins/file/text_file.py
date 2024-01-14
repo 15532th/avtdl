@@ -46,7 +46,7 @@ class FileMonitor(TaskMonitor):
     of target file, and if it changed read file content
     (either line by line or as a whole) and make it to a text record(s).
 
-    Records are not checked to be new, so appending content to the end
+    Records are not checked for uniqueness, so appending content to the end
     of the existing file will produce duplicates of already sent records.
     """
 
@@ -133,11 +133,11 @@ class FileActionEntity(ActorEntity):
 @Plugins.register('to_file', Plugins.kind.ACTOR)
 class FileAction(Actor):
     """
-    Write text representation of a record to file
+    Write record to a text file
 
     Takes record coming from a Chain, converts it to text representation,
-    and write to a file in given directory. Output file can be generated
-    dynamically based on template filled with values from the record or
+    and write to a file in given directory. Output file name can be generated
+    dynamically based on template filled with values from the record fields or
     be static. When file already exists, new records can be appended to
     the end of the file or overwrite it.
     """

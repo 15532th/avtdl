@@ -145,20 +145,21 @@ class NitterMonitor(PagedFeedMonitor):
     by scraping and parsing data from a Nitter instance.
 
     Examples of supported url:
-    https://nitter.net/username
-    https://nitter.net/username/with_replies
 
-    Some instances might not be happy about automated activity. Make sure
+    - `https://nitter.net/username`
+    - `https://nitter.net/username/with_replies`
+
+    Some instances might not be happy getting automated requests. Make sure
     to use reasonable update_interval and keep eyes on 4XX and 5XX responses
     in log, as they might indicate server is under high load or refuses to
     communicate.
 
     Nitter has build in RSS feed, though not all instances enable it, so it
-    can be monitored with "generic_rss" plugin instead of this one.
+    can also be monitored with `generic_rss` plugin instead of this one.
 
-    Twitter Spaces appears on user feed as normal tweets with a single link
-    looking similar to https://x.com/i/spaces/2FsjOybqEbnzR. It therefore
-    can be picked up by using a regular full-text "match" filter.
+    Twitter Spaces appears on user feed as normal tweets with text only
+    containing a single link similar to `https://x.com/i/spaces/2FsjOybqEbnzR`.
+    It therefore can be picked up by using a regular full-text `match` filter.
     """
 
     # nitter.net instance returns 403 in absense of this two headers and if UserAgent contains "python-requests"
@@ -324,9 +325,11 @@ class NitterFilterEntity(FilterEntity):
 @Plugins.register('filter.nitter.pick', Plugins.kind.ACTOR)
 class NitterFilterPick(Filter):
     """
-    Filter, that lets through NitterRecords that match any of specified criteria
+    Pick `NitterRecord`s with specified properties
 
-    All records from other sources pass through without filtering."""
+    Lets through `NitterRecord` if it matches any of specified criteria.
+    All records from other sources pass through without filtering.
+    """
 
     def __init__(self, config: NitterFilterConfig, entities: Sequence[NitterFilterEntity]):
         super().__init__(config, entities)
@@ -353,8 +356,9 @@ class NitterFilterPick(Filter):
 @Plugins.register('filter.nitter.drop', Plugins.kind.ACTOR)
 class NitterFilterDrop(Filter):
     """
-    Filter, that lets through NitterRecords that doesn't match all of the specified criteria
+    Drop `NitterRecord`s without specified properties.
 
+    Lets through `NitterRecord` if it doesn't match all of the specified criteria.
     All records from other sources pass through without filtering.
     """
 
