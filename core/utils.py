@@ -16,6 +16,7 @@ from time import perf_counter_ns
 from typing import Any, Callable, Dict, Hashable, List, Optional
 
 import aiohttp
+import lxml.html
 import multidict
 
 from core.interfaces import Record
@@ -349,3 +350,14 @@ class Fmt:
             return record.as_json(2)
         if output_format == OutputFormat.hash:
             return record.hash()
+
+
+def html_to_text(html: str) -> str:
+    try:
+        root = lxml.html.fromstring(html)
+        text = root.text_content()
+        return text
+    except Exception as e:
+        logger = logging.getLogger('html_to_text')
+        logger.warning(e)
+        return html

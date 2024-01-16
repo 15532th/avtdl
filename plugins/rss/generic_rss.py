@@ -9,7 +9,7 @@ from pydantic import ConfigDict, ValidationError
 from core.interfaces import MAX_REPR_LEN, Record, TextRecord
 from core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from core.plugins import Plugins
-from core.utils import make_datetime
+from core.utils import html_to_text, make_datetime
 
 
 class GenericRSSRecord(Record):
@@ -29,9 +29,10 @@ class GenericRSSRecord(Record):
     """"published" or "issued" field value of this entry"""
 
     def __str__(self):
-        second_line = f'{self.author}: {self.title}\n' if self.author and self.title else ''
-        summary = shorten(self.summary, MAX_REPR_LEN * 2)
-        return f'[{self.published}] {self.url}\n{second_line}{summary}'
+        second_line = f'[{self.published}] {self.author}: {self.title}\n' if self.author or self.title else ''
+        summary = html_to_text(self.summary)
+        summary = shorten(summary, MAX_REPR_LEN * 5)
+        return f'{self.url}\n{second_line}{summary}'
 
     def __repr__(self):
         title = shorten(self.title, MAX_REPR_LEN)
