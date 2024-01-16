@@ -84,8 +84,19 @@ class GenericRSSMonitor(BaseFeedMonitor):
         if response is None:
             return None
         text = await response.text()
+
+        # Set "content-location" header to allow feedparser to resolve
+        # relative links in feed entries. Header name must be
+        # all lowercase because this is how it is checked in feedparser,
+        # and it uses regular case-sensitive dict for headers internally
+        response_headers = response.headers.copy()
+        if 'Content-Location' in response.headers:
+            response_headers['content-location'] = response_headers['Content-Location']
+        else:
+            response_headers['content-location'] = entity.url
+
         try:
-            feed = feedparser.parse(text, response_headers=response.headers)
+            feed = feedparser.parse(text, response_headers=response_headers, resolve_relative_uris=True)
             if feed.get('entries') is not None:
                 return feed
             else:
