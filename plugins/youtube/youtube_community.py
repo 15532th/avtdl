@@ -14,6 +14,7 @@ from plugins.youtube.community_info import CommunityPostInfo, SharedCommunityPos
 
 @Plugins.register('community', Plugins.kind.ASSOCIATED_RECORD)
 class CommunityPostRecord(Record, CommunityPostInfo):
+    """Youtube community post content"""
     channel_id: str
     """channel ID in old format"""
     post_id: str
@@ -88,6 +89,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
 
 @Plugins.register('community', Plugins.kind.ASSOCIATED_RECORD)
 class SharedCommunityPostRecord(Record, SharedCommunityPostInfo):
+    """Youtube community post that is itself a repost of another post"""
     channel_id: str
     """channel ID in old format"""
     post_id: str

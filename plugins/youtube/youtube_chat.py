@@ -18,6 +18,7 @@ from plugins.youtube.common import extract_keys, find_all, find_one, get_innertu
 
 @Plugins.register('prechat', Plugins.kind.ASSOCIATED_RECORD)
 class YoutubeChatRecord(Record):
+    """Youtube chat message"""
     uid: str
     action: str
     renderer: str

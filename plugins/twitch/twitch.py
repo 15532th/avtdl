@@ -12,7 +12,7 @@ from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 @Plugins.register('twitch', Plugins.kind.ASSOCIATED_RECORD)
 class TwitchRecord(Record):
-
+    """Represents even of user going live on Twitch"""
     url: str
     """channel url"""
     username: str

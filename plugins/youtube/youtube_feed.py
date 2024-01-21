@@ -18,14 +18,16 @@ from plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_r
 @Plugins.register('channel', Plugins.kind.ASSOCIATED_RECORD)
 @Plugins.register('filter.channel', Plugins.kind.ASSOCIATED_RECORD)
 class YoutubeVideoRecord(VideoRendererInfo, Record):
-    """Youtube video or livestream listed among others on Youtube page
+    """
+    Youtube video or livestream listed among others on Youtube page
 
     Produced by parsing channels main page, videos and streams tab,
     as well as playlists, and, with login cookies, subscriptions feed.
 
-    Due to small differences in presentation before-mentioned sources
+    Due to small differences in presentation aforementioned sources
     have, same video might have slightly different appearance when
-    parsed from different url.
+    parsed from different urls. For example, video parsed from main
+    page or subscriptions feed will not have full description text.
     """
 
     video_id: str

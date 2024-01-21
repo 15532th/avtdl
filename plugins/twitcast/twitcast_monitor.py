@@ -11,6 +11,7 @@ from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 @Plugins.register('twitcast', Plugins.kind.ASSOCIATED_RECORD)
 class TwitcastRecord(Record):
+    """Represents even of user going live on Twitcasting"""
     user_id: str
     """unique part of channel url"""
     movie_id: str
