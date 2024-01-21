@@ -12,6 +12,8 @@ from core.config import Plugins
 from core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record
 from core.utils import Fmt, check_dir, sanitize_filename
 
+Plugins.register('execute', Plugins.kind.ASSOCIATED_RECORD)(Event)
+
 
 @Plugins.register('execute', Plugins.kind.ACTOR_CONFIG)
 class CommandConfig(ActorConfig):

@@ -16,6 +16,7 @@ from plugins.youtube import video_info
 from plugins.youtube.common import thumbnail_url
 
 
+@Plugins.register('rss', Plugins.kind.ASSOCIATED_RECORD)
 class YoutubeFeedRecord(Record):
     model_config = ConfigDict(extra='allow')
 

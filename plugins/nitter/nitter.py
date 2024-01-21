@@ -16,6 +16,9 @@ from core.plugins import Plugins
 from plugins.filters.filters import EmptyFilterConfig
 
 
+@Plugins.register('nitter', Plugins.kind.ASSOCIATED_RECORD)
+@Plugins.register('filter.nitter.pick', Plugins.kind.ASSOCIATED_RECORD)
+@Plugins.register('filter.nitter.drop', Plugins.kind.ASSOCIATED_RECORD)
 class NitterRecord(Record):
     model_config = ConfigDict(extra='allow')
 

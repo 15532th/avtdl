@@ -10,6 +10,7 @@ from core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 
+@Plugins.register('twitch', Plugins.kind.ASSOCIATED_RECORD)
 class TwitchRecord(Record):
 
     url: str

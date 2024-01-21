@@ -12,6 +12,8 @@ from core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, R
 from core.monitors import HIGHEST_UPDATE_INTERVAL, TaskMonitor, TaskMonitorEntity
 from core.utils import Fmt, OutputFormat
 
+Plugins.register('from_file', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
+
 
 @Plugins.register('from_file', Plugins.kind.ACTOR_CONFIG)
 class FileMonitorConfig(ActorConfig):
@@ -96,6 +98,9 @@ class FileMonitor(TaskMonitor):
                     record = TextRecord(text=line.strip())
                     records.append(record)
         return records
+
+
+Plugins.register('to_file', Plugins.kind.ASSOCIATED_RECORD)(Event)
 
 
 @Plugins.register('to_file', Plugins.kind.ACTOR_CONFIG)

@@ -9,6 +9,7 @@ from core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 
+@Plugins.register('twitcast', Plugins.kind.ASSOCIATED_RECORD)
 class TwitcastRecord(Record):
     user_id: str
     """unique part of channel url"""
