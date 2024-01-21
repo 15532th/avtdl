@@ -24,7 +24,7 @@ class EmptyFilterConfig(ActorConfig):
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_ENTITY)
 @Plugins.register('filter.void', Plugins.kind.ACTOR_ENTITY)
 class EmptyFilterEntity(FilterEntity):
-    name: str
+    pass
 
 @Plugins.register('filter.noop', Plugins.kind.ACTOR)
 class NoopFilter(Filter):
