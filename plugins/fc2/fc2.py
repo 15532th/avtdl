@@ -14,7 +14,7 @@ from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 @Plugins.register('fc2', Plugins.kind.ASSOCIATED_RECORD)
 class FC2Record(Record):
-    """Represents event of a stream going live on live.fc2.com"""
+    """Represents event of a stream going live on FC2"""
     name: str = ''
     """name of the config entity for this user"""
     url: str

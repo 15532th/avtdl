@@ -40,8 +40,12 @@ class Record(BaseModel):
 
 
 class TextRecord(Record):
+    """
+    Simplest record, containing only a single text field
+    """
 
     text: str
+    """content of the record"""
 
     def __str__(self):
         return self.text
@@ -57,9 +61,14 @@ class EventType:
     finished: str = 'finished'
 
 class Event(Record):
+    """
+    Record produced by internal event (usually error) inside the plugin
+    """
 
     event_type: str = EventType.generic
+    """text describing the nature of event, can be used to filter classes of events, such as errors"""
     text: str
+    """text describing specific even details"""
 
     def __str__(self):
         return self.text
@@ -122,6 +131,7 @@ class ActorConfig(BaseModel):
 
 class ActorEntity(BaseModel):
     name: str
+    """name of specific entity. Used to reference it in `Chains` section. Must be unique within a plugin"""
 
 class Actor(ABC):
 

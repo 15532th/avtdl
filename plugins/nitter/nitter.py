@@ -20,6 +20,11 @@ from plugins.filters.filters import EmptyFilterConfig
 @Plugins.register('filter.nitter.pick', Plugins.kind.ASSOCIATED_RECORD)
 @Plugins.register('filter.nitter.drop', Plugins.kind.ASSOCIATED_RECORD)
 class NitterRecord(Record):
+    """
+    Single post as parsed from Nitter instance
+
+    Depending on the tweet type (regular, retweet, reply, quote) some fields might be empty
+    """
     model_config = ConfigDict(extra='allow')
 
     retweet_header: Optional[str] = None

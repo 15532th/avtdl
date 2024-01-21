@@ -14,6 +14,11 @@ from core.utils import html_to_text, make_datetime
 
 @Plugins.register('generic_rss', Plugins.kind.ASSOCIATED_RECORD)
 class GenericRSSRecord(Record):
+    """
+    Represents RSS feed entry
+
+    Might contain additional fields if they are present in the feed.
+    """
     model_config = ConfigDict(extra='allow')
 
     uid: str

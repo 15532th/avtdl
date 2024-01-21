@@ -18,6 +18,9 @@ from plugins.youtube.common import thumbnail_url
 
 @Plugins.register('rss', Plugins.kind.ASSOCIATED_RECORD)
 class YoutubeFeedRecord(Record):
+    """
+    Youtube video or livestream parsed from channel RSS feed
+    """
     model_config = ConfigDict(extra='allow')
 
     url: str
