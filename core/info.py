@@ -24,7 +24,7 @@ ENTITY_OPTIONS_TEMPLATE = '''
 {entity}
 '''
 
-LIST_ITEM_TEMPLATE = '- `{name}`: {description}'
+LIST_ITEM_TEMPLATE = '* `{name}`: {description}'
 
 HTML_PAGE_TEMPLATE = '''
 <!DOCTYPE html>
@@ -40,6 +40,18 @@ HTML_PAGE_TEMPLATE = '''
 </html>
 '''
 
+ASSOCIATED_RECORDS_TEMPLATE = '''
+#### Produced records types:
+'''
+
+COLLAPSIBLE_ITEM_TEMPLATE = '''
+<details markdown="block">
+  <summary>{title}</summary>
+
+{content}
+
+</details>
+'''
 
 def get_plugin_info(plugin_name: str) -> str:
     plugin, config, entity = Plugins.get_actor_factories(plugin_name)
@@ -51,21 +63,42 @@ def get_plugin_info(plugin_name: str) -> str:
     entity_info = get_model_info(entity)
     if entity_info:
         text.append(ENTITY_OPTIONS_TEMPLATE.format(entity=entity_info))
+    associated_records = Plugins.get_associated_records(plugin_name)
+    if associated_records:
+        records_text = [ASSOCIATED_RECORDS_TEMPLATE]
+        for record_type in associated_records:
+            record_info = get_model_info(record_type, skip_details=True)
+            record_text = COLLAPSIBLE_ITEM_TEMPLATE.format(title=record_type.__name__, content=record_info)
+            records_text.append(record_text)
+        text.extend(records_text)
     return '\n'.join(text)
 
 
-def get_model_info(model: Type[BaseModel], skip_name: bool = False) -> str:
+def get_model_info(model: Type[BaseModel], skip_name: bool = False, skip_details=False) -> str:
     info: List[str] = []
     description = render_doc(model)
     if description:
         info.append(description)
+        info.append('\n') # ensure newline before list to make it render correctly
+    required_fields = []
+    not_required_fields = []
     for name, field_info in model.model_fields.items():
         if skip_name and name == 'name':
             continue
         if field_info.exclude:
             continue
-        field_description = render_field_info(field_info)
-        info.append(LIST_ITEM_TEMPLATE.format(name=name, description=field_description))
+        field_description = render_field_info(field_info, skip_details=skip_details)
+        field_description_text = LIST_ITEM_TEMPLATE.format(name=name, description=field_description)
+        if has_default(field_info):
+            not_required_fields.append(field_description_text)
+        else:
+            required_fields.append(field_description_text)
+    if required_fields:
+        info.extend(required_fields)
+    if not_required_fields:
+        content = '\n'.join(not_required_fields)
+        spoiler = COLLAPSIBLE_ITEM_TEMPLATE.format(title='non-mandatory fields', content=content)
+        info.append(spoiler)
     return '\n'.join(info)
 
 
@@ -76,16 +109,21 @@ def render_doc(model: Type[BaseModel]) -> str:
     return ''
 
 
-def render_field_info(field_info: FieldInfo) -> str:
-    FIELD_INFO_TEMPLATE = '{details}. {description}'
+def render_field_info(field_info: FieldInfo, skip_details=False) -> str:
+    FIELD_INFO_TEMPLATE = '{description}. {details}'
     default = get_default(field_info)
-    if default:
-        details = f'default value is `{default}`'
+    if skip_details:
+        details = ''
+    elif default:
+        details = f'Default value is `{default}.`'
     else:
-        details = 'required' if field_info.is_required() else 'not required'
+        details = 'Required.' if field_info.is_required() else 'Not required.'
     description = field_info.description or ''
     return FIELD_INFO_TEMPLATE.format(details=details, description=description)
 
+
+def has_default(field_info: FieldInfo) -> bool:
+    return field_info.default is not PydanticUndefined
 
 def get_default(field_info: FieldInfo) -> Optional[str]:
     """Return text describing default value of given FieldInfo if set"""
@@ -97,6 +135,8 @@ def get_default(field_info: FieldInfo) -> Optional[str]:
     if isinstance(value, bool):
         return str(value).lower()
     if isinstance(value, str): # catches Enum(str)
+        if not value.strip(' \t\r\n'):
+            return None
         return value
     if isinstance(value, type):
         return value.__name__
@@ -108,13 +148,14 @@ def render_plugins_descriptions() -> str:
     HELP_FILE_STATIC_PART = '## Description and configuration of available plugins\n[TOC]\n'
     Plugins.load()
     descriptions = {name: get_plugin_info(name) for name in Plugins.known[Plugins.kind.ACTOR].keys()}
-    text = '\n---\n'.join(descriptions.values())
+    SEPARATOR = '\n---\n'
+    text = SEPARATOR.join(['', *descriptions.values(), ''])
     return HELP_FILE_STATIC_PART + text
 
 
 def render_markdown(text: str) -> str:
     """convert markdown to html fragment"""
-    md = markdown.Markdown(extensions=[TocExtension(toc_depth=3)])
+    md = markdown.Markdown(extensions=[TocExtension(toc_depth=3), 'md_in_html'])
     html = md.convert(text)
     return html
 
