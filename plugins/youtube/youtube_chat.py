@@ -16,6 +16,7 @@ from plugins.youtube import video_info
 from plugins.youtube.common import extract_keys, find_all, find_one, get_innertube_context, handle_consent, parse_navigation_endpoint, prepare_next_page_request
 
 
+@Plugins.register('prechat', Plugins.kind.ASSOCIATED_RECORD)
 class YoutubeChatRecord(Record):
     uid: str
     action: str

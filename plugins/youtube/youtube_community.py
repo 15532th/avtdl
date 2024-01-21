@@ -12,6 +12,7 @@ from plugins.youtube.common import get_continuation_token, get_initial_data, get
 from plugins.youtube.community_info import CommunityPostInfo, SharedCommunityPostInfo, get_posts_renderers, get_renderers, get_shared_posts_renderers
 
 
+@Plugins.register('community', Plugins.kind.ASSOCIATED_RECORD)
 class CommunityPostRecord(Record, CommunityPostInfo):
     channel_id: str
     """channel ID in old format"""
@@ -85,6 +86,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
             embeds = [embed]
         return embeds
 
+@Plugins.register('community', Plugins.kind.ASSOCIATED_RECORD)
 class SharedCommunityPostRecord(Record, SharedCommunityPostInfo):
     channel_id: str
     """channel ID in old format"""

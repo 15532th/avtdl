@@ -106,6 +106,10 @@ class ExcludeFilter(Filter):
                 return None
         return record
 
+
+
+Plugins.register('filter.event', Plugins.kind.ASSOCIATED_RECORD)(Event)
+
 @Plugins.register('filter.event', Plugins.kind.ACTOR_ENTITY)
 class EventFilterEntity(FilterEntity):
     event_types: Optional[List[str]] = None
@@ -166,6 +170,9 @@ class TypeFilter(Filter):
         return None
 
 
+
+Plugins.register('filter.json', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
+
 @Plugins.register('filter.json', Plugins.kind.ACTOR_ENTITY)
 class JsonFilterEntity(FilterEntity):
     prettify: bool = False
@@ -193,6 +200,9 @@ class JsonFilter(Filter):
             as_json = record.as_json(indent=indent)
 
         return TextRecord(text=as_json)
+
+
+Plugins.register('filter.format', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
 
 
 @Plugins.register('filter.format', Plugins.kind.ACTOR_ENTITY)

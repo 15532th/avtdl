@@ -15,6 +15,8 @@ from plugins.youtube.common import get_innertube_context, handle_consent, prepar
 from plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_renderers, parse_owner_info, parse_video_renderer
 
 
+@Plugins.register('channel', Plugins.kind.ASSOCIATED_RECORD)
+@Plugins.register('filter.channel', Plugins.kind.ASSOCIATED_RECORD)
 class YoutubeVideoRecord(VideoRendererInfo, Record):
     """Youtube video or livestream listed among others on Youtube page
 

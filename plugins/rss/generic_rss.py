@@ -12,6 +12,7 @@ from core.plugins import Plugins
 from core.utils import html_to_text, make_datetime
 
 
+@Plugins.register('generic_rss', Plugins.kind.ASSOCIATED_RECORD)
 class GenericRSSRecord(Record):
     model_config = ConfigDict(extra='allow')
 

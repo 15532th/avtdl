@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import aiohttp
 from pydantic import Field
@@ -9,6 +9,7 @@ from core.config import Plugins
 from core.interfaces import ActorConfig, TextRecord
 from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
+Plugins.register('get_url', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
 
 @Plugins.register('get_url', Plugins.kind.ACTOR_CONFIG)
 class UrlMonitorConfig(ActorConfig):
@@ -31,7 +32,7 @@ class UrlMonitor(HttpTaskMonitor):
     text endpoints.
     """
 
-    async def get_new_records(self, entity: UrlMonitorEntity, session: aiohttp.ClientSession):
+    async def get_new_records(self, entity: UrlMonitorEntity, session: aiohttp.ClientSession) -> Sequence[TextRecord]:
         text = await self.request(entity.url, entity, session)
         if text is None:
             return []

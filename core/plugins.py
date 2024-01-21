@@ -2,7 +2,7 @@ import importlib.util
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Any, Callable
+from typing import Any, Callable, Dict
 
 
 class Plugins:
@@ -10,13 +10,19 @@ class Plugins:
         ACTOR = 'actor'
         ACTOR_CONFIG = 'actor_config'
         ACTOR_ENTITY = 'actor_entity'
+        ASSOCIATED_RECORD = 'associated_record'
 
     known: Dict[kind, Dict[str, Any]] = {k: {} for k in kind}
     logger = logging.getLogger('plugins')
 
     @classmethod
     def _register(cls, name: str, kind: kind, factory: Callable):
-        cls.known[kind][name] = factory
+        if kind == cls.kind.ASSOCIATED_RECORD:
+            if cls.known[kind].get(name) is None:
+                cls.known[kind][name] = []
+            cls.known[kind][name].append(factory)
+        else:
+            cls.known[kind][name] = factory
 
     @classmethod
     def _get(cls, name: str, kind: kind):
@@ -32,6 +38,13 @@ class Plugins:
         config_factory = cls._get(name, cls.kind.ACTOR_CONFIG)
         entity_factory = cls._get(name, cls.kind.ACTOR_ENTITY)
         return actor_factory, config_factory, entity_factory
+
+    @classmethod
+    def get_associated_records(cls, name):
+        try:
+            return cls._get(name, cls.kind.ASSOCIATED_RECORD)
+        except KeyError:
+            return []
 
     @classmethod
     def register(cls, name: str, kind: kind):
