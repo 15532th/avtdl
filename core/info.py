@@ -57,24 +57,24 @@ def get_plugin_info(plugin_name: str) -> str:
     plugin, config, entity = Plugins.get_actor_factories(plugin_name)
     description = render_doc(plugin)
     text = [PLUGIN_INFO_TEMPLATE.format(name=plugin_name, description=description)]
-    config_info = get_model_info(config, skip_name=True)
+    config_info = get_config_model_info(config)
     if config_info:
         text.append(PLUGIN_OPTIONS_TEMPLATE.format(config=config_info))
-    entity_info = get_model_info(entity)
+    entity_info = get_entity_model_info(entity)
     if entity_info:
         text.append(ENTITY_OPTIONS_TEMPLATE.format(entity=entity_info))
     associated_records = Plugins.get_associated_records(plugin_name)
     if associated_records:
         records_text = [ASSOCIATED_RECORDS_TEMPLATE]
         for record_type in associated_records:
-            record_info = get_model_info(record_type, skip_details=True)
+            record_info = get_record_model_info(record_type)
             record_text = COLLAPSIBLE_ITEM_TEMPLATE.format(title=record_type.__name__, content=record_info)
             records_text.append(record_text)
         text.extend(records_text)
     return '\n'.join(text)
 
 
-def get_model_info(model: Type[BaseModel], skip_name: bool = False, skip_details=False) -> str:
+def get_model_info(model: Type[BaseModel], skip_name: bool = False) -> str:
     info: List[str] = []
     description = render_doc(model)
     if description:
@@ -87,18 +87,38 @@ def get_model_info(model: Type[BaseModel], skip_name: bool = False, skip_details
             continue
         if field_info.exclude:
             continue
-        field_description = render_field_info(field_info, skip_details=skip_details)
+        field_description = render_field_info(field_info, skip_details=False)
         field_description_text = LIST_ITEM_TEMPLATE.format(name=name, description=field_description)
         if has_default(field_info):
             not_required_fields.append(field_description_text)
         else:
             required_fields.append(field_description_text)
-    if required_fields:
-        info.extend(required_fields)
-    if not_required_fields:
-        content = '\n'.join(not_required_fields)
-        spoiler = COLLAPSIBLE_ITEM_TEMPLATE.format(title='non-mandatory fields', content=content)
-        info.append(spoiler)
+    info.extend(required_fields)
+    if required_fields and not_required_fields:
+        info.append('##### ') # separate mandatory and non-mandatory fields in two lists
+    info.extend(not_required_fields)
+    return '\n'.join(info)
+
+
+def get_config_model_info(model: Type[BaseModel]) -> str:
+    return get_model_info(model, skip_name=True)
+
+def get_entity_model_info(model: Type[BaseModel]) -> str:
+    return get_model_info(model, skip_name=False)
+
+
+def get_record_model_info(model: Type[BaseModel]) -> str:
+    info: List[str] = []
+    description = render_doc(model)
+    if description:
+        info.append(description)
+        info.append('\n') # ensure newline before list to make it render correctly
+    for name, field_info in model.model_fields.items():
+        if field_info.exclude:
+            continue
+        field_description = render_field_info(field_info, skip_details=True)
+        field_description_text = LIST_ITEM_TEMPLATE.format(name=name, description=field_description)
+        info.append(field_description_text)
     return '\n'.join(info)
 
 
@@ -161,8 +181,6 @@ def render_markdown(text: str) -> str:
 
 
 if __name__ == '__main__':
-    Plugins.load()
-    text = {name: get_plugin_info(name) for name in Plugins.known[Plugins.kind.ACTOR].keys()}
     text = render_plugins_descriptions()
     html = render_markdown(text)
     html = HTML_PAGE_TEMPLATE.format(body=html)
