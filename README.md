@@ -230,7 +230,7 @@ Used in notification plugins to specify timezone in which date and time in messa
 
 This is useful when the application is running on remote machine or when message recipients have different time settings. When the option is omitted, local computer timezone is used for conversion.
 
-Not all date and time values are presented in a form that can be easily parsed. Record fields, referred to as "localized" in field description, for example `published_text` of `YoutubeVideoRecord` are not affected by this option. They can be manipulated at source plugin by setting HTTP headers with `headers` plugin.
+Not all date and time values are presented in a form that can be easily parsed. Record fields, referred to as "localized" in field description, for example `published_text` of `YoutubeVideoRecord`, are not affected by this option. They can be manipulated at source plugin by setting HTTP headers with `headers` plugin.
 
 ##### Formatting templates
 
@@ -246,9 +246,11 @@ Normally, when updating community tab or a user page on Nitter instance, plugin 
 
 #### Tools commonly used for downloading livestreams
 
-Before setting up automated tool initiating download process it is a good idea to try doing it manually and ensure everything is working properly. This section provides overview on some tools that can be used for archiving livestreams, including solutions that offer monitoring in addition to downloading and can be used as a single-purpose alternative to avtdl. Old versions of these tools (as well as avtdl itself) can sometimes not be able to work with streaming sites they support due to breaking changes on the sites, so in case of problems it worth checking that most recent version is used.
+Before automating download process it is a good idea to try doing it manually and ensure everything is working properly. This section provides overview on some tools that can be used for archiving livestreams, including solutions that offer monitoring in addition to downloading and can be used as a single-purpose alternative to avtdl.
 
-Only a brief description is offered here. Refer to each tool documentation for full list of available options and adjust suggested command lines to fit specific usecase.
+Old versions of these tools (as well as avtdl itself) can sometimes not be able to work with streaming sites they support due to breaking changes on the site side, so in case of problems it worth checking that most recent version is used.
+
+Only a brief description is offered here. Refer to each tool documentation for full list of available options and adjust suggested command lines to fit specific use case.
 
 ##### Youtube
 
@@ -269,8 +271,7 @@ To keep long term archive size small while ensuring recording will still be pres
 
 To archive entire channel, both uploads and livestreams, run yt-dlp with channel url instead of specific video or playlist:
 
-    yt-dlp --add-metadata --embed-thumbnail --embed-chapters --embed-subs --write-subs --sub-langs "live_chat, en" --merge-output-format mkv --download-archive archive.txt --format 303+251/248+251/bestvideo*+bestaudio/best 
--o "[%(upload_date)s] %(title)s - %(id)s.%(ext)s" https://www.youtube.com/@ChannelName
+    yt-dlp --add-metadata --embed-thumbnail --embed-chapters --embed-subs --write-subs --sub-langs "live_chat, en" --merge-output-format mkv --download-archive archive.txt --format 303+251/248+251/bestvideo*+bestaudio/best -o "[%(upload_date)s] %(title)s - %(id)s.%(ext)s" https://www.youtube.com/@ChannelName
 
 ##### Twitcasting
 
@@ -278,13 +279,14 @@ To download archive use [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 Livestreams on Twitcasting are particularly sensitive to network connection latency, and recording file might often end up missing fragments if connection is not good enough or server is under high load. Using lower quality might help.
 
-Ongoing livestreams can be downloaded using [yt-dlp](https://github.com/yt-dlp/yt-dlp). When specifying quality other than `best`, note, that not every quality code is available on every stream and it is better to always specify `best` as a fallback option. 
+Ongoing livestreams also can be downloaded with [yt-dlp](https://github.com/yt-dlp/yt-dlp). When specifying quality other than `best`, note that not every quality code is available on every stream and it is better to always specify `best` as a fallback option. 
 
 Another tool for downloading livestreams only is [TwcLazer](https://github.com/HoloArchivists/TwcLazer). It uses different download method compared to yt-dlp, so one might serve as alternative to another when something breaks due to changes on server side.
 
 ##### FC2
 
-[fc2_live_dl](https://github.com/HoloArchivists/fc2-live-dl) allows downloading FC2 livestreams. Defailt options are good for most cases:
+[fc2_live_dl](https://github.com/HoloArchivists/fc2-live-dl) allows downloading FC2 livestreams. Default options are good for most cases:
+
     fc2-live-dl {url}
 
 Comes with [autofc2](https://github.com/HoloArchivists/fc2-live-dl#autofc2) script, that allows to continuously monitor a channel and download a stream as it goes live. Uses configuration file in `json` format, but file structure is simple and example is provided. Paste config file content in any online json validator to check it for possible formatting errors.
