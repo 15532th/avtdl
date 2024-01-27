@@ -10,7 +10,7 @@ from core import utils
 from core.config import Plugins
 from core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record, TextRecord
 from core.monitors import HIGHEST_UPDATE_INTERVAL, TaskMonitor, TaskMonitorEntity
-from core.utils import Fmt, OutputFormat
+from core.utils import Fmt, OutputFormat, read_file
 
 Plugins.register('from_file', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
 
@@ -89,14 +89,14 @@ class FileMonitor(TaskMonitor):
     def get_records(self, entity: FileMonitorEntity) -> List[TextRecord]:
         records = []
         if self.exists(entity):
-            with open(entity.path, 'rt', encoding=entity.encoding) as fp:
-                if entity.split_lines:
-                    lines = fp.readlines()
-                else:
-                    lines = [fp.read()]
-                for line in lines:
-                    record = TextRecord(text=line.strip())
-                    records.append(record)
+            text = read_file(entity.path)
+            if entity.split_lines:
+                lines = text.split('\n')
+            else:
+                lines = [text]
+            for line in lines:
+                record = TextRecord(text=line.strip())
+                records.append(record)
         return records
 
 
