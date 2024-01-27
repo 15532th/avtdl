@@ -23,11 +23,13 @@ class FileMonitorConfig(ActorConfig):
 @Plugins.register('from_file', Plugins.kind.ACTOR_ENTITY)
 class FileMonitorEntity(TaskMonitorEntity):
     encoding: Optional[str] = None
-    """Input file encoding. If not specified default system-wide encoding is used"""
+    """encoding used to open monitored file. If not specified default system-wide encoding is used"""
     path: Path
-    """Path to monitored file"""
+    """path to monitored file"""
     split_lines: bool = False
-    """If true, each line of the file will create a separate record. Otherwise a single record will be generated with entire file content"""
+    """if true, each line of the file will create a separate record. Otherwise a single record will be generated with entire file content"""
+    update_interval: float = 60
+    """how often monitored file should be checked, in seconds"""
     mtime: float = Field(exclude=True, default=-1)
     """internal variable to persist state between updates. Used to check if file has changed"""
     base_update_interval: float = Field(exclude=True, default=60)
@@ -46,7 +48,7 @@ class FileMonitor(TaskMonitor):
 
     On specified intervals check existence and last modification time
     of target file, and if it changed read file content
-    (either line by line or as a whole) and make it to a text record(s).
+    either line by line or as a whole and emit it as a text record(s).
 
     Records are not checked for uniqueness, so appending content to the end
     of the existing file will produce duplicates of already sent records.
@@ -113,19 +115,19 @@ class FileActionEntity(ActorEntity):
     path: Optional[Path] = None
     """directory where output file should be created. Default is current directory"""
     filename: str
-    """Name of the output file. Supports templating with {...}""" # FIXME: describe templating
+    """name of the output file. Supports templating with `{...}`"""
     encoding: Optional[str] = 'utf8'
-    """Output file encoding. Defaults to UTF8."""
-    output_format: OutputFormat = OutputFormat.str
-    """Should record be written in output file as plain text or json""" # FIXME: list all valid values
+    """output file encoding"""
+    output_format: OutputFormat = Field(default=OutputFormat.str, description='one of `' + "`, `".join(OutputFormat.__members__) + '`')
+    """should record be written in output file as plain text or json"""
     overwrite: bool = True
-    """Whether file should be written in if it already exists"""
+    """whether file should be overwritten in if it already exists"""
     append: bool = True
-    """If true, new record will be written in the end of the file without overwriting already present lines"""
+    """if true, new record will be written in the end of the file without overwriting already present lines"""
     prefix: str = ''
-    """String that will be appended before record text. Can be used to separate records from each other or for simple templating"""
+    """string that will be appended before record text. Can be used to separate records from each other or for simple templating"""
     postfix: str = '\n'
-    """String that will be appended after record text"""
+    """string that will be appended after record text"""
 
     @field_validator('path')
     @classmethod
@@ -143,10 +145,26 @@ class FileAction(Actor):
     Write record to a text file
 
     Takes record coming from a Chain, converts it to text representation,
-    and write to a file in given directory. Output file name can be generated
-    dynamically based on template filled with values from the record fields or
-    be static. When file already exists, new records can be appended to
-    the end of the file or overwrite it.
+    and write to a file in given directory. When file already exists,
+    new records can be appended to the end of the file or overwrite it.
+
+    Output file name can be static or generated dynamically based on template
+    filled with values from the record fields: every occurrence of `{text}`
+    in filename will be replaced with value of the `text` field of processed
+    record, if the record has one.
+
+    Allows writing record as human readable text representation or as names and
+    values of the record fields in json format. For custom format template pass record
+    through `filter.format` plugin prior to this one.
+
+    Produces `Event` with `error` type if writing to target file fails.
+
+    Note discrepancy between default value of `encoding` setting between `from_file`
+    and `to_file` plugins. Former is expected to be able to read files produced by
+    different software and therefore relies on system-wide settings. It would make
+    sense to do the same in latter, but it would introduce possibility of failing
+    to write records containing text with Unicode codepoints that cannot be represented
+    using system-wide encoding.
     """
 
     def handle(self, entity: FileActionEntity, record: Record):

@@ -157,8 +157,8 @@ class NitterMonitor(PagedFeedMonitor):
     - `https://nitter.net/username`
     - `https://nitter.net/username/with_replies`
 
-    Some instances might not be happy getting automated requests. Make sure
-    to use reasonable update_interval and keep eyes on 4XX and 5XX responses
+    Some instances might not be happy getting automated scraping. Make sure
+    to use reasonable `update_interval` and keep eyes on 4XX and 5XX responses
     in log, as they might indicate server is under high load or refuses to
     communicate.
 
@@ -333,7 +333,7 @@ class NitterFilterEntity(FilterEntity):
 @Plugins.register('filter.nitter.pick', Plugins.kind.ACTOR)
 class NitterFilterPick(Filter):
     """
-    Pick `NitterRecord`s with specified properties
+    Pick `NitterRecord` with specified properties
 
     Lets through `NitterRecord` if it matches any of specified criteria.
     All records from other sources pass through without filtering.
@@ -364,7 +364,7 @@ class NitterFilterPick(Filter):
 @Plugins.register('filter.nitter.drop', Plugins.kind.ACTOR)
 class NitterFilterDrop(Filter):
     """
-    Drop `NitterRecord`s without specified properties.
+    Drop `NitterRecord` without specified properties.
 
     Lets through `NitterRecord` if it doesn't match all of the specified criteria.
     All records from other sources pass through without filtering.

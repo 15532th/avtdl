@@ -61,6 +61,8 @@ class FC2MonitorEntity(HttpTaskMonitorEntity):
     """user id, numeric part at the end of livestream url"""
     update_interval: int = 120
     """how often monitored channel will be checked, in seconds"""
+    adjust_update_interval: bool = Field(exclude=True, default=True)
+    """does not do much since fc2 does not use caching headers on endpoint used to check live status"""
     latest_live_start: str = Field(exclude=True, default='')
     """internal variable to persist state between updates. Used to distinguish between different livestreams of the user"""
 

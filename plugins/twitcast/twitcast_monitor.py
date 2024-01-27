@@ -34,8 +34,10 @@ class TwitcastRecord(Record):
 class TwitcastMonitorEntity(HttpTaskMonitorEntity):
     user_id: str
     """user id that should be monitored"""
-    update_interval: int = 60
+    update_interval: float = 60
     """how often user will be checked for being live, in seconds"""
+    adjust_update_interval: bool = Field(exclude=True, default=True)
+    """does not do much since Twitcasting does not use caching headers on endpoint used to check live status"""
     most_recent_movie: Optional[str] = Field(exclude=True, default=None)
     """internal variable to persist state between updates. Used to keep movie_id to detect if current live is the same as in the last update"""
 
@@ -51,6 +53,11 @@ class TwitcastMonitor(HttpTaskMonitor):
 
     Monitors twitcasting.tv user with given id, produces record when it goes live.
     For user `https://twitcasting.tv/c:username` user id would be `c:username`.
+
+    Streams on Twitcasting might be set to be visible only for members of specific group.
+    For monitoring such streams it is necessarily to provide login cookies of
+    account being member of the group. Password-protected and age-restricted streams
+    do not require that.
 
     Rate limits for endpoint used to check if user is live are likely relatively high,
     but it is better to keep `update_interval` big enough for combined amount of updates

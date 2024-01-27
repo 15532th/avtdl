@@ -31,7 +31,7 @@ class NoopFilter(Filter):
     """
     Pass everything through
 
-    Let's all coming records pass through unchanged, effectively
+    Lets all coming records pass through unchanged, effectively
     doing nothing with them. As any other filter it has entities,
     so it can be used as a merging point to gather records from
     multiple chains and process then in a single place.
@@ -74,7 +74,7 @@ class MatchFilter(Filter):
     Keep records with specific words
 
     This filter lets through records, that has one of values
-    defined by `patterns` list found in any of the record fields.
+    defined by `patterns` list found in any (or specified) field of the record.
     """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity]):
@@ -115,6 +115,7 @@ Plugins.register('filter.event', Plugins.kind.ASSOCIATED_RECORD)(Event)
 @Plugins.register('filter.event', Plugins.kind.ACTOR_ENTITY)
 class EventFilterEntity(FilterEntity):
     event_types: Optional[List[str]] = None
+    """list of event types. See descriptions of plugins producing events for possible values"""
 
 @Plugins.register('filter.event', Plugins.kind.ACTOR)
 class EventFilter(Filter):
@@ -251,7 +252,7 @@ class DeduplicateFilter(Filter):
     """
     Drop already seen records
 
-    Checks if the `field` field value of current record has already been
+    Checks if the `field` field value of the current record has already been
     present in one of the previous records and only let it through otherwise.
 
     `field` might be either a record field name or one of `hash` or `as_json`
@@ -261,7 +262,8 @@ class DeduplicateFilter(Filter):
     This filter will work with records of any type, as long as they have defined
     field (all records have `hash` and `as_json`). For example, it is possible
     to ensure no multiple records for a single video will be produced
-    in a chain, that gather records from Youtube channel and Youtube RSS monitors.
+    in a chain, that gather records from Youtube channel and Youtube RSS monitors,
+    by passing them to an entity of this filter with `field` set to `video_id`.
 
     Note, that history is kept in memory, so it will not be persisted between
     restarts.

@@ -31,7 +31,7 @@ class JabberEntity(ActorEntity):
     jid: str
     """JID to send message to"""
     timezone: Optional[str] = None
-    """takes timezone name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones or OS settings if omitted, converts record fields containing date and time to this timezone"""
+    """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> or OS settings if omitted, converts record fields containing date and time to this timezone"""
 
     @field_validator('timezone')
     @classmethod
