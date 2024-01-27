@@ -72,7 +72,7 @@ def main(config_path: Path):
                 continue
             orphans = set(entities) - actor.entities.keys()
             for orphan in orphans:
-                logging.warning(f'chain "{chain_name}" references "{actor_name}: {orphan}", but actor "{actor_name}" has no "{orphan}" entity. It might be a typo in the chain conf  iguration')
+                logging.warning(f'chain "{chain_name}" references "{actor_name}: {orphan}", but actor "{actor_name}" has no "{orphan}" entity. It might be a typo in the chain conf configuration')
 
     asyncio.run(run(actors.values()), debug=True)
 
