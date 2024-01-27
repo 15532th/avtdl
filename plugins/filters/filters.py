@@ -65,6 +65,8 @@ class VoidFilter(Filter):
 class MatchFilterEntity(FilterEntity):
     patterns: List[str]
     """list of strings to search in the record"""
+    fields: Optional[List[str]] = None
+    """field names to search patterns in. If not specified all fields are checked"""
 
 @Plugins.register('filter.match', Plugins.kind.ACTOR)
 class MatchFilter(Filter):
@@ -80,7 +82,7 @@ class MatchFilter(Filter):
 
     def match(self, entity: MatchFilterEntity, record: Record) -> Optional[Record]:
         for pattern in entity.patterns:
-            field = find_matching_field(record, pattern)
+            field = find_matching_field(record, pattern, entity.fields)
             if field is not None:
                 self.logger.debug(f'[{entity.name}] found pattern "{pattern}" in the field "{field}" of record "{record!r}", letting through')
                 return record
@@ -92,7 +94,7 @@ class ExcludeFilter(Filter):
     Drop records with specific words
 
     This filter lets through records, that has none of values
-    defined by `patterns` list found in any of the record fields.
+    defined by `patterns` list found in any (or specified) field of the record.
     """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity]):
@@ -100,7 +102,7 @@ class ExcludeFilter(Filter):
 
     def match(self, entity: MatchFilterEntity, record: Record) -> Optional[Record]:
         for pattern in entity.patterns:
-            field = find_matching_field(record, pattern)
+            field = find_matching_field(record, pattern, entity.fields)
             if field is not None:
                 self.logger.debug(f'[{entity.name}] found pattern "{pattern}" in the field "{field}" of record "{record!r}", dropping')
                 return None

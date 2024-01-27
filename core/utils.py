@@ -277,12 +277,15 @@ class LRUCache:
             self._data.popitem(last=False)
 
 
-def find_matching_field(record: Record, pattern: str) -> Optional[str]:
+def find_matching_field(record: Record, pattern: str, fields: Optional[List[str]] = None) -> Optional[str]:
     """
     Return name of the first field of the record that contains pattern,
-    return None if nothing found
+    return None if nothing found. If fields value specified only check
+    fields listed in there.
     """
     for field, value in record:
+        if fields is not None and field not in fields:
+            continue
         if isinstance(value, Record):
             subrecord_search_result = find_matching_field(value, pattern)
             if subrecord_search_result is not None:
