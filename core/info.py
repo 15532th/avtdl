@@ -154,10 +154,14 @@ def get_default(field_info: FieldInfo) -> Optional[str]:
         return None
     if isinstance(value, bool):
         return str(value).lower()
-    if isinstance(value, str): # catches Enum(str)
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, str):
         if not value.strip(' \t\r\n'):
             return None
         return value
+    if isinstance(value, dict):
+        return ', '.join(f'"{k}": "{v}"' for k, v in value.items())
     if isinstance(value, type):
         return value.__name__
     return str(value)
