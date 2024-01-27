@@ -23,42 +23,37 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
 
     Produced by parsing channels main page, videos and streams tab,
     as well as playlists, and, with login cookies, subscriptions feed.
-
-    Due to small differences in presentation aforementioned sources
-    have, same video might have slightly different appearance when
-    parsed from different urls. For example, video parsed from main
-    page or subscriptions feed will not have full description text.
     """
 
     video_id: str
-    """Short string identifying video on Youtube. Part of video url"""
+    """short string identifying video on Youtube. Part of video url"""
     url: str
-    """Link to video, uses "https://www.youtube.com/watch?v=<video_id>" format"""
+    """link to video, uses `https://www.youtube.com/watch?v=<video_id>` format"""
     title: str
-    """Title of the video at time of parsing"""
+    """title of the video at time of parsing"""
     summary: Optional[str] = Field(repr=False)
-    """Snippet of video description. Not always available"""
+    """snippet of video description. Not always available"""
     scheduled: Optional[datetime.datetime] = None
-    """Scheduled date for upcoming stream or premiere"""
+    """scheduled date for upcoming stream or premiere"""
     author: Optional[str]
-    """Author name"""
+    """channel name"""
     avatar_url: Optional[str] = None
-    """Link to avatar of the channel. Not always available"""
+    """link to avatar of the channel. Not always available"""
     channel_link: Optional[str] = None
-    """Link to the channel of the video"""
+    """link to the channel uploading the video"""
     channel_id: Optional[str] = None
-    """Channel ID in old format"""
+    """channel ID in old format (such as `UCK0V3b23uJyU4N8eR_BR0QA`)"""
     published_text: Optional[str]
-    """Localized text saying how long ago the video was uploaded"""
+    """localized text saying how long ago the video was uploaded"""
     length: Optional[str]
-    """Duration of the video"""
+    """text showing the video duration (hh:mm:ss)"""
 
     is_upcoming: bool
-    """Indicates that video is an upcoming livestream or premiere"""
+    """indicates that video is an upcoming livestream or premiere"""
     is_live: bool
-    """Indicates that the video is a livestream or premiere that is currently live"""
+    """indicates that the video is a livestream or premiere that is currently live"""
     is_member_only: bool
-    """Indicated that the video is limited to members of the channel"""
+    """indicated that the video is limited to members of the channel. Note that video status might be changed at any time"""
 
     def __str__(self):
         scheduled = self.scheduled
@@ -112,7 +107,12 @@ class VideosMonitor(PagedFeedMonitor):
 
     Monitors Youtube url listing videos, such as channels main page,
     videos and streams tab of a channel, as well as playlists, and,
-    with login cookies, subscriptions feed or even the main page.
+    with login cookies, subscriptions feed or the main page.
+
+    Due to small differences in presentation aforementioned sources
+    have, same video might have slightly different appearance when
+    parsed from different urls. For example, video parsed from main
+    page or subscriptions feed will not have full description text.
 
     Examples of supported url:
 
@@ -189,23 +189,23 @@ class ChannelFilterConfig(EmptyFilterConfig):
 @Plugins.register('filter.channel', Plugins.kind.ACTOR_ENTITY)
 class ChannelFilterEntity(FilterEntity):
     upcoming: bool = True
-    """To pass filter record should be upcoming livestream or scheduled premiere"""
+    """to pass filter record should be either upcoming livestream or scheduled premiere"""
     live: bool = False
-    """To pass filter record should be ongoing livestream"""
+    """to pass filter record should be an ongoing livestream"""
     member_only: bool = False
-    """To pass filter record should be marked as member-only"""
+    """to pass filter record should be marked as member-only"""
 
 
 @Plugins.register('filter.channel', Plugins.kind.ACTOR)
 class ChannelFilter(Filter):
     """
-    Pick `YoutubeVideoRecord`s with specified properties
+    Pick `YoutubeVideoRecord` with specified properties
 
     Filter that only lets `YoutubeVideoRecord` through if it has certain properties.
     All records from other sources pass through without filtering.
 
     If multiple settings are set to `true`, they all should match. Use multiple
-    entities if picking records with one of properties is required.
+    entities if picking records with any of multiple properties is required.
     """
 
     def __init__(self, config: ChannelFilterConfig, entities: Sequence[ChannelFilterEntity]):

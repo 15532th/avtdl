@@ -17,7 +17,7 @@ HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
 class TaskMonitorEntity(ActorEntity):
     update_interval: float
-    """How often the monitored url will be checked, in seconds"""
+    """how often the monitored source should be checked for new content, in seconds"""
 
 
 class BaseTaskMonitor(Actor):
@@ -89,10 +89,10 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
     cookies_file: Optional[FilePath] = None
     """path to text file containing cookies in Netscape format"""
     headers: Optional[Dict[str, str]] = {'Accept-Language': 'en-US,en;q=0.9'}
-    """custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use "cookies_file" option instead"""
+    """custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use `cookies_file` option instead"""
 
     adjust_update_interval: bool = True
-    """change time until next update based on response headers. This setting doesn't affect timeouts after failed requests"""
+    """change delay before next update based on response headers. This setting doesn't affect timeouts after failed requests"""
     base_update_interval: float = Field(exclude=True, default=60)
     """internal variable to persist state between updates. Used to keep update_interval while timeout after update error is active"""
     last_modified: Optional[str] = Field(exclude=True, default=None)
@@ -247,7 +247,10 @@ class RecordDB(BaseRecordDB):
 
 class BaseFeedMonitorConfig(ActorConfig):
     db_path: Union[Path, str] = ':memory:'
-    """path to sqlite database file keeping history of old records of this monitor"""
+    """path to sqlite database file keeping history of old records of this monitor.
+    Might specify a path to a directory containing the file (with trailing slash)
+    or direct path to the file itself (without a slash). If special value `:memory:` is used,
+    database is kept in memory and not stored on disk at all, providing a clean database on every startup"""
 
     @field_validator('db_path')
     @classmethod

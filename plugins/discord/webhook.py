@@ -197,7 +197,7 @@ class DiscordHookEntity(ActorEntity):
     url: str
     """webhook url"""
     timezone: Optional[str] = None # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-    """takes timezone name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones or OS settings if omitted, converts record fields containing date and time to this timezone"""
+    """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or OS settings if omitted), converts record fields containing date and time to this timezone"""
     hook: Optional[Any] = Field(exclude=True, default=None)
     """internal variable to persist state between update calls, holds DiscordWebhook object for this entity"""
 
@@ -221,9 +221,10 @@ class DiscordHook(Actor):
     showing author's avatar and links to attached images. Youtube videos will
     show thumbnail, however embedding video itself is not supported.
 
-    Records coming within six seconds one after another will be batched into a single message.
-    When many records come at once they will be sent with delays to conform Discord
-    rate limits. Records deemed too long to fit in Discord message length limits
+    Records coming within six seconds one after another will be batched together into a single message.
+    When too many records are received at once, they will be sent with delays to conform Discord
+    rate limits. Records deemed to be too long to fit in Discord message
+    [length limits](https://discord.com/developers/docs/resources/channel#create-message-jsonform-params)
     will be dropped with a warning.
     """
 

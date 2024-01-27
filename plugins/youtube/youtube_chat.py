@@ -19,16 +19,12 @@ from plugins.youtube.common import extract_keys, find_all, find_one, get_innertu
 @Plugins.register('prechat', Plugins.kind.ASSOCIATED_RECORD)
 class YoutubeChatRecord(Record):
     """Youtube chat message"""
-    uid: str
-    action: str
-    renderer: str
-
     author: str
     """name of the message author"""
     channel: str
     """message author channel url"""
     badges: List[str]
-    """list of message author badges (owner, moderator, member, verified and so on)"""
+    """localized list of message author badges (owner, moderator, member, verified and so on)"""
     timestamp: int
     """time when message was sent"""
     text: Optional[str] = None
@@ -36,9 +32,18 @@ class YoutubeChatRecord(Record):
     amount: Optional[str] = None
     """for superchats, string specifying amount and currency, otherwise empty"""
     banner_header: Optional[str] = None
+    """used for special objects in chat, such as pinned messages"""
     message_header: Optional[str] = None
     sticker: Optional[str] = None
     """supersticker name if message is a supersticker, otherwise empty"""
+
+    uid: str
+    """unique id of the message"""
+    action: str
+    """internal name of message type. Used for debug purposes"""
+    renderer: str
+    """internal name of message format. Used for debug purposes"""
+
 
     def _main_text(self) -> str:
         items = []

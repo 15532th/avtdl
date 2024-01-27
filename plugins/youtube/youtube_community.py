@@ -143,6 +143,8 @@ class CommunityPostsMonitorConfig(PagedFeedMonitorConfig):
 
 @Plugins.register('community', Plugins.kind.ACTOR_ENTITY)
 class CommunityPostsMonitorEntity(PagedFeedMonitorEntity):
+    url: str
+    """url of community page of the channel"""
     update_interval: float = 1800
     """how often community page will be checked for new posts"""
 
@@ -151,9 +153,14 @@ class CommunityPostsMonitor(PagedFeedMonitor):
     """
     Youtube community page monitor
 
-    Monitors posts on community page of channel, supports
+    Monitors posts on community page of a channel, supports
     member-only posts if login cookies are provided. Some features,
     such as polls, are not supported.
+
+    Examples of supported url:
+
+    - `https://www.youtube.com/@ChannelName/community`
+    - `https://www.youtube.com/channel/UCK0V3b23uJyU4N8eR_BR0QA/community`
     """
 
     def get_record_id(self, record: CommunityPostRecord) -> str:

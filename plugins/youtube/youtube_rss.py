@@ -30,9 +30,9 @@ class YoutubeFeedRecord(Record):
     published: datetime
     """published value of the feed item, usually the time when video was uploaded or livestream frame was set up"""
     updated: datetime
-    """updated value of the feed item, """
+    """updated value of the feed item. If different from `published` might indicate either a change to video title, thumbnail or description, or change in video status, for example livestream ending"""
     author: str
-    """author name, as"""
+    """author name, as shown on channel icon"""
     video_id: str
     """short string identifying video on Youtube. Part of video url"""
     summary: str
@@ -40,7 +40,7 @@ class YoutubeFeedRecord(Record):
     views: Optional[int]
     """current number of views. Is zero for upcoming and ongoing livestreams"""
     scheduled: Optional[datetime] = None
-    """for a livestream is a time it is scheduled to go live at, otherwise absent"""
+    """for upcoming livestream is a time it is scheduled to go live at, otherwise absent"""
 
     async def check_scheduled(self, session: Optional[aiohttp.ClientSession] = None):
         if self.views == 0:
@@ -151,7 +151,7 @@ class FeedMonitor(GenericRSSMonitor):
 
     Scheduled date for upcoming streams is not present in feed itself, so it
     is obtained by fetching and parsing video page first time it appears in
-    the feed. It then gets updated until stream goes live unless `track_reschedule`
+    the feed. It then gets updated until stream goes live, unless `track_reschedule`
     option is disabled.
 
     No matter how often the url gets fetched, content of the feed only gets
