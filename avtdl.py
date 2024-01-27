@@ -35,6 +35,7 @@ def handler(loop, context):
 async def run(runnables):
     loop = asyncio.get_running_loop()
     loop.set_exception_handler(handler)
+    loop.slow_callback_duration = 100
 
     tasks = []
     for runnable in runnables:
