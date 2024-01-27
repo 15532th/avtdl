@@ -228,7 +228,7 @@ Actors:
 
 ##### `timezone`
 
-Used in notification plugins to specify timezone in which date and time in message should be presented in, when possible. Timezone is identified by name, as specified in "TZ identifier" column of https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List table.
+Used in notification plugins to specify timezone in which date and time in message should be presented in, when possible. Timezone is identified by name, as specified in "TZ identifier" column of [this](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List) table.
 
 This is useful when the application is running on remote machine or when message recipients have different time settings. When the option is omitted, local computer timezone is used for conversion.
 
@@ -250,13 +250,15 @@ Normally, when updating community tab or a user page on Nitter instance, plugin 
 
 Before automating download process it is a good idea to try doing it manually and ensure everything is working properly. This section provides overview on some tools that can be used for archiving livestreams, including solutions that offer monitoring in addition to downloading and can be used as a single-purpose alternative to avtdl.
 
-Old versions of these tools (as well as avtdl itself) can sometimes not be able to work with streaming sites they support due to breaking changes on the site side, so in case of problems it worth checking that most recent version is used.
+Old versions of these tools (as well as avtdl itself) might sometimes not be able to work with streaming sites they support due to breaking changes on the site side, so in case of problems it worth checking that most recent version is used.
 
 Only a brief description is offered here. Refer to each tool documentation for full list of available options and adjust suggested command lines to fit specific use case.
 
+All the tools support customization of output name format and can download limited access streams if authorization cookies file in Netscape format is provided.
+
 ##### Youtube
 
-[ytarchive](https://github.com/Kethsar/ytarchive) is a tool to download upcoming and ongoing livestreams. Checks scheduled date and waits for upcoming livestream, can monitor channel for livestreams and download them as they start. Typical command would be
+[ytarchive](https://github.com/Kethsar/ytarchive) is a tool for downloading upcoming and ongoing livestreams. Checks scheduled date and waits for upcoming livestream, can monitor channel for livestreams and download them as they start. Typical command would be
 
     ytarchive --threads 4 --add-metadata --thumbnail --wait {url} best
 
@@ -264,12 +266,13 @@ Only a brief description is offered here. Refer to each tool documentation for f
 
     yt-dlp --add-metadata --embed-thumbnail --embed-chapters --embed-subs {url}
 
-Both tools support customization of output name format and can download member-only streams if authorization cookies file in Netscape format is provided.
+Youtube livestreams are often encoded with `AVC1` codec, but stream archive would usually also have format encoded in `VP9` available, providing similar quality with much lower size after a certain time, usually a few hours after the stream end. 
 
-Youtube livestreams are often encoded with `AVC1` codec, but stream archive would usually also have `VP9` codec available, providing similar quality with much lower size after a certain time, usually a few hours after the stream end. 
 To keep long term archive size small while ensuring recording will still be present if stream archive is not available, it is possible to use combination of ytarchive (controlled by avtdl or standalone) to obtain stream recording immediately and yt-dlp running by scheduler on daily basic to collect processed versions. To ensure yt-dlp won't try to download livestream before it gets converted to `VP9`, exact quality code can be specified as video format:
 
     yt-dlp --add-metadata --embed-thumbnail --embed-chapters --embed-subs --write-subs --sub-langs "live_chat, en" --merge-output-format mkv --download-archive archive.txt --format 303+251/248+251 {url}
+
+This way yt-dlp will skip ongoing and newly finished livestreams, leaving them to ytarchive, and download `VP9` format when it becomes available on the next day.
 
 To archive entire channel, both uploads and livestreams, run yt-dlp with channel url instead of specific video or playlist:
 
@@ -281,21 +284,23 @@ To download archive use [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 Livestreams on Twitcasting are particularly sensitive to network connection latency, and recording file might often end up missing fragments if connection is not good enough or server is under high load. Using lower quality might help.
 
-Ongoing livestreams also can be downloaded with [yt-dlp](https://github.com/yt-dlp/yt-dlp). When specifying quality other than `best`, note that not every quality code is available on every stream, and it is better to always specify `best` as a fallback option. 
+Ongoing livestreams also can be downloaded with [yt-dlp](https://github.com/yt-dlp/yt-dlp). When specifying quality other than `best`, note that not every quality code is available on every stream, and it is better to always add `best` as a fallback option. 
 
-Another tool for downloading livestreams only is [TwcLazer](https://github.com/HoloArchivists/TwcLazer). It uses different download method compared to yt-dlp, so one might serve as alternative to another when something breaks due to changes on server side.
+    yt-dlp -f 220k/best https://twitcasting.tv/c:username
+
+Another tool for downloading livestreams is [TwcLazer](https://github.com/HoloArchivists/TwcLazer). It uses different download method compared to yt-dlp, so one might serve as alternative to another when something breaks due to changes on server side.
 
 ##### FC2
 
-[fc2_live_dl](https://github.com/HoloArchivists/fc2-live-dl) allows downloading FC2 livestreams. Default options are good for most cases:
+[fc2_live_dl](https://github.com/HoloArchivists/fc2-live-dl) can be used for downloading ongoing FC2 streams. Default options are good for most cases:
 
     fc2-live-dl {url}
 
-Comes with [autofc2](https://github.com/HoloArchivists/fc2-live-dl#autofc2) script, that allows to continuously monitor a channel and download a stream as it goes live. Uses configuration file in `json` format, but file structure is simple and example is provided. Paste config file content in any online json validator to check it for possible formatting errors.
+Comes with [autofc2](https://github.com/HoloArchivists/fc2-live-dl#autofc2) script, that allows to continuously monitor a channel and download a stream as it goes live. Uses configuration file in JSON format, but file structure is simple and example is provided. Paste config file content in any online JSON validator to check it for possible formatting errors.
 
 Note, that FC2 only allows a single window with particular livestream, and opening channel that is currently being downloaded in a browser will result in error and is likely to interrupt download.
 
 ##### Youtube community posts
 
-avtdl supports saving community post text in file natively, but as alternative, this fork of [youtube-community-tab](https://github.com/HoloArchivists/youtube-community-tab) might be used. It comes with `ytct.py` script that allows to download either a specific post by direct link or all new posts on a channel. Posts are stored in `json` format, which can be rendered to human-readable text files with third party [ytct-convert.py](https://gist.github.com/15532th/111c8b32e5d82112379703f3eab51e49) script.
+avtdl supports saving community post text in file natively, but as alternative, this fork of [youtube-community-tab](https://github.com/HoloArchivists/youtube-community-tab) might be used. It comes with `ytct.py` script that allows to download either a specific post by direct link or all new posts on a channel. Posts are stored in JSON format, which can be rendered to human-readable text files with third party [ytct-convert.py](https://gist.github.com/15532th/111c8b32e5d82112379703f3eab51e49) script.
 
