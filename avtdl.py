@@ -10,6 +10,7 @@ import yaml
 from pydantic import ValidationError
 
 from core.config import ConfigParser
+from core.info import generate_plugins_description
 from core.loggers import set_logging_format, silence_library_loggers
 from core.utils import read_file
 
@@ -26,6 +27,19 @@ def load_config(path: Path):
         print(e)
         raise SystemExit from e
     return config
+
+
+def parse_config(conf):
+    try:
+        actors, chains = ConfigParser.parse(conf)
+    except ValidationError as e:
+        logging.error(e)
+        raise SystemExit from e
+    except Exception as e:
+        logging.exception(e)
+        raise SystemExit from e
+    return actors, chains
+
 
 def handler(loop, context):
     logging.exception(f'unhandled exception in event loop:', exc_info=context.get('exception'))
@@ -53,16 +67,10 @@ async def run(runnables):
         tasks = pending
     logging.info('all tasks are finished in the main loop')
 
-def main(config_path: Path):
-    conf = load_config(config_path)
-    try:
-        actors, chains = ConfigParser.parse(conf)
-    except ValidationError as e:
-        logging.error(e)
-        raise SystemExit from e
-    except Exception as e:
-        logging.exception(e)
-        raise SystemExit from e
+
+def main(args):
+    conf = load_config(args.config)
+    actors, chains = parse_config(conf)
 
     for chain_name, chain_instance in chains.items():
         for actor_name, entities in chain_instance.conf:
@@ -77,6 +85,17 @@ def main(config_path: Path):
     asyncio.run(run(actors.values()), debug=True)
 
 
+def make_docs(args):
+    output = args.plugins_doc
+    doc = generate_plugins_description(output.suffix == 'html')
+    try:
+        with open(output, 'wt', encoding='utf8') as fp:
+            fp.write(doc)
+    except OSError as e:
+        logging.error(f'failed to write documentation file "{output}": {e}')
+        raise SystemExit from e
+    
+
 if __name__ == "__main__":
     description = '''Tool for monitoring rss feeds and other sources and running commands for new entries'''
     parser = argparse.ArgumentParser(description=description)
@@ -86,6 +105,8 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help=help_v)
     help_c = 'specify path to configuration file to use instead of default'
     parser.add_argument('-c', '--config', type=Path, default='config.yml', help=help_c)
+    help_h = 'write plugins documentation in given file and exit. Documentation format is deduced by file extension: html document for ".html", markdown otherwise'
+    parser.add_argument('-p', '--plugins-doc', type=Path, required=False, help=help_h)
     args = parser.parse_args()
 
     if args.debug:
@@ -97,4 +118,8 @@ if __name__ == "__main__":
 
     set_logging_format(log_level)
     silence_library_loggers()
-    main(args.config)
+
+    if args.plugins_doc is not None:
+        make_docs(args)
+    else:
+        main(args)
