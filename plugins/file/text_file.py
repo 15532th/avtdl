@@ -110,8 +110,8 @@ class FileActionConfig(ActorConfig):
 
 @Plugins.register('to_file', Plugins.kind.ACTOR_ENTITY)
 class FileActionEntity(ActorEntity):
-    path: Path = Path.cwd()
-    """Directory where output file should be created. Default is current directory"""
+    path: Optional[Path] = None
+    """directory where output file should be created. Default is current directory"""
     filename: str
     """Name of the output file. Supports templating with {...}""" # FIXME: describe templating
     encoding: Optional[str] = 'utf8'
@@ -129,7 +129,9 @@ class FileActionEntity(ActorEntity):
 
     @field_validator('path')
     @classmethod
-    def check_dir(cls, path: Path) -> Path:
+    def check_dir(cls, path: Optional[Path]) -> Path:
+        if path is None:
+            return Path.cwd()
         if utils.check_dir(path):
             return path
         raise ValueError(f'check if provided path points to a writeable directory')
@@ -149,7 +151,10 @@ class FileAction(Actor):
 
     def handle(self, entity: FileActionEntity, record: Record):
         filename = Fmt.format(entity.filename, record)
-        path = Path(entity.path).joinpath(filename)
+        if entity.path is None:
+            path = Path.cwd().joinpath(filename)
+        else:
+            path = Path(entity.path).joinpath(filename)
         if path.exists() and not entity.overwrite:
             self.logger.debug(f'[{entity.name}] file {path} already exists, not overwriting')
             return
