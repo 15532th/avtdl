@@ -194,8 +194,10 @@ def render_markdown(text: str) -> str:
     return html
 
 
-if __name__ == '__main__':
+def generate_plugins_description(as_html: bool = False):
     text = render_plugins_descriptions()
+    if not as_html:
+        return text
     html = render_markdown(text)
     html = HTML_PAGE_TEMPLATE.format(body=html)
-    ...
+    return html
