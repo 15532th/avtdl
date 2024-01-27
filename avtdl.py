@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from core.config import ConfigParser
 from core.loggers import set_logging_format, silence_library_loggers
+from core.utils import read_file
 
 
 def load_config(path: Path):
@@ -18,8 +19,8 @@ def load_config(path: Path):
         print('Configuration file {} does not exist'.format(path))
         raise SystemExit
     try:
-        with open(path, 'rt') as config_file:
-            config = yaml.load(config_file, Loader=yaml.FullLoader)
+        config_text = read_file(path)
+        config = yaml.load(config_text, Loader=yaml.FullLoader)
     except Exception as e:
         print('Failed to parse configuration file:')
         print(e)

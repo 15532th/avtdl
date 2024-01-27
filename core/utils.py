@@ -13,7 +13,7 @@ from math import log2
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter_ns
-from typing import Any, Callable, Dict, Hashable, List, Optional
+from typing import Any, Callable, Dict, Hashable, List, Optional, Union
 
 import aiohttp
 import lxml.html
@@ -361,3 +361,22 @@ def html_to_text(html: str) -> str:
         logger = logging.getLogger('html_to_text')
         logger.warning(e)
         return html
+
+
+def read_file(path: Union[str, Path], encoding=None) -> str:
+    """
+    Read and return file content in provided encoding
+
+    If decoding file content in provided encoding fails, try again using utf8.
+    If it also fails, let the exception to propagate. Handling OSError is also
+    left to caller.
+    """
+    with open(path, 'rt', encoding=encoding) as fp:
+        try:
+            text = fp.read()
+            return text
+        except UnicodeDecodeError:
+            pass
+    with open(path, encoding='utf8') as fp:
+        text = fp.read()
+        return text
