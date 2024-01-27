@@ -141,9 +141,6 @@ class HttpTaskMonitor(BaseTaskMonitor):
                 # network activity and potentially triggering associated errors
                 text = await response.text()
                 response.raise_for_status()
-                # fully read http response to get it cached inside ClientResponse object
-                # client code can then use it by awaiting .text() again without causing
-                # network activity and potentially triggering associated errors
         except Exception as e:
             if isinstance(e, aiohttp.ClientResponseError):
                 logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {url}')
