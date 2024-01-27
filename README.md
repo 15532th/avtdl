@@ -1,6 +1,6 @@
 ## avtdl
 
-Tool to monitor Youtube and some other streaming platforms for new streams and uploads and execute user-defined commands when it happens. It aims to provide a highly configurable environment for setting up automated archiving of new content with filtering and notifications support. It does not try to provide downloading streams itself and instead relies on executing commonly used well-known solutions for the task, such as `yt-dlp` or `streamlink`.
+Tool to monitor Youtube and some other streaming platforms for new streams and uploads and execute user-defined commands when it happens. It aims to provide a highly configurable environment for setting up automated archiving of new content with filtering and notifications support. It does not try to provide downloading streams itself and instead relies on executing commonly used well-known solutions for the task, such as `yt-dlp`.
 
 ### Features overview
 
@@ -24,7 +24,7 @@ Installing from git repository:
 
 - clone or download and unpack repository
 - (optionally) initialize and activate virtual environment
-- run `pip3 install -r requirements.txt`
+- inside the avtdl directory run `pip3 install -r requirements.txt`
 
 Installing from pypi: # not published yet
 
@@ -39,11 +39,13 @@ Prebuilt executable:
 
 #### Configuration file syntax
 
-Currently configuration is performed with configuration file that uses [YAML](https://yaml.org) format. It only uses basic features, but anything PyYAML can parse should work.
+Currently, configuration is performed with configuration file that uses [YAML](https://yaml.org) format. It only uses basic features, but anything PyYAML can parse should work.
 
 Just like JSON, YAML provides means to define a structure of nested sequences and `key: value` mappings, but is easier to read and requires less effort writing (especially if your text editor adds indentation automatically). It provides some complicated features, but basic syntax is simple enough to pick up just by reading examples. See section 2.1 of chapter 2 of [YAML specification](https://yaml.org/spec/1.2.0/#Preview) for introduction and basic examples.
 
-The basics of YAML syntax are sequences and mappings of key-value pairs. Each item in a sequence is preceded with `-`, mappings have format `key: value`. Both can be nested inside each other by using indentation levels. Each level of indentation uses exactly 2 space characters, tabs are not allowed. This is not always required, but is strongly recommended to enclose every value in a sequence or mapping with single or double quotes to avoid ambiguity. Syntax validation is part of config file parsing, and error message will be produced in case the file syntax is wrong. If message is unclear, try pasting configuration file text in any online YAML validator.
+The basics of YAML syntax are sequences and mappings of key-value pairs. Each item in a sequence is preceded with `-`, mappings have format `key: value`. Both can be nested inside each other by using indentation levels. Each level of indentation uses exactly 2 space characters, tabs are not allowed.
+
+This is not always required, but is strongly recommended to enclose every value in a sequence or mapping with single or double quotes to avoid ambiguity. Syntax validation is part of config file parsing, and error message will be produced in case the file syntax is wrong. If message is unclear, try pasting configuration file text in any online YAML validator.
 
 #### Configuration file terminology
 
@@ -102,7 +104,7 @@ Settings:
 
 ##### Actors
 
-This section must contain plugin names from [Description and configuration of available plugins](...). Each of them has following structure:
+This section must contain plugin names from [Description and configuration of available plugins](...). Each of them has the following structure:
 
 ```yaml
 Actors:
@@ -115,7 +117,7 @@ Actors:
       # <list of key-value pairs defining this plugin entities>
 ```
 
-Each plugin section contains three sub-sections: `config`, `defaults` and `entities`. Specific format is different for each plugin, see  [Description and configuration of available plugins](...) for details. Many plugins doesn't have `config` section, and `defaults` sections is not mandatory and can be omitted. If field description mention default value it means the field could be omitted from config section and default value would be used instead. Fields without defaults are mandatory. If section end up having no values (common for `config` section), it should be omitted.
+Each plugin section contains three subsections: `config`, `defaults` and `entities`. Specific format is different for each plugin, see  [Description and configuration of available plugins](...) for details. Many plugins don't have `config` section, and `defaults` sections is not mandatory and can be omitted. If field description mention default value it means the field could be omitted from config section and default value would be used instead. Fields without defaults are mandatory. If section end up having no values (common for `config` section), it should be omitted.
 
 Here is an example of `Actors` configuration section with a few plugins. Refer to sections in  [Description and configuration of available plugins](...) corresponding to plugin names for detailed explanations on options.
 
@@ -197,7 +199,7 @@ Main description of plugins configuration is provided in [Description and config
 
 Path to text file containing authorization cookies in Netscape format.
 
-After user logs in on a website, so called authorization or login cookies are set by the server and are then used to ensure consecutive requests for resources with limited access come from authorized user. Therefore in order to allow monitoring pages with limited access, such as subscriptions feed on Youtube, they should be send along with every update request.
+After user logs in on a website, so-called authorization or login cookies are set by the server and are then used to ensure consecutive requests for resources with limited access come from authorized user. Therefore, in order to allow monitoring pages with limited access, such as subscriptions feed on Youtube, they should be sent along with every update request.
 
 Text file with cookies is typically obtained by using a specialized browser extension. Such an extension would need to have access to all cookies across entire browser profile, so it should be chosen with care. Authorization cookies might expire or get updated after certain period of time or after user logs out in browser, so it is recommended to use the following procedure:
 
@@ -216,7 +218,7 @@ Headers are specified in `"key": "value"` format. This example ensures locale-de
 ```yaml
 Actors:
 
-  comminuty:
+  community:
     defaults:
       headers:
         "Accept-Language": "en-US,en;q=0.9"
@@ -279,7 +281,7 @@ To download archive use [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 Livestreams on Twitcasting are particularly sensitive to network connection latency, and recording file might often end up missing fragments if connection is not good enough or server is under high load. Using lower quality might help.
 
-Ongoing livestreams also can be downloaded with [yt-dlp](https://github.com/yt-dlp/yt-dlp). When specifying quality other than `best`, note that not every quality code is available on every stream and it is better to always specify `best` as a fallback option. 
+Ongoing livestreams also can be downloaded with [yt-dlp](https://github.com/yt-dlp/yt-dlp). When specifying quality other than `best`, note that not every quality code is available on every stream, and it is better to always specify `best` as a fallback option. 
 
 Another tool for downloading livestreams only is [TwcLazer](https://github.com/HoloArchivists/TwcLazer). It uses different download method compared to yt-dlp, so one might serve as alternative to another when something breaks due to changes on server side.
 
@@ -295,5 +297,5 @@ Note, that FC2 only allows a single window with particular livestream, and openi
 
 ##### Youtube community posts
 
-avtdl supports saving community post text in file natively, but as alternative, this fork of [youtube-community-tab](https://github.com/HoloArchivists/youtube-community-tab) might be used. It comes with `ytct.py` script that allows to download either a specific post by direct link or all new posts on a channel. Posts are stored in `json` format, which can be rendered to human readable text files with third party [ytct-convert.py](https://gist.github.com/15532th/111c8b32e5d82112379703f3eab51e49) script.
+avtdl supports saving community post text in file natively, but as alternative, this fork of [youtube-community-tab](https://github.com/HoloArchivists/youtube-community-tab) might be used. It comes with `ytct.py` script that allows to download either a specific post by direct link or all new posts on a channel. Posts are stored in `json` format, which can be rendered to human-readable text files with third party [ytct-convert.py](https://gist.github.com/15532th/111c8b32e5d82112379703f3eab51e49) script.
 
