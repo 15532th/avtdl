@@ -195,6 +195,16 @@ According to configuration in `Actors` section, `rss` plugin will check RSS feed
 
 Main description of plugins configuration is provided in [Description and configuration of available plugins](...), this section aims to explain some nuances of several options used in multiple plugins without overloading each plugin description.
 
+##### `update_interval`
+
+Interval between two consecutive updates of monitored url in seconds.
+
+It is generally advised to set it reasonable high to avoid triggering server rate limits. One sign of update rate being too high is presence of 503 and 429, as well as other error response codes in the app log and console output.
+
+Since requests to different urls on the same server are likely to be counted together, many entities with reasonable update interval each might also cause rate limit errors.
+
+Monitoring plugins will try to avoid doing many requests in a short interval of time by spacing update requests with the same `update_interval` evenly. For example, with three entities with `update_interval` set to 60 seconds, updates will be separated from each other by 20 seconds. Note that it means that the first update after startup might be delayed.
+
 ##### `cookies_file`
 
 Path to text file containing authorization cookies in Netscape format.
