@@ -154,7 +154,7 @@ of the existing file will produce duplicates of already sent records.
 ##### 
 * `update_interval`: how often monitored file should be checked, in seconds. Default value is `60`.
 * `encoding`: encoding used to open monitored file. If not specified default system-wide encoding is used. Not required.
-* `split_lines`: if true, each line of the file will create a separate record. Otherwise a single record will be generated with entire file content. Default value is `false`.
+* `split_lines`: if true, each line of the file will create a separate record. Otherwise, a single record will be generated with entire file content. Default value is `false`.
 
 
 #### Produced records types:
@@ -183,7 +183,7 @@ filled with values from the record fields: every occurrence of `{text}`
 in filename will be replaced with value of the `text` field of processed
 record, if the record has one.
 
-Allows writing record as human readable text representation or as names and
+Allows writing record as human-readable text representation or as names and
 values of the record fields in json format. For custom format template pass record
 through `filter.format` plugin prior to this one.
 
@@ -448,7 +448,7 @@ to use reasonable `update_interval` and keep eyes on 4XX and 5XX responses
 in log, as they might indicate server is under high load or refuses to
 communicate.
 
-Nitter has build in RSS feed, though not all instances enable it, so it
+Nitter has built in RSS feed, though not all instances enable it, so it
 can also be monitored with `generic_rss` plugin instead of this one.
 
 Twitter Spaces appears on user feed as normal tweets with text only
@@ -474,10 +474,10 @@ database is kept in memory and not stored on disk at all, providing a clean data
 * `adjust_update_interval`: change delay before next update based on response headers. This setting doesn't affect timeouts after failed requests. Default value is `true`.
 * `quiet_start`: throw away new records on the first update after application startup. Default value is `false`.
 * `quiet_first_time`: throw away new records produced on first update of given url. Default value is `true`.
-* `max_continuation_depth`: when updating feed with pagination support, only continue for this much pages. Default value is `10`.
+* `max_continuation_depth`: when updating feed with pagination support, only continue for this many pages. Default value is `10`.
 * `next_page_delay`: when updating feed with pagination support, wait this much before loading next page. Default value is `1`.
 * `allow_discontinuity`: when updating feed with pagination support, if this setting is enabled and error happens when loading a page, records from already parsed pages will not be dropped. It will allow update of the feed to finish, but older records from deeper pages will then never be parsed on consecutive updates. Default value is `false`.
-* `fetch_until_the_end_of_feed_mode`: when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they has been already parsed. Designed for purpose of archiving entire feed content. Default value is `false`.
+* `fetch_until_the_end_of_feed_mode`: when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they have been already parsed. Designed for purpose of archiving entire feed content. Default value is `false`.
 
 
 #### Produced records types:
@@ -887,10 +887,10 @@ database is kept in memory and not stored on disk at all, providing a clean data
 * `adjust_update_interval`: change delay before next update based on response headers. This setting doesn't affect timeouts after failed requests. Default value is `true`.
 * `quiet_start`: throw away new records on the first update after application startup. Default value is `false`.
 * `quiet_first_time`: throw away new records produced on first update of given url. Default value is `true`.
-* `max_continuation_depth`: when updating feed with pagination support, only continue for this much pages. Default value is `10`.
+* `max_continuation_depth`: when updating feed with pagination support, only continue for this many pages. Default value is `10`.
 * `next_page_delay`: when updating feed with pagination support, wait this much before loading next page. Default value is `1`.
 * `allow_discontinuity`: when updating feed with pagination support, if this setting is enabled and error happens when loading a page, records from already parsed pages will not be dropped. It will allow update of the feed to finish, but older records from deeper pages will then never be parsed on consecutive updates. Default value is `false`.
-* `fetch_until_the_end_of_feed_mode`: when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they has been already parsed. Designed for purpose of archiving entire feed content. Default value is `false`.
+* `fetch_until_the_end_of_feed_mode`: when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they have been already parsed. Designed for purpose of archiving entire feed content. Default value is `false`.
 
 
 #### Produced records types:
@@ -983,10 +983,10 @@ database is kept in memory and not stored on disk at all, providing a clean data
 * `adjust_update_interval`: change delay before next update based on response headers. This setting doesn't affect timeouts after failed requests. Default value is `true`.
 * `quiet_start`: throw away new records on the first update after application startup. Default value is `false`.
 * `quiet_first_time`: throw away new records produced on first update of given url. Default value is `true`.
-* `max_continuation_depth`: when updating feed with pagination support, only continue for this much pages. Default value is `10`.
+* `max_continuation_depth`: when updating feed with pagination support, only continue for this many pages. Default value is `10`.
 * `next_page_delay`: when updating feed with pagination support, wait this much before loading next page. Default value is `1`.
 * `allow_discontinuity`: when updating feed with pagination support, if this setting is enabled and error happens when loading a page, records from already parsed pages will not be dropped. It will allow update of the feed to finish, but older records from deeper pages will then never be parsed on consecutive updates. Default value is `false`.
-* `fetch_until_the_end_of_feed_mode`: when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they has been already parsed. Designed for purpose of archiving entire feed content. Default value is `false`.
+* `fetch_until_the_end_of_feed_mode`: when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they have been already parsed. Designed for purpose of archiving entire feed content. Default value is `false`.
 
 
 #### Produced records types:
