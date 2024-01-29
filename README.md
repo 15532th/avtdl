@@ -14,7 +14,7 @@ Some of supported features include:
 - sending notifications to Discord channel and as Jabber message
 
 
-For full list and description of features see [Description and configuration of available plugins](...)
+For full list and description of features see [Description and configuration of available plugins](PLUGINS.md)
 
 ### Installation
 
@@ -104,7 +104,7 @@ Settings:
 
 ##### Actors
 
-This section must contain plugin names from [Description and configuration of available plugins](...). Each of them has the following structure:
+This section must contain plugin names from [Description and configuration of available plugins](PLUGINS.md). Each of them has the following structure:
 
 ```yaml
 Actors:
@@ -117,9 +117,9 @@ Actors:
       # <list of key-value pairs defining this plugin entities>
 ```
 
-Each plugin section contains three subsections: `config`, `defaults` and `entities`. Specific format is different for each plugin, see  [Description and configuration of available plugins](...) for details. Many plugins don't have `config` section, and `defaults` sections is not mandatory and can be omitted. If field description mention default value it means the field could be omitted from config section and default value would be used instead. Fields without defaults are mandatory. If section end up having no values (common for `config` section), it should be omitted.
+Each plugin section contains three subsections: `config`, `defaults` and `entities`. Specific format is different for each plugin, see  [Description and configuration of available plugins](PLUGINS.md) for details. Many plugins don't have `config` section, and `defaults` sections is not mandatory and can be omitted. If field description mention default value it means the field could be omitted from config section and default value would be used instead. Fields without defaults are mandatory. If section end up having no values (common for `config` section), it should be omitted.
 
-Here is an example of `Actors` configuration section with a few plugins. Refer to sections in  [Description and configuration of available plugins](...) corresponding to plugin names for detailed explanations on options.
+Here is an example of `Actors` configuration section with a few plugins. Refer to sections in  [Description and configuration of available plugins](PLUGINS.md) corresponding to plugin names for detailed explanations on options.
 
 ```yaml
 Actors:
@@ -193,7 +193,7 @@ According to configuration in `Actors` section, `rss` plugin will check RSS feed
 
 #### Common options
 
-Main description of plugins configuration is provided in [Description and configuration of available plugins](...), this section aims to explain some nuances of several options used in multiple plugins without overloading each plugin description.
+Main description of plugins configuration is provided in [Description and configuration of available plugins](PLUGINS.md), this section aims to explain some nuances of several options used in multiple plugins without overloading each plugin description.
 
 ##### `update_interval`
 
