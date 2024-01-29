@@ -323,17 +323,17 @@ This is useful when the application is running on remote machine or when message
 
 Not all date and time values are presented in a form that can be easily parsed. Record fields, referred to as "localized" in field description, for example `published_text` of `YoutubeVideoRecord`, are not affected by this option. They can be manipulated at source plugin by setting HTTP headers with `headers` plugin.
 
-##### Formatting templates
-
-Allows to populate a predefined text string with value of current record fields. Used for making dynamic, for example, output file name, or to change text representation of the record with help of `filter.format` plugin.
-
-Formatting is performed by taking any text enclosed in `{}` and, if it contains name of field of the currently processed record, replacing it with value of the field.
-
 ##### `fetch_until_the_end_of_feed_mode`
 
 Intended for one time use, to allow loading, for example, entire playlist or all available posts on community tab on Youtube for archiving purposes. 
 
 Normally, when updating community tab or a user page on Nitter instance, plugin will stop after encountering posts that have already been seen on previous updates or when maximum depth is reached. If this option is enabled, the plugin will try to load all pages available on first update and will continue trying until it succeeds at least once. After that it is recommended to delete this option from the config to avoid unnecessarily load on server on the app restart.
+
+##### Formatting templates
+
+Allows to populate a predefined text string with value of current record fields. Used for making dynamic, for example, output file name, or to change text representation of the record with help of `filter.format` plugin.
+
+Formatting is performed by taking any text enclosed in `{}` and, if it contains name of field of the currently processed record, replacing it with value of the field.
 
 #### Tools commonly used for downloading livestreams
 
