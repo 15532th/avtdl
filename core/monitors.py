@@ -243,7 +243,7 @@ class RecordDB(BaseRecordDB):
 
 
 class BaseFeedMonitorConfig(ActorConfig):
-    db_path: Union[Path, str] = ':memory:'
+    db_path: Union[Path, str] = 'db/'
     """path to sqlite database file keeping history of old records of this monitor.
     Might specify a path to a directory containing the file (with trailing slash)
     or direct path to the file itself (without a slash). If special value `:memory:` is used,
