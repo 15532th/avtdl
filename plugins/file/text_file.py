@@ -10,7 +10,7 @@ from core import utils
 from core.config import Plugins
 from core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record, TextRecord
 from core.monitors import HIGHEST_UPDATE_INTERVAL, TaskMonitor, TaskMonitorEntity
-from core.utils import Fmt, OutputFormat, read_file
+from core.utils import Fmt, OutputFormat, read_file, sanitize_filename
 
 Plugins.register('from_file', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
 
@@ -169,6 +169,7 @@ class FileAction(Actor):
 
     def handle(self, entity: FileActionEntity, record: Record):
         filename = Fmt.format(entity.filename, record)
+        filename = sanitize_filename(filename)
         if entity.path is None:
             path = Path.cwd().joinpath(filename)
         else:
