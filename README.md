@@ -2,6 +2,39 @@
 
 Tool to monitor Youtube and some other streaming platforms for new streams and uploads and execute user-defined commands when it happens. It aims to provide a highly configurable environment for setting up automated archiving of new content with filtering and notifications support. It does not try to provide downloading streams itself and instead relies on executing commonly used well-known solutions for the task, such as `yt-dlp`.
 
+---
+
+<!-- TOC -->
+  * [avtdl](#avtdl)
+    * [Features overview](#features-overview)
+    * [Installation](#installation)
+    * [Configuration](#configuration)
+      * [Configuration file syntax](#configuration-file-syntax)
+      * [Configuration file terminology](#configuration-file-terminology)
+      * [Configuration file format](#configuration-file-format)
+        * [Settings](#settings)
+        * [Actors](#actors)
+        * [Chains](#chains)
+      * [Examples](#examples)
+        * [Download livestreams from youtube channel](#download-livestreams-from-youtube-channel)
+        * [Save community posts to files](#save-community-posts-to-files)
+        * [Send posts from Nitter instance to Discord](#send-posts-from-nitter-instance-to-discord)
+      * [Common options](#common-options)
+        * [`update_interval`](#updateinterval)
+        * [`cookies_file`](#cookiesfile)
+        * [`headers`](#headers)
+        * [`timezone`](#timezone)
+        * [`fetch_until_the_end_of_feed_mode`](#fetchuntiltheendoffeedmode)
+        * [Formatting templates](#formatting-templates)
+      * [Tools commonly used for downloading livestreams](#tools-commonly-used-for-downloading-livestreams)
+        * [Youtube](#youtube)
+        * [Twitcasting](#twitcasting)
+        * [FC2](#fc2)
+        * [Youtube community posts](#youtube-community-posts)
+<!-- TOC -->
+
+---
+
 ### Features overview
 
 Some of supported features include:
