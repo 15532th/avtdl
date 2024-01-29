@@ -184,12 +184,91 @@ Chains:
 In this example a single `chain` named "new streams notifications" declares that all records produced by two entities of `rss` monitor are forwarded into `discord.hook` entity to be sent as messages into Discord channel.
 According to configuration in `Actors` section, `rss` plugin will check RSS feeds of the two Youtube channels every 3600 seconds. When new video is uploaded, new entry appears in the RSS feed, leading to new `record` being generated on the next update. Due to `rss` plugin entities being listed in the `chain`, it then gets fed into `discord.hook` "notifications" entity, which in turn will convert the `record` in fitting representation and send it to Discord by making request to webhook url.
 
-#### Examples # are yet to be added
+#### Examples
 
+##### Download livestreams from youtube channel
 
-- download livestreams from youtube channel (plus member-only)
-- save community posts to files
-- send nitter posts to discord
+Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with default update interval of 30 minutes, send new publications urls to `ytarchive`, run in dedicated directories.
+
+```yaml
+Actors:
+  channel:
+    entities:
+      - name: "ChannelName"
+        url: "https://www.youtube.com/@ChannelName"
+      - name: "AnotherChannelName"
+        url: "https://www.youtube.com/@AnotherChannelName"
+
+  execute:
+    default:
+      command: "ytarchive --threads 3 --wait {url} best"
+    entities:
+      - name: "ChannelName"
+        working_dir: "archive/livestreams/channelname/"
+      - name: "AnotherChannelName"
+        working_dir: "archive/livestreams/anotherchannelname/"
+
+Chains:
+  "archive ChannelName":
+    - channel:
+        - "ChannelName"
+    - execute:
+        - "ChannelName"
+  "archive AnotherChannelName":
+    - channel:
+        - "AnotherChannelName"
+    - execute:
+        - "AnotherChannelName"
+```
+
+##### Save community posts to files
+
+Monitor community page of `@ChannelName` and save each new post as a text file, using post id as a name. Uses cookies to access member-only posts.
+
+```yaml
+Actors:
+  community:
+    entities:
+      - name: "ChannelName"
+        url: "https://www.youtube.com/@ChannelName/community"
+        cookies_file: cookies.txt
+
+  to_file:
+    entities:
+      - name: "ChannelName"
+        path: "archive/community/channelname/"
+        filename: "{post_id}.txt"
+
+Chains:
+  "community posts on ChannelName":
+    - community:
+        - "ChannelName"
+    - to_file:
+        - "ChannelName"
+```
+
+##### Send posts from Nitter instance to Discord
+
+Monitor `@UserName` posts by parsing `nitter.net` once every two hours, send messages to Discord channel using webhook.
+
+```yaml
+Actors:
+  nitter:
+    - name: "UserName"
+      url: "https://nitter.net/username/with_replies"
+      update_interval: 7200
+
+  discord.hook:
+    - name: "my server"
+      url: "https://discord.com/api/webhooks/..."
+
+Chains:
+  "repost UserName":
+    - nitter:
+        - "UserName"
+    - discord.hook:
+        - "my server"
+```
 
 #### Common options
 
