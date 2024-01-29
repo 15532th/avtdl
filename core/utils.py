@@ -238,13 +238,17 @@ class Delay:
 
     @classmethod
     def _inv_sigmoid(cls, y: float) -> float:
+        # raises ValueError if y >= cls.A
         x = cls.x0 - log2((cls.A - y) / y) / cls.k
         return x
 
     @classmethod
     def get_next(cls, current: float) -> float:
         '''Find current value on S-shaped curve and return a next one'''
-        current_step = cls._inv_sigmoid(current)
+        try:
+            current_step = cls._inv_sigmoid(current)
+        except ValueError:
+            current_step = current
         next_step = current_step + 1
         next_delay = cls._sigmoid(next_step)
         return next_delay
