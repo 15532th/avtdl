@@ -27,7 +27,7 @@ class FileMonitorEntity(TaskMonitorEntity):
     path: Path
     """path to monitored file"""
     split_lines: bool = False
-    """if true, each line of the file will create a separate record. Otherwise a single record will be generated with entire file content"""
+    """if true, each line of the file will create a separate record. Otherwise, a single record will be generated with entire file content"""
     update_interval: float = 60
     """how often monitored file should be checked, in seconds"""
     mtime: float = Field(exclude=True, default=-1)
@@ -153,7 +153,7 @@ class FileAction(Actor):
     in filename will be replaced with value of the `text` field of processed
     record, if the record has one.
 
-    Allows writing record as human readable text representation or as names and
+    Allows writing record as human-readable text representation or as names and
     values of the record fields in json format. For custom format template pass record
     through `filter.format` plugin prior to this one.
 

@@ -382,13 +382,13 @@ class PagedFeedMonitorConfig(BaseFeedMonitorConfig):
 
 class PagedFeedMonitorEntity(BaseFeedMonitorEntity):
     max_continuation_depth: int = 10
-    """when updating feed with pagination support, only continue for this much pages"""
+    """when updating feed with pagination support, only continue for this many pages"""
     next_page_delay: float = 1
     """when updating feed with pagination support, wait this much before loading next page"""
     allow_discontinuity: bool = False # store already fetched records on failure to load one of older pages
     """when updating feed with pagination support, if this setting is enabled and error happens when loading a page, records from already parsed pages will not be dropped. It will allow update of the feed to finish, but older records from deeper pages will then never be parsed on consecutive updates"""
     fetch_until_the_end_of_feed_mode: bool = False
-    """when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they has been already parsed. Designed for purpose of archiving entire feed content"""
+    """when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they have been already parsed. Designed for purpose of archiving entire feed content"""
 
     def model_post_init(self, __context: Any) -> None:
         if self.fetch_until_the_end_of_feed_mode:

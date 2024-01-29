@@ -162,7 +162,7 @@ class NitterMonitor(PagedFeedMonitor):
     in log, as they might indicate server is under high load or refuses to
     communicate.
 
-    Nitter has build in RSS feed, though not all instances enable it, so it
+    Nitter has built in RSS feed, though not all instances enable it, so it
     can also be monitored with `generic_rss` plugin instead of this one.
 
     Twitter Spaces appears on user feed as normal tweets with text only
