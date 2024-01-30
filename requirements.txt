@@ -1,0 +1,10 @@
+pydantic
+aiohttp
+multidict
+feedparser
+python-dateutil
+slixmpp
+lxml
+PyYAML
+Markdown
+requests
