@@ -23,15 +23,15 @@ class FileMonitorConfig(ActorConfig):
 @Plugins.register('from_file', Plugins.kind.ACTOR_ENTITY)
 class FileMonitorEntity(TaskMonitorEntity):
     encoding: Optional[str] = None
-    """encoding used to open monitored file. If not specified default system-wide encoding is used"""
+    """encoding used to open the monitored file. If not specified, default system-wide encoding is used"""
     path: Path
-    """path to monitored file"""
+    """path to the monitored file"""
     split_lines: bool = False
-    """if true, each line of the file will create a separate record. Otherwise, a single record will be generated with entire file content"""
+    """if true, each line of the file will create a separate record. Otherwise, a single record will be generated with the entire file content"""
     update_interval: float = 60
-    """how often monitored file should be checked, in seconds"""
+    """how often the monitored file should be checked, in seconds"""
     mtime: float = Field(exclude=True, default=-1)
-    """internal variable to persist state between updates. Used to check if file has changed"""
+    """internal variable to persist state between updates. Used to check if the file has changed"""
     base_update_interval: float = Field(exclude=True, default=60)
     """internal variable to persist state between updates. Used to restore configured update interval after delay on network request error"""
 
@@ -46,8 +46,8 @@ class FileMonitor(TaskMonitor):
     """
     Monitor content of a text file
 
-    On specified intervals check existence and last modification time
-    of target file, and if it changed read file content
+    On specified intervals, check existence and last modification time
+    of target file, and if it has changed, read file contents
     either line by line or as a whole and emit it as a text record(s).
 
     Records are not checked for uniqueness, so appending content to the end
@@ -123,11 +123,11 @@ class FileActionEntity(ActorEntity):
     overwrite: bool = True
     """whether file should be overwritten in if it already exists"""
     append: bool = True
-    """if true, new record will be written in the end of the file without overwriting already present lines"""
+    """if true, new record will be written at the end of the file without overwriting already present lines"""
     prefix: str = ''
-    """string that will be appended before record text. Can be used to separate records from each other or for simple templating"""
+    """string that will be appended before the record text. Can be used to separate records from each other or for simple templating"""
     postfix: str = '\n'
-    """string that will be appended after record text"""
+    """string that will be appended after the record text"""
 
     @field_validator('path')
     @classmethod
@@ -144,17 +144,17 @@ class FileAction(Actor):
     """
     Write record to a text file
 
-    Takes record coming from a Chain, converts it to text representation,
-    and write to a file in given directory. When file already exists,
+    Takes a record coming from a Chain, converts it to text representation,
+    and writes to a file in given directory. When a file already exists,
     new records can be appended to the end of the file or overwrite it.
 
-    Output file name can be static or generated dynamically based on template
+    Output file name can be static or generated dynamically based on the template
     filled with values from the record fields: every occurrence of `{text}`
-    in filename will be replaced with value of the `text` field of processed
+    in filename will be replaced with the value of the `text` field of processed
     record, if the record has one.
 
-    Allows writing record as human-readable text representation or as names and
-    values of the record fields in json format. For custom format template pass record
+    Allows writing the record as human-readable text representation or as names and
+    values of the record fields in json format. For custom format template, pass the record
     through `filter.format` plugin prior to this one.
 
     Produces `Event` with `error` type if writing to target file fails.
@@ -162,7 +162,7 @@ class FileAction(Actor):
     Note discrepancy between default value of `encoding` setting between `from_file`
     and `to_file` plugins. Former is expected to be able to read files produced by
     different software and therefore relies on system-wide settings. It would make
-    sense to do the same in latter, but it would introduce possibility of failing
+    sense to do the same in the latter, but it would introduce possibility of failing
     to write records containing text with Unicode codepoints that cannot be represented
     using system-wide encoding.
     """

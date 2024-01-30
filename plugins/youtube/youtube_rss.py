@@ -19,28 +19,28 @@ from plugins.youtube.common import thumbnail_url
 @Plugins.register('rss', Plugins.kind.ASSOCIATED_RECORD)
 class YoutubeFeedRecord(Record):
     """
-    Youtube video or livestream parsed from channel RSS feed
+    Youtube video or livestream parsed from a channel's RSS feed
     """
     model_config = ConfigDict(extra='allow')
 
     url: str
     """link to the video"""
     title: str
-    """title of the video at time of parsing"""
+    """title of the video at the time of parsing"""
     published: datetime
-    """published value of the feed item, usually the time when video was uploaded or livestream frame was set up"""
+    """published value of the feed item, usually the time when the video was uploaded or the livestream frame was set up"""
     updated: datetime
-    """updated value of the feed item. If different from `published` might indicate either a change to video title, thumbnail or description, or change in video status, for example livestream ending"""
+    """updated value of the feed item. If different from `published`, might indicate either a change to video title, thumbnail or description, or a change in video status, for example livestream ending"""
     author: str
-    """author name, as shown on channel icon"""
+    """author's name, as shown on the channel icon"""
     video_id: str
-    """short string identifying video on Youtube. Part of video url"""
+    """short string identifying the video on Youtube. Part of the video url"""
     summary: str
-    """video description"""
+    """video's description"""
     views: Optional[int]
     """current number of views. Is zero for upcoming and ongoing livestreams"""
     scheduled: Optional[datetime] = None
-    """for upcoming livestream is a time it is scheduled to go live at, otherwise absent"""
+    """scheduled time for an upcoming livestream to start at, otherwise absent"""
 
     async def check_scheduled(self, session: Optional[aiohttp.ClientSession] = None):
         if self.views == 0:
@@ -125,7 +125,7 @@ class FeedMonitorEntity(GenericRSSMonitorEntity):
     update_interval : float = 900
     """How often the feed should be updated, in seconds"""
     track_reschedule: bool = True
-    """Keep track of scheduled time of upcoming streams, emit record again if it changed to earlier date"""
+    """Keep track of scheduled time of upcoming streams, emit record again if it is changed to an earlier date"""
 
 @Plugins.register('rss', Plugins.kind.ACTOR_CONFIG)
 class FeedMonitorConfig(GenericRSSMonitorConfig):
@@ -141,16 +141,16 @@ class FeedMonitor(GenericRSSMonitor):
     RSS feed url for a given channel, use "View Source" on a channel page
     and search for "rss".
 
-    Example of supported url:
+    Example of a supported url:
 
     - `https://www.youtube.com/feeds/videos.xml?channel_id=UCK0V3b23uJyU4N8eR_BR0QA`
 
-    RSS feed is smaller and faster to parse compared to HTML channel page,
+    RSS feed is smaller and faster to parse compared to an HTML channel page,
     but by design only shows updates of a single channel and doesn't support
     authentication and therefore unable to show member-only streams.
 
-    Scheduled date for upcoming streams is not present in feed itself, so it
-    is obtained by fetching and parsing video page first time it appears in
+    Scheduled date for upcoming streams is not present in the feed itself, so it
+    is obtained by fetching and parsing video page the first time it appears in
     the feed. It then gets updated until stream goes live, unless `track_reschedule`
     option is disabled.
 

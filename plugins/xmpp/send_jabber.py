@@ -44,10 +44,10 @@ class JabberEntity(ActorEntity):
 @Plugins.register('xmpp', Plugins.kind.ACTOR)
 class SendJabber(Actor):
     """
-    Send record as a Jabber message
+    Send records as Jabber messages
 
-    Converts records to text representation and sends them as messages
-    to specified recipients. Sends each record in separate message,
+    Converts records to a text representation and sends them as messages
+    to specified recipients. Sends each record in a separate message,
     does not impose any limits on frequency or size of messages, leaving
     it to server side.
     """

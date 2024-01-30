@@ -20,13 +20,13 @@ from plugins.youtube.common import extract_keys, find_all, find_one, get_innertu
 class YoutubeChatRecord(Record):
     """Youtube chat message"""
     author: str
-    """name of the message author"""
+    """message author's name"""
     channel: str
-    """message author channel url"""
+    """message author's channel url"""
     badges: List[str]
-    """localized list of message author badges (owner, moderator, member, verified and so on)"""
+    """localized list of message author's badges (owner, moderator, member, verified and so on)"""
     timestamp: int
-    """time when message was sent"""
+    """timestamp (UNIX time) of when the message was sent"""
     text: Optional[str] = None
     """message content as plaintext"""
     amount: Optional[str] = None
@@ -35,7 +35,7 @@ class YoutubeChatRecord(Record):
     """used for special objects in chat, such as pinned messages"""
     message_header: Optional[str] = None
     sticker: Optional[str] = None
-    """supersticker name if message is a supersticker, otherwise empty"""
+    """supersticker name if the message is a supersticker, otherwise empty"""
 
     uid: str
     """unique id of the message"""
@@ -127,9 +127,9 @@ class YoutubeChatMonitor(BaseFeedMonitor):
     """
     Youtube livechat monitor
 
-    Monitor chat of Youtube livestream and produce a record
+    Monitor chat of a Youtube livestream and produce a record
     for each chat message. Though it is capable of processing
-    a chat on ongoing stream and chat replay on a stream VOD,
+    chat on an ongoing stream and chat replay on a stream VOD,
     the main purpose is to monitor and preserve chat of upcoming
     livestreams.
 
@@ -185,16 +185,16 @@ class YoutubeChatMonitor(BaseFeedMonitor):
             self.logger.debug(f'[{entity.name}] {text}')
 
         if continuation is None:
-            self.logger.warning(f'[{entity.name}] first page has no continuation token. Video has no chat or error loading it happened')
+            self.logger.warning(f'[{entity.name}] first page has no continuation token. Video has no chat or an error occured while loading it')
             entity.context.done = True
         return actions
 
     async def _get_next(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
         if entity.context.innertube_context is None:
-            self.logger.warning(f'[{entity}] continuation token is present in absence of initial data. This is a bug')
+            self.logger.warning(f'[{entity}] continuation token is present in an absence of initial data. This is a bug')
             return {}
         if entity.context.continuation_url is None:
-            self.logger.warning(f'[{entity}] continuation token is present in absence of continuation url. This is a bug')
+            self.logger.warning(f'[{entity}] continuation token is present in an absence of continuation url. This is a bug')
             return {}
         _, headers, post_body = prepare_next_page_request(entity.context.innertube_context, entity.context.continuation_token)
         page = await utils.request(entity.context.continuation_url, session, self.logger, method='POST', headers=headers,

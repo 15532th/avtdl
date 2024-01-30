@@ -113,7 +113,7 @@ class MessageFormatter:
     @classmethod
     def format(cls, records: List[Record]) -> Tuple[dict, List[Record]]:
         '''take records and format them in Discord webhook payload as embeds
-        after limit on embeds is reached, the rest of records is returned back'''
+        after the limit on embeds is reached, the rest of the records are returned back'''
         embeds: List[dict] = []
         excess_records = []
         for i, record in enumerate(records):
@@ -218,12 +218,12 @@ class DiscordHook(Actor):
     <https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks>
 
     Some record types support rich formatting when sent to Discord, such as
-    showing author's avatar and links to attached images. Youtube videos will
+    showing the author's avatar and links to attached images. Youtube videos will
     show thumbnail, however embedding video itself is not supported.
 
     Records coming within six seconds one after another will be batched together into a single message.
-    When too many records are received at once, they will be sent with delays to conform Discord
-    rate limits. Records deemed to be too long to fit in Discord message
+    When too many records are received at once, they will be sent with delays to conform to Discord
+    rate limits. Records deemed to be too long to fit in a Discord message
     [length limits](https://discord.com/developers/docs/resources/channel#create-message-jsonform-params)
     will be dropped with a warning.
     """

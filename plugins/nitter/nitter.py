@@ -38,7 +38,7 @@ class NitterRecord(Record):
     username: str
     """user's handle"""
     avatar_url: Optional[str] = None
-    """link to the picture used as user's avatar"""
+    """link to the picture used as the user's avatar"""
     published: datetime.datetime
     """tweet timestamp"""
     text: str
@@ -152,17 +152,17 @@ class NitterMonitor(PagedFeedMonitor):
     Monitors recent tweets, retweets and replies of Twitter user
     by scraping and parsing data from a Nitter instance.
 
-    Examples of supported url:
+    Examples of supported urls:
 
     - `https://nitter.net/username`
     - `https://nitter.net/username/with_replies`
 
-    Some instances might not be happy getting automated scraping. Make sure
-    to use reasonable `update_interval` and keep eyes on 4XX and 5XX responses
+    Some instances might not be happy about getting automated scraping. Make sure
+    to use a reasonable `update_interval` and keep an eye out for 4XX and 5XX responses
     in log, as they might indicate server is under high load or refuses to
     communicate.
 
-    Nitter has built in RSS feed, though not all instances enable it, so it
+    Nitter has a built-in RSS feed, though not all instances enable it, so it
     can also be monitored with `generic_rss` plugin instead of this one.
 
     Twitter Spaces appears on user feed as normal tweets with text only
@@ -323,11 +323,11 @@ class NitterFilterEntity(FilterEntity):
     quote: bool = False
     """match quotes"""
     regular_tweet: bool = False
-    """match regular tweets, that are not a retweet, reply or quote"""
+    """match regular tweets that are not a retweet, reply or quote"""
     author: Optional[str] = None
-    """match if given string is a part of the name of the author of the tweet"""
+    """match if a given string is a part of the name of the author of the tweet"""
     username: Optional[str] = None
-    """match if given string is a part of tweet author's username (without the "@" symbol)"""
+    """match if a given string is a part of tweet author's username (without the "@" symbol)"""
 
 
 @Plugins.register('filter.nitter.pick', Plugins.kind.ACTOR)

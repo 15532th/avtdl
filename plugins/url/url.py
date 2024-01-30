@@ -20,15 +20,15 @@ class UrlMonitorEntity(HttpTaskMonitorEntity):
     url: str
     """url to monitor"""
     last_record_hash: Optional[str] = Field(exclude=True, default=None)
-    """internal variable to persist state between updates. Used to keep hash of page content on previous update"""
+    """internal variable to persist state between updates. Used to keep hash of the page contents on previous update"""
 
 @Plugins.register('get_url', Plugins.kind.ACTOR)
 class UrlMonitor(HttpTaskMonitor):
     """
     Monitor web page text
 
-    Download content of web page at `url` and emit it as a `TextRecord`
-    if it has changed since last update. Intended for working with simple
+    Download contents of web page at `url` and emit it as a `TextRecord`
+    if it has changed since the last update. Intended for working with simple
     text endpoints.
     """
 

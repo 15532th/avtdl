@@ -16,7 +16,7 @@ class Record(BaseModel):
 
     @abstractmethod
     def __str__(self) -> str:
-        '''Text representation of the record to be sent in message, written to file etc.'''
+        '''Text representation of the record to be sent in a message, written to a file etc.'''
 
     @abstractmethod
     def __repr__(self) -> str:
@@ -62,7 +62,7 @@ class EventType:
 
 class Event(Record):
     """
-    Record produced by internal event (usually error) inside the plugin
+    Record produced by an internal event (usually error) inside the plugin
     """
 
     event_type: str = EventType.generic
@@ -131,7 +131,7 @@ class ActorConfig(BaseModel):
 
 class ActorEntity(BaseModel):
     name: str
-    """name of specific entity. Used to reference it in `Chains` section. Must be unique within a plugin"""
+    """name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin"""
 
 class Actor(ABC):
 
@@ -158,7 +158,7 @@ class Actor(ABC):
 
     @abstractmethod
     def handle(self, entity: ActorEntity, record: Record) -> None:
-        '''Perform action on record if entity in self.entities'''
+        '''Perform an action on record if entity in self.entities'''
 
     def on_record(self, entity: ActorEntity, record: Record):
         '''Implementation should call it for every new Record it produces'''
@@ -191,6 +191,6 @@ class Filter(Actor):
 
     @abstractmethod
     def match(self, entity: FilterEntity, record: Record) -> Optional[Record]:
-        '''Take record and return it if it matches some condition
+        '''Take a record and return it if it matches some condition
         or otherwise process it, else return None'''
 
