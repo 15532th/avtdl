@@ -61,17 +61,17 @@ class GenericRSSMonitor(BaseFeedMonitor):
     Monitors RSS feed for new entries. Will attempt to adjust
     update interval based on HTTP response headers.
 
-    Depending on specific feed format, fields names and content
+    Depending on a specific feed format, fields names and content
     might vary greatly. Commonly present standardized fields are
     `url`, `title` and `author`, though they might be empty
     in some feeds.
 
-    Before defining a command to be executed for records of newly
-    set feed it is recommended to inspect feed entity content by
+    Before defining a command to be executed for records of a newly
+    added feed it is recommended to inspect the feed entity content by
     forwarding records in a file in JSON format using `to_file` plugin.
 
-    Normally feeds have some kind of value to unique identify
-    feed entries, but in case there is none parser will attempt
+    Normally feeds have some kind of value to uniquely identify
+    feed entries, but in case there is none, parser will attempt
     to create one by combining `link` and `title` or `summary` fields.
     """
 

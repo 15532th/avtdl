@@ -12,7 +12,7 @@ from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 @Plugins.register('twitch', Plugins.kind.ASSOCIATED_RECORD)
 class TwitchRecord(Record):
-    """Represents even of user going live on Twitch"""
+    """Represents event of a user going live on Twitch"""
     url: str
     """channel url"""
     username: str
@@ -31,11 +31,11 @@ class TwitchRecord(Record):
 @Plugins.register('twitch', Plugins.kind.ACTOR_ENTITY)
 class TwitchMonitorEntity(HttpTaskMonitorEntity):
     username: str
-    """Twitch username of monitored channel"""
+    """Twitch username of a monitored channel"""
     update_interval: int = 300
-    """how often user will be checked for being live, in seconds"""
+    """how often the user will be checked for being live, in seconds"""
     most_recent_stream: Optional[str] = Field(exclude=True, default=None)
-    """internal variable to persist state between updates. Used to keep last id to detect if current livestream is the same as in the previous update"""
+    """internal variable to persist state between updates. Used to keep last id to detect if the current livestream is the same as from the previous update"""
 
 
 @Plugins.register('twitch', Plugins.kind.ACTOR_CONFIG)
@@ -48,7 +48,7 @@ class TwitchMonitor(HttpTaskMonitor):
     """
     Monitor for twitch.tv
 
-    Monitors twitch.tv user with given username, produces record when it goes live.
+    Monitors twitch.tv user with given username, produces a record when it goes live.
     For user `https://www.twitch.tv/username` username would be `username`.
     """
     async def get_new_records(self, entity: TwitchMonitorEntity, session: aiohttp.ClientSession) -> Sequence[TwitchRecord]:

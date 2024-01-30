@@ -11,11 +11,11 @@ from core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 
 @Plugins.register('twitcast', Plugins.kind.ASSOCIATED_RECORD)
 class TwitcastRecord(Record):
-    """Represents even of user going live on Twitcasting"""
+    """Represents an event of a user going live on Twitcasting"""
     user_id: str
-    """unique part of channel url"""
+    """unique part of the channel url"""
     movie_id: str
-    """unique id for current livestream"""
+    """unique id for the current livestream"""
     url: str
     """user (channel) url"""
     movie_url: str
@@ -35,11 +35,11 @@ class TwitcastMonitorEntity(HttpTaskMonitorEntity):
     user_id: str
     """user id that should be monitored"""
     update_interval: float = 60
-    """how often user will be checked for being live, in seconds"""
+    """how often the user will be checked for being live, in seconds"""
     adjust_update_interval: bool = Field(exclude=True, default=True)
-    """does not do much since Twitcasting does not use caching headers on endpoint used to check live status"""
+    """does nothing since Twitcasting does not use caching headers on endpoint used to check live status"""
     most_recent_movie: Optional[str] = Field(exclude=True, default=None)
-    """internal variable to persist state between updates. Used to keep movie_id to detect if current live is the same as in the last update"""
+    """internal variable to persist state between updates. Used to keep movie_id to detect if the current live is the same as from the last update"""
 
 
 @Plugins.register('twitcast', Plugins.kind.ACTOR_CONFIG)
@@ -51,15 +51,15 @@ class TwitcastMonitor(HttpTaskMonitor):
     """
     Monitor for twitcasting.tv
 
-    Monitors twitcasting.tv user with given id, produces record when it goes live.
+    Monitors twitcasting.tv user with a given id, produces a record when it goes live.
     For user `https://twitcasting.tv/c:username` user id would be `c:username`.
 
-    Streams on Twitcasting might be set to be visible only for members of specific group.
+    Streams on Twitcasting might be set to be visible only for members of a specific group.
     For monitoring such streams it is necessarily to provide login cookies of
-    account being member of the group. Password-protected and age-restricted streams
+    an account being a member of the group. Password-protected and age-restricted streams
     do not require that.
 
-    Rate limits for endpoint used to check if user is live are likely relatively high,
+    Rate limits for the endpoint used to check if user is live are likely relatively high,
     but it is better to keep `update_interval` big enough for combined amount of updates
     for all monitored users to not exceed one request per second.
     """
@@ -75,7 +75,7 @@ class TwitcastMonitor(HttpTaskMonitor):
 
         movie_id = await self.get_movie_id(entity, session)
         if movie_id is None:
-            self.logger.warning(f'[{entity.name}] failed to get movie id, will report this record again if it was temporarily error, will never report new records if it is permanent')
+            self.logger.warning(f'[{entity.name}] failed to get movie id, will report this record again if it was a temporary error, will never report new records if it is permanent')
             movie_id = 'movie id is unknown'
         if movie_id == entity.most_recent_movie:
             self.logger.debug(f'[{entity.name}] user {entity.user_id} is live with movie {entity.most_recent_movie}, but record was already created')

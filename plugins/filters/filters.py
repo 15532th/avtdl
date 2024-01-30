@@ -31,10 +31,10 @@ class NoopFilter(Filter):
     """
     Pass everything through
 
-    Lets all coming records pass through unchanged, effectively
+    Lets all incoming records pass through unchanged, effectively
     doing nothing with them. As any other filter it has entities,
     so it can be used as a merging point to gather records from
-    multiple chains and process then in a single place.
+    multiple chains and process them in a single place.
     """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity]):
@@ -49,8 +49,8 @@ class VoidFilter(Filter):
     """
     Drop everything
 
-    Does not produce anything, dropping any incoming records.
-    Can be used to stuff multiple chains in one if the need ever arise.
+    Does not produce anything, dropping all incoming records.
+    Can be used to stuff multiple chains in one if the need ever arises.
     """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity]):
@@ -64,16 +64,16 @@ class VoidFilter(Filter):
 @Plugins.register('filter.exclude', Plugins.kind.ACTOR_ENTITY)
 class MatchFilterEntity(FilterEntity):
     patterns: List[str]
-    """list of strings to search in the record"""
+    """list of strings to search for in the record"""
     fields: Optional[List[str]] = None
-    """field names to search patterns in. If not specified all fields are checked"""
+    """field names to search the patterns in. If not specified, all fields are checked"""
 
 @Plugins.register('filter.match', Plugins.kind.ACTOR)
 class MatchFilter(Filter):
     """
     Keep records with specific words
 
-    This filter lets through records, that has one of values
+    This filter lets through records that have one of the values
     defined by `patterns` list found in any (or specified) field of the record.
     """
 
@@ -93,7 +93,7 @@ class ExcludeFilter(Filter):
     """
     Drop records with specific words
 
-    This filter lets through records, that has none of values
+    This filter lets through records that have none of the values
     defined by `patterns` list found in any (or specified) field of the record.
     """
 
@@ -221,11 +221,11 @@ class FormatFilter(Filter):
     """
     Format record as text
 
-    Takes record and produces a new `TextRecord` by taking `template` string
+    Takes a record and produces a new `TextRecord` by taking `template` string
     and replacing "{placeholder}" with value of `placeholder` field of the
     current record, where `placeholder` is any field the record might have.
-    If one of placeholders is not a field of specific record, it will be
-    replaced with value defined in `missing` parameter if it is specified,
+    If one of the placeholders is not a field of a specific record, it will be
+    replaced with a value defined in `missing` parameter if it is specified,
     otherwise it will be left intact.
     """
 

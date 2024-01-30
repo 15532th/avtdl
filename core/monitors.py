@@ -61,7 +61,7 @@ class BaseTaskMonitor(Actor):
 
     @abstractmethod
     async def run_for(self, entity: TaskMonitorEntity):
-        '''Task for specific entity that should check for new records based on update_interval and call self.on_record() for each'''
+        '''Task for a specific entity that should check for new records based on update_interval and call self.on_record() for each'''
 
 
 class TaskMonitor(BaseTaskMonitor):
@@ -87,7 +87,7 @@ class TaskMonitor(BaseTaskMonitor):
 
 class HttpTaskMonitorEntity(TaskMonitorEntity):
     cookies_file: Optional[FilePath] = None
-    """path to text file containing cookies in Netscape format"""
+    """path to a text file containing cookies in Netscape format"""
     headers: Optional[Dict[str, str]] = {'Accept-Language': 'en-US,en;q=0.9'}
     """custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use `cookies_file` option instead"""
 
@@ -244,9 +244,9 @@ class RecordDB(BaseRecordDB):
 
 class BaseFeedMonitorConfig(ActorConfig):
     db_path: Union[Path, str] = 'db/'
-    """path to sqlite database file keeping history of old records of this monitor.
+    """path to the sqlite database file keeping history of old records of this monitor.
     Might specify a path to a directory containing the file (with trailing slash)
-    or direct path to the file itself (without a slash). If special value `:memory:` is used,
+    or a direct path to the file itself (without a slash). If special value `:memory:` is used,
     database is kept in memory and not stored on disk at all, providing a clean database on every startup"""
 
     @field_validator('db_path')
@@ -302,8 +302,8 @@ class BaseFeedMonitor(HttpTaskMonitor):
         await super().run()
 
     async def prime_db(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> None:
-        '''if feed has no prior records fetch it once and mark all entries as old
-        in order to not produce ten messages at once when feed first added'''
+        '''if a feed has no prior records, fetch it once and mark all entries as old
+        in order to not produce ten messages at once when the feed is first added'''
         size = self.db.get_size(entity.name)
         priming_required = False
         if entity.quiet_start:
@@ -388,7 +388,7 @@ class PagedFeedMonitorEntity(BaseFeedMonitorEntity):
     allow_discontinuity: bool = False # store already fetched records on failure to load one of older pages
     """when updating feed with pagination support, if this setting is enabled and error happens when loading a page, records from already parsed pages will not be dropped. It will allow update of the feed to finish, but older records from deeper pages will then never be parsed on consecutive updates"""
     fetch_until_the_end_of_feed_mode: bool = False
-    """when updating feed with pagination support, enables special mode, which makes monitor try loading and parsing all pages until the end, even if they have been already parsed. Designed for purpose of archiving entire feed content"""
+    """when updating feed with pagination support, enables special mode, which makes a monitor try loading and parsing all pages until the end, even if they have been already parsed. Designed for purpose of archiving entire feed content"""
 
     def model_post_init(self, __context: Any) -> None:
         if self.fetch_until_the_end_of_feed_mode:
@@ -407,12 +407,12 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
         Returns two-elements tuple with processed records as first element and
         anything required to load and process next page as second.
 
-        If loading or parsing page failed, warning should be issued using self.logger, update_interval
+        If loading or parsing page failed, warning is issued using self.logger, update_interval
         adjusted if required (by using self.request to fetch data or manually)
-        and first return element of the tuple should be None.
+        and first element of the returned tuple is None.
 
         If there is no next page or there is no new records, or limit of continuation depth reached,
-        then first element should be an empty list and second element should be None'''
+        then first element is an empty list and the second element is None'''
 
     @abstractmethod
     async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:

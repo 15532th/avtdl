@@ -20,21 +20,21 @@ class CommunityPostRecord(Record, CommunityPostInfo):
     post_id: str
     """unique id of the post"""
     author: str
-    """author channel name"""
+    """author's channel name"""
     avatar_url: Optional[str] = None
-    """link to avatar of the channel"""
+    """link to the avatar of the channel"""
     vote_count: str
     """current number of upvotes"""
     sponsor_only: bool
-    """indicates weather the post is member-only"""
+    """indicates whether the post is member-only"""
     published_text: str
     """localized text saying how long ago the video was uploaded"""
     full_text: str
-    """post content as plaintext"""
+    """post contents as plaintext"""
     attachments: List[str]
     """list of links to attached images or video thumbnails"""
     video_id: Optional[str] = None
-    """if post links to youtube video will have video id, otherwise absent"""
+    """if the post links to youtube video will have video id, otherwise absent"""
     original_post: Optional['CommunityPostRecord'] = None
     """for reposts contains original post content, otherwise absent"""
 
@@ -95,9 +95,9 @@ class SharedCommunityPostRecord(Record, SharedCommunityPostInfo):
     post_id: str
     """unique id of the post"""
     author: str
-    """author channel name"""
+    """author's channel name"""
     avatar_url: Optional[str] = None
-    """link to avatar of the channel"""
+    """link to the avatar of the channel"""
     published_text: str
     """localized text saying how long ago the video was uploaded"""
     full_text: str
@@ -144,9 +144,9 @@ class CommunityPostsMonitorConfig(PagedFeedMonitorConfig):
 @Plugins.register('community', Plugins.kind.ACTOR_ENTITY)
 class CommunityPostsMonitorEntity(PagedFeedMonitorEntity):
     url: str
-    """url of community page of the channel"""
+    """url of the community page of the channel"""
     update_interval: float = 1800
-    """how often community page will be checked for new posts"""
+    """how often the community page will be checked for new posts"""
 
 @Plugins.register('community', Plugins.kind.ACTOR)
 class CommunityPostsMonitor(PagedFeedMonitor):

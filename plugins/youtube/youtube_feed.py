@@ -21,24 +21,24 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
     """
     Youtube video or livestream listed among others on Youtube page
 
-    Produced by parsing channels main page, videos and streams tab,
+    Produced by parsing a channels main page, videos and streams tab,
     as well as playlists, and, with login cookies, subscriptions feed.
     """
 
     video_id: str
     """short string identifying video on Youtube. Part of video url"""
     url: str
-    """link to video, uses `https://www.youtube.com/watch?v=<video_id>` format"""
+    """link to the video, uses `https://www.youtube.com/watch?v=<video_id>` format"""
     title: str
-    """title of the video at time of parsing"""
+    """title of the video at the time of parsing"""
     summary: Optional[str] = Field(repr=False)
-    """snippet of video description. Not always available"""
+    """snippet of the video description. Not always available"""
     scheduled: Optional[datetime.datetime] = None
     """scheduled date for upcoming stream or premiere"""
     author: Optional[str]
     """channel name"""
     avatar_url: Optional[str] = None
-    """link to avatar of the channel. Not always available"""
+    """link to the avatar of the channel. Not always available"""
     channel_link: Optional[str] = None
     """link to the channel uploading the video"""
     channel_id: Optional[str] = None
@@ -53,7 +53,7 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
     is_live: bool
     """indicates that the video is a livestream or premiere that is currently live"""
     is_member_only: bool
-    """indicated that the video is limited to members of the channel. Note that video status might be changed at any time"""
+    """indicated that the video is limited to members of the channel. Note that the video status might be changed at any time"""
 
     def __str__(self):
         scheduled = self.scheduled
@@ -109,8 +109,8 @@ class VideosMonitor(PagedFeedMonitor):
     videos and streams tab of a channel, as well as playlists, and,
     with login cookies, subscriptions feed or the main page.
 
-    Due to small differences in presentation aforementioned sources
-    have, same video might have slightly different appearance when
+    Due to small differences in presentation in aforementioned
+    sources, same video might have slightly different appearance when
     parsed from different urls. For example, video parsed from main
     page or subscriptions feed will not have full description text.
 
@@ -127,7 +127,7 @@ class VideosMonitor(PagedFeedMonitor):
     with limited access (such as member-only).
 
     While monitoring a single channel is less efficient, both
-    bandwidth- and computational-wise, using this monitor with
+    bandwidth- and compute-wise, using this monitor with
     subscriptions feed url on a dedicated account is a recommended way
     to monitor a high amount (hundreds) of channels, as it only requires
     loading a single page to check all of them for updates.
@@ -189,11 +189,11 @@ class ChannelFilterConfig(EmptyFilterConfig):
 @Plugins.register('filter.channel', Plugins.kind.ACTOR_ENTITY)
 class ChannelFilterEntity(FilterEntity):
     upcoming: bool = True
-    """to pass filter record should be either upcoming livestream or scheduled premiere"""
+    """to pass the filter a record should be either upcoming livestream or scheduled premiere"""
     live: bool = False
-    """to pass filter record should be an ongoing livestream"""
+    """to pass the filter a record should be an ongoing livestream"""
     member_only: bool = False
-    """to pass filter record should be marked as member-only"""
+    """to pass the filter a record should be marked as member-only"""
 
 
 @Plugins.register('filter.channel', Plugins.kind.ACTOR)

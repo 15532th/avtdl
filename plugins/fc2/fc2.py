@@ -20,7 +20,7 @@ class FC2Record(Record):
     url: str
     """url of the user stream"""
     user_id: str
-    """unique for given user/channel part of the stream url"""
+    """unique for the given user/channel part of the stream url"""
     title: str
     """stream title"""
     info: str
@@ -28,9 +28,9 @@ class FC2Record(Record):
     start: str
     """timestamp of the stream start"""
     avatar_url: str
-    """link to user's avatar"""
+    """link to the user's avatar"""
     login_only: bool
-    """Whether logging in is required to view current livestream"""
+    """whether logging in is required to view current livestream"""
 
     def __str__(self):
         return f'{self.url}\n{self.title}'
@@ -60,9 +60,9 @@ class FC2MonitorEntity(HttpTaskMonitorEntity):
     user_id: str
     """user id, numeric part at the end of livestream url"""
     update_interval: int = 120
-    """how often monitored channel will be checked, in seconds"""
+    """how often the monitored channel will be checked, in seconds"""
     adjust_update_interval: bool = Field(exclude=True, default=True)
-    """does not do much since fc2 does not use caching headers on endpoint used to check live status"""
+    """does nothing since fc2 does not use caching headers on the endpoint used to check live status"""
     latest_live_start: str = Field(exclude=True, default='')
     """internal variable to persist state between updates. Used to distinguish between different livestreams of the user"""
 
@@ -72,11 +72,11 @@ class FC2Monitor(HttpTaskMonitor):
     """
     Monitor for live.fc2.com
 
-    Monitors fc2.com user with given id, produces record when it goes live.
-    For user `https://live.fc2.com/24374512/` user id would be `24374512`.
+    Monitors fc2.com user with given id, produces a record when it goes live.
+    For user `https://live.fc2.com/24374512/`, user id would be `24374512`.
 
-    Since endpoint used for monitoring does not provide user nickname,
-    the name of configuration entity is used instead.
+    Since the endpoint used for monitoring does not provide the user's nickname,
+    the name of the configuration entity is used instead.
     """
 
 
