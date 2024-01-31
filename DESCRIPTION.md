@@ -2,6 +2,8 @@
 
 Tool to monitor Youtube and some other streaming platforms for new streams and uploads and execute user-defined commands when it happens. It aims to provide a highly configurable environment for setting up automated archiving of new content with filtering and notification support. It does not try to provide downloading streams itself and instead relies on executing commonly used well-known solutions for the task, such as `yt-dlp`.
 
+Refer to documentation for full list of available features and description of configuration process.
+
 ### Features overview
 
 Some of the supported features include:
@@ -12,5 +14,3 @@ Some of the supported features include:
 - monitoring other streaming platforms, such as Twitch and Twitcasting, for events of a channel going live
 - filtering new videos and streams by channel name, presence or absense of pre-defined keywords in video title or description, picking up only upcoming streams or only member-only content, deduplication of the same stream or video url coming from multiple sources
 - sending notifications to a Discord channel and/or as a Jabber message
-
-Refer to documentation for full list of available features and description of configuration process.
