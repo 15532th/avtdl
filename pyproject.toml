@@ -23,7 +23,6 @@ dependencies = [
     "lxml",
     "PyYAML",
     "Markdown",
-    "requests"
 ]
 
 
