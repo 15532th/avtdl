@@ -40,10 +40,13 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 version_file = "_version.py"
 
+[project.scripts]
+avtdl = "avtdl.avtdl:main"
+
 [tool.setuptools]
 py-modules = ["avtdl"]
 
 [tool.setuptools.packages.find]
 where = ["."]
 namespaces = false
-include = ["core*", "plugins*"]
+include = ["avtdl*"]
