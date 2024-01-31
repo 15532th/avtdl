@@ -6,6 +6,11 @@ authors = [{name = "15532th"}]
 readme = "README.md"
 license = {file = "LICENSE"}
 
+classifiers = [
+    "Environment :: Console",
+    "License :: OSI Approved :: Apache Software License"
+]
+
 dynamic = ["version"]
 
 requires-python = ">= 3.9"
@@ -22,9 +27,10 @@ dependencies = [
     "requests"
 ]
 
+
 [project.urls]
 Homepage = "https://github.com/15532th/avtdl"
-Documentation = "https://github.com/15532th/avtdl/README.md"
+Documentation = "https://github.com/15532th/avtdl"
 Repository = "https://github.com/15532th/avtdl.git"
 Issues = "https://github.com/15532th/avtdl/issues"
 
