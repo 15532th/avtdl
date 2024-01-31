@@ -34,7 +34,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
     attachments: List[str]
     """list of links to attached images or video thumbnails"""
     video_id: Optional[str] = None
-    """if the post links to youtube video will have video id, otherwise absent"""
+    """if the post links to youtube video will contain video id, otherwise absent"""
     original_post: Optional['CommunityPostRecord'] = None
     """for reposts contains original post content, otherwise absent"""
 

@@ -126,8 +126,7 @@ class VideosMonitor(PagedFeedMonitor):
     Unlike `rss` monitor, with login cookies it can see videos and streams
     with limited access (such as member-only).
 
-    While monitoring a single channel is less efficient, both
-    bandwidth- and compute-wise, using this monitor with
+    While monitoring a single channel is less efficient, using this monitor with
     subscriptions feed url on a dedicated account is a recommended way
     to monitor a high amount (hundreds) of channels, as it only requires
     loading a single page to check all of them for updates.
