@@ -3,7 +3,7 @@ name = "avtdl"
 description = "Monitoring and automation tool for Youtube and other streaming platforms"
 authors = [{name = "15532th"}]
 
-readme = "README.md"
+readme = "DESCRIPTION.md"
 
 classifiers = [
     "Environment :: Console",
