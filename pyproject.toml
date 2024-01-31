@@ -4,7 +4,6 @@ description = "Monitoring and automation tool for Youtube and other streaming pl
 authors = [{name = "15532th"}]
 
 readme = "README.md"
-license = {file = "LICENSE"}
 
 classifiers = [
     "Environment :: Console",
