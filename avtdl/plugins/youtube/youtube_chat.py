@@ -198,8 +198,8 @@ class YoutubeChatMonitor(BaseFeedMonitor):
             return {}
         _, headers, post_body = prepare_next_page_request(entity.context.innertube_context, entity.context.continuation_token)
         page = await utils.request(entity.context.continuation_url, session, self.logger, method='POST', headers=headers,
-                                       data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
-                                       retry_delay=5)
+                                   data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
+                                   retry_delay=5)
         if page is None:
             entity.context.continuation_token = None
             self.logger.warning(f'[{entity.name}] downloading chat continuation for {entity.url} failed')
