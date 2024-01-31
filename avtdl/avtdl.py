@@ -87,7 +87,7 @@ def start(args):
 
 def make_docs(args):
     output = args.plugins_doc
-    doc = generate_plugins_description(output.suffix == 'html')
+    doc = generate_plugins_description(output.suffix == '.html')
     try:
         with open(output, 'wt', encoding='utf8') as fp:
             fp.write(doc)
