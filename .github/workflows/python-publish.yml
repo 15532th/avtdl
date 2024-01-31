@@ -14,7 +14,9 @@ jobs:
   deploy:
 
     runs-on: ubuntu-latest
-    environment: release
+    environment:
+      name: release
+      url: https://pypi.org/p/avtdl
     permissions:
       id-token: write
     steps:
@@ -30,5 +32,5 @@ jobs:
     - name: Build package
       run: python -m build
     - name: Publish package
-      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      uses: pypa/gh-action-pypi-publish@release/v1
 
