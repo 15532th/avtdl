@@ -1,0 +1,31 @@
+[project]
+name = "avtdl"
+description = "Monitoring and automation tool for Youtube and other streaming platforms"
+authors = ["15532th"]
+
+readme = "README.md"
+license = {file = "LICENSE.md"}
+
+requires-python = ">= 3.9"
+dependencies = [
+    "pydantic",
+    "aiohttp",
+    "multidict",
+    "feedparser",
+    "python-dateutil",
+    "slixmpp",
+    "lxml",
+    "PyYAML",
+    "Markdown",
+    "requests"
+]
+
+[project.urls]
+Homepage = "https://github.com/15532th/avtdl"
+Documentation = "https://github.com/15532th/avtdl/README.md"
+Repository = "https://github.com/15532th/avtdl.git"
+Issues = "https://github.com/15532th/avtdl/issues"
+
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
