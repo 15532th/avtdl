@@ -5,7 +5,6 @@ from textwrap import shorten
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import aiohttp
-import requests
 from pydantic import BaseModel, Field
 
 from avtdl.core import utils
@@ -13,7 +12,8 @@ from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.plugins.youtube import video_info
-from avtdl.plugins.youtube.common import extract_keys, find_all, find_one, get_innertube_context, handle_consent, parse_navigation_endpoint, prepare_next_page_request
+from avtdl.plugins.youtube.common import extract_keys, find_all, find_one, get_innertube_context, handle_consent, \
+    parse_navigation_endpoint, prepare_next_page_request
 
 
 @Plugins.register('prechat', Plugins.kind.ASSOCIATED_RECORD)
@@ -419,30 +419,6 @@ class Parser:
                         if record is not None:
                             records.append(record)
         return records
-
-
-def get_first(url):
-    response = requests.get(url)
-    response.raise_for_status()
-    renderers, data = get_actions(response.text, first_page=True)
-    continuation = find_one(data, '$..liveChatRenderer..continuation')
-    messages = parse_messages(renderers)
-    ...
-    return data, messages, continuation
-
-
-def get_next(initial_data: dict, continuation_token: str):
-    URL = 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
-    _, headers, post_body = prepare_next_page_request(initial_data, continuation_token)
-    response = requests.post(URL, data=json.dumps(post_body), headers=headers)
-    renderers, data = get_actions(response.text)
-    continuation = find_one(data, '$..liveChatContinuation..continuation')
-    timeout = find_one(data, '$..liveChatContinuation..timeoutMs')
-    if timeout:
-        print(f'[wait {timeout}]', end='')
-    messages = parse_messages(renderers)
-    ...
-    return initial_data, messages, continuation
 
 
 def get_actions(page: str, first_page=False) -> Tuple[Dict[str, list], dict]:
