@@ -31,14 +31,14 @@ def try_parsing(func):
             raise ConfigurationError(error) from e
     return wrapper
 
-class Settings(BaseModel):
+class SettingsSection(BaseModel):
     plugins_directory: str = 'plugins'
     log_directory: Path = Path('logs')
     logfile_size: int = 1000000
     logfile_level: LogLevel = LogLevel.debug
     loglevel_override: Dict[str, LogLevel] = {'bus': LogLevel.info, 'chain': LogLevel.info, 'actor.request': LogLevel.info}
 
-def configure_loggers(settings: Settings):
+def configure_loggers(settings: SettingsSection):
     override_loglevel(settings.loglevel_override)
     set_file_logger(path=settings.log_directory, max_size=settings.logfile_size, level=settings.logfile_level)
 
@@ -48,7 +48,7 @@ class ActorConfigSection(BaseModel):
     entities: List[dict]
 
 class Config(BaseModel):
-    Settings: Settings = Settings()
+    Settings: SettingsSection = SettingsSection()
     Actors: Dict[str, ActorConfigSection]
     Chains: Dict[str, ChainConfigSection]
 
