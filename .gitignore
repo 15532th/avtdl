@@ -13,5 +13,7 @@ logs/**
 db/**
 *.txt
 
+**/_version.py
+
 .vscode/**
 .idea/**
