@@ -1,10 +1,12 @@
 [project]
 name = "avtdl"
 description = "Monitoring and automation tool for Youtube and other streaming platforms"
-authors = ["15532th"]
+authors = [{name = "15532th"}]
 
 readme = "README.md"
-license = {file = "LICENSE.md"}
+license = {file = "LICENSE"}
+
+dynamic = ["version"]
 
 requires-python = ">= 3.9"
 dependencies = [
@@ -27,5 +29,16 @@ Repository = "https://github.com/15532th/avtdl.git"
 Issues = "https://github.com/15532th/avtdl/issues"
 
 [build-system]
-requires = ["setuptools >= 61.0"]
+requires = ["setuptools >= 61.0", "setuptools-scm>=8.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_file = "_version.py"
+
+[tool.setuptools]
+py-modules = ["avtdl"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+namespaces = false
+include = ["core*", "plugins*"]
