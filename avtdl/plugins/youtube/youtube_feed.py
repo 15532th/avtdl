@@ -151,8 +151,8 @@ class VideosMonitor(PagedFeedMonitor):
 
         url, headers, post_body = prepare_next_page_request(innertube_context, continuation_token, cookies=session.cookie_jar)
         raw_page = await utils.request(url, session, self.logger, method='POST', headers=headers,
-                                                data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
-                                                retry_delay=5)
+                                       data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
+                                       retry_delay=5)
         if raw_page is None:
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
