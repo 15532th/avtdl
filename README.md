@@ -8,6 +8,7 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
   * [avtdl](#avtdl)
     * [Features overview](#features-overview)
     * [Installation](#installation)
+    * [Running](#running)
     * [Configuration](#configuration)
       * [Configuration file syntax](#configuration-file-syntax)
       * [Configuration file terminology](#configuration-file-terminology)
@@ -59,14 +60,26 @@ Installing from git repository:
 - (optionally) initialize and activate virtual environment
 - inside the avtdl directory run `pip3 install -r requirements.txt`
 
-Installing from pypi: # not published yet
+Installing from PyPI:
 
 - (optionally) initialize and activate virtual environment
-- run `pip3 install avtdl`
+- execute `pip3 install avtdl`
 
 Prebuilt executable:
 
-    Hopefully will be available on Releases page eventually  
+    Not yet available  
+
+### Running
+
+If installed from git, use `python3 avtdl.py [options]` inside the project directory.
+
+Use `avtdl [options]` if installed from PyPI.
+
+After installing, proceed with writing configuration file, as described in [Configuration](#configuration) section.
+
+By default, configuration file is named `config.yml` and located in current working directory. Current directory is also used as default location to create folders for persistent storage and logs, unless redefined in configuration file.
+
+To specify different config file, use `avtdl --config path/to/config.yml` option. Run `avtdl --help` for full list of options.
 
 ### Configuration
 
