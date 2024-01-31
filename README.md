@@ -79,7 +79,7 @@ After installing, proceed with writing configuration file, as described in [Conf
 
 By default, configuration file is named `config.yml` and located in current working directory. Current directory is also used as default location to create folders for persistent storage and logs, unless redefined in configuration file.
 
-To specify different config file, use `avtdl --config path/to/config.yml` option. Run `avtdl --help` for full list of options.
+To specify a different config file, use `avtdl --config path/to/config.yml` option. Run `avtdl --help` for full list of options.
 
 ### Configuration
 
