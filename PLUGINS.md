@@ -438,32 +438,6 @@ restarts.
 
 ---
 
-### `gmail` - Check for new mails using Gmail simple interface [deprecated]
-
-Simple html interface was removed from Gmail since January 2024.
-R.I.P.
-
-
-#### Plugin configuration options:
-* `db_path`: path to sqlite database file keeping history of old records of this monitor.
-Might specify a path to a directory containing the file (with trailing slash)
-or direct path to the file itself (without a slash). If special value `:memory:` is used,
-database is kept in memory and not stored on disk at all, providing a clean database on every startup. Default value is `:memory:`.
-
-
-
-#### Entity configuration options:
-* `name`: name of specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
-* `cookies_file`: . Required.
-##### 
-* `update_interval`: . Default value is `900`.
-* `headers`: custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use `cookies_file` option instead. Default value is `"Accept-Language": "en-US,en;q=0.9"`.
-* `adjust_update_interval`: change delay before next update based on response headers. This setting doesn't affect timeouts after failed requests. Default value is `true`.
-* `quiet_start`: throw away new records on the first update after application startup. Default value is `false`.
-* `quiet_first_time`: throw away new records produced on first update of given url. Default value is `true`.
-
----
-
 ### `nitter` - Monitor for Nitter instances
 
 Monitors recent tweets, retweets and replies of Twitter user
