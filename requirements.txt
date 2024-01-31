@@ -7,3 +7,4 @@ slixmpp
 lxml
 PyYAML
 Markdown
+jsonpath-python==1.0.6
