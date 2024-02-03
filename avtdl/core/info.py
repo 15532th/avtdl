@@ -64,6 +64,12 @@ COLLAPSIBLE_ITEM_TEMPLATE = '''
 </details>
 '''
 
+
+def load_plugins():
+    if not Plugins.known[Plugins.kind.ACTOR]:
+        Plugins.load()
+
+
 def get_plugin_info(plugin_name: str) -> str:
     plugin, config, entity = Plugins.get_actor_factories(plugin_name)
     description = render_doc(plugin)
@@ -180,7 +186,7 @@ def get_default(field_info: FieldInfo) -> Optional[str]:
 
 def render_plugins_descriptions() -> str:
     """load available plugins and generate a help file in markdown from docstrings"""
-    Plugins.load()
+    load_plugins()
     descriptions = {name: get_plugin_info(name) for name in Plugins.known[Plugins.kind.ACTOR].keys()}
     SEPARATOR = '\n---\n'
     text = SEPARATOR.join(['', *descriptions.values(), ''])
@@ -201,3 +207,17 @@ def generate_plugins_description(as_html: bool = False):
     html = render_markdown(text)
     html = HTML_PAGE_TEMPLATE.format(body=html)
     return html
+
+
+def generate_version_string() -> str:
+    try:
+        from avtdl._version import __version__
+    except ModuleNotFoundError:
+        __version__ = '[unknown version]'
+    load_plugins()
+    version = f'avtdl {__version__} with plugins:'
+    known_plugins = ', '.join([name for name in Plugins.known[Plugins.kind.ACTOR].keys()])
+    known_plugins = textwrap.fill(known_plugins, initial_indent='    ', subsequent_indent='    ')
+    text = version + '\n' + known_plugins
+    return text
+
