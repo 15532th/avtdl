@@ -33,13 +33,16 @@ jobs:
       - name: Build executable as a single file
         run: pyinstaller avtdl.py --icon "NONE" --collect-all avtdl --onefile
       - name: Build executable as a folder
+        run: pyinstaller avtdl.py --icon "NONE" --collect-all avtdl
+      - name: Compress the folder
         run: |
-            pyinstaller avtdl.py --icon "NONE" --collect-all avtdl
-            Compress-Archive -Path dist/avtdl/* -Destination avtdl.zip
+            dir
+            Compress-Archive -Path dist\\avtdl\\* -DestinationPath avtdl.zip
+            Compress-Archive -Path README.md -Update -DestinationPath avtdl.zip
       - name: Upload artifacts
         run: |
             gh release upload ${{github.event.release.tag_name}} avtdl.zip
-            gh release upload ${{github.event.release.tag_name}} avtdl.exe
+            gh release upload ${{github.event.release.tag_name}} dist/avtdl.exe
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
         shell: bash
