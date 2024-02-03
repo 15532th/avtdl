@@ -37,8 +37,8 @@ jobs:
       - name: Compress the folder
         run: |
             Compress-Archive -Path dist/avtdl/* -DestinationPath dist/avtdl.zip
-            Compress-Archive -Path README.md -Update -DestinationPath avtdl.zip
-            Compress-Archive -Path PLUGINS.md -Update -DestinationPath avtdl.zip
+            Compress-Archive -Path README.md -Update -DestinationPath dist/avtdl.zip
+            Compress-Archive -Path PLUGINS.md -Update -DestinationPath dist/avtdl.zip
       - name: Rename artifacts
         run: |
             mv dist/avtdl.zip dist/avtdl-${{github.event.release.tag_name}}.zip
