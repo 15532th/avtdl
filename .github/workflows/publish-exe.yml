@@ -36,13 +36,17 @@ jobs:
         run: pyinstaller avtdl.py --icon "NONE" --collect-all avtdl
       - name: Compress the folder
         run: |
-            dir
-            Compress-Archive -Path dist\\avtdl\\* -DestinationPath avtdl.zip
+            Compress-Archive -Path dist/avtdl/* -DestinationPath dist/avtdl.zip
             Compress-Archive -Path README.md -Update -DestinationPath avtdl.zip
+            Compress-Archive -Path PLUGINS.md -Update -DestinationPath avtdl.zip
+      - name: Rename artifacts
+        run: |
+            mv dist/avtdl.zip dist/avtdl-${{github.event.release.tag_name}}.zip
+            mv dist/avtdl.exe dist/avtdl-${{github.event.release.tag_name}}.exe
       - name: Upload artifacts
         run: |
-            gh release upload ${{github.event.release.tag_name}} avtdl.zip
-            gh release upload ${{github.event.release.tag_name}} dist/avtdl.exe
+            gh release upload ${{github.event.release.tag_name}} dist/avtdl-${{github.event.release.tag_name}}.zip
+            gh release upload ${{github.event.release.tag_name}} dist/avtdl-${{github.event.release.tag_name}}.exe
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
         shell: bash
