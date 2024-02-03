@@ -10,7 +10,7 @@ import yaml
 from pydantic import ValidationError
 
 from avtdl.core.config import ConfigParser
-from avtdl.core.info import generate_plugins_description
+from avtdl.core.info import generate_plugins_description, generate_version_string
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.utils import read_file
 
@@ -101,8 +101,8 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     help_v = 'set loglevel to DEBUG'
     parser.add_argument('-d', '--debug', action='store_true', default=False, help=help_v)
-    help_v = 'set loglevel to INFO'
-    parser.add_argument('-v', '--verbose', action='store_true', default=False, help=help_v)
+    help_v = 'print version and exit'
+    parser.add_argument('-v', '--version', action='store_true', default=False, help=help_v)
     help_c = 'specify path to configuration file to use instead of default'
     parser.add_argument('-c', '--config', type=Path, default='config.yml', help=help_c)
     help_h = 'write plugins documentation in given file and exit. Documentation format is deduced by file extension: html document for ".html", markdown otherwise'
@@ -111,15 +111,15 @@ def main():
 
     if args.debug:
         log_level = logging.DEBUG
-    elif args.verbose:
-        log_level = logging.INFO
     else:
-        log_level = logging.WARNING
+        log_level = logging.INFO
 
     set_logging_format(log_level)
     silence_library_loggers()
 
-    if args.plugins_doc is not None:
+    if args.version:
+        print(generate_version_string())
+    elif args.plugins_doc is not None:
         make_docs(args)
     else:
         start(args)
