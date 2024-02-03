@@ -31,10 +31,10 @@ jobs:
       - name: Install locally
         run: python -m pip install -e .
       - name: Build executable as a single file
-        run: python -m pyinstaller avtdl.py --icon "NONE" --collect-all avtdl --onefile
+        run: pyinstaller avtdl.py --icon "NONE" --collect-all avtdl --onefile
       - name: Build executable as a folder
         run: |
-            python -m pyinstaller avtdl.py --icon "NONE" --collect-all avtdl
+            pyinstaller avtdl.py --icon "NONE" --collect-all avtdl
             Compress-Archive -Path dist/avtdl/* -Destination avtdl.zip
       - name: Upload artifacts
         run: |
