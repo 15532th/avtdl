@@ -27,11 +27,11 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
         * [`timezone`](#timezone)
         * [`fetch_until_the_end_of_feed_mode`](#fetchuntiltheendoffeedmode)
         * [Formatting templates](#formatting-templates)
-      * [Tools commonly used for downloading livestreams](#tools-commonly-used-for-downloading-livestreams)
-        * [Youtube](#youtube)
-        * [Twitcasting](#twitcasting)
-        * [FC2](#fc2)
-        * [Youtube community posts](#youtube-community-posts)
+    * [Tools commonly used for downloading livestreams](#tools-commonly-used-for-downloading-livestreams)
+      * [Youtube](#youtube)
+      * [Twitcasting](#twitcasting)
+      * [FC2](#fc2)
+      * [Youtube community posts](#youtube-community-posts)
 <!-- TOC -->
 
 ---
@@ -399,7 +399,7 @@ Actors:
 Note how this makes this plugin entity only suitable for processing records coming from the `community` plugin, since only that plugin uses this field. If currently processed record does not have this field, it will not be replaced with anything, and the resulting file name will be quite literally `{post_id}.txt`. If this happens, debug message is produced in log. Some field names are used by multiple plugins, one notable example being the `url` field, which usually contains the url of a new livestream, video or post.
 
 
-#### Tools commonly used for downloading livestreams
+### Tools commonly used for downloading livestreams
 
 Before automating the download process it is a good idea to try doing it manually first and ensure everything is working properly. This section provides an overview of some tools that can be used for archiving livestreams, including those offering monitoring in addition to downloading that can be used as single-purpose alternatives to avtdl.
 
@@ -409,7 +409,7 @@ Only a brief description is offered here. Refer to each tool's documentation for
 
 All mentioned tools support customization of the output name format and can download limited access streams if an authorization cookies file is provided.
 
-##### Youtube
+#### Youtube
 
 [ytarchive](https://github.com/Kethsar/ytarchive) is a tool for downloading upcoming and ongoing livestreams. Checks scheduled date and waits for upcoming livestream, can monitor channel for livestreams and download them as they start. Typical command would be
 
@@ -431,7 +431,7 @@ To archive an entire channel, both uploads and livestreams, run yt-dlp with a ch
 
     yt-dlp --add-metadata --embed-thumbnail --embed-chapters --embed-subs --write-subs --sub-langs "live_chat, en" --merge-output-format mkv --download-archive archive.txt --format 303+251/248+251/bestvideo*+bestaudio/best -o "[%(upload_date)s] %(title)s - %(id)s.%(ext)s" https://www.youtube.com/@ChannelName
 
-##### Twitcasting
+#### Twitcasting
 
 To download an archive use [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
@@ -443,7 +443,7 @@ Ongoing livestreams also can be downloaded with [yt-dlp](https://github.com/yt-d
 
 Another tool for downloading livestreams is [TwcLazer](https://github.com/HoloArchivists/TwcLazer). It uses different download method compared to yt-dlp, so one might serve as alternative to another when something breaks due to changes on server side.
 
-##### FC2
+#### FC2
 
 [fc2-live-dl](https://github.com/HoloArchivists/fc2-live-dl) can be used for downloading ongoing FC2 streams. Default options are good for most cases:
 
@@ -453,7 +453,7 @@ Comes with [autofc2](https://github.com/HoloArchivists/fc2-live-dl#autofc2) scri
 
 Note, that FC2 only allows a single window with particular livestream, and opening channel that is currently being downloaded in a browser will result in error and is likely to interrupt download.
 
-##### Youtube community posts
+#### Youtube community posts
 
 avtdl supports saving community post text in a file natively, but as an alternative, this fork of [youtube-community-tab](https://github.com/HoloArchivists/youtube-community-tab) might be used. It comes with `ytct.py` script that allows to download either a specific post by direct link or all new posts on a channel. Posts are stored in JSON format, which can be rendered to human-readable text files with third party [ytct-convert.py](https://gist.github.com/15532th/111c8b32e5d82112379703f3eab51e49) script.
 
