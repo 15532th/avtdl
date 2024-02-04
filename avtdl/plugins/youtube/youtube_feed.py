@@ -187,7 +187,7 @@ class ChannelFilterConfig(EmptyFilterConfig):
 
 @Plugins.register('filter.channel', Plugins.kind.ACTOR_ENTITY)
 class ChannelFilterEntity(FilterEntity):
-    upcoming: bool = True
+    upcoming: bool = False
     """to pass the filter a record should be either upcoming livestream or scheduled premiere"""
     live: bool = False
     """to pass the filter a record should be an ongoing livestream"""
