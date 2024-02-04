@@ -56,24 +56,26 @@ Python version 3.9 or higher is required.
 
 Installing from git repository:
 
-- clone or download and unpack the repository
-- (optionally) initialize and activate virtual environment
-- inside the avtdl directory run `pip3 install -r requirements.txt`
+```bash
+git clone https://github.com/15532th/avtdl.git
+cd avtdl
+pip3 install -r requirements.txt
+```
 
 Installing from PyPI:
 
-- (optionally) initialize and activate virtual environment
-- execute `pip3 install avtdl`
+```bash
+pip3 install avtdl
+```
 
 Prebuilt executable:
 
-    Not yet available  
+Available on [Releases] page ([latest](https://github.com/15532th/avtdl/releases/latest)) as a single executable or as a zip-archive of the app directory (recommended).
+
 
 ### Running
 
-If installed from git, use `python3 avtdl.py [options]` inside the project directory.
-
-Use `avtdl [options]` if installed from PyPI.
+Depending on installation method and OS, application might be invoked as `avtdl [options]`, `python3 avtdl.py [options]` or `py avtdl.py [options]`
 
 After installing, proceed with writing configuration file, as described in [Configuration](#configuration) section.
 
