@@ -389,6 +389,14 @@ Intended for one time use, to allow loading, for example, an entire playlist or 
 
 Normally, when updating a community tab or a user page on Nitter instance, plugin will stop after encountering posts that have already been seen on previous updates or when maximum depth is reached. If this option is enabled, the plugin will try to load all pages available on first update and will continue trying until it succeeds at least once. After that it is recommended to delete this option from the config to avoid unnecessarily load on server on the app restart.
 
+##### `quiet_first_time` and `quiet_start`
+
+When content of a newly added feed is loaded and parsed for the first time, it might contain hundreds of new entries. Option `quiet_first_time`  tells monitor to throw them away to avoid causing notification storm on initial update of the feed. On consequent updates these entries will be considered already processed.
+
+It means, that after a feed url is added to monitor, it will only generate records when feed gets new entries that came in after the moment of first update on startup.
+
+The `quiet_start` option does the same on every startup, discarding entities that was added to the feed while the application wasn't running.
+
 ##### Formatting templates
 
 Allows populating a predefined text string with values of current record fields. Used for making dynamic strings, i.e. output file name, or to change the text representation of the record with help of the `filter.format` plugin.
