@@ -2,7 +2,7 @@
 
 Tool to monitor Youtube and some other streaming platforms for new streams and uploads and execute user-defined commands when it happens. It aims to provide a highly configurable environment for setting up automated archiving of new content with filtering and notification support. It does not try to provide downloading streams itself and instead relies on executing commonly used well-known solutions for the task, such as `yt-dlp`.
 
-Refer to documentation for full list of available features and description of configuration process.
+Refer to [documentation](https://github.com/15532th/avtdl?tab=readme-ov-file#avtdl) for full list of available features and description of configuration process.
 
 ### Features overview
 
