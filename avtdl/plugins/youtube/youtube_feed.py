@@ -130,6 +130,14 @@ class VideosMonitor(PagedFeedMonitor):
     subscriptions feed url on a dedicated account is a recommended way
     to monitor a high amount (hundreds) of channels, as it only requires
     loading a single page to check all of them for updates.
+
+    When main page of a channel (https://www.youtube.com/@ChannelName) is viewed
+    in logged in state, it might contain "For you" block, whose content might
+    vary with subsequent updates. As result monitoring this url might occasionally
+    produce records with old videos that got showed in this block. If monitoring
+    without a cookies file is not an option, use combination of "Videos" and "Streams"
+    tabs instead.
+
     """
 
     async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:

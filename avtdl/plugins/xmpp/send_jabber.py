@@ -22,7 +22,7 @@ except ImportError:
 @Plugins.register('xmpp', Plugins.kind.ACTOR_CONFIG)
 class JabberConfig(ActorConfig):
     xmpp_username: str
-    """JID of the account to be used to send messages, resource included"""
+    """JID of the account to be used to send messages, including resource"""
     xmpp_pass: str
     """password of the account to be used to send messages"""
 
