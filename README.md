@@ -330,29 +330,6 @@ Chains:
 
 `subscriptions` entity of `channel` monitor looks at subscription feed, new records then pass through two filters, leaving either upcoming or ongoing livestreams, and then gets send to Discord channel.
 
-##### Send posts from Nitter instance to Discord
-
-Monitor `@UserName` posts by parsing `nitter.net` once every two hours, send messages to Discord channel using webhook.
-
-```yaml
-Actors:
-  nitter:
-    - name: "UserName"
-      url: "https://nitter.net/username/with_replies"
-      update_interval: 7200
-
-  discord.hook:
-    - name: "my server"
-      url: "https://discord.com/api/webhooks/..."
-
-Chains:
-  "repost UserName":
-    - nitter:
-        - "UserName"
-    - discord.hook:
-        - "my server"
-```
-
 #### Common options
 
 Main description of plugins configuration is provided in [Description and configuration of available plugins](PLUGINS.md), this section aims to explain some nuances of several options used in multiple plugins without overloading each plugin description.
