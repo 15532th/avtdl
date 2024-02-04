@@ -295,6 +295,41 @@ Chains:
         - "ChannelName"
 ```
 
+##### Send upcoming livestreams from Youtube subscription feed to Discord
+
+Monitor subscription feed of Youtube account using provided cookies file, pick livestreams and send notification to Discord channel using webhook.
+
+```yaml
+Actors:
+  channel:
+    - name: "subscriptions"
+      url: "https://www.youtube.com/feed/subscriptions"
+      cookies_file: "cookies.txt"
+      update_interval: 900
+
+  filter.channel:
+    - name: "subs live"
+      live: true
+    - name: "subs scheduled"
+      upcoming: true
+
+  discord.hook:
+    - name: "my-server#announcements"
+      url: "https://discord.com/api/webhooks/..."
+
+Chains:
+  "subs notify":
+    - channel:
+        - "subscriptions"
+    - filter.channel:
+        - "subs live"
+        - "subs scheduled"
+    - discord.hook:
+        - "my-server#announcements"
+```
+
+`subscriptions` entity of `channel` monitor looks at subscription feed, new records then pass through two filters, leaving either upcoming or ongoing livestreams, and then gets send to Discord channel.
+
 ##### Send posts from Nitter instance to Discord
 
 Monitor `@UserName` posts by parsing `nitter.net` once every two hours, send messages to Discord channel using webhook.
