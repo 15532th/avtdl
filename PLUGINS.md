@@ -29,7 +29,7 @@
 * [`twitcast` - Monitor for twitcasting.tv](#twitcast---monitor-for-twitcastingtv)
 * [`twitch` - Monitor for twitch.tv](#twitch---monitor-for-twitchtv)
 * [`get_url` - Monitor web page text](#geturl---monitor-web-page-text)
-* [`xmpp` - Send record as a Jabber message](#xmpp---send-record-as-a-jabber-message)
+* [`xmpp` - Send records as Jabber messages](#xmpp---send-records-as-jabber-messages)
 * [`rss` - Youtube channel RSS feed monitor](#rss---youtube-channel-rss-feed-monitor)
 * [`community` - Youtube community page monitor](#community---youtube-community-page-monitor)
 * [`channel` - Youtube channel monitor](#channel---youtube-channel-monitor)
