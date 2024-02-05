@@ -53,11 +53,11 @@ class BaseTaskMonitor(Actor):
         names = ', '.join([f'{self.conf.name}.{entity.name}' for entity in entities])
         logger.info(f'will start {len(entities)} tasks with {entities[0].update_interval:.1f} update interval and {interval:.1f} offset for {names}')
         for entity in entities:
+            await asyncio.sleep(interval)
             logger.debug(f'starting task {entity.name} with {entity.update_interval} update interval')
             self.tasks[entity.name] = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
             if entity == entities[-1]: # skip sleeping after last
                 continue
-            await asyncio.sleep(interval)
         logger.info(f'done starting tasks for {names}')
 
     @abstractmethod
