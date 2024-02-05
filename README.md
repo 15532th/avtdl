@@ -520,6 +520,8 @@ All mentioned tools support customization of the output name format and can down
 
     ytarchive --threads 4 --add-metadata --thumbnail --wait {url} best
 
+Running `ytarchive` without an url, specifying the `--wait` key and selecting the livestream quality will cause it to prompt for user input asking to provide missing details, which works in interactive environment but would wait forever if happened in automated job, so caution should be applied to provide all necessary info in command string. 
+
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) can be used to download Youtube videos, playlists or entire channel content. Might not work well with livestreams.
 
     yt-dlp --add-metadata --embed-thumbnail --embed-chapters --embed-subs {url}
