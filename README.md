@@ -291,6 +291,23 @@ It is possible for multiple sources to produce duplicate records simply because 
 
 ***
 
+Even though `actions` do not forward `records` they received down the chain, they might produce `events` when certain event happens while processing a record. For example, `execute` plugin might produce `event` with "error" type if shell command it was set to execute failed. `Events` are treated as normal `records` and can be passed through `filters` to other `actors`.
+
+```yaml
+Chains:
+  "download and notify":
+    - rss:
+        - "Example Channel"
+    - execute:
+        - "run ytarchive"
+    - xmpp:
+        - "notifications"
+```
+
+Records from the `rss` feed will be consumed by `execute` plugin entity and won't make it to `xmpp`, but if command defined in "run ytarchive" faild, message about it is passed to "notifications" as `event`.
+
+***
+
 Note that just like with `monitors` and `actions`, `filters` entities are stateful. If one entity is used in multiple chains, every instance will produce all records any of them consume.
 
 In the following example records from Youtube and Twitch monitors are fed into "multiplexor" entity of `noop` filter, which simply passes all records through unchanged. Output of the "multiplexor" then passed to `discord.hook` "notifications" entity.
