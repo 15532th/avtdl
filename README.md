@@ -168,7 +168,7 @@ Actors:
       # <list of key-value pairs defining this plugin entities>
 ```
 
-Each plugin section contains three subsections: `config`, `defaults` and `entities`. Specific format is different for each plugin, see [Description and configuration of available plugins](PLUGINS.md) for details. Many plugins don't have `config` section, and `defaults` sections is not mandatory and can be omitted. If field description mentiones a default value, it means the field could be omitted from the config section and the default value would be used instead. Fields without defaults are mandatory. If the section ends up not having any values (common for `config` section), it must be omitted.
+Each plugin section contains three subsections: `config`, `defaults` and `entities`. Specific format is different for each plugin, see [Description and configuration of available plugins](PLUGINS.md) for details. Many plugins don't have `config` section, and `defaults` sections is not mandatory and can be omitted. If field description mentions a default value, it means the field could be omitted from the config section and the default value would be used instead. Fields without defaults are mandatory. If the section ends up not having any values (common for `config` section), it must be omitted.
 
 Here is an example of `Actors` configuration section with a few plugins. Refer to sections in [Description and configuration of available plugins](PLUGINS.md) corresponding to plugin names for detailed explanations on the options.
 
@@ -208,7 +208,7 @@ It features four plugins: two for monitoring data sources (`rss` and `community`
 
 ##### Chains
 
-As explained in the [Configuration file terminology](#configuration-file-terminology) section, plugins can be divided into three typesr `monitors`, `filters` and `actions`. A `monitor` can only produce new records. `filter` consumes records and decides to either output them or not based on it's settings. `action` only consumes `records`, but can produce `events`, for example in case of error.
+As explained in the [Configuration file terminology](#configuration-file-terminology) section, plugins can be divided into three types `monitors`, `filters` and `actions`. A `monitor` can only produce new records. `filter` consumes records and decides to either output them or not based on its settings. `action` only consumes `records`, but can produce `events`, for example in case of error.
 
 A chain groups entities from plugins in the `Actors` section in a sequence, where `records` from one or more `monitors` get through `filters` and trigger `actions`. Each entity is identified by a combination of a plugin name and the entity `name` property. General `Chains` section structure is:
 
@@ -239,7 +239,7 @@ According to the configuration in the `Actors` section defined [before](#actors)
 
 ***
 
-In it's simplest form, a `chain` includes one monitor, zero or more `filters` and ends with an `action`. However, for convenience's sake, it is possible to list multiple `monitors` sequentially in one `chain`:
+In its simplest form, a `chain` includes one monitor, zero or more `filters` and ends with an `action`. However, for convenience's sake, it is possible to list multiple `monitors` sequentially in one `chain`:
 
 ```yaml
 Chains:
@@ -271,7 +271,7 @@ Chains:
       - "notifications"
 ```
 
-When two entities of such plugin lets the same record through, it will effectively be duplicated, coming down the chain twice. To mitigate it, either give each entity it's own `chain`, or use `filter.deduplicate` plugin to drop repeating `records` before passing it to the `action`:
+When two entities of such plugin lets the same record through, it will effectively be duplicated, coming down the chain twice. To mitigate it, either give each entity its own `chain`, or use `filter.deduplicate` plugin to drop repeating `records` before passing it to the `action`:
 
 ```yaml
 Chains:
@@ -304,7 +304,7 @@ Chains:
         - "notifications"
 ```
 
-Records from the `rss` feed will be consumed by `execute` plugin entity and won't make it to `xmpp`, but if command defined in "run ytarchive" faild, message about it is passed to "notifications" as `event`.
+Records from the `rss` feed will be consumed by `execute` plugin entity and won't make it to `xmpp`, but if command defined in "run ytarchive" failed, message about it is passed to "notifications" as `event`.
 
 ***
 
