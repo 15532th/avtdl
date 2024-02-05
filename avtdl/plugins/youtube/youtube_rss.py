@@ -124,7 +124,7 @@ class RecordDB(BaseRecordDB):
 class FeedMonitorEntity(GenericRSSMonitorEntity):
     update_interval : float = 900
     """How often the feed should be updated, in seconds"""
-    track_reschedule: bool = True
+    track_reschedule: bool = False
     """keep track of scheduled time of upcoming streams, emit record again if it is changed to an earlier date"""
 
 @Plugins.register('rss', Plugins.kind.ACTOR_CONFIG)

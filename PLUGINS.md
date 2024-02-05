@@ -836,7 +836,7 @@ database is kept in memory and not stored on disk at all, providing a clean data
 * `adjust_update_interval`: change delay before next update based on response headers. This setting doesn't affect timeouts after failed requests. Default value is `true`.
 * `quiet_start`: throw away new records on the first update after application startup. Default value is `false`.
 * `quiet_first_time`: throw away new records produced on first update of given url. Default value is `true`.
-* `track_reschedule`: keep track of scheduled time of upcoming streams, emit record again if it is changed to an earlier date. Default value is `true`.
+* `track_reschedule`: keep track of scheduled time of upcoming streams, emit record again if it is changed to an earlier date. Default value is `false`.
 
 
 #### Produced records types:
