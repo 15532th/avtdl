@@ -117,7 +117,8 @@ class Command(Actor):
                 if value is not None:
                     new_arg = new_arg.replace(placeholder, value)
                 else:
-                    self.logger.warning(f'[{entity.name}] configured placeholder "{field}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
+                    if placeholder in arg:
+                        self.logger.warning(f'[{entity.name}] configured placeholder "{field}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
             new_args.append(new_arg)
         return new_args
 
