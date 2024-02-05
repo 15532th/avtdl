@@ -11,7 +11,8 @@ from pydantic import Field, FilePath, field_validator, model_validator
 
 from avtdl.core.db import BaseRecordDB
 from avtdl.core.interfaces import Actor, ActorConfig, ActorEntity, Record
-from avtdl.core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, show_diff
+from avtdl.core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, \
+    show_diff
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
@@ -461,6 +462,7 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
                     # to not cause discontinuity in stored data
                     return []
             records.extend(current_page_records)
+            self.logger.debug(f'[{entity.name}] while parsing page {current_page} got {len(current_page_records)} records')
 
             current_page += 1
             await asyncio.sleep(entity.next_page_delay)

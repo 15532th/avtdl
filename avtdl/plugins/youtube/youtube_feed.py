@@ -12,7 +12,8 @@ from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedF
 from avtdl.core.plugins import Plugins
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 from avtdl.plugins.youtube.common import get_innertube_context, handle_consent, prepare_next_page_request, thumbnail_url
-from avtdl.plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_renderers, parse_owner_info, parse_video_renderer
+from avtdl.plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_renderers, parse_owner_info, \
+    parse_video_renderer
 
 
 @Plugins.register('channel', Plugins.kind.ASSOCIATED_RECORD)
@@ -146,6 +147,8 @@ class VideosMonitor(PagedFeedMonitor):
             return None, None
         raw_page_text = await handle_consent(raw_page_text, entity.url, session, self.logger)
         video_renderers, continuation_token, page = get_video_renderers(raw_page_text)
+        if not video_renderers:
+            self.logger.debug(f'[{entity.name}] found no videos on first page of {entity.url}')
         owner_info = parse_owner_info(page)
         current_page_records = self._parse_entries(owner_info, video_renderers, entity)
         innertube_context = get_innertube_context(raw_page_text)
@@ -165,6 +168,8 @@ class VideosMonitor(PagedFeedMonitor):
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
         video_renderers, continuation_token, page = get_video_renderers(raw_page, anchor='')
+        if not video_renderers:
+            self.logger.debug(f'[{entity.name}] found no videos when parsing continuation of {entity.url}')
         context = (innertube_context, owner_info, continuation_token) if continuation_token else None
         current_page_records = self._parse_entries(owner_info, video_renderers, entity)
         return current_page_records, context
@@ -180,8 +185,6 @@ class VideosMonitor(PagedFeedMonitor):
                 self.logger.warning(f'[{entity.name}] failed to parse video renderer on "{entity.url}": {type(e)}: {e}')
                 self.logger.debug(f'[{entity.name}] raw video renderer:\n{item}')
                 continue
-        if not records:
-            self.logger.warning(f'[{entity.name}] parsing page "{entity.url}" yielded no videos, check url and cookies')
         records = records[::-1] # records are ordered from old to new on page, reorder in chronological order
         return records
 
