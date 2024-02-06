@@ -16,16 +16,16 @@ actors:
   rss: # plugin for monitoring Youtube channel RSS feed
     entities:
       - name: "ChannelName"
-        url: "https://www.youtube.com/@ChannelName"
+        url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCK0V3b23uJyU4N8eR_BR0QA"
       - name: "AnotherChannelName"
-        url: "https://www.youtube.com/@AnotherChannelName"
+        url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC3In1x9H3jC4JzsIaocebWg"
 
-    channel: # plugin for monitoring Youtube channel by parsing web page
-      entities:
-        - name: "subscriptions"
-          url: "https://www.youtube.com/feed/subscriptions"
-          cookies_file: "cookies.txt"
-          update_interval: 900
+  channel: # plugin for monitoring Youtube channel by parsing web page
+    entities:
+      - name: "subscriptions"
+        url: "https://www.youtube.com/feed/subscriptions"
+        cookies_file: "cookies.txt"
+        update_interval: 900
 
   community: # plugin for monitoring Youtube community posts
     entities:
@@ -45,18 +45,16 @@ actors:
 # Actions, do something with incoming data
 
   execute: # run predefined command template filled with received data
-    defaults:
-      command: "ytarchive --threads 3 --wait {url} best"
     entities:
-      - name: "ChannelName"
-        working_dir: "archive/livestreams/channelname/"
-      - name: "AnotherChannelName"
-        working_dir: "archive/livestreams/anotherchannelname/"
+      - name: "archive"
+        command: "ytarchive --threads 3 --wait {url} best"
+        working_dir: "archive/livestreams/{author}/"
+
 
   to_file: # write data to text file
     entities:
       - name: "ChannelName"
-        path: "archive/community/channelname/"
+        path: "archive/community/ChannelName/"
         filename: "{post_id}.txt"
 
   discord.hook: # send notification to Discord channel
@@ -95,15 +93,6 @@ chains:
   "archive ChannelName":
     - rss:
         - "ChannelName"
-    - execute:
-        - "ChannelName"
-
-  # run "ytarchive ..." with url of every new upload of another Youtube channel
-  "archive AnotherChannelName":
-    - rss:
         - "AnotherChannelName"
     - execute:
-        - "AnotherChannelName"
-
-
-
+        - "archive"
