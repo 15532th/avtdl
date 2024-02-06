@@ -51,11 +51,11 @@ class YoutubeChatRecord(Record):
             items.append(f'{self.banner_header}:')
         if self.amount:
             items.append(f'{self.amount}:')
-        items.extend(self._body_text())
+        items.append(self._body_text())
         text = ' '.join(items)
         return text
 
-    def _body_text(self):
+    def _body_text(self) -> str:
         items = []
         if self.sticker:
             items.append(self.sticker)
