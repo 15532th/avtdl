@@ -1,0 +1,109 @@
+# This is example of configuration file for avtdl.
+# Lines starting with # are comments and ignored by the application.
+
+# Consult documentation at https://github.com/15532th/avtdl#avtdl
+# for detailed description of configuration file format.
+
+
+# Mandatory top-level "actors" section groups units of work, "entities",
+# of specific plugins. Parameters available for configuration of each plugin
+# are described in https://github.com/15532th/avtdl/blob/master/PLUGINS.md
+
+actors:
+
+# Monitors, retaining new data from data sources:
+
+  rss: # plugin for monitoring Youtube channel RSS feed
+    entities:
+      - name: "ChannelName"
+        url: "https://www.youtube.com/@ChannelName"
+      - name: "AnotherChannelName"
+        url: "https://www.youtube.com/@AnotherChannelName"
+
+    channel: # plugin for monitoring Youtube channel by parsing web page
+      entities:
+        - name: "subscriptions"
+          url: "https://www.youtube.com/feed/subscriptions"
+          cookies_file: "cookies.txt"
+          update_interval: 900
+
+  community: # plugin for monitoring Youtube community posts
+    entities:
+      - name: "ChannelName"
+        url: "https://www.youtube.com/@ChannelName/community"
+        cookies_file: cookies.txt
+
+# Filters, filter or transform data
+
+  filter.channel: # check that Youtube url has specific properties (such as being live or member-only)
+    entities:
+      - name: "subs live"
+        live: true
+      - name: "subs scheduled"
+        upcoming: true
+
+# Actions, do something with incoming data
+
+  execute: # run predefined command template filled with received data
+    defaults:
+      command: "ytarchive --threads 3 --wait {url} best"
+    entities:
+      - name: "ChannelName"
+        working_dir: "archive/livestreams/channelname/"
+      - name: "AnotherChannelName"
+        working_dir: "archive/livestreams/anotherchannelname/"
+
+  to_file: # write data to text file
+    entities:
+      - name: "ChannelName"
+        path: "archive/community/channelname/"
+        filename: "{post_id}.txt"
+
+  discord.hook: # send notification to Discord channel
+    entities:
+      - name: "my-server#announcements"
+        url: "https://discord.com/api/webhooks/1176072251045217473/N-tDdv_iIZnUl6I67GcWqmO0GlNDgCBRYTYf2Z-lfUsLk0HcvvK-i0thuPXiigXcB6h6"
+
+
+# Mandatory top-level "chains" section declares sequences
+# [monitors] -> [filters] -> [action] defining combinations
+# of input and output plugins achieving desired workflows.
+
+chains:
+  # Each chain must have arbitrary but unique name.
+  # It lists sequence of plugins, referencing names
+  # of its entities, as defined in "actors" section.
+
+  # from subscription feed pick ongoing and future livestreams and send to Discord
+  "subs notify":
+    - channel:
+        - "subscriptions"
+    - filter.channel:
+        - "subs live"
+        - "subs scheduled"
+    - discord.hook:
+        - "my-server#announcements"
+
+  # store new community posts on Youtube channel to text file
+  "community posts on ChannelName":
+    - community:
+        - "ChannelName"
+    - to_file:
+        - "ChannelName"
+
+  # run "ytarchive ..." with url of every new upload of Youtube channel
+  "archive ChannelName":
+    - rss:
+        - "ChannelName"
+    - execute:
+        - "ChannelName"
+
+  # run "ytarchive ..." with url of every new upload of another Youtube channel
+  "archive AnotherChannelName":
+    - rss:
+        - "AnotherChannelName"
+    - execute:
+        - "AnotherChannelName"
+
+
+
