@@ -4,13 +4,12 @@ import os
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
-from avtdl.core import utils
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record, TextRecord
 from avtdl.core.monitors import HIGHEST_UPDATE_INTERVAL, TaskMonitor, TaskMonitorEntity
-from avtdl.core.utils import Fmt, OutputFormat, read_file, sanitize_filename
+from avtdl.core.utils import Fmt, OutputFormat, check_dir, read_file, sanitize_filename
 
 Plugins.register('from_file', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
 
@@ -113,7 +112,7 @@ class FileActionConfig(ActorConfig):
 @Plugins.register('to_file', Plugins.kind.ACTOR_ENTITY)
 class FileActionEntity(ActorEntity):
     path: Optional[Path] = None
-    """directory where output file should be created. Default is current directory"""
+    """directory where output file should be created. Default is current directory. Supports templating with {...}"""
     filename: str
     """name of the output file. Supports templating with `{...}`"""
     encoding: Optional[str] = 'utf8'
@@ -128,15 +127,6 @@ class FileActionEntity(ActorEntity):
     """string that will be appended before the record text. Can be used to separate records from each other or for simple templating"""
     postfix: str = '\n'
     """string that will be appended after the record text"""
-
-    @field_validator('path')
-    @classmethod
-    def check_dir(cls, path: Optional[Path]) -> Path:
-        if path is None:
-            return Path.cwd()
-        if utils.check_dir(path):
-            return path
-        raise ValueError(f'check if provided path points to a writeable directory')
 
 
 @Plugins.register('to_file', Plugins.kind.ACTOR)
@@ -173,7 +163,12 @@ class FileAction(Actor):
         if entity.path is None:
             path = Path.cwd().joinpath(filename)
         else:
-            path = Path(entity.path).joinpath(filename)
+            path = Fmt.format_path(entity.path, record)
+            ok = check_dir(path)
+            if not ok:
+                self.logger.warning(f'[{entity.name}] check "{path}" is a valid and writeable directory')
+                return
+            path = path.joinpath(filename)
         if path.exists() and not entity.overwrite:
             self.logger.debug(f'[{entity.name}] file {path} already exists, not overwriting')
             return
