@@ -315,6 +315,7 @@ In the following example records from Youtube and Twitch monitors are fed into "
 
 ```yaml
 chains:
+
   "from youtube":
     - rss:
         - "Example Channel"
@@ -343,33 +344,28 @@ Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with def
 
 ```yaml
 actors:
+
   rss:
     entities:
       - name: "ChannelName"
-        url: "https://www.youtube.com/@ChannelName"
+        url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCK0V3b23uJyU4N8eR_BR0QA"
       - name: "AnotherChannelName"
-        url: "https://www.youtube.com/@AnotherChannelName"
+        url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC3In1x9H3jC4JzsIaocebWg"
 
   execute:
-    defaults:
-      command: "ytarchive --threads 3 --wait {url} best"
     entities:
-      - name: "ChannelName"
-        working_dir: "archive/livestreams/channelname/"
-      - name: "AnotherChannelName"
-        working_dir: "archive/livestreams/anotherchannelname/"
+      - name: "archive"
+        command: "ytarchive --threads 3 --wait {url} best"
+        working_dir: "archive/livestreams/{author}/"
 
 chains:
-  "archive ChannelName":
-    - channel:
+
+  "archive channels":
+    - rss:
         - "ChannelName"
-    - execute:
-        - "ChannelName"
-  "archive AnotherChannelName":
-    - channel:
         - "AnotherChannelName"
     - execute:
-        - "AnotherChannelName"
+        - "archive"
 ```
 
 ##### Save community posts to files
