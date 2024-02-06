@@ -179,7 +179,7 @@ class Command(Actor):
         try:
             stdout = open(stdout_path, 'at') if stdout_path is not None else None
         except OSError as e:
-            self.logger.warning(f'[{entity.name}] failed to open file {stdout_path}, command output will not be written')
+            self.logger.warning(f'[{entity.name}] failed to open file {stdout_path}: {e}. Command output will not be written')
             stdout = None
         try:
             if stdout is None:
