@@ -193,7 +193,7 @@ class Command(Actor):
                 process = await asyncio.create_subprocess_exec(*args, cwd=working_dir)
             else:
                 with stdout:
-                    stdout.write(f'# [{self.conf.name}.{entity.name}] > {entity.command}\n')
+                    stdout.write(f'# [{self.conf.name}.{entity.name}] > {command_line}\n')
                     stdout.flush()
                     process = await asyncio.create_subprocess_exec(*args, cwd=working_dir, stdout=stdout, stderr=asyncio.subprocess.STDOUT)
         except Exception as e:
