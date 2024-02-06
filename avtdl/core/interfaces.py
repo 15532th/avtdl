@@ -7,12 +7,14 @@ from hashlib import sha1
 from textwrap import shorten
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 MAX_REPR_LEN = 60
 
 class Record(BaseModel):
     '''Data entry, passed around from Monitors to Actions through Filters'''
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
     @abstractmethod
     def __str__(self) -> str:
@@ -127,13 +129,17 @@ class MessageBus:
 
 
 class ActorConfig(BaseModel):
+    model_config = ConfigDict(use_attribute_docstrings=True)
     name: str
 
 class ActorEntity(BaseModel):
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
     name: str
     """name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin"""
 
 class Actor(ABC):
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
     def __init__(self, conf: ActorConfig, entities: Sequence[ActorEntity]):
         self.conf = conf
