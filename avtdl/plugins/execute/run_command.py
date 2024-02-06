@@ -81,6 +81,11 @@ class Command(Actor):
     one after another, so using piece of text that might come up in record field might
     produce unexpected results.
 
+    `command` string is not treated as raw shell command. Instead, it is split into list
+     of elements, where first element specifies the program executable, and the rest
+     specify the arguments. It is therefore not possible to use shell features such as pipes
+     or execute multiple commands in one line.
+
     Make sure the executable the command uses (`yt-dlp` in this case) is installed and
     can be run from the working directory by current user. It is advised to confirm that
     the command can be executed manually and it finishes without errors before automating it.
