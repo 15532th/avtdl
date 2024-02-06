@@ -518,6 +518,7 @@ actors:
 
 Note how this makes this plugin entity only suitable for processing records coming from the `community` plugin, since only that plugin uses this field. If currently processed record does not have this field, it will not be replaced with anything, and the resulting file name will be quite literally `{post_id}.txt`. If this happens, debug message is produced in log. Some field names are used by multiple plugins, one notable example being the `url` field, which usually contains the url of a new livestream, video or post.
 
+When template is used as a file name or as a path to a directory, field values will have characters that are not allowed to be used in filenames replaced with underscore. Filename and path length staying within allowed limits, however, are not enforced.
 
 ### Tools commonly used for downloading livestreams
 
