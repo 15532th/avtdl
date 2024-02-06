@@ -53,6 +53,12 @@ class CommandEntity(ActorEntity):
         else:
             raise ValueError(f'check path "{path}" exists and is a writeable directory')
 
+    @field_validator('command')
+    @classmethod
+    def split_args(cls, command: str):
+        _ = shlex.split(command) # might raise ValueError
+        return command
+
 
 @Plugins.register('execute', Plugins.kind.ACTOR)
 class Command(Actor):
