@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record, TextRecord
@@ -34,9 +34,16 @@ class FileMonitorEntity(TaskMonitorEntity):
     base_update_interval: float = Field(exclude=True, default=60)
     """internal variable to persist state between updates. Used to restore configured update interval after delay on network request error"""
 
+    @field_validator('path')
+    @classmethod
+    def check_length(cls, path: Path) -> Path:
+        try:
+            path.exists()
+        except OSError as e:
+            raise ValueError(f'{e}')
+        return path
 
     def __post_init__(self):
-        self.path = Path(self.path)
         self.base_update_interval = self.update_interval
 
 
@@ -169,6 +176,11 @@ class FileAction(Actor):
                 self.logger.warning(f'[{entity.name}] check "{path}" is a valid and writeable directory')
                 return
             path = path.joinpath(filename)
+        try:
+            path.exists()
+        except OSError as e:
+            self.logger.warning(f'[{entity.name}] failed to process record: {e}')
+            return
         if path.exists() and not entity.overwrite:
             self.logger.debug(f'[{entity.name}] file {path} already exists, not overwriting')
             return
