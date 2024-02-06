@@ -123,7 +123,7 @@ def check_dir(path: Path, create=True) -> bool:
     elif create:
         logging.warning(f'directory {path} does not exists, creating')
         try:
-            os.mkdir(path)
+            path.mkdir(parents=True, exist_ok=True)
             return True
         except OSError as e:
             logging.warning(f'failed to create directory at {path}: {e}')
