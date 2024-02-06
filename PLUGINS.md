@@ -235,7 +235,7 @@ using system-wide encoding.
 
 #### Entity configuration options:
 * `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-* `filename`: name of the output file. Supports templating with `{...}`. Required.
+* `filename`: name of the output file. Supports templating with {...}. Required.
 ##### 
 * `path`: directory where output file should be created. Default is current directory. Supports templating with {...}. Not required.
 * `encoding`: output file encoding. Default value is `utf8`.
@@ -1126,7 +1126,7 @@ Youtube chat message
 * `author`: message author's name. 
 * `channel`: message author's channel url. 
 * `badges`: localized list of message author's badges (owner, moderator, member, verified and so on). 
-* `timestamp`: timestamp (UNIX time) of when the message was sent. 
+* `timestamp`: timestamp of when the message was sent. 
 * `text`: message content as plaintext. 
 * `amount`: for superchats, string specifying amount and currency, otherwise empty. 
 * `banner_header`: used for special objects in chat, such as pinned messages. 
