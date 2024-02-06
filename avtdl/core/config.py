@@ -48,9 +48,9 @@ class ActorConfigSection(BaseModel):
     entities: List[dict]
 
 class Config(BaseModel):
-    Settings: SettingsSection = SettingsSection()
-    Actors: Dict[str, ActorConfigSection]
-    Chains: Dict[str, ChainConfigSection]
+    settings: SettingsSection = SettingsSection()
+    actors: Dict[str, ActorConfigSection]
+    chains: Dict[str, ChainConfigSection]
 
 
 TConfig = TypeVar('TConfig')
@@ -95,17 +95,17 @@ class ConfigParser:
     def flatten_config(config: Config) -> Config:
         conf = config.model_dump()
         actors_section: Dict[str, ActorConfigSection] = {}
-        for name, section in config.Actors.items():
+        for name, section in config.actors.items():
             actors_section[name] = ActorParser.flatten_actor_section(name, section)
-        conf['Actors'] = actors_section
+        conf['actors'] = actors_section
         return Config(**conf)
 
     @staticmethod
     def load_models(config: Config) -> Type['SpecificConfig']:
-        actors_model = ActorParser.load_actors_plugins_model(config.Actors)
+        actors_model = ActorParser.load_actors_plugins_model(config.actors)
         SpecificConfigModel = create_model('SpecificConfig',
-                                     Actors=(actors_model, ...),
-                                     Chains=(Dict[str, ChainConfigSection], ...)
+                                     actors=(actors_model, ...),
+                                     chains=(Dict[str, ChainConfigSection], ...)
                                      )
         return SpecificConfigModel
 
@@ -122,16 +122,16 @@ class ConfigParser:
         # do basic structural validation of config file
         config = Config(**conf)
 
-        configure_loggers(config.Settings)
-        Plugins.load(config.Settings.plugins_directory)
+        configure_loggers(config.settings)
+        Plugins.load(config.settings.plugins_directory)
 
         # after that entities transformation and specific plugins validation can be safely performed
         flatted_conf = cls.flatten_config(config)
         SpecificConfig = cls.load_models(config)
         specific_config = SpecificConfig(**flatted_conf.model_dump())
 
-        actors = ActorParser.create_actors(specific_config.Actors)
-        chains = ConfigParser.create_chains(specific_config.Chains)
+        actors = ActorParser.create_actors(specific_config.actors)
+        chains = ConfigParser.create_chains(specific_config.chains)
 
         return actors, chains
 
