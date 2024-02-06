@@ -140,6 +140,18 @@ def make_datetime(items) -> datetime.datetime:
     timestamp = mktime_tz(items)
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
 
+
+def parse_timestamp(timestamp: Union[str, int, None]) -> Optional[datetime.datetime]:
+    if timestamp is None:
+        return None
+    try:
+        ts = int(timestamp)
+        dt = datetime.datetime.fromtimestamp(int(ts / 1000000), tz=datetime.timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
 def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
     keys = {*dict1.keys(), *dict2.keys()}
     diff = []

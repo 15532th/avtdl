@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 from textwrap import shorten
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import aiohttp
 from pydantic import BaseModel, Field
@@ -11,6 +11,7 @@ from avtdl.core import utils
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
+from avtdl.core.utils import Fmt, parse_timestamp
 from avtdl.plugins.youtube import video_info
 from avtdl.plugins.youtube.common import extract_keys, find_all, find_one, get_innertube_context, handle_consent, \
     parse_navigation_endpoint, prepare_next_page_request
@@ -25,8 +26,8 @@ class YoutubeChatRecord(Record):
     """message author's channel url"""
     badges: List[str]
     """localized list of message author's badges (owner, moderator, member, verified and so on)"""
-    timestamp: int
-    """timestamp (UNIX time) of when the message was sent"""
+    timestamp: Union[datetime.datetime, int, None]
+    """timestamp of when the message was sent"""
     text: Optional[str] = None
     """message content as plaintext"""
     amount: Optional[str] = None
@@ -43,7 +44,6 @@ class YoutubeChatRecord(Record):
     """internal name of message type. Used for debug purposes"""
     renderer: str
     """internal name of message format. Used for debug purposes"""
-
 
     def _main_text(self) -> str:
         items = []
@@ -66,17 +66,10 @@ class YoutubeChatRecord(Record):
         text = ' '.join(items)
         return text
 
-    def parse_timestamp(self) -> Optional[datetime.datetime]:
-        try:
-            ts = int(self.timestamp)
-            dt = datetime.datetime.fromtimestamp(int(ts/1000000), tz=datetime.timezone.utc)
-            return dt
-        except Exception:
-            return None
-
     def __str__(self):
+        timestamp = Fmt.date(self.timestamp)
         text = self._main_text()
-        return f'[{self.author}] {text}'
+        return f'{timestamp} [{self.author}] {text}'
 
     def __repr__(self):
         text = shorten(self._main_text(), MAX_REPR_LEN)
@@ -297,7 +290,8 @@ class Parser:
         author = renderer.get('authorName', {}).get('simpleText', '[no author]')
         channel_id = renderer.get('authorExternalChannelId') or find_one(renderer, '$..authorExternalChannelId')
         channel = f'https://www.youtube.com/channel/{channel_id}'
-        timestamp = renderer.get('timestampUsec')
+        timestamp = renderer.get('timestampUsec') 
+        timestamp = parse_timestamp(timestamp)
         badges = renderer.get('authorBadges', []) and find_all(renderer['authorBadges'], '$..label')
         amount = renderer.get('purchaseAmountText', {}).get('simpleText')
         header = renderer.get('headerSubtext')
@@ -332,6 +326,7 @@ class Parser:
         channel_id = find_one(renderer, '$..authorExternalChannelId')
         channel = f'https://www.youtube.com/channel/{channel_id}'
         timestamp = renderer.get('timestampUsec')
+        timestamp = parse_timestamp(timestamp)
 
         author = find_one(renderer, '$..authorName.simpleText') or '[no author]'
         badges = find_all(renderer, '$..authorBadges..label')
