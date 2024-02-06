@@ -199,8 +199,9 @@ actors:
           - "sing"
 
   discord.hook:  # send Discord message using webhook
-    - name: "notifications"
-      url: "https://discord.com/api/webhooks/1176072251045217473/N-tDdv_iIZnUl6I67GcWqmO0GlNDgCBRYTYf2Z-lfUsLk0HcvvK-i0thuPXiigXcB6h6"
+    entities:
+      - name: "notifications"
+        url: "https://discord.com/api/webhooks/1176072251045217473/N-tDdv_iIZnUl6I67GcWqmO0GlNDgCBRYTYf2Z-lfUsLk0HcvvK-i0thuPXiigXcB6h6"
 ```
 
 It features four plugins: two for monitoring data sources (`rss` and `community`), one for matching against patterns (`filter.match`), and one more for sending notifications (`discord.hook`). Note how each entry in `entities` list has a `name` parameter: it will be later used in `chains` section to refer to a specific entity of a plugin.
@@ -342,7 +343,7 @@ Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with def
 
 ```yaml
 actors:
-  channel:
+  rss:
     entities:
       - name: "ChannelName"
         url: "https://www.youtube.com/@ChannelName"
@@ -350,7 +351,7 @@ actors:
         url: "https://www.youtube.com/@AnotherChannelName"
 
   execute:
-    default:
+    defaults:
       command: "ytarchive --threads 3 --wait {url} best"
     entities:
       - name: "ChannelName"
@@ -404,20 +405,23 @@ Monitor subscription feed of Youtube account using a provided cookies file, pick
 ```yaml
 actors:
   channel:
-    - name: "subscriptions"
-      url: "https://www.youtube.com/feed/subscriptions"
-      cookies_file: "cookies.txt"
-      update_interval: 900
+    entities:
+      - name: "subscriptions"
+        url: "https://www.youtube.com/feed/subscriptions"
+        cookies_file: "cookies.txt"
+        update_interval: 900
 
   filter.channel:
-    - name: "subs live"
-      live: true
-    - name: "subs scheduled"
-      upcoming: true
+    entities:
+      - name: "subs live"
+        live: true
+      - name: "subs scheduled"
+        upcoming: true
 
   discord.hook:
-    - name: "my-server#announcements"
-      url: "https://discord.com/api/webhooks/..."
+    entities:
+      - name: "my-server#announcements"
+        url: "https://discord.com/api/webhooks/..."
 
 chains:
   "subs notify":
@@ -509,8 +513,6 @@ For example, the following config snippet uses a template to output each process
 
 ```yaml
 actors:
-  [...]
-
   to_file:
     entities:
       - name: "ChannelName"
