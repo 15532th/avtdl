@@ -13,9 +13,9 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
       * [Configuration file syntax](#configuration-file-syntax)
       * [Configuration file terminology](#configuration-file-terminology)
       * [Configuration file format](#configuration-file-format)
-        * [Settings](#settings)
-        * [Actors](#actors)
-        * [Chains](#chains)
+        * [settings](#settings)
+        * [actors](#actors)
+        * [chains](#chains)
       * [Examples](#examples)
         * [Download livestreams from youtube channel](#download-livestreams-from-youtube-channel)
         * [Save community posts to files](#save-community-posts-to-files)
@@ -110,26 +110,26 @@ Features, such as monitoring RSS feeds or sending XMPP messages, are contained i
 
 For each of the plugins, `entities` are unified sets of settings describing a single element a plugin works with. For RSS feeds monitor, one entity would be defined for every feed it is supposed to check, providing feed url and how often it should be checked for updates.
 
-`Chains` combine `entities` of different plugins in sequences, where `records` produced by `monitors` flow through zero or more `filters` to `actors`.
+`chains` combine `entities` of different plugins in sequences, where `records` produced by `monitors` flow through zero or more `filters` to `actors`.
 
 #### Configuration file format
 
 Configuration file contains three top level sections:
 
 ```yaml
-Settings:
+settings:
     # <application-wide setting>
 
-Actors:
+actors:
     # <plugins with entities they contain>
 
-Chains:
+chains:
     # <sequences of entities names>
 ```
 
 Each section is explained in details below.
 
-##### Settings
+##### settings
 
 This section contains some application settings and can be fully omitted if default values of options are acceptable.
 
@@ -140,10 +140,10 @@ These options mostly regulate logging to a file. To set a log level for console 
 - `logfile_level` - how detailed the output to log file is. Can be "DEBUG", "INFO", "WARNING" or "ERROR". It is recommended to keep log file loglevel set to "DEBUG" and only set console output to higher level.
 - `loglevel_override` - allows to overwrite loglevel of a specific logger. Used to prevent a single talkative logger from filling up the log file. Each log line is preceded by log level and logger name. For example, line `[DEBUG  ] [actor.channel.db] successfully connected to sqlite database at ":memory:"` is produced by logger `actor.channel.db` on `DEBUG` level
 
-Example of `Settings` section with all default values:
+Example of `settings` section with all default values:
 
 ```yaml
-Settings:
+settings:
   log_directory: "logs"
   logfile_size: "1000000"
   logfile_level: "DEBUG"
@@ -153,12 +153,12 @@ Settings:
     actor.request: "INFO"
 ```
 
-##### Actors
+##### actors
 
 This section must contain plugin names from [Description and configuration of available plugins](PLUGINS.md). Each of them has the following structure:
 
 ```yaml
-Actors:
+actors:
   <plugin_name>:
     config:
       # <plugin-specific configuration>
@@ -170,10 +170,10 @@ Actors:
 
 Each plugin section contains three subsections: `config`, `defaults` and `entities`. Specific format is different for each plugin, see [Description and configuration of available plugins](PLUGINS.md) for details. Many plugins don't have `config` section, and `defaults` sections is not mandatory and can be omitted. If field description mentions a default value, it means the field could be omitted from the config section and the default value would be used instead. Fields without defaults are mandatory. If the section ends up not having any values (common for `config` section), it must be omitted.
 
-Here is an example of `Actors` configuration section with a few plugins. Refer to sections in [Description and configuration of available plugins](PLUGINS.md) corresponding to plugin names for detailed explanations on the options.
+Here is an example of `actors` configuration section with a few plugins. Refer to sections in [Description and configuration of available plugins](PLUGINS.md) corresponding to plugin names for detailed explanations on the options.
 
 ```yaml
-Actors:
+actors:
 
   rss:  # Youtube channel monitor
     defaults:
@@ -203,17 +203,17 @@ Actors:
       url: "https://discord.com/api/webhooks/1176072251045217473/N-tDdv_iIZnUl6I67GcWqmO0GlNDgCBRYTYf2Z-lfUsLk0HcvvK-i0thuPXiigXcB6h6"
 ```
 
-It features four plugins: two for monitoring data sources (`rss` and `community`), one for matching against patterns (`filter.match`), and one more for sending notifications (`discord.hook`). Note how each entry in `entities` list has a `name` parameter: it will be later used in `Chains` section to refer to a specific entity of a plugin.
+It features four plugins: two for monitoring data sources (`rss` and `community`), one for matching against patterns (`filter.match`), and one more for sending notifications (`discord.hook`). Note how each entry in `entities` list has a `name` parameter: it will be later used in `chains` section to refer to a specific entity of a plugin.
 `rss` plugin's `entities` section sets it to monitor two Youtube channels RSS feeds, with default `update_interval` value for both of them overwritten in `defaults`. `community` plugin shows an example of plugin-wide option `db_path` in `config` section, explicitly setting persistent storage location.
 
-##### Chains
+##### chains
 
 As explained in the [Configuration file terminology](#configuration-file-terminology) section, plugins can be divided into three types `monitors`, `filters` and `actions`. A `monitor` can only produce new records. `filter` consumes records and decides to either output them or not based on its settings. `action` only consumes `records`, but can produce `events`, for example in case of error.
 
-A chain groups entities from plugins in the `Actors` section in a sequence, where `records` from one or more `monitors` get through `filters` and trigger `actions`. Each entity is identified by a combination of a plugin name and the entity `name` property. General `Chains` section structure is:
+A chain groups entities from plugins in the `actors` section in a sequence, where `records` from one or more `monitors` get through `filters` and trigger `actions`. Each entity is identified by a combination of a plugin name and the entity `name` property. General `chains` section structure is:
 
 ```yaml
-Chains:
+chains:
   <arbitrary chain name>:
     - <plugin name>:
       - <entity name>
@@ -225,7 +225,7 @@ Chains:
 Example, following this structure:
 
 ```yaml
-Chains:
+chains:
   "new streams notifications":
     - rss:
       - "One Example Channel"
@@ -235,14 +235,14 @@ Chains:
 ```
 
 In this example a single `chain` named "new streams notifications" declares that all records produced by two entities of the `rss` monitor are forwarded into the `discord.hook` entity to be sent as a messages into a Discord channel.
-According to the configuration in the `Actors` section defined [before](#actors), `rss` plugin will check RSS feeds of the two Youtube channels every 3600 seconds. When a new video is uploaded, a new entry appears in the RSS feed, leading to a new `record` being generated on the next update. Due to the `rss` plugin entities being listed in the `chain`, it then gets fed into the `discord.hook` "notifications" entity, which in turn will convert the `record` into a fitting representation and send it to Discord by making a request to a webhook url.
+According to the configuration in the `actors` section defined [before](#actors), `rss` plugin will check RSS feeds of the two Youtube channels every 3600 seconds. When a new video is uploaded, a new entry appears in the RSS feed, leading to a new `record` being generated on the next update. Due to the `rss` plugin entities being listed in the `chain`, it then gets fed into the `discord.hook` "notifications" entity, which in turn will convert the `record` into a fitting representation and send it to Discord by making a request to a webhook url.
 
 ***
 
 In its simplest form, a `chain` includes one monitor, zero or more `filters` and ends with an `action`. However, for convenience's sake, it is possible to list multiple `monitors` sequentially in one `chain`:
 
 ```yaml
-Chains:
+chains:
   "multiplatform streams notifications":
     - rss:
       - "Example Channel"
@@ -259,7 +259,7 @@ When a `monitor` receives a `record` as input, it will be passed down the chain 
 If a plugin in the middle of a `chain` lists multiple entities, all of them will receive records from previous one, and all of them will generate records based on it.
 
 ```yaml
-Chains:
+chains:
   "interesting streams notifications":
     - channel:
       - "Example Channel"
@@ -274,7 +274,7 @@ Chains:
 When two entities of such plugin lets the same record through, it will effectively be duplicated, coming down the chain twice. To mitigate it, either give each entity its own `chain`, or use `filter.deduplicate` plugin to drop repeating `records` before passing it to the `action`:
 
 ```yaml
-Chains:
+chains:
   "interesting streams notifications":
     - channel:
         - "subscriptions"
@@ -294,7 +294,7 @@ It is possible for multiple sources to produce duplicate records simply because 
 Even though `actions` do not forward `records` they received down the chain, they might produce `events` when certain event happens while processing a record. For example, `execute` plugin might produce `event` with "error" type if shell command it was set to execute failed. `Events` are treated as normal `records` and can be passed through `filters` to other `actors`.
 
 ```yaml
-Chains:
+chains:
   "download and notify":
     - rss:
         - "Example Channel"
@@ -313,7 +313,7 @@ Note that just like with `monitors` and `actions`, `filters` entities are statef
 In the following example records from Youtube and Twitch monitors are fed into "multiplexor" entity of `noop` filter, which simply passes all records through unchanged. Output of the "multiplexor" then passed to `discord.hook` "notifications" entity.
 
 ```yaml
-Chains:
+chains:
   "from youtube":
     - rss:
         - "Example Channel"
@@ -341,7 +341,7 @@ Chains:
 Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with default update interval of 30 minutes, send new publications urls to `ytarchive`, run in dedicated directories.
 
 ```yaml
-Actors:
+actors:
   channel:
     entities:
       - name: "ChannelName"
@@ -358,7 +358,7 @@ Actors:
       - name: "AnotherChannelName"
         working_dir: "archive/livestreams/anotherchannelname/"
 
-Chains:
+chains:
   "archive ChannelName":
     - channel:
         - "ChannelName"
@@ -376,7 +376,7 @@ Chains:
 Monitor community page of `@ChannelName` and save each new post as a text file, using post id as a name. Uses cookies to access member-only posts.
 
 ```yaml
-Actors:
+actors:
   community:
     entities:
       - name: "ChannelName"
@@ -389,7 +389,7 @@ Actors:
         path: "archive/community/channelname/"
         filename: "{post_id}.txt"
 
-Chains:
+chains:
   "community posts on ChannelName":
     - community:
         - "ChannelName"
@@ -402,7 +402,7 @@ Chains:
 Monitor subscription feed of Youtube account using a provided cookies file, pick livestreams and send notifications to Discord channel using webhook.
 
 ```yaml
-Actors:
+actors:
   channel:
     - name: "subscriptions"
       url: "https://www.youtube.com/feed/subscriptions"
@@ -419,7 +419,7 @@ Actors:
     - name: "my-server#announcements"
       url: "https://discord.com/api/webhooks/..."
 
-Chains:
+chains:
   "subs notify":
     - channel:
         - "subscriptions"
@@ -467,7 +467,7 @@ Allows to specify HTTP headers that will be sent with every update request. Exam
 Headers are specified in `"key": "value"` format. This example ensures locale-dependant elements of Youtube community post, such as published date, are presented in English regardless of IP address geolocation:
 
 ```yaml
-Actors:
+actors:
 
   community:
     defaults:
@@ -508,7 +508,7 @@ Formatting is performed by taking any text enclosed in `{}` and, if it contains 
 For example, the following config snippet uses a template to output each processed record to a separate file, with the record's `post_id` field used as the file name.
 
 ```yaml
-Actors:
+actors:
   [...]
 
   to_file:

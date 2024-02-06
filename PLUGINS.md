@@ -55,7 +55,7 @@ will be dropped with a warning.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `url`: webhook url. Required.
 ##### 
 * `timezone`: takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or OS settings if omitted), converts record fields containing date and time to this timezone. Not required.
@@ -99,7 +99,7 @@ it happens to fail due to video link not being a livestream.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `command`: shell command to be executed on every received record. Supports placeholders that will be replaced with currently processed record fields values. Required.
 ##### 
 * `working_dir`: path to the directory where command will be executed. If not set current working directory is used. Not required.
@@ -139,7 +139,7 @@ the name of the configuration entity is used instead.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `user_id`: user id, numeric part at the end of livestream url. Required.
 ##### 
 * `update_interval`: how often the monitored channel will be checked, in seconds. Default value is `120`.
@@ -180,7 +180,7 @@ of the existing file will produce duplicates of already sent records.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `path`: path to the monitored file. Required.
 ##### 
 * `update_interval`: how often the monitored file should be checked, in seconds. Default value is `60`.
@@ -229,7 +229,7 @@ using system-wide encoding.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `filename`: name of the output file. Supports templating with `{...}`. Required.
 ##### 
 * `path`: directory where output file should be created. Default is current directory. Not required.
@@ -266,7 +266,7 @@ multiple chains and process them in a single place.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 
 ---
 
@@ -277,7 +277,7 @@ Can be used to stuff multiple chains in one if the need ever arises.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 
 ---
 
@@ -288,7 +288,7 @@ defined by `patterns` list found in any (or specified) field of the record.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `patterns`: list of strings to search for in the record. Required.
 ##### 
 * `fields`: field names to search the patterns in. If not specified, all fields are checked. Not required.
@@ -302,7 +302,7 @@ defined by `patterns` list found in any (or specified) field of the record.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `patterns`: list of strings to search for in the record. Required.
 ##### 
 * `fields`: field names to search the patterns in. If not specified, all fields are checked. Not required.
@@ -318,7 +318,7 @@ them from regular records.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 ##### 
 * `event_types`: list of event types. See descriptions of plugins producing events for possible values. Not required.
 
@@ -345,7 +345,7 @@ Only lets through records of specified types, such as `Event` or `YoutubeVideoRe
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `types`: list of records class names, such as "Record" and "Event" . Required.
 ##### 
 * `exact_match`: whether match should check for exact record type or look in entire records hierarchy up to Record. Default value is `false`.
@@ -359,7 +359,7 @@ original record in JSON format, with option for pretty-print.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 ##### 
 * `prettify`: whether output should be multiline and indented or a single line. Default value is `false`.
 
@@ -390,7 +390,7 @@ otherwise it will be left intact.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `template`: template string with placeholders that will be filled with corresponding values from current record. Required.
 ##### 
 * `missing`: if specified, will be used to fill template placeholders that do not have corresponding fields in current record. Not required.
@@ -431,7 +431,7 @@ restarts.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 ##### 
 * `field`: field name to use for comparison. Default value is `hash`.
 * `history_size`: how many old records should be kept in memory. Default value is `10000`.
@@ -470,7 +470,7 @@ database is kept in memory and not stored on disk at all, providing a clean data
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `url`: url that should be monitored. Required.
 ##### 
 * `update_interval`: How often the monitored url will be checked, in seconds. Default value is `1800`.
@@ -519,7 +519,7 @@ All records from other sources pass through without filtering.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 ##### 
 * `retweet`: match retweets. Default value is `false`.
 * `reply`: match replies. Default value is `false`.
@@ -563,7 +563,7 @@ All records from other sources pass through without filtering.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 ##### 
 * `retweet`: match retweets. Default value is `false`.
 * `reply`: match replies. Default value is `false`.
@@ -628,7 +628,7 @@ database is kept in memory and not stored on disk at all, providing a clean data
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `update_interval`: how often the monitored source should be checked for new content, in seconds. Required.
 * `url`: url that should be monitored. Required.
 ##### 
@@ -677,7 +677,7 @@ for all monitored users to not exceed one request per second.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `user_id`: user id that should be monitored. Required.
 ##### 
 * `update_interval`: how often the user will be checked for being live, in seconds. Default value is `60`.
@@ -711,7 +711,7 @@ For user `https://www.twitch.tv/username` username would be `username`.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `username`: Twitch username of a monitored channel. Required.
 ##### 
 * `update_interval`: how often the user will be checked for being live, in seconds. Default value is `300`.
@@ -745,7 +745,7 @@ text endpoints.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `update_interval`: how often the monitored source should be checked for new content, in seconds. Required.
 * `url`: url to monitor. Required.
 ##### 
@@ -784,7 +784,7 @@ it to server side.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `jid`: JID to send message to. Required.
 ##### 
 * `timezone`: takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> or OS settings if omitted, converts record fields containing date and time to this timezone. Not required.
@@ -827,7 +827,7 @@ database is kept in memory and not stored on disk at all, providing a clean data
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `url`: url that should be monitored. Required.
 ##### 
 * `update_interval`: How often the feed should be updated, in seconds. Default value is `900`.
@@ -883,7 +883,7 @@ database is kept in memory and not stored on disk at all, providing a clean data
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `url`: url of the community page of the channel. Required.
 ##### 
 * `update_interval`: how often the community page will be checked for new posts. Default value is `1800`.
@@ -985,7 +985,7 @@ database is kept in memory and not stored on disk at all, providing a clean data
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `url`: url that should be monitored. Required.
 ##### 
 * `update_interval`: . Default value is `1800`.
@@ -1041,7 +1041,7 @@ entities if picking records with any of multiple properties is required.
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 ##### 
 * `upcoming`: to pass the filter a record should be either upcoming livestream or scheduled premiere. Default value is `false`.
 * `live`: to pass the filter a record should be an ongoing livestream. Default value is `false`.
@@ -1099,7 +1099,7 @@ database is kept in memory and not stored on disk at all, providing a clean data
 
 
 #### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin. Required.
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `url`: . Required.
 ##### 
 * `update_interval`: . Default value is `20`.

@@ -131,7 +131,7 @@ class ActorConfig(BaseModel):
 
 class ActorEntity(BaseModel):
     name: str
-    """name of a specific entity. Used to reference it in `Chains` section. Must be unique within a plugin"""
+    """name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin"""
 
 class Actor(ABC):
 
