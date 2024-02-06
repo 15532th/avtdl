@@ -320,7 +320,7 @@ class Fmt:
     """Helper class to interpolate format string from config using data from Record"""
 
     @classmethod
-    def format(cls, fmt: str, record: Record, missing: Optional[str] = None) -> str:
+    def format(cls, fmt: str, record: Record, missing: Optional[str] = None, sanitize: bool = False) -> str:
         """Take string with placeholders like {field} and replace them with record fields"""
         logger = logging.getLogger().getChild('format')
         result = fmt
@@ -333,9 +333,11 @@ class Fmt:
             value = record_as_dict.get(field)
             if value is not None:
                 if isinstance(value, datetime.datetime):
-                    value = value.strftime('%Y-%m-%d %H:%M')
+                    value = cls.date(value)
                 else:
                     value = str(value)
+                    if sanitize:
+                        value = sanitize_filename(value)
                 result = result.replace(placeholder, value)
             else:
                 if missing is not None:
@@ -343,6 +345,17 @@ class Fmt:
                 else:
                     logger.warning(f'placeholder "{placeholder}" used by format string "{fmt}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
         return result
+
+    @classmethod
+    def format_path(cls, path: Union[str,Path], record: Record, missing: Optional[str] = None) -> Path:
+        """Take string with placeholders and replace them with record fields, but strip them from bad symbols"""
+        fmt = str(path)
+        formatted_path = cls.format(fmt, record, missing, sanitize=True)
+        return Path(formatted_path)
+
+    @classmethod
+    def date(cls, dt: datetime.datetime) -> str:
+        return dt.strftime('%Y-%m-%d %H:%M')
 
     @classmethod
     def save_as(cls, record: Record, output_format: OutputFormat = OutputFormat.str) -> str:
