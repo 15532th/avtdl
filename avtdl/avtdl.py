@@ -9,13 +9,13 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
 
 import yaml
-from pydantic import ValidationError
 
 from avtdl.core.chain import Chain
-from avtdl.core.config import ConfigParser
+from avtdl.core.config import ConfigParser, ConfigurationError
 from avtdl.core.info import generate_plugins_description, generate_version_string
 from avtdl.core.interfaces import Actor
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
+from avtdl.core.plugins import UnknownPluginError
 from avtdl.core.utils import read_file
 
 
@@ -36,7 +36,7 @@ def load_config(path: Path) -> Any:
 def parse_config(conf) -> Tuple[Dict[str, Actor], Dict[str, Chain]]:
     try:
         actors, chains = ConfigParser.parse(conf)
-    except ValidationError as e:
+    except (ConfigurationError, UnknownPluginError) as e:
         logging.error(e)
         raise SystemExit from e
     except Exception as e:

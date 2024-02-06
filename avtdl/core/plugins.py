@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Any, Callable, Dict
 
 
+class UnknownPluginError(KeyError):
+    """Raised if plugin with given name is not registered"""
+
 class Plugins:
     class kind(Enum):
         ACTOR = 'actor'
@@ -29,7 +32,7 @@ class Plugins:
         instance = cls.known[kind].get(name)
         if instance is None:
             known = ', '.join(cls.known[kind].keys())
-            raise KeyError(f'"{name}" is not registered as {kind.value} plugin. Known {kind.value} plugins are {known}')
+            raise UnknownPluginError(f'"{name}" is not registered as {kind.value} plugin. Known {kind.value} plugins are {known}')
         return instance
 
     @classmethod
