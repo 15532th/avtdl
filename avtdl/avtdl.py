@@ -20,10 +20,9 @@ from avtdl.core.utils import read_file
 
 
 def load_config(path: Path) -> Any:
-    if not os.path.exists(path):
-        print('Configuration file {} does not exist'.format(path))
-        raise SystemExit
     try:
+        if not os.path.exists(path):
+            raise ValueError('Configuration file {} does not exist'.format(path))
         config_text = read_file(path)
         config = yaml.load(config_text, Loader=yaml.FullLoader)
     except Exception as e:
