@@ -24,7 +24,7 @@ class CommandEntity(ActorEntity):
     command: str
     """shell command to be executed on every received record. Supports placeholders that will be replaced with currently processed record fields values"""
     working_dir: Optional[Path] = None
-    """path to the directory where command will be executed. If not set current working directory is used"""
+    """path to the directory where command will be executed. If not set current working directory is used. Supports templating with {...}"""
     log_dir: Optional[Path] = None
     """write executed process output to a file in this directory if set. If it is not set, output will not be redirected to file"""
     log_filename: Optional[str] = None
@@ -42,7 +42,7 @@ class CommandEntity(ActorEntity):
     report_started: bool = False
     """emit Event with type "started" before starting a subprocess"""
 
-    @field_validator('working_dir', 'log_dir')
+    @field_validator('log_dir')
     @classmethod
     def check_dir(cls, path: Optional[Path]):
         if path is None:
@@ -134,12 +134,13 @@ class Command(Actor):
     def add(self, entity: CommandEntity, record: Record):
         args = self.args_for(entity, record)
         if entity.working_dir is None:
-            entity.working_dir = Path.cwd()
-            self.logger.info(f'[{entity.name}] working directory is not specified, using current directory instead: {entity.working_dir}')
+            working_dir = Path.cwd()
+            self.logger.info(f'[{entity.name}] working directory is not specified, using current directory instead: {working_dir}')
         else:
-            ok = check_dir(entity.working_dir)
+            working_dir = Fmt.format_path(entity.working_dir, record)
+            ok = check_dir(working_dir)
             if not ok:
-                self.logger.warning(f'[{entity.name}] check if working directory "{entity.working_dir}" exists and is a writeable directory')
+                self.logger.warning(f'[{entity.name}] check if working directory "{working_dir}" exists and is a writeable directory')
 
         command_line = self.shell_for(args)
         task_id = self._generate_task_id(entity, record, command_line)
@@ -148,7 +149,7 @@ class Command(Actor):
             self.logger.info(msg)
             return
         self.logger.debug(f'[{entity.name}] executing command "{command_line}" for record {record!r}')
-        task = self.run_subprocess(args, task_id, entity, record)
+        task = self.run_subprocess(args, task_id, working_dir, entity, record)
         self.running_commands[task_id] = asyncio.get_event_loop().create_task(task)
 
     def _get_output_file(self, entity: CommandEntity, record: Record, task_id: str) -> Optional[Path]:
@@ -169,7 +170,7 @@ class Command(Actor):
         filename = sanitize_filename(filename)
         return entity.log_dir / filename
 
-    async def run_subprocess(self, args: List[str], task_id: str, entity: CommandEntity, record: Record):
+    async def run_subprocess(self, args: List[str], task_id: str, working_dir: Path, entity: CommandEntity, record: Record):
         command_line = self.shell_for(args)
         self.logger.info(f'[{entity.name}] executing command {command_line}')
         if entity.report_started:
@@ -183,12 +184,12 @@ class Command(Actor):
             stdout = None
         try:
             if stdout is None:
-                process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir)
+                process = await asyncio.create_subprocess_exec(*args, cwd=working_dir)
             else:
                 with stdout:
                     stdout.write(f'# [{self.conf.name}.{entity.name}] > {entity.command}\n')
                     stdout.flush()
-                    process = await asyncio.create_subprocess_exec(*args, cwd=entity.working_dir, stdout=stdout, stderr=asyncio.subprocess.STDOUT)
+                    process = await asyncio.create_subprocess_exec(*args, cwd=working_dir, stdout=stdout, stderr=asyncio.subprocess.STDOUT)
         except Exception as e:
             self.logger.warning(f'[{entity.name}] failed to execute command "{command_line}": {e}')
             if entity.report_failed:
