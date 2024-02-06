@@ -4,18 +4,22 @@ import argparse
 import asyncio
 import logging
 import os
+from asyncio import AbstractEventLoop
 from pathlib import Path
+from typing import Any, Dict, Iterable, Tuple
 
 import yaml
 from pydantic import ValidationError
 
+from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser
 from avtdl.core.info import generate_plugins_description, generate_version_string
+from avtdl.core.interfaces import Actor
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.utils import read_file
 
 
-def load_config(path: Path):
+def load_config(path: Path) -> Any:
     if not os.path.exists(path):
         print('Configuration file {} does not exist'.format(path))
         raise SystemExit
@@ -29,7 +33,7 @@ def load_config(path: Path):
     return config
 
 
-def parse_config(conf):
+def parse_config(conf) -> Tuple[Dict[str, Actor], Dict[str, Chain]]:
     try:
         actors, chains = ConfigParser.parse(conf)
     except ValidationError as e:
@@ -41,12 +45,12 @@ def parse_config(conf):
     return actors, chains
 
 
-def handler(loop, context):
+def handler(loop: AbstractEventLoop, context: Dict[str, Any]) -> None:
     logging.exception(f'unhandled exception in event loop:', exc_info=context.get('exception'))
     loop.default_exception_handler(context)
 
 
-async def run(runnables):
+async def run(runnables: Iterable[Actor]) -> None:
     loop = asyncio.get_running_loop()
     loop.set_exception_handler(handler)
     loop.slow_callback_duration = 100
@@ -64,11 +68,11 @@ async def run(runnables):
                 logging.warning(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
         if not pending:
             break
-        tasks = pending
+        tasks = list(pending)
     logging.info('all tasks are finished in the main loop')
 
 
-def start(args):
+def start(args: argparse.Namespace) -> None:
     conf = load_config(args.config)
     actors, chains = parse_config(conf)
 
@@ -85,7 +89,7 @@ def start(args):
     asyncio.run(run(actors.values()), debug=True)
 
 
-def make_docs(args):
+def make_docs(args: argparse.Namespace) -> None:
     output = args.plugins_doc
     doc = generate_plugins_description(output.suffix == '.html')
     try:
@@ -96,7 +100,7 @@ def make_docs(args):
         raise SystemExit from e
     
 
-def main():
+def main() -> None:
     description = '''Tool for monitoring rss feeds and other sources and running commands for new entries'''
     parser = argparse.ArgumentParser(description=description)
     help_v = 'set loglevel to DEBUG'
