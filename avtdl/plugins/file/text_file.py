@@ -114,7 +114,7 @@ class FileActionEntity(ActorEntity):
     path: Optional[Path] = None
     """directory where output file should be created. Default is current directory. Supports templating with {...}"""
     filename: str
-    """name of the output file. Supports templating with `{...}`"""
+    """name of the output file. Supports templating with {...}"""
     encoding: Optional[str] = 'utf8'
     """output file encoding"""
     output_format: OutputFormat = Field(default=OutputFormat.str, description='one of `' + "`, `".join(OutputFormat.__members__) + '`')
