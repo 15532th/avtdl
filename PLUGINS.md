@@ -80,6 +80,11 @@ arbitrary text strings. However, placeholders are replaced by corresponding valu
 one after another, so using piece of text that might come up in record field might
 produce unexpected results.
 
+`command` string is not treated as raw shell command. Instead, it is split into list
+ of elements, where first element specifies the program executable, and the rest
+ specify the arguments. It is therefore not possible to use shell features such as pipes
+ or execute multiple commands in one line.
+
 Make sure the executable the command uses (`yt-dlp` in this case) is installed and
 can be run from the working directory by current user. It is advised to confirm that
 the command can be executed manually and it finishes without errors before automating it.
@@ -102,7 +107,7 @@ it happens to fail due to video link not being a livestream.
 * `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `command`: shell command to be executed on every received record. Supports placeholders that will be replaced with currently processed record fields values. Required.
 ##### 
-* `working_dir`: path to the directory where command will be executed. If not set current working directory is used. Not required.
+* `working_dir`: path to the directory where command will be executed. If not set current working directory is used. Supports templating with {...}. Not required.
 * `log_dir`: write executed process output to a file in this directory if set. If it is not set, output will not be redirected to file. Not required.
 * `log_filename`: filename to write executed process output to. If not defined, it is generated automatically based on command and entity name. Not required.
 * `placeholders`: parts of `command` string that should be replaced with processed record fields, defined as mapping `'placeholder': 'record field name'`. Default value is `"{url}": "url", "{title}": "title", "{text}": "text"`.
@@ -232,7 +237,7 @@ using system-wide encoding.
 * `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `filename`: name of the output file. Supports templating with `{...}`. Required.
 ##### 
-* `path`: directory where output file should be created. Default is current directory. Not required.
+* `path`: directory where output file should be created. Default is current directory. Supports templating with {...}. Not required.
 * `encoding`: output file encoding. Default value is `utf8`.
 * `output_format`: one of `str`, `repr`, `json`, `pretty_json`, `hash`. Default value is `text`.
 * `overwrite`: whether file should be overwritten in if it already exists. Default value is `true`.
