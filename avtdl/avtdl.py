@@ -121,12 +121,18 @@ def main() -> None:
     set_logging_format(log_level)
     silence_library_loggers()
 
-    if args.version:
-        print(generate_version_string())
-    elif args.plugins_doc is not None:
-        make_docs(args)
-    else:
-        start(args)
+    try:
+        if args.version:
+            print(generate_version_string())
+        elif args.plugins_doc is not None:
+            make_docs(args)
+        else:
+            start(args)
+    except KeyboardInterrupt:
+        if args.debug:
+            logging.exception('Interrupted, exiting... Printing stacktrace for debugging purpose:')
+        else:
+            logging.info('Interrupted, exiting...')
 
 
 if __name__ == "__main__":
