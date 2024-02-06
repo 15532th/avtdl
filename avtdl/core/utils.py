@@ -325,7 +325,7 @@ class Fmt:
         logger = logging.getLogger().getChild('format')
         result = fmt
         record_as_dict = record.model_dump()
-        placeholders: List[str] = re.findall(r'(?:[^\\]|^)({[^{}\\]+})', fmt)
+        placeholders: List[str] = re.findall(r'({[^{}\\]+})', fmt)
         if not placeholders:
             logger.debug(f'format string "{fmt}" has no placeholders, it will be the same for all records')
         for placeholder in placeholders:
