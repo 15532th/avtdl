@@ -292,7 +292,7 @@ It is possible for multiple sources to produce duplicate records simply because 
 
 ***
 
-Even though `actions` do not forward `records` they received down the chain, they might produce `events` when certain event happens while processing a record. For example, `execute` plugin might produce `event` with "error" type if shell command it was set to execute failed. `Events` are treated as normal `records` and can be passed through `filters` to other `actors`.
+Even though `actions` do not forward `records` they received down the chain, they might produce `events` when a certain event happens while processing a record. For example, `execute` plugin might produce an `event` with "error" type if the shell command it was set to execute failed. `Events` are treated as normal `records` and can be passed through `filters` to other `actors`.
 
 ```yaml
 chains:
@@ -305,7 +305,7 @@ chains:
         - "notifications"
 ```
 
-Records from the `rss` feed will be consumed by `execute` plugin entity and won't make it to `xmpp`, but if command defined in "run ytarchive" failed, message about it is passed to "notifications" as `event`.
+Records from the `rss` feed will be consumed by `execute` plugin entity and won't make it to `xmpp`, but if the command defined in "run ytarchive" failed, a message about it is passed to "notifications" as `event`.
 
 ***
 
@@ -518,11 +518,11 @@ actors:
 
 Note how this makes this plugin entity only suitable for processing records coming from the `community` plugin, since only that plugin uses this field. If currently processed record does not have this field, it will not be replaced with anything, and the resulting file name will be quite literally `{post_id}.txt`. If this happens, debug message is produced in log. Some field names are used by multiple plugins, one notable example being the `url` field, which usually contains the url of a new livestream, video or post.
 
-When template is used as a file name or as a path to a directory, field values will have characters that are not allowed to be used in filenames replaced with underscore. Filename and path length staying within allowed limits, however, are not enforced.
+When a template is used as a file name or as a path to a directory, field values will have characters that are not allowed to be used in filenames replaced with underscore. Final string length and characters are not checked for compliance with OS restrictions, however.
 
 #### Troubleshooting
 
-When loading and parsing configuration file, `avtdl` will check structure and parameters, and report everything it finds immediately wrong. Location of error is presented as semicolon separated list of sections from the top one to most nested. For example, running it with unedited `example.config.yml` will produce the following output:
+When loading and parsing configuration file, `avtdl` will check the structure and parameters and report everything it finds wrong. Location of the error is presented as a semicolon-separated list of sections from the top one to most nested. For example, running it with unedited `example.config.yml` will produce the following output:
 
     [ERROR  ] [avtdl] Failed to process configuration file, following errors occurred: 
         error parsing "cookies.txt" in config section actors: channel: entities: 0: cookies_file: Path does not point to a file
