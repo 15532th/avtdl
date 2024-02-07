@@ -101,6 +101,17 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
     etag: Optional[str] = Field(exclude=True, default=None)
     """internal variable to persist state between updates. Used to keep Etag header value"""
 
+    @field_validator('cookies_file')
+    @classmethod
+    def check_cookies(cls, path: Optional[Path]):
+        if path is None:
+            return None
+        try:
+            load_cookies(path, raise_on_error=True)
+        except Exception as e:
+            raise ValueError(f'{e}') from e
+        return path
+
     def model_post_init(self, __context: Any) -> None:
         self.base_update_interval = self.update_interval
 
