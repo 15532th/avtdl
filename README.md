@@ -520,6 +520,18 @@ Note how this makes this plugin entity only suitable for processing records comi
 
 When template is used as a file name or as a path to a directory, field values will have characters that are not allowed to be used in filenames replaced with underscore. Filename and path length staying within allowed limits, however, are not enforced.
 
+#### Troubleshooting
+
+When loading and parsing configuration file, `avtdl` will check structure and parameters, and report everything it finds immediately wrong. Location of error is presented as semicolon separated list of sections from the top one to most nested. For example, running it with unedited `example.config.yml` will produce the following output:
+
+    [ERROR  ] [avtdl] Failed to process configuration file, following errors occurred: 
+        error parsing "cookies.txt" in config section actors: channel: entities: 0: cookies_file: Path does not point to a file
+        error parsing "cookies.txt" in config section actors: community: entities: 0: cookies_file: Path does not point to a file
+
+It means that `cookies_file` parameters of first entity of both `channel` and `community` plugins specify path to a file that doesn't exists and therefore cannot be loaded and parsed as cookies file.
+
+Even if configuration file is valid and loads successfully, it still might be configured in a way causing application to fail or not produce desired results. Some obviously wrong settings, as well as any runtime errors deemed serious enough, such as network connection problems, will be reported with `[WARNING ]` or `[ERROR  ]` loglevels. Issues of lower severity are reported on `[DEBUG  ]` level along with debug messages providing context of what was happening around the moment. By default they are not shown in console unless application is run with `--debug` argument, but are written in log file, as defined in `settings` section of the configuration file.
+
 ### Tools commonly used for downloading livestreams
 
 Before automating the download process it is a good idea to try doing it manually first and ensure everything is working properly. This section provides an overview of some tools that can be used for archiving livestreams, including those offering monitoring in addition to downloading that can be used as single-purpose alternatives to avtdl.
