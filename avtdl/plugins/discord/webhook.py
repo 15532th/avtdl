@@ -63,8 +63,8 @@ class DiscordWebhook:
             try:
                 response = await self.session.post(self.hook_url, json=message)
                 text = await response.text()
-            except OSError as e:
-                self.logger.warning(f'[{self.name}] error while sending message with Discord webhook: {e}')
+            except (OSError, asyncio.TimeoutError) as e:
+                self.logger.warning(f'[{self.name}] error while sending message with Discord webhook: {e}, saving for the next try')
                 until_next_try = 60
                 continue  # implicitly saving messages in to_be_sent until the next try
             except Exception as e:
