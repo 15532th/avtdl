@@ -41,7 +41,7 @@ class BaseTaskMonitor(Monitor):
                 if not task.done():
                     continue
                 if task.exception() is not None:
-                    self.logger.warning(f'[{name}] task {task.get_name()} has terminated with exception', exc_info=task.exception())
+                    self.logger.error(f'[{name}] task {task.get_name()} has terminated with exception', exc_info=task.exception())
                 else:
                     self.logger.debug(f'[{name}] task {task.get_name()} has finished normally')
                 self.tasks[name] = None

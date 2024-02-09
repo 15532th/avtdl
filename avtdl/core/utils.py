@@ -173,7 +173,7 @@ async def monitor_tasks(tasks: Iterable[asyncio.Task]) -> None:
             if not task.done():
                 continue
             if task.exception() is not None:
-                logging.warning(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
+                logging.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
         if not pending:
             break
         tasks = list(pending)
