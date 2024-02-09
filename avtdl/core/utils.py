@@ -13,7 +13,7 @@ from math import log2
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter_ns
-from typing import Any, Callable, Dict, Hashable, List, Optional, Union
+from typing import Any, Callable, Dict, Hashable, Iterable, List, Optional, Union
 
 import aiohttp
 import lxml.html
@@ -163,6 +163,24 @@ def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
         if v1 != v2:
             diff.append(f'[{k[:12]:12}]: {repr_v2:60} |->| {repr_v1:60}')
     return '\n'.join(diff)
+
+
+async def monitor_tasks(tasks: Iterable[asyncio.Task]) -> None:
+    """given list of running tasks, wait for them and report any unhandled exceptions"""
+    while True:
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        for task in done:
+            if not task.done():
+                continue
+            if task.exception() is not None:
+                logging.warning(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
+            else:
+                logging.info(f'task {task.get_name()} has finished normally')
+
+        if not pending:
+            break
+        tasks = list(pending)
+    logging.info('all tasks are done')
 
 
 async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
