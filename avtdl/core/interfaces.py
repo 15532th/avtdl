@@ -152,7 +152,8 @@ class Actor(ABC):
             self.bus.sub(topic, self._handle)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({list(self.entities)})'
+        text = f'{self.__class__.__name__}({list(self.entities)})'
+        return shorten(text, MAX_REPR_LEN)
 
     def _handle(self, topic: str, record: Record) -> None:
         _, entity_name = self.bus.split_message_topic(topic)
