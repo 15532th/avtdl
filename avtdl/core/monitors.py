@@ -12,7 +12,7 @@ from pydantic import Field, FilePath, field_validator, model_validator
 from avtdl.core.db import BaseRecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record
 from avtdl.core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, \
-    show_diff
+    monitor_tasks, show_diff
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
@@ -26,22 +26,38 @@ class BaseTaskMonitor(Monitor):
 
     def __init__(self, conf: ActorConfig, entities: Sequence[TaskMonitorEntity]):
         super().__init__(conf, entities)
-        self.tasks: Dict[str, asyncio.Task] = {}
+        self.tasks: Dict[str, Optional[asyncio.Task]] = {}
 
     async def run(self):
-        # start cyclic tasks
-        await self.start_cyclic_tasks()
-        # and wait forever
-        await asyncio.Future()
+        startup_tasks = await self.start_cyclic_tasks()
+        # keep an eye on possible exceptions in startup process
+        self.tasks['startup_tasks_monitor'] = asyncio.create_task(monitor_tasks(startup_tasks))
 
-    async def start_cyclic_tasks(self):
+        # check for entities tasks
+        while True:
+            for name, task in self.tasks.items():
+                if task is None:
+                    continue
+                if not task.done():
+                    continue
+                if task.exception() is not None:
+                    self.logger.warning(f'[{name}] task {task.get_name()} has terminated with exception', exc_info=task.exception())
+                else:
+                    self.logger.debug(f'[{name}] task {task.get_name()} has finished normally')
+                self.tasks[name] = None
+            await asyncio.sleep(1)
+
+    async def start_cyclic_tasks(self) -> Sequence[asyncio.Task]:
         by_entity_interval = defaultdict(list)
         for entity in self.entities.values():
             by_entity_interval[entity.update_interval].append(entity)
         by_group_interval = {interval / len(entities): entities for interval, entities in by_entity_interval.items()}
+        startup_tasks = []
         for interval in sorted(by_group_interval.keys()):
             entities = by_group_interval[interval]
-            asyncio.create_task(self.start_tasks_for(entities, interval))
+            task = asyncio.create_task(self.start_tasks_for(entities, interval), name=f'start_cyclic_tasks-{interval}')
+            startup_tasks.append(task)
+        return startup_tasks
 
     async def start_tasks_for(self, entities, interval):
         logger = self.logger.parent.getChild('scheduler').getChild(self.conf.name)
