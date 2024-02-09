@@ -1,3 +1,4 @@
+import logging
 from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Tuple, Type, TypeVar
@@ -138,3 +139,16 @@ class ConfigParser:
         return actors, chains
 
 
+def config_sancheck(actors, chains):
+    """check for possible non-fatal misconfiguration and issue a warning"""
+    for chain_name, chain_instance in chains.items():
+        for actor_name, entities in chain_instance.conf:
+            actor = actors.get(actor_name)
+            if actor is None:
+                logging.warning(
+                    f'chain "{chain_name}" references actor "{actor_name}, absent in "Actors" section. It might be a typo in the chain configuration')
+                continue
+            orphans = set(entities) - actor.entities.keys()
+            for orphan in orphans:
+                logging.warning(
+                    f'chain "{chain_name}" references "{actor_name}: {orphan}", but actor "{actor_name}" has no "{orphan}" entity. It might be a typo in the chain conf configuration')
