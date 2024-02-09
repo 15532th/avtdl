@@ -174,13 +174,9 @@ async def monitor_tasks(tasks: Iterable[asyncio.Task]) -> None:
                 continue
             if task.exception() is not None:
                 logging.warning(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
-            else:
-                logging.debug(f'task {task.get_name()} has finished normally')
-
         if not pending:
             break
         tasks = list(pending)
-    logging.debug('finished waiting for tasks:' + ', '.join(task.get_name() for task in tasks))
 
 
 async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
