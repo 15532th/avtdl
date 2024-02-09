@@ -151,9 +151,12 @@ class Actor(ABC):
             topic = self.bus.incoming_topic_for(self.conf.name, entity_name)
             self.bus.sub(topic, self._handle)
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({list(self.entities)})'
+
     def _handle(self, topic: str, record: Record) -> None:
         _, entity_name = self.bus.split_message_topic(topic)
-        if not entity_name in self.entities:
+        if entity_name not in self.entities:
             logging.warning(f'received record on topic {topic}, but have no entity with name {entity_name} configured, dropping record {record!r}')
             return
         entity = self.entities[entity_name]
@@ -170,9 +173,6 @@ class Actor(ABC):
         '''Implementation should call it for every new Record it produces'''
         topic = self.bus.outgoing_topic_for(self.conf.name, entity.name)
         self.bus.pub(topic, record)
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}({list(self.entities)})'
 
     async def run(self):
         '''Will be run as asyncio task once everything is set up'''
