@@ -11,7 +11,7 @@ from typing import Any, Dict, Iterable, Tuple
 import yaml
 
 from avtdl.core.chain import Chain
-from avtdl.core.config import ConfigParser, ConfigurationError
+from avtdl.core.config import ConfigParser, ConfigurationError, config_sancheck
 from avtdl.core.info import generate_plugins_description, generate_version_string
 from avtdl.core.interfaces import Actor
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
@@ -74,16 +74,8 @@ async def run(runnables: Iterable[Actor]) -> None:
 def start(args: argparse.Namespace) -> None:
     conf = load_config(args.config)
     actors, chains = parse_config(conf)
+    config_sancheck(actors, chains)
 
-    for chain_name, chain_instance in chains.items():
-        for actor_name, entities in chain_instance.conf:
-            actor = actors.get(actor_name)
-            if actor is None:
-                logging.warning(f'chain "{chain_name}" references actor "{actor_name}, absent in "Actors" section. It might be a typo in the chain configuration')
-                continue
-            orphans = set(entities) - actor.entities.keys()
-            for orphan in orphans:
-                logging.warning(f'chain "{chain_name}" references "{actor_name}: {orphan}", but actor "{actor_name}" has no "{orphan}" entity. It might be a typo in the chain conf configuration')
 
     asyncio.run(run(actors.values()), debug=True)
 
