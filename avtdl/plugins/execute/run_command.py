@@ -161,7 +161,7 @@ class Command(Action):
             return
         self.logger.debug(f'[{entity.name}] executing command "{command_line}" for record {record!r}')
         task = self.run_subprocess(args, task_id, working_dir, entity, record)
-        self.running_commands[task_id] = asyncio.get_event_loop().create_task(task)
+        self.running_commands[task_id] = asyncio.get_event_loop().create_task(task, name=f'{self.conf.name}:{entity.name}:{task_id}')
 
     def _get_output_file(self, entity: CommandEntity, record: Record, task_id: str) -> Optional[Path]:
         if entity.log_dir is None:

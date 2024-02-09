@@ -31,7 +31,7 @@ class BaseTaskMonitor(Monitor):
     async def run(self):
         startup_tasks = await self.start_cyclic_tasks()
         # keep an eye on possible exceptions in startup process
-        self.tasks['startup_tasks_monitor'] = asyncio.create_task(monitor_tasks(startup_tasks))
+        self.tasks['startup_tasks_monitor'] = asyncio.create_task(monitor_tasks(startup_tasks), name='startup_tasks_monitor')
 
         # check for entities tasks
         while True:
@@ -55,7 +55,7 @@ class BaseTaskMonitor(Monitor):
         startup_tasks = []
         for interval in sorted(by_group_interval.keys()):
             entities = by_group_interval[interval]
-            task = asyncio.create_task(self.start_tasks_for(entities, interval), name=f'start_cyclic_tasks-{interval}')
+            task = asyncio.create_task(self.start_tasks_for(entities, interval), name=f'start_cyclic_tasks_{interval}')
             startup_tasks.append(task)
         return startup_tasks
 
