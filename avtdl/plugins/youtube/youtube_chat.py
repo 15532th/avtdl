@@ -76,7 +76,7 @@ class YoutubeChatRecord(Record):
         return f'[{self.action}: {self.renderer}] [{self.author}] {text}'
 
     def discord_embed(self) -> List[dict]:
-        dt = self.parse_timestamp()
+        dt = self.timestamp if isinstance(self.timestamp, datetime.datetime) else parse_timestamp(self.timestamp)
         timestamp = dt.isoformat() if dt is not None else None
         author = self.author
         if self.badges:
