@@ -12,6 +12,7 @@ from pydantic import Field, field_validator
 
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
 from avtdl.core.plugins import Plugins
+from avtdl.core.utils import monitor_tasks
 
 EMBEDS_PER_MESSAGE = 10
 EMBED_TITLE_MAX_LENGTH = 256
@@ -245,4 +246,4 @@ class DiscordHook(Action):
 
     async def run(self):
         tasks = [asyncio.create_task(entity.hook.run()) for entity in self.entities.values()]
-        await asyncio.wait(tasks)
+        await monitor_tasks(tasks)
