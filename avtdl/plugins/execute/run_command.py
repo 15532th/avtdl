@@ -9,7 +9,7 @@ from pydantic import field_validator
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record
 from avtdl.core.utils import Fmt, check_dir, sanitize_filename
 
 Plugins.register('execute', Plugins.kind.ASSOCIATED_RECORD)(Event)
@@ -20,7 +20,7 @@ class CommandConfig(ActorConfig):
     pass
 
 @Plugins.register('execute', Plugins.kind.ACTOR_ENTITY)
-class CommandEntity(ActorEntity):
+class CommandEntity(ActionEntity):
     command: str
     """shell command to be executed on every received record. Supports placeholders that will be replaced with currently processed record fields values"""
     working_dir: Optional[Path] = None
@@ -61,7 +61,7 @@ class CommandEntity(ActorEntity):
 
 
 @Plugins.register('execute', Plugins.kind.ACTOR)
-class Command(Actor):
+class Command(Action):
     """
     Run pre-defined shell command
 

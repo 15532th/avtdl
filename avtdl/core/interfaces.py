@@ -161,12 +161,12 @@ class Actor(ABC):
             return
         entity = self.entities[entity_name]
         try:
-            self.handle(entity, record)
+            self.handle_record(entity, record)
         except Exception:
             self.logger.exception(f'{self.conf.name}.{entity_name}: error while processing record "{record!r}"')
 
     @abstractmethod
-    def handle(self, entity: ActorEntity, record: Record) -> None:
+    def handle_record(self, entity: ActorEntity, record: Record) -> None:
         '''Perform an action on record if entity in self.entities'''
 
     def on_record(self, entity: ActorEntity, record: Record):
@@ -179,8 +179,24 @@ class Actor(ABC):
         return
 
 
+class MonitorEntity(ActorEntity):
+    pass
+
+
+class Monitor(Actor, ABC):
+
+    def __init__(self, conf: ActorConfig, entities: Sequence[MonitorEntity]):
+        super().__init__(conf, entities)
+
+    def handle_record(self, entity: MonitorEntity, record: Record) -> None:
+        # For convenience’s sake monitors pass incoming records down the chain.
+        # It allows using multiple monitors in a single chain, one after another
+        self.on_record(entity, record)
+
+
 class FilterEntity(ActorEntity):
     pass
+
 
 class Filter(Actor):
 
@@ -188,7 +204,7 @@ class Filter(Actor):
         super().__init__(conf, entities)
         self.logger = logging.getLogger(f'filters.{self.conf.name}')
 
-    def handle(self, entity: FilterEntity, record: Record):
+    def handle_record(self, entity: FilterEntity, record: Record):
         filtered = self.match(entity, record)
         if filtered is not None:
             self.on_record(entity, filtered)
@@ -200,3 +216,22 @@ class Filter(Actor):
         '''Take a record and return it if it matches some condition
         or otherwise process it, else return None'''
 
+
+class ActionEntity(ActorEntity):
+    consume_record: bool = True
+    """whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions"""
+
+
+class Action(Actor, ABC):
+
+    def __init__(self, conf: ActorConfig, entities: Sequence[ActionEntity]):
+        super().__init__(conf, entities)
+
+    def handle_record(self, entity: ActionEntity, record: Record) -> None:
+        self.handle(entity, record)
+        if not entity.consume_record:
+            self.on_record(entity, record)
+
+    @abstractmethod
+    def handle(self, entity: ActionEntity, record: Record):
+        '''Method for implementation to process incoming record'''

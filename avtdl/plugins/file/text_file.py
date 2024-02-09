@@ -7,7 +7,8 @@ from typing import List, Optional, Sequence
 from pydantic import Field, field_validator
 
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import Actor, ActorConfig, ActorEntity, Event, EventType, Record, TextRecord
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, \
+    TextRecord
 from avtdl.core.monitors import HIGHEST_UPDATE_INTERVAL, TaskMonitor, TaskMonitorEntity
 from avtdl.core.utils import Fmt, OutputFormat, check_dir, read_file, sanitize_filename
 
@@ -117,7 +118,7 @@ class FileActionConfig(ActorConfig):
 
 
 @Plugins.register('to_file', Plugins.kind.ACTOR_ENTITY)
-class FileActionEntity(ActorEntity):
+class FileActionEntity(ActionEntity):
     path: Optional[Path] = None
     """directory where output file should be created. Default is current directory. Supports templating with {...}"""
     filename: str
@@ -137,7 +138,7 @@ class FileActionEntity(ActorEntity):
 
 
 @Plugins.register('to_file', Plugins.kind.ACTOR)
-class FileAction(Actor):
+class FileAction(Action):
     """
     Write record to a text file
 

@@ -6,7 +6,7 @@ import dateutil
 from pydantic import field_validator
 
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import Actor, ActorConfig, ActorEntity, Record
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
 
 try:
     from avtdl.plugins.xmpp.msg2jbr_slixmpp import MSG2JBR
@@ -27,7 +27,7 @@ class JabberConfig(ActorConfig):
     """password of the account to be used to send messages"""
 
 @Plugins.register('xmpp', Plugins.kind.ACTOR_ENTITY)
-class JabberEntity(ActorEntity):
+class JabberEntity(ActionEntity):
     jid: str
     """JID to send message to"""
     timezone: Optional[str] = None
@@ -42,7 +42,7 @@ class JabberEntity(ActorEntity):
         return tz
 
 @Plugins.register('xmpp', Plugins.kind.ACTOR)
-class SendJabber(Actor):
+class SendJabber(Action):
     """
     Send records as Jabber messages
 
