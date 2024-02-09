@@ -69,14 +69,14 @@ class DiscordWebhook:
             try:
                 response = await self.session.post(self.hook_url, json=message)
                 text = await response.text()
-            except (OSError, asyncio.TimeoutError) as e:
+            except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError) as e:
                 self.logger.warning(f'[{self.name}] error while sending message with Discord webhook: {e}, saving for the next try')
                 until_next_try = 60
                 continue  # implicitly saving messages in to_be_sent until the next try
             except Exception as e:
                 self.logger.exception(f'[{self.name}] error while sending message with Discord webhook: {e}')
                 self.logger.debug(f'raw message text:\n{message}')
-                to_be_sent = pending_records
+                to_be_sent = pending_records # discard unsent messages as they might have been the cause of error
                 until_next_try = 60
                 continue
             try:
