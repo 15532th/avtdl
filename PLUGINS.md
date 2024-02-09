@@ -58,6 +58,7 @@ will be dropped with a warning.
 * `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `url`: webhook url. Required.
 ##### 
+* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
 * `timezone`: takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or OS settings if omitted), converts record fields containing date and time to this timezone. Not required.
 
 ---
@@ -107,6 +108,7 @@ it happens to fail due to video link not being a livestream.
 * `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `command`: shell command to be executed on every received record. Supports placeholders that will be replaced with currently processed record fields values. Required.
 ##### 
+* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
 * `working_dir`: path to the directory where command will be executed. If not set current working directory is used. Supports templating with {...}. Not required.
 * `log_dir`: write executed process output to a file in this directory if set. If it is not set, output will not be redirected to file. Not required.
 * `log_filename`: filename to write executed process output to. If not defined, it is generated automatically based on command and entity name. Not required.
@@ -237,6 +239,7 @@ using system-wide encoding.
 * `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `filename`: name of the output file. Supports templating with {...}. Required.
 ##### 
+* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
 * `path`: directory where output file should be created. Default is current directory. Supports templating with {...}. Not required.
 * `encoding`: output file encoding. Default value is `utf8`.
 * `output_format`: one of `str`, `repr`, `json`, `pretty_json`, `hash`. Default value is `text`.
@@ -792,6 +795,7 @@ it to server side.
 * `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
 * `jid`: JID to send message to. Required.
 ##### 
+* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
 * `timezone`: takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> or OS settings if omitted, converts record fields containing date and time to this timezone. Not required.
 
 ---
@@ -974,10 +978,10 @@ to monitor a high amount (hundreds) of channels, as it only requires
 loading a single page to check all of them for updates.
 
 When main page of a channel (https://www.youtube.com/@ChannelName) is viewed
-in logged in state, it might contain "For you" block, whose content might
-vary with subsequent updates. As result monitoring this url might occasionally
+in logged in state, it might contain "For you" block, which content might
+vary with subsequent updates. As a result, monitoring this url might occasionally
 produce records with old videos that got showed in this block. If monitoring
-without a cookies file is not an option, use combination of "Videos" and "Streams"
+without a cookies file is not an option, use a combination of "Videos" and "Streams"
 tabs instead.
 
 
