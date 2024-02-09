@@ -49,7 +49,12 @@ class DiscordWebhook:
                 pass
             if len(to_be_sent) == 0:
                 continue
-            message, pending_records = MessageFormatter.format(to_be_sent)
+            try:
+                message, pending_records = MessageFormatter.format(to_be_sent)
+            except Exception as e:
+                self.logger.exception(f'error happened while formatting message: {e}\nRaw records list: "{to_be_sent}"')
+                to_be_sent = []
+                continue
             try:
                 limits_ok = MessageFormatter.check_limits(message)
             except Exception as e:
