@@ -10,7 +10,7 @@ import dateutil
 import multidict
 from pydantic import Field, field_validator
 
-from avtdl.core.interfaces import Actor, ActorConfig, ActorEntity, Record
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
 from avtdl.core.plugins import Plugins
 
 EMBEDS_PER_MESSAGE = 10
@@ -198,7 +198,7 @@ class DiscordHookConfig(ActorConfig):
 
 
 @Plugins.register('discord.hook', Plugins.kind.ACTOR_ENTITY)
-class DiscordHookEntity(ActorEntity):
+class DiscordHookEntity(ActionEntity):
     url: str
     """webhook url"""
     timezone: Optional[str] = None # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
@@ -215,7 +215,7 @@ class DiscordHookEntity(ActorEntity):
         return tz
 
 @Plugins.register('discord.hook', Plugins.kind.ACTOR)
-class DiscordHook(Actor):
+class DiscordHook(Action):
     """
     Send record to Discord using webhook
 

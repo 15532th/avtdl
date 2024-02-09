@@ -10,25 +10,23 @@ import aiohttp
 from pydantic import Field, FilePath, field_validator, model_validator
 
 from avtdl.core.db import BaseRecordDB
-from avtdl.core.interfaces import Actor, ActorConfig, ActorEntity, Record
+from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record
 from avtdl.core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, \
     show_diff
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
-class TaskMonitorEntity(ActorEntity):
+
+class TaskMonitorEntity(MonitorEntity):
     update_interval: float
     """how often the monitored source should be checked for new content, in seconds"""
 
 
-class BaseTaskMonitor(Actor):
+class BaseTaskMonitor(Monitor):
 
     def __init__(self, conf: ActorConfig, entities: Sequence[TaskMonitorEntity]):
         super().__init__(conf, entities)
         self.tasks: Dict[str, asyncio.Task] = {}
-
-    def handle(self, entity: ActorEntity, record: Record) -> None:
-        self.on_record(entity, record)
 
     async def run(self):
         # start cyclic tasks
