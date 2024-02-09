@@ -6,7 +6,7 @@ import logging
 import os
 from asyncio import AbstractEventLoop
 from pathlib import Path
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Dict, Tuple
 
 import yaml
 
@@ -16,7 +16,7 @@ from avtdl.core.info import generate_plugins_description, generate_version_strin
 from avtdl.core.interfaces import Actor
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
-from avtdl.core.utils import read_file
+from avtdl.core.utils import monitor_tasks, read_file
 
 
 def load_config(path: Path) -> Any:
@@ -49,35 +49,23 @@ def handler(loop: AbstractEventLoop, context: Dict[str, Any]) -> None:
     loop.default_exception_handler(context)
 
 
-async def run(runnables: Iterable[Actor]) -> None:
+async def install_handler() -> None:
     loop = asyncio.get_running_loop()
     loop.set_exception_handler(handler)
     loop.slow_callback_duration = 100
 
-    tasks = []
-    for runnable in runnables:
-        task = asyncio.create_task(runnable.run(), name=runnable.__class__.__name__)
-        tasks.append(task)
-    while True:
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-        for task in done:
-            if not task.done():
-                continue
-            if task.exception() is not None:
-                logging.warning(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
-        if not pending:
-            break
-        tasks = list(pending)
-    logging.info('all tasks are finished in the main loop')
 
-
-def start(args: argparse.Namespace) -> None:
+async def run(args: argparse.Namespace) -> None:
     conf = load_config(args.config)
     actors, chains = parse_config(conf)
     config_sancheck(actors, chains)
 
-
-    asyncio.run(run(actors.values()), debug=True)
+    await install_handler()
+    tasks = []
+    for runnable in actors.values():
+        task = asyncio.create_task(runnable.run(), name=runnable.__class__.__name__)
+        tasks.append(task)
+    await monitor_tasks(tasks)
 
 
 def make_docs(args: argparse.Namespace) -> None:
@@ -89,7 +77,7 @@ def make_docs(args: argparse.Namespace) -> None:
     except OSError as e:
         logging.error(f'failed to write documentation file "{output}": {e}')
         raise SystemExit from e
-    
+
 
 def main() -> None:
     description = '''Tool for monitoring rss feeds and other sources and running commands for new entries'''
@@ -118,7 +106,7 @@ def main() -> None:
         elif args.plugins_doc is not None:
             make_docs(args)
         else:
-            start(args)
+            asyncio.run(run(args), debug=True)
     except KeyboardInterrupt:
         if args.debug:
             logging.exception('Interrupted, exiting... Printing stacktrace for debugging purpose:')
