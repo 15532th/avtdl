@@ -245,5 +245,8 @@ class DiscordHook(Action):
         entity.hook.to_be_sent(record.as_timezone(entity.timezone))
 
     async def run(self):
-        tasks = [asyncio.create_task(entity.hook.run()) for entity in self.entities.values()]
+        tasks = []
+        for entity in self.entities.values():
+            task = asyncio.create_task(entity.hook.run(), name=f'{self.conf.name}:{entity.name}')
+            tasks.append(task)
         await monitor_tasks(tasks)
