@@ -1,7 +1,7 @@
 import hashlib
-import json
 import logging
 import mimetypes
+import shutil
 import urllib.parse
 from email.message import EmailMessage
 from pathlib import Path
@@ -16,18 +16,6 @@ def sha1(text: str) -> str:
     return hashlib.sha1(text.encode()).digest().hex()
 
 
-def download_file(session: aiohttp.ClientSession, url: str) -> Optional[Path]:
-    return None
-
-
-def download(session: aiohttp.ClientSession, url: str, cache: 'LocalFileCache') -> Optional['CachedFile']:
-    local = cache.get_local_file(url)
-    if local is not None:
-        return local
-    downloaded_file = download_file(session, url)
-
-
-
 class CachedFile(BaseModel):
     url: str
     size: int
@@ -35,99 +23,158 @@ class CachedFile(BaseModel):
     local_name: Path
     source_name: Optional[Path] = None
 
+    @classmethod
+    def from_file(cls, path: Path) -> Optional['CachedFile']:
+        if not path.exists():
+            return None
+        with open(path, 'rt', encoding='utf8') as fp:
+            text = fp.read()
+            info = CachedFile.model_validate_json(text)
+            if info.local_name.exists():
+                return info
+            else:
+                raise FileNotFoundError(f'cached file not found: {info.local_name}')
 
-class LocalFileCache:
+    def to_file(self, path: Path) -> None:
+        text = self.model_dump_json(indent=4)
+        with open(path, 'wt', encoding='utf8') as fp:
+            fp.write(text)
+
+
+class FileStorage:
+    CHUNK_SIZE = 1024 ** 2
+    METADATA_EXTENSION = '.info'
+    PARTIAL_EXTENSION = '.part'
 
     def __init__(self, cache_directory: Path, logger: Optional[logging.Logger] = None):
         self._cache = cache_directory
         self.logger = logger or logging.getLogger('download')
 
-    def get_filename_prefix(self, url: str) -> Path:
+    async def download(self, session: aiohttp.ClientSession, url: str) -> Optional[CachedFile]:
+        file_info = self.get_local_file(url)
+        if file_info is not None:
+            self.logger.debug(f'found in local cache: "{url}"')
+            return file_info
+        downloaded_file = await self.download_file(session, url)
+        return downloaded_file
+
+    async def download_file(self, session: aiohttp.ClientSession, url: str) -> Optional[CachedFile]:
+        path = self._get_filename_prefix(url).with_suffix(self.PARTIAL_EXTENSION)
+        try:
+            with open(path, 'wb') as fp:
+                async with session.get(url) as response:
+                    remote_info = RemoteFileInfo.get_file_info(url, response.headers)
+                    self.logger.debug(f'downloading {remote_info.content_length} from "{url}"')
+                    async for data in response.content.iter_chunked(self.CHUNK_SIZE):
+                        fp.write(data)
+        except Exception as e:
+            self.logger.warning(f'failed to download "{url}": {e}')
+            return None
+        local_info = self.add_downloaded_file(path, remote_info)
+        return local_info
+
+    def get_local_file(self, url: str) -> Optional[CachedFile]:
+        metadata_path = self._get_filename_prefix(url).with_suffix(self.METADATA_EXTENSION)
+        try:
+            # CachedFile if cache hit, None if cache miss
+            metadata = CachedFile.from_file(metadata_path)
+            return metadata
+        except Exception as e:
+            self.logger.debug(f'error loading metadata for "{url}" from "{metadata_path}"')
+            return None
+
+    def add_downloaded_file(self, file: Path, info: 'RemoteFileInfo') -> Optional[CachedFile]:
+        if not file.exists():
+            return None
+        base_name = self._get_filename_prefix(info.url)
+        extension = info.source_name.suffix if info.source_name else ''
+        local_info = CachedFile(
+            url=info.url,
+            source_name=info.source_name,
+            size=file.stat().st_size,
+            metadata_name=base_name.with_suffix(self.METADATA_EXTENSION),
+            local_name=base_name.with_suffix(extension)
+        )
+        if local_info.local_name.exists():
+            self.logger.debug(f'overwriting existing file: "{local_info.local_name}"')
+        try:
+            shutil.move(file, local_info.local_name)
+        except Exception as e:
+            self.logger.warning(f'failed to move "{file}" to "{local_info.local_name}": {e}')
+            return None
+        if local_info.metadata_name:
+            self.logger.debug(f'overwriting existing metadata file: "{local_info.metadata_name}"')
+        try:
+            local_info.to_file(local_info.metadata_name)
+        except Exception as e:
+            self.logger.warning(f'failed to write metadata for "{local_info.url}" to "{local_info.metadata_name}": {e}')
+            # not trying to delete "file" or "local_info.local_name"
+            return None
+        return local_info
+
+    def _get_filename_prefix(self, url: str) -> Path:
         name = sha1(url)
         path = self._cache.joinpath(name)
         return path
 
-    def get_local_file(self, url: str) -> Optional[CachedFile]:
-        metadata_path = self.get_filename_prefix(url).with_suffix('.info')
-        if not metadata_path.exists():
-            return None
-        try:
-            with open(metadata_path, 'rt', encoding='utf8') as fp:
-                text = json.load(fp)
-                info = CachedFile.model_validate_json(text)
-                if info.local_name.exists():
-                    return info
-                else:
-                    return None
-        except Exception as e:
-            return None
-
-    def add_downloaded_file(self, file: Path, info: RemoteFileInfo) -> Optional[CachedFile]:
-        if not file.exists():
-            return None
-
-
-
-#################################################33
 
 class RemoteFileInfo(BaseModel):
     url: str
     source_name: Optional[Path] = None
     content_length: Optional[int] = None
 
+    @classmethod
+    def get_file_info(cls, url: str, headers: multidict.CIMultiDictProxy) -> 'RemoteFileInfo':
+        size = headers.get('Content-Length')
+        name = cls.get_filename(url, headers)
+        return cls(url=url, content_length=size, source_name=name)
 
-def get_file_info(url: str, headers: multidict.CIMultiDictProxy) -> RemoteFileInfo:
-    size = headers.get('Content-Length')
-    name = get_filename(url, headers)
-    return RemoteFileInfo(url=url, content_length=size, source_name=name)
-
-
-def get_filename(url: str, headers: multidict.CIMultiDictProxy) -> Optional[Path]:
-    filename = get_filename_from_headers(headers) or get_filename_from_url(url)
-    if filename is not None and not filename.suffix:
-        extension = get_mime_extension(headers)
-        if extension is not None:
-            filename = filename.with_suffix(extension)
-    return filename
-
-
-def get_filename_from_headers(headers: multidict.CIMultiDictProxy) -> Optional[Path]:
-    """get filename from Content-Disposition, with or without extension"""
-    content_disposition = headers.get('Content-Disposition') or ''
-    email = EmailMessage()
-    email.add_header('Content-Disposition', content_disposition)
-    name = email.get_filename()
-    if name is not None:
-        filename = Path(name)
-        filename = Path(filename.name)
+    @classmethod
+    def get_filename(cls, url: str, headers: multidict.CIMultiDictProxy) -> Optional[Path]:
+        filename = cls._get_filename_from_headers(headers) or cls._get_filename_from_url(url)
+        if filename is not None and not filename.suffix:
+            extension = cls._get_mime_extension(headers)
+            if extension is not None:
+                filename = filename.with_suffix(extension)
         return filename
-    else:
-        return None
 
-
-def get_filename_from_url(url: str) -> Optional[Path]:
-    """try extracting filename part from the url"""
-    try:
-        path = urllib.parse.urlparse(url).path
-        if not path:
+    @staticmethod
+    def _get_filename_from_headers(headers: multidict.CIMultiDictProxy) -> Optional[Path]:
+        """get filename from Content-Disposition, with or without extension"""
+        content_disposition = headers.get('Content-Disposition') or ''
+        email = EmailMessage()
+        email.add_header('Content-Disposition', content_disposition)
+        name = email.get_filename()
+        if name is not None:
+            filename = Path(name)
+            filename = Path(filename.name)
+            return filename
+        else:
             return None
-        path = urllib.parse.unquote_plus(path)
-        filename = Path(path)
-        if not filename.name:
+
+    @staticmethod
+    def _get_filename_from_url(url: str) -> Optional[Path]:
+        """try extracting filename part from the url"""
+        try:
+            path = urllib.parse.urlparse(url).path
+            if not path:
+                return None
+            path = urllib.parse.unquote_plus(path)
+            filename = Path(path)
+            if not filename.name:
+                return None
+            filename = Path(filename.name)
+            return filename
+        except Exception as e:
             return None
-        filename = Path(filename.name)
-        return filename
-    except Exception as e:
-        return None
 
-
-def get_mime_extension(headers: multidict.CIMultiDictProxy) -> Optional[str]:
-    """return file extension deduced from Content-Type header"""
-    mime_extension = None
-    content_type = headers.get('Content-Type')
-    if content_type is not None:
-        extension = mimetypes.guess_extension(content_type, strict=False)
-        if extension and extension.startswith('.'):
-            mime_extension = extension
-    return mime_extension
-
+    @staticmethod
+    def _get_mime_extension(headers: multidict.CIMultiDictProxy) -> Optional[str]:
+        """return file extension deduced from Content-Type header"""
+        mime_extension = None
+        content_type = headers.get('Content-Type')
+        if content_type is not None:
+            extension = mimetypes.guess_extension(content_type, strict=False)
+            if extension and extension.startswith('.'):
+                mime_extension = extension
+        return mime_extension
