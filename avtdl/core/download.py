@@ -1,19 +1,33 @@
+import asyncio
 import hashlib
 import logging
 import mimetypes
+import os
 import shutil
 import urllib.parse
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 import aiohttp
 import multidict
 from pydantic import BaseModel
 
+from avtdl.core.loggers import set_logging_format
+
 
 def sha1(text: str) -> str:
     return hashlib.sha1(text.encode()).digest().hex()
+
+
+def remove_files(files: Sequence[Path]):
+    for file in files:
+        if not file.exists():
+            continue
+        try:
+            os.remove(file)
+        except OSError:
+            pass
 
 
 class CachedFile(BaseModel):
@@ -61,14 +75,17 @@ class FileStorage:
     async def download_file(self, session: aiohttp.ClientSession, url: str) -> Optional[CachedFile]:
         path = self._get_filename_prefix(url).with_suffix(self.PARTIAL_EXTENSION)
         try:
-            with open(path, 'wb') as fp:
+            with open(path, 'w+b') as fp:
                 async with session.get(url) as response:
                     remote_info = RemoteFileInfo.get_file_info(url, response.headers)
-                    self.logger.debug(f'downloading {remote_info.content_length} from "{url}"')
+                    self.logger.debug(f'downloading {remote_info.content_length or ""} from "{url}"')
                     async for data in response.content.iter_chunked(self.CHUNK_SIZE):
                         fp.write(data)
-        except Exception as e:
+        except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as e:
             self.logger.warning(f'failed to download "{url}": {e}')
+            return None
+        except Exception as e:
+            self.logger.exception(f'failed to download "{url}": {e}')
             return None
         local_info = self.add_downloaded_file(path, remote_info)
         return local_info
@@ -101,14 +118,15 @@ class FileStorage:
             shutil.move(file, local_info.local_name)
         except Exception as e:
             self.logger.warning(f'failed to move "{file}" to "{local_info.local_name}": {e}')
+            remove_files([file, local_info.local_name])
             return None
-        if local_info.metadata_name:
+        if local_info.metadata_name.exists():
             self.logger.debug(f'overwriting existing metadata file: "{local_info.metadata_name}"')
         try:
             local_info.to_file(local_info.metadata_name)
         except Exception as e:
             self.logger.warning(f'failed to write metadata for "{local_info.url}" to "{local_info.metadata_name}": {e}')
-            # not trying to delete "file" or "local_info.local_name"
+            remove_files([file, local_info.local_name])
             return None
         return local_info
 
