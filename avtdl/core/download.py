@@ -36,6 +36,7 @@ class CachedFile(BaseModel):
     metadata_name: Path
     local_name: Path
     source_name: Optional[Path] = None
+    response_headers: dict
 
     @classmethod
     def from_file(cls, path: Path) -> Optional['CachedFile']:
@@ -56,7 +57,7 @@ class CachedFile(BaseModel):
 
 
 class FileStorage:
-    CHUNK_SIZE = 1024 ** 2
+    CHUNK_SIZE = 1024 ** 3
     METADATA_EXTENSION = '.info'
     PARTIAL_EXTENSION = '.part'
 
@@ -75,10 +76,12 @@ class FileStorage:
     async def download_file(self, session: aiohttp.ClientSession, url: str) -> Optional[CachedFile]:
         path = self._get_filename_prefix(url).with_suffix(self.PARTIAL_EXTENSION)
         try:
-            with open(path, 'w+b') as fp:
-                async with session.get(url) as response:
-                    remote_info = RemoteFileInfo.get_file_info(url, response.headers)
-                    self.logger.debug(f'downloading {remote_info.content_length or ""} from "{url}"')
+            async with session.get(url) as response:
+                remote_info = RemoteFileInfo.get_file_info(url, response.headers)
+                self.logger.debug(f'downloading {remote_info.content_length or ""} from "{url}"')
+                if response.headers.get("Accept-Ranges") is not None:
+                    self.logger.debug(f'Accept-Ranges: {response.headers.get("Accept-Ranges")} for "{url}"')
+                with open(path, 'w+b') as fp:
                     async for data in response.content.iter_chunked(self.CHUNK_SIZE):
                         fp.write(data)
         except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as e:
@@ -110,7 +113,8 @@ class FileStorage:
             source_name=info.source_name,
             size=file.stat().st_size,
             metadata_name=base_name.with_suffix(self.METADATA_EXTENSION),
-            local_name=base_name.with_suffix(extension)
+            local_name=base_name.with_suffix(extension),
+            response_headers=info.response_headers
         )
         if local_info.local_name.exists():
             self.logger.debug(f'overwriting existing file: "{local_info.local_name}"')
@@ -140,12 +144,13 @@ class RemoteFileInfo(BaseModel):
     url: str
     source_name: Optional[Path] = None
     content_length: Optional[int] = None
+    response_headers: dict
 
     @classmethod
     def get_file_info(cls, url: str, headers: multidict.CIMultiDictProxy) -> 'RemoteFileInfo':
         size = headers.get('Content-Length')
         name = cls.get_filename(url, headers)
-        return cls(url=url, content_length=size, source_name=name)
+        return cls(url=url, content_length=size, source_name=name, response_headers=dict(headers))
 
     @classmethod
     def get_filename(cls, url: str, headers: multidict.CIMultiDictProxy) -> Optional[Path]:
