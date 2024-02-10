@@ -76,7 +76,8 @@ class FileStorage:
     async def download_file(self, session: aiohttp.ClientSession, url: str) -> Optional[CachedFile]:
         path = self._get_filename_prefix(url).with_suffix(self.PARTIAL_EXTENSION)
         try:
-            async with session.get(url) as response:
+            timeout = aiohttp.ClientTimeout(total=0, connect=60, sock_connect=60, sock_read=60)
+            async with session.get(url, timeout=timeout) as response:
                 remote_info = RemoteFileInfo.get_file_info(url, response.headers)
                 self.logger.debug(f'downloading {remote_info.content_length or ""} from "{url}"')
                 if response.headers.get("Accept-Ranges") is not None:
