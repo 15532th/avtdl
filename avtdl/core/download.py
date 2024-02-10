@@ -7,7 +7,7 @@ import shutil
 import urllib.parse
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 import aiohttp
 import multidict
@@ -65,36 +65,35 @@ class FileStorage:
         self._cache = cache_directory
         self.logger = logger or logging.getLogger('download')
 
-    async def download(self, session: aiohttp.ClientSession, url: str) -> Optional[CachedFile]:
-        file_info = self.get_local_file(url)
+    async def download(self, url: str, session: aiohttp.ClientSession, headers: Optional[Dict[str, Any]] = None) -> Optional[CachedFile]:
+        file_info = self._get_local_file(url)
         if file_info is not None:
             self.logger.debug(f'found in local cache: "{url}"')
             return file_info
-        downloaded_file = await self.download_file(session, url)
+        downloaded_file = await self._download_file(url, session, headers)
         return downloaded_file
 
-    async def download_file(self, session: aiohttp.ClientSession, url: str) -> Optional[CachedFile]:
+    async def _download_file(self, url: str, session: aiohttp.ClientSession, headers: Optional[Dict[str, Any]] = None) -> Optional[CachedFile]:
         path = self._get_filename_prefix(url).with_suffix(self.PARTIAL_EXTENSION)
         try:
             timeout = aiohttp.ClientTimeout(total=0, connect=60, sock_connect=60, sock_read=60)
-            async with session.get(url, timeout=timeout) as response:
+            async with session.get(url, timeout=timeout, headers=headers) as response:
+                response.raise_for_status()
                 remote_info = RemoteFileInfo.get_file_info(url, response.headers)
                 self.logger.debug(f'downloading {remote_info.content_length or ""} from "{url}"')
-                if response.headers.get("Accept-Ranges") is not None:
-                    self.logger.debug(f'Accept-Ranges: {response.headers.get("Accept-Ranges")} for "{url}"')
                 with open(path, 'w+b') as fp:
                     async for data in response.content.iter_chunked(self.CHUNK_SIZE):
                         fp.write(data)
         except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as e:
-            self.logger.warning(f'failed to download "{url}": {e}')
+            self.logger.warning(f'failed to download "{url}": {type(e)} {e}')
             return None
         except Exception as e:
             self.logger.exception(f'failed to download "{url}": {e}')
             return None
-        local_info = self.add_downloaded_file(path, remote_info)
+        local_info = self._add_downloaded_file(path, remote_info)
         return local_info
 
-    def get_local_file(self, url: str) -> Optional[CachedFile]:
+    def _get_local_file(self, url: str) -> Optional[CachedFile]:
         metadata_path = self._get_filename_prefix(url).with_suffix(self.METADATA_EXTENSION)
         try:
             # CachedFile if cache hit, None if cache miss
@@ -104,7 +103,7 @@ class FileStorage:
             self.logger.debug(f'error loading metadata for "{url}" from "{metadata_path}"')
             return None
 
-    def add_downloaded_file(self, file: Path, info: 'RemoteFileInfo') -> Optional[CachedFile]:
+    def _add_downloaded_file(self, file: Path, info: 'RemoteFileInfo') -> Optional[CachedFile]:
         if not file.exists():
             return None
         base_name = self._get_filename_prefix(info.url)
