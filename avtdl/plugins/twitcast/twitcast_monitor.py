@@ -22,6 +22,8 @@ class TwitcastRecord(Record):
     """current livestream url"""
     title: str
     """livestream title"""
+    thumbnail_url: str
+    """link to the stream thumbnail"""
 
     def __str__(self):
         return f'{self.url}\n{self.title} ({self.movie_id})'
@@ -29,6 +31,16 @@ class TwitcastRecord(Record):
     def __repr__(self):
         title = shorten(self.title, MAX_REPR_LEN)
         return f'TwitcastRecord(user_id={self.user_id}, movie_id={self.movie_id}, title="{title}")'
+
+    def discord_embed(self) -> dict:
+        return {
+            'title': self.title,
+            'description': self.movie_url,
+            'color': None,
+            'author': {'name': self.user_id, 'url': self.url},
+            'image': {'url': self.thumbnail_url},
+            'fields': []
+        }
 
 @Plugins.register('twitcast', Plugins.kind.ACTOR_ENTITY)
 class TwitcastMonitorEntity(HttpTaskMonitorEntity):
@@ -82,10 +94,11 @@ class TwitcastMonitor(HttpTaskMonitor):
             return None
         entity.most_recent_movie = movie_id
 
-        channel_url = f'https://twitcasting.tv/{entity.user_id}/'
+        channel_url = f'https://twitcasting.tv/{entity.user_id}'
         movie_url = f'{channel_url}/movie/{movie_id}'
+        thumbnail_url = f'{channel_url}/thumb/{movie_id}'
         title = f'{entity.name} is live on Twitcasting'
-        record = TwitcastRecord(url=channel_url, user_id=entity.user_id, movie_id=movie_id, movie_url=movie_url, title=title)
+        record = TwitcastRecord(url=channel_url, user_id=entity.user_id, movie_id=movie_id, movie_url=movie_url, title=title, thumbnail_url=thumbnail_url)
         return record
 
     async def is_live(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> bool:
