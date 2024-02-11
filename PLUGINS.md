@@ -741,6 +741,9 @@ Represents event of a user going live on Twitch
 * `url`: channel url. 
 * `username`: username value from configuration entity. 
 * `title`: stream title. 
+* `start`: timestamp of the stream start. 
+* `avatar_url`: link to the user's avatar. 
+* `game`: game name, if present. 
 
 </details>
 
