@@ -31,6 +31,8 @@ class YoutubeFeedRecord(Record):
     """published value of the feed item, usually the time when the video was uploaded or the livestream frame was set up"""
     updated: datetime
     """updated value of the feed item. If different from `published`, might indicate either a change to video title, thumbnail or description, or a change in video status, for example livestream ending"""
+    thumbnail_url: Optional[str] = None
+    """link to the video thumbnail"""
     author: str
     """author's name, as shown on the channel icon"""
     video_id: str
@@ -238,7 +240,14 @@ class FeedMonitor(GenericRSSMonitor):
         parsed['published'] = utils.make_datetime(entry['published_parsed'])
         parsed['author'] = entry.get('author')
         parsed['summary'] = entry.get('summary')
-        parsed['video_id'] = entry.get('yt_videoid', 'video_id missing')
+        video_id = entry.get('yt_videoid')
+        if video_id is not None:
+            parsed['video_id'] = video_id
+            parsed['thumbnail_url'] = thumbnail_url(video_id)
+        else:
+            parsed['video_id'] = None
+            parsed['thumbnail_url'] = None
+        """link to the video thumbnail"""
         try:
             views = int(entry['media_statistics']['views'])
         except (ValueError, KeyError, TypeError):
