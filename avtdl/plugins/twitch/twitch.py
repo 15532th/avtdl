@@ -1,8 +1,10 @@
+import datetime
 import json
 from textwrap import shorten
 from typing import Optional, Sequence
 
 import aiohttp
+from dateutil import parser as dateutil_parser
 from pydantic import Field
 
 from avtdl.core.config import Plugins
@@ -19,6 +21,12 @@ class TwitchRecord(Record):
     """username value from configuration entity"""
     title: str
     """stream title"""
+    start: datetime.datetime
+    """timestamp of the stream start"""
+    avatar_url: str
+    """link to the user's avatar"""
+    game: Optional[str] = None
+    """game name, if present"""
 
     def __str__(self):
         return f'{self.url}\n{self.title}'
@@ -26,6 +34,17 @@ class TwitchRecord(Record):
     def __repr__(self):
         title = shorten(self.title, MAX_REPR_LEN)
         return f'TwitchRecord(username={self.username}, title="{title}")'
+
+    def discord_embed(self) -> dict:
+        return {
+            'title': self.title,
+            'description': self.url,
+            'color': None,
+            'author': {'name': self.username, 'icon_url': self.avatar_url},
+            'timestamp': self.start,
+            'footer': self.game,
+            'fields': []
+        }
 
 
 @Plugins.register('twitch', Plugins.kind.ACTOR_ENTITY)
@@ -60,14 +79,19 @@ class TwitchMonitor(HttpTaskMonitor):
         if response is None:
             return None
         try:
-            stream_info = response[0]['data']['user']['stream']
-            title = response[0]['data']['user']['lastBroadcast']['title']
-            stream_id = response[0]['data']['user']['lastBroadcast']['id']
+            info = response[0]['data']['user']
+            avatar_url = info['profileImageURL']
+            title = info['lastBroadcast']['title']
+            stream_info = info['stream']
+            if stream_info is None:
+                self.logger.debug(f'[{entity.name}] user {entity.username} is not live')
+                return None
+            stream_id = stream_info['id']
+            start_text = stream_info['createdAt']
+            start = dateutil_parser.parse(start_text)
+            game = stream_info.get('game', {}).get('name', None)
         except (TypeError, IndexError, KeyError) as e:
             self.logger.debug(f'[{entity.name}] failed to parse response: {type(e)} {e}. Raw response: {response}')
-            return None
-        if stream_info is None:
-            self.logger.debug(f'[{entity.name}] user {entity.username} is not live')
             return None
         if stream_id == entity.most_recent_stream:
             self.logger.debug(f'[{entity.name}] user {entity.username} is live with stream {entity.most_recent_stream}, but record was already created')
@@ -75,7 +99,7 @@ class TwitchMonitor(HttpTaskMonitor):
         entity.most_recent_stream = stream_id
 
         channel_url = f'https://twitch.tv/{entity.username}/'
-        record = TwitchRecord(url=channel_url, username=entity.username, title=title)
+        record = TwitchRecord(url=channel_url, username=entity.username, title=title, avatar_url=avatar_url, start=start, game=game)
         return record
 
     @staticmethod
