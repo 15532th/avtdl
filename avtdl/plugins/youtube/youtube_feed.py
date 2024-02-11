@@ -11,9 +11,8 @@ from avtdl.core.interfaces import Filter, FilterEntity, Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.plugins.filters.filters import EmptyFilterConfig
-from avtdl.plugins.youtube.common import get_innertube_context, handle_consent, prepare_next_page_request, thumbnail_url
-from avtdl.plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_renderers, parse_owner_info, \
-    parse_video_renderer
+from avtdl.plugins.youtube.common import get_innertube_context, handle_consent, prepare_next_page_request
+from avtdl.plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_renderers, parse_owner_info, parse_video_renderer
 
 
 @Plugins.register('channel', Plugins.kind.ASSOCIATED_RECORD)
@@ -40,6 +39,8 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
     """channel name"""
     avatar_url: Optional[str] = None
     """link to the avatar of the channel. Not always available"""
+    thumbnail_url: Optional[str] = None
+    """link to the video thumbnail"""
     channel_link: Optional[str] = None
     """link to the channel uploading the video"""
     channel_id: Optional[str] = None
@@ -76,7 +77,7 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
             'url': self.url,
             'color': None,
             'author': {'name': self.author, 'url': self.channel_link, 'icon_url': self.avatar_url},
-            'image': {'url': thumbnail_url(self.video_id)},
+            'image': {'url': self.thumbnail_url},
             'fields': []
         }
         footer = ''

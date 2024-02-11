@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from avtdl.plugins.youtube.common import extract_keys, find_all, find_one, get_continuation_token
+from avtdl.plugins.youtube.common import extract_keys, find_all, find_one, get_continuation_token, thumbnail_url
 
 
 class VideoRendererInfo(BaseModel):
@@ -15,6 +15,7 @@ class VideoRendererInfo(BaseModel):
     scheduled: Optional[datetime.datetime] = None
     author: Optional[str]
     avatar_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     channel_link: Optional[str] = None
     channel_id: Optional[str] = None
     published_text: Optional[str]
@@ -116,7 +117,8 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_
     url = f'https://www.youtube.com/watch?v={video_id}'
     title = find_one(item, '$.title..text,simpleText')
     summary = find_one(item, '$.descriptionSnippet..text')
-    
+    thumbnail = thumbnail_url(str(video_id)) or None
+
     author_info = parse_author(item) or owner_info
     if author_info is None:
         author_name = get_author_fallback(item) 
@@ -145,6 +147,7 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_
                                  scheduled=scheduled,
                                  author=author_name,
                                  avatar_url=avatar_url,
+                                 thumbnail_url=thumbnail,
                                  channel_link=channel_link,
                                  channel_id=channel_id,
                                  published_text=published_text,
