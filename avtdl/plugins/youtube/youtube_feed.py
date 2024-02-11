@@ -58,13 +58,16 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
     """indicated that the video is limited to members of the channel. Note that the video status might be changed at any time"""
 
     def __str__(self):
+        last_line = ''
         scheduled = self.scheduled
         if scheduled:
-            scheduled_time = '\nscheduled to {}'.format(scheduled.strftime('%Y-%m-%d %H:%M'))
-        else:
-            scheduled_time = ''
+            last_line = '\nscheduled to {}'.format(scheduled.strftime('%Y-%m-%d %H:%M'))
+        elif self.is_live:
+            last_line = '\n[Live]'
+        if self.is_member_only:
+            last_line += ' [Member only]'
         template = '{}\n{}\npublished by {}'
-        return template.format(self.url, self.title, self.author) + scheduled_time
+        return template.format(self.url, self.title, self.author) + last_line
 
     def __repr__(self):
         template = '{:<8} [{}] {}'
@@ -88,6 +91,10 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
         if self.scheduled is not None:
             scheduled = self.scheduled.strftime('%Y-%m-%d %H:%M')
             embed['fields'].append({'name': 'Scheduled:', 'value': scheduled, 'inline': True})
+        if self.is_live:
+            embed['fields'].append({'name': '[Live]', 'value': '', 'inline': True})
+        if self.is_member_only:
+            embed['fields'].append({'name': '[Member only]', 'value': '', 'inline': True})
         embed['footer'] = {'text': footer}
         return embed
 
