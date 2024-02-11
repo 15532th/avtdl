@@ -3,7 +3,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Tuple, Type, TypeVar
 
-from pydantic import BaseModel, ValidationError, create_model
+from pydantic import BaseModel, ConfigDict, ValidationError, create_model
 
 from avtdl.core.chain import Chain, ChainConfigSection
 from avtdl.core.loggers import LogLevel, override_loglevel, set_file_logger
@@ -51,6 +51,8 @@ class ActorConfigSection(BaseModel):
     entities: List[dict]
 
 class Config(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     settings: SettingsSection = SettingsSection()
     actors: Dict[str, ActorConfigSection]
     chains: Dict[str, ChainConfigSection]
