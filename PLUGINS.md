@@ -707,6 +707,7 @@ Represents an event of a user going live on Twitcasting
 * `url`: user (channel) url. 
 * `movie_url`: current livestream url. 
 * `title`: livestream title. 
+* `thumbnail_url`: link to the stream thumbnail. 
 
 </details>
 
@@ -861,6 +862,7 @@ Youtube video or livestream parsed from a channel's RSS feed
 * `title`: title of the video at the time of parsing. 
 * `published`: published value of the feed item, usually the time when the video was uploaded or the livestream frame was set up. 
 * `updated`: updated value of the feed item. If different from `published`, might indicate either a change to video title, thumbnail or description, or a change in video status, for example livestream ending. 
+* `thumbnail_url`: link to the video thumbnail. 
 * `author`: author's name, as shown on the channel icon. 
 * `video_id`: short string identifying the video on Youtube. Part of the video url. 
 * `summary`: video's description. 
@@ -1028,6 +1030,7 @@ as well as playlists, and, with login cookies, subscriptions feed.
 * `scheduled`: scheduled date for upcoming stream or premiere. 
 * `author`: channel name. 
 * `avatar_url`: link to the avatar of the channel. Not always available. 
+* `thumbnail_url`: link to the video thumbnail. 
 * `channel_link`: link to the channel uploading the video. 
 * `channel_id`: channel ID in old format (such as `UCK0V3b23uJyU4N8eR_BR0QA`). 
 * `published_text`: localized text saying how long ago the video was uploaded. 
@@ -1076,6 +1079,7 @@ as well as playlists, and, with login cookies, subscriptions feed.
 * `scheduled`: scheduled date for upcoming stream or premiere. 
 * `author`: channel name. 
 * `avatar_url`: link to the avatar of the channel. Not always available. 
+* `thumbnail_url`: link to the video thumbnail. 
 * `channel_link`: link to the channel uploading the video. 
 * `channel_id`: channel ID in old format (such as `UCK0V3b23uJyU4N8eR_BR0QA`). 
 * `published_text`: localized text saying how long ago the video was uploaded. 
