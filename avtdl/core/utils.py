@@ -264,6 +264,8 @@ class Delay:
 
     @classmethod
     def _inv_sigmoid(cls, y: float) -> float:
+        if y <= 0:
+            return 0
         # raises ValueError if y >= cls.A
         x = cls.x0 - log2((cls.A - y) / y) / cls.k
         return x
