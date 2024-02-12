@@ -51,7 +51,9 @@ class BaseTaskMonitor(Monitor):
         by_entity_interval = defaultdict(list)
         for entity in self.entities.values():
             by_entity_interval[entity.update_interval].append(entity)
-        by_group_interval = {interval / len(entities): entities for interval, entities in by_entity_interval.items()}
+        by_group_interval = defaultdict(list)
+        for interval, entities in by_entity_interval.items():
+            by_group_interval[interval / len(entities)].extend(entities)
         startup_tasks = []
         for interval in sorted(by_group_interval.keys()):
             entities = by_group_interval[interval]
