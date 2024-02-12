@@ -34,8 +34,8 @@ class TwitcastRecord(Record):
 
     def discord_embed(self) -> dict:
         return {
-            'title': self.title,
-            'description': self.movie_url,
+            'title': self.movie_url,
+            'description': None,
             'color': None,
             'author': {'name': self.user_id, 'url': self.url},
             'image': {'url': self.thumbnail_url},
