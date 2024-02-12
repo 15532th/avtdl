@@ -11,7 +11,7 @@ from avtdl.core import utils
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import Fmt, parse_timestamp
+from avtdl.core.utils import Delay, Fmt, parse_timestamp
 from avtdl.plugins.youtube import video_info
 from avtdl.plugins.youtube.common import extract_keys, find_all, find_one, get_innertube_context, handle_consent, \
     parse_navigation_endpoint, prepare_next_page_request
@@ -133,26 +133,29 @@ class YoutubeChatMonitor(BaseFeedMonitor):
        return record.uid
 
     async def get_records(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeChatRecord]:
-        first_time = False
         if entity.context.done:
             return []
-        actions = {}
         if entity.context.continuation_token is None:
-            actions.update(await self._get_first(entity, session))
-            first_time = True
-        if entity.context.continuation_token is not None:
-            actions.update(await self._get_next(entity, session))
-        records = Parser().run_parsers(actions)
-        if not first_time:
+            actions = await self._get_first(entity, session)
+            if actions:
+                self.logger.warning(f'[{entity.name}] got chat messages on the first update, this is not supposed to happen. Raw data: {actions}')
+        # _get_first(...) sets value of entity.context.continuation_token unless error happened
+        if entity.context.continuation_token is None:
+            return []
+
+        new_actions = await self._get_next(entity, session)
+        if new_actions is None:
+            records = []
+            new_update_interval = Delay.get_next(entity.update_interval)
+        else:
+            records = Parser().run_parsers(new_actions)
             new_update_interval = self._new_update_interval(entity, len(records))
-            # if new_update_interval != entity.update_interval:
-            #     self.logger.debug(f'[{entity.name}] update interval changed from {entity.update_interval} to {new_update_interval}')
-            # entity.update_interval gets updated by self.request()
-            # which doesn't expect anyone else to touch it
-            # in order to work together with it entity.base_update_interval
-            # is overwritten with current update interval, while original value
-            # is stored in entity.context.base_update_interval
-            entity.base_update_interval = entity.update_interval = new_update_interval
+        # entity.update_interval gets updated by self.request()
+        # which doesn't expect anyone else to touch it
+        # in order to work together with it entity.base_update_interval
+        # is overwritten with current update interval, while original value
+        # is stored in entity.context.base_update_interval
+        entity.base_update_interval = entity.update_interval = new_update_interval
         return records
 
     async def _get_first(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
@@ -175,20 +178,20 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         message = find_one(initial_data, '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
         if message is not None:
             text = Parser.runs_to_text(message)
-            self.logger.debug(f'[{entity.name}] {text}')
+            self.logger.info(f'[{entity.name}] {text}')
 
         if continuation is None:
             self.logger.warning(f'[{entity.name}] first page has no continuation token. Video has no chat or an error occured while loading it')
             entity.context.done = True
         return actions
 
-    async def _get_next(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
+    async def _get_next(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Optional[Dict[str, list]]:
         if entity.context.innertube_context is None:
             self.logger.warning(f'[{entity}] continuation token is present in an absence of initial data. This is a bug')
-            return {}
+            return None
         if entity.context.continuation_url is None:
             self.logger.warning(f'[{entity}] continuation token is present in an absence of continuation url. This is a bug')
-            return {}
+            return None
         _, headers, post_body = prepare_next_page_request(entity.context.innertube_context, entity.context.continuation_token)
         page = await utils.request(entity.context.continuation_url, session, self.logger, method='POST', headers=headers,
                                    data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
@@ -199,7 +202,7 @@ class YoutubeChatMonitor(BaseFeedMonitor):
             if entity.context.is_replay:
                 entity.context.done = True
                 self.logger.info(f'[{entity.name}] giving up on downloading chat replay for {entity.url}')
-            return {}
+            return None
         actions, continuation, _ = self._get_actions(page)
         entity.context.continuation_token = continuation
         if continuation is None and entity.context.is_replay:
