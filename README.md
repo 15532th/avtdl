@@ -28,6 +28,7 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
         * [`fetch_until_the_end_of_feed_mode`](#fetchuntiltheendoffeedmode)
         * [`quiet_first_time` and `quiet_start`](#quietfirsttime-and-quietstart)
         * [Formatting templates](#formatting-templates)
+      * [Troubleshooting](#troubleshooting)
     * [Tools commonly used for downloading livestreams](#tools-commonly-used-for-downloading-livestreams)
       * [Youtube](#youtube)
       * [Twitcasting](#twitcasting)
