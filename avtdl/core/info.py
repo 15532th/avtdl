@@ -20,7 +20,6 @@ HELP_FILE_STATIC_PART = f'''
 [TOC]
 '''
 
-
 # implicitly relies on first of the lines inside `description` being a short title
 PLUGIN_INFO_TEMPLATE = '''
 ### `{name}` - {description}
@@ -97,7 +96,7 @@ def get_model_info(model: Type[BaseModel], skip_name: bool = False) -> str:
     description = render_doc(model)
     if description:
         info.append(description)
-        info.append('\n') # ensure newline before list to make it render correctly
+        info.append('\n')  # ensure newline before list to make it render correctly
     required_fields = []
     not_required_fields = []
     for name, field_info in model.model_fields.items():
@@ -113,13 +112,14 @@ def get_model_info(model: Type[BaseModel], skip_name: bool = False) -> str:
             required_fields.append(field_description_text)
     info.extend(required_fields)
     if required_fields and not_required_fields:
-        info.append('##### ') # separate mandatory and non-mandatory fields in two lists
+        info.append('##### ')  # separate mandatory and non-mandatory fields in two lists
     info.extend(not_required_fields)
     return '\n'.join(info)
 
 
 def get_config_model_info(model: Type[BaseModel]) -> str:
     return get_model_info(model, skip_name=True)
+
 
 def get_entity_model_info(model: Type[BaseModel]) -> str:
     return get_model_info(model, skip_name=False)
@@ -130,7 +130,7 @@ def get_record_model_info(model: Type[BaseModel]) -> str:
     description = render_doc(model)
     if description:
         info.append(description)
-        info.append('\n') # ensure newline before list to make it render correctly
+        info.append('\n')  # ensure newline before list to make it render correctly
     for name, field_info in model.model_fields.items():
         if field_info.exclude:
             continue
@@ -162,6 +162,7 @@ def render_field_info(field_info: FieldInfo, skip_details=False) -> str:
 
 def has_default(field_info: FieldInfo) -> bool:
     return field_info.default is not PydanticUndefined
+
 
 def get_default(field_info: FieldInfo) -> Optional[str]:
     """Return text describing default value of given FieldInfo if set"""
@@ -221,4 +222,3 @@ def generate_version_string() -> str:
     known_plugins = textwrap.fill(known_plugins, initial_indent='    ', subsequent_indent='    ')
     text = version + '\n' + known_plugins
     return text
-
