@@ -40,9 +40,9 @@ class TwitchRecord(Record):
             'title': self.title,
             'description': self.url,
             'color': None,
-            'author': {'name': self.username, 'icon_url': self.avatar_url},
-            'timestamp': self.start,
-            'footer': self.game,
+            'author': {'name': self.username, 'url': self.url, 'icon_url': self.avatar_url},
+            'timestamp': self.start.isoformat(),
+            'footer': {'text': self.game},
             'fields': []
         }
 
