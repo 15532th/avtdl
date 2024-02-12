@@ -59,7 +59,7 @@ class DiscordWebhook:
             try:
                 limits_ok = MessageFormatter.check_limits(message)
             except Exception as e:
-                self.logger.debug(f'error checking content length limits for message: {e}\nRaw message: "{message}"')
+                self.logger.exception(f'error checking content length limits for message: {e}\nRaw message: "{message}"')
                 continue
             if not limits_ok:
                 self.logger.warning(f'[{self.name}] prepared message exceeded Discord length limits. Records will be discarded')
