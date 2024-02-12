@@ -150,13 +150,21 @@ def make_datetime(items) -> datetime.datetime:
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
 
 
-def parse_timestamp(timestamp: Union[str, int, None]) -> Optional[datetime.datetime]:
+def parse_timestamp_us(timestamp: Union[str, int, None], ) -> Optional[datetime.datetime]:
+    return parse_timestamp(timestamp, 6)
+
+
+def parse_timestamp_ms(timestamp: Union[str, int, None], ) -> Optional[datetime.datetime]:
+    return parse_timestamp(timestamp, 3)
+
+
+def parse_timestamp(timestamp: Union[str, int, None], fraction: int) -> Optional[datetime.datetime]:
     """parse UNIX timestamp as datetime.datetime"""
     if timestamp is None:
         return None
     try:
         ts = int(timestamp)
-        dt = datetime.datetime.fromtimestamp(int(ts / 1000000), tz=datetime.timezone.utc)
+        dt = datetime.datetime.fromtimestamp(int(ts / 10**fraction), tz=datetime.timezone.utc)
         return dt
     except Exception:
         return None
