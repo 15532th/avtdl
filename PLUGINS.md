@@ -1143,6 +1143,7 @@ Youtube chat message
 * `banner_header`: used for special objects in chat, such as pinned messages. 
 * `message_header`: . 
 * `sticker`: supersticker name if the message is a supersticker, otherwise empty. 
+* `color`: message header color, if present. 
 * `uid`: unique id of the message. 
 * `action`: internal name of message type. Used for debug purposes. 
 * `renderer`: internal name of message format. Used for debug purposes. 
