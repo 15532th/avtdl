@@ -66,12 +66,22 @@ class FileStorage:
         self.logger = logger or logging.getLogger('download')
 
     async def download(self, url: str, session: aiohttp.ClientSession, headers: Optional[Dict[str, Any]] = None) -> Optional[CachedFile]:
-        file_info = self._get_local_file(url)
+        file_info = self.get_cached_file(url)
         if file_info is not None:
             self.logger.debug(f'found in local cache: "{url}"')
             return file_info
         downloaded_file = await self._download_file(url, session, headers)
         return downloaded_file
+
+    def get_cached_file(self, url: str) -> Optional[CachedFile]:
+        metadata_path = self._get_filename_prefix(url).with_suffix(self.METADATA_EXTENSION)
+        try:
+            # CachedFile if cache hit, None if cache miss
+            metadata = CachedFile.from_file(metadata_path)
+            return metadata
+        except Exception as e:
+            self.logger.debug(f'error loading metadata for "{url}" from "{metadata_path}"')
+            return None
 
     async def _download_file(self, url: str, session: aiohttp.ClientSession, headers: Optional[Dict[str, Any]] = None) -> Optional[CachedFile]:
         path = self._get_filename_prefix(url).with_suffix(self.PARTIAL_EXTENSION)
@@ -92,16 +102,6 @@ class FileStorage:
             return None
         local_info = self._add_downloaded_file(path, remote_info)
         return local_info
-
-    def _get_local_file(self, url: str) -> Optional[CachedFile]:
-        metadata_path = self._get_filename_prefix(url).with_suffix(self.METADATA_EXTENSION)
-        try:
-            # CachedFile if cache hit, None if cache miss
-            metadata = CachedFile.from_file(metadata_path)
-            return metadata
-        except Exception as e:
-            self.logger.debug(f'error loading metadata for "{url}" from "{metadata_path}"')
-            return None
 
     def _add_downloaded_file(self, file: Path, info: 'RemoteFileInfo') -> Optional[CachedFile]:
         if not file.exists():
