@@ -11,7 +11,7 @@ from avtdl.core import utils
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import Delay, Fmt, parse_timestamp
+from avtdl.core.utils import Delay, Fmt, parse_timestamp_us
 from avtdl.plugins.youtube import video_info
 from avtdl.plugins.youtube.common import extract_keys, find_all, find_one, get_innertube_context, handle_consent, \
     parse_navigation_endpoint, prepare_next_page_request
@@ -79,7 +79,7 @@ class YoutubeChatRecord(Record):
         return f'[{self.action}: {self.renderer}] [{self.author}] {text}'
 
     def discord_embed(self) -> List[dict]:
-        dt = self.timestamp if isinstance(self.timestamp, datetime.datetime) else parse_timestamp(self.timestamp)
+        dt = self.timestamp if isinstance(self.timestamp, datetime.datetime) else parse_timestamp_us(self.timestamp)
         timestamp = dt.isoformat() if dt is not None else None
         author = self.author
         if self.badges:
@@ -304,7 +304,7 @@ class Parser:
         channel_id = renderer.get('authorExternalChannelId') or find_one(renderer, '$..authorExternalChannelId')
         channel = f'https://www.youtube.com/channel/{channel_id}'
         timestamp = renderer.get('timestampUsec') 
-        timestamp = parse_timestamp(timestamp)
+        timestamp = parse_timestamp_us(timestamp)
         badges = renderer.get('authorBadges', []) and find_all(renderer['authorBadges'], '$..label')
         amount = renderer.get('purchaseAmountText', {}).get('simpleText')
         header = renderer.get('headerSubtext')
@@ -341,7 +341,7 @@ class Parser:
         channel_id = find_one(renderer, '$..authorExternalChannelId')
         channel = f'https://www.youtube.com/channel/{channel_id}'
         timestamp = renderer.get('timestampUsec')
-        timestamp = parse_timestamp(timestamp)
+        timestamp = parse_timestamp_us(timestamp)
 
         author = find_one(renderer, '$..authorName.simpleText') or '[no author]'
         badges = find_all(renderer, '$..authorBadges..label')
