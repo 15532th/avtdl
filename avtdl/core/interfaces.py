@@ -7,7 +7,7 @@ from hashlib import sha1
 from textwrap import shorten
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 MAX_REPR_LEN = 60
 
@@ -15,6 +15,9 @@ class Record(BaseModel):
     '''Data entry, passed around from Monitors to Actions through Filters'''
 
     model_config = ConfigDict(use_attribute_docstrings=True)
+
+    origin: Optional[str] = Field(default=None, exclude=True)
+    """semicolon-separated names of actor and entity record originated from"""
 
     @abstractmethod
     def __str__(self) -> str:
@@ -194,6 +197,15 @@ class Monitor(Actor, ABC):
         # It allows using multiple monitors in a single chain, one after another
         self.on_record(entity, record)
 
+    def on_record(self, entity: ActorEntity, record: Record):
+        '''Implementation should call it for every new Record it produces'''
+        origin = f'{self.conf.name}:{entity.name}'
+        if record.origin == origin:
+            self.logger.warning(f'[{entity.name}] received incoming record produced by self, which indicates loop in a chain, dropping: "{record!r}".\nCheck config for chains, passing records to each other in a loop.')
+            return
+        if record.origin is None:
+            record.origin = origin
+        super().on_record(entity, record)
 
 class FilterEntity(ActorEntity):
     pass
