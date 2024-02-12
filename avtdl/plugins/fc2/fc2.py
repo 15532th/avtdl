@@ -1,3 +1,4 @@
+import datetime
 import json
 from json import JSONDecodeError
 from textwrap import shorten
@@ -10,6 +11,7 @@ from pydantic import Field
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
+from avtdl.core.utils import Fmt, parse_timestamp_ms
 
 
 @Plugins.register('fc2', Plugins.kind.ASSOCIATED_RECORD)
@@ -25,19 +27,22 @@ class FC2Record(Record):
     """stream title"""
     info: str
     """stream description"""
-    start: str
-    """timestamp of the stream start"""
+    start: Optional[datetime.datetime]
+    """time of the stream start"""
+    start_timestamp: str
+    """UNIX timestamp of the stream start"""
     avatar_url: str
     """link to the user's avatar"""
     login_only: bool
     """whether logging in is required to view current livestream"""
 
     def __str__(self):
-        return f'{self.url}\n{self.title}'
+        since = '\nsince ' + Fmt.date(self.start) if self.start else ''
+        return f'{self.url}\n{self.title}{since}'
 
     def __repr__(self):
         title = shorten(self.title, MAX_REPR_LEN)
-        return f'FC2Record(user_id={self.user_id}, start={self.start}, title={title})'
+        return f'FC2Record(user_id={self.user_id}, start={self.start_timestamp}, title={title})'
 
     def discord_embed(self) -> dict:
         return {
@@ -45,7 +50,8 @@ class FC2Record(Record):
             'description': self.url,
             'color': None,
             'author': {'name': self.name, 'url': self.url, 'icon_url': self.avatar_url},
-            'footer': self.info,
+            'timestamp': self.start.isoformat() if self.start else None,
+            'footer': {'text': self.info},
             'fields': []
         }
 
@@ -95,10 +101,10 @@ class FC2Monitor(HttpTaskMonitor):
         except (KeyError, TypeError, JSONDecodeError, pydantic.ValidationError) as e:
             self.logger.warning(f'FC2Monitor for {entity.name}: failed to parse channel info. Raw response: {data}')
             return None
-        if record.start == entity.latest_live_start:
+        if record.start_timestamp == entity.latest_live_start:
             self.logger.debug(f'FC2Monitor for {entity.name}: user {entity.user_id} is live since {entity.latest_live_start}, but record was already created')
             return None
-        entity.latest_live_start = record.start
+        entity.latest_live_start = record.start_timestamp
         record.name = entity.name
         return record
 
@@ -115,7 +121,8 @@ class FC2Monitor(HttpTaskMonitor):
         is_live = data['is_publish']
         if not is_live:
             return None
-        start = str(data['start'])
+        start_timestamp = str(data['start'])
+        start = parse_timestamp_ms(start_timestamp)
         title = data['title']
         info = data['info']
         avatar_url = data['image']
@@ -127,6 +134,7 @@ class FC2Monitor(HttpTaskMonitor):
         return FC2Record(url=channel_url,
                          title=title,
                          user_id=channel_id,
+                         start_timestamp=start_timestamp,
                          start=start,
                          info=info,
                          avatar_url=avatar_url,
