@@ -23,6 +23,7 @@ from avtdl.core.interfaces import Record
 
 
 def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional[cookiejar.CookieJar]:
+    """load cookies from a text file in Netscape format"""
     logger = logging.getLogger('cookies')
     if path is None:
         return None
@@ -42,7 +43,9 @@ def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional
         return None
     return cookie_jar
 
+
 def convert_cookiejar(cookie_jar: cookiejar.CookieJar) -> aiohttp.CookieJar:
+    """convert cookie jar produced by stdlib to format used by aiohttp"""
     cookies = http.cookies.SimpleCookie()
     for cookie in cookie_jar:
         name = cookie.name
@@ -57,10 +60,13 @@ def convert_cookiejar(cookie_jar: cookiejar.CookieJar) -> aiohttp.CookieJar:
     new_jar.update_cookies(cookies)
     return new_jar
 
+
 def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
-    '''Check for Expires and Cache-Control headers,
-    return integer representing how many seconds is
-    left until resource is outdated'''
+    """
+    check for Expires and Cache-Control headers, return integer representing
+    how many seconds is left until resource is outdated, if they are present
+    and was parsed successfully
+    """
 
     def get_expires_from_cache_control(headers) -> Optional[datetime.datetime]:
         try:
@@ -71,7 +77,7 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
             last_modified = headers.get('Last-Modified')
             last_modified_value = parsedate_to_datetime(last_modified)
 
-            expires  = last_modified_value + max_age_value
+            expires = last_modified_value + max_age_value
             return expires
         except (TypeError, ValueError):
             return None
@@ -97,8 +103,10 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
 
     return int(delta)
 
+
 def get_retry_after(headers: multidict.CIMultiDictProxy) -> Optional[int]:
-    retry_after =  headers.get('Retry-After')
+    """return parsed value of Retry-After header, if present"""
+    retry_after = headers.get('Retry-After')
     if retry_after is None:
         return None
     try:
@@ -117,7 +125,7 @@ def get_retry_after(headers: multidict.CIMultiDictProxy) -> Optional[int]:
 
 
 def check_dir(path: Path, create=True) -> bool:
-    '''check if directory exists and writable, create if asked'''
+    """check if directory exists and writable, create if asked"""
     if path.is_dir() and os.access(path, mode=os.W_OK):
         return True
     elif create:
@@ -131,10 +139,11 @@ def check_dir(path: Path, create=True) -> bool:
     else:
         return False
 
+
 def make_datetime(items) -> datetime.datetime:
-    '''take 10-tuple and return datetime object with UTC timezone'''
+    """take 10-tuple and return datetime object with UTC timezone"""
     if len(items) == 9:
-       items = *items, None
+        items = *items, None
     if len(items) != 10:
         raise ValueError(f'Expected tuple with 10 elements, got {len(items)}')
     timestamp = mktime_tz(items)
@@ -142,6 +151,7 @@ def make_datetime(items) -> datetime.datetime:
 
 
 def parse_timestamp(timestamp: Union[str, int, None]) -> Optional[datetime.datetime]:
+    """parse UNIX timestamp as datetime.datetime"""
     if timestamp is None:
         return None
     try:
@@ -153,6 +163,7 @@ def parse_timestamp(timestamp: Union[str, int, None]) -> Optional[datetime.datet
 
 
 def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
+    """pretty-print keys which values in dict1 and dict2 are different"""
     keys = {*dict1.keys(), *dict2.keys()}
     diff = []
     for k in keys:
@@ -180,10 +191,10 @@ async def monitor_tasks(tasks: Iterable[asyncio.Task]) -> None:
 
 
 async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
-                  method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
-                  headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
-                  retry_multiplier: int = 1,
-                  raise_errors: bool = False) -> Optional[aiohttp.ClientResponse]:
+                      method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
+                      headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
+                      retry_multiplier: int = 1,
+                      raise_errors: bool = False) -> Optional[aiohttp.ClientResponse]:
     logger = logger if logger else logging.getLogger('request')
     current_retry_delay = retry_delay
     for attempt in range(0, retry_times + 1):
@@ -215,11 +226,12 @@ async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger
                 return None
     return None
 
+
 async def request(url: str, session: Optional[aiohttp.ClientSession] = None, logger: Optional[logging.Logger] = None,
-                      method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
-                      headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
-                      retry_multiplier: int = 1,
-                      raise_errors: bool = False) -> Optional[str]:
+                  method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
+                  headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
+                  retry_multiplier: int = 1,
+                  raise_errors: bool = False) -> Optional[str]:
     logger = logger if logger else logging.getLogger('request')
     response = await request_raw(url, session, logger, method, params, data, headers, retry_times, retry_delay, retry_multiplier, raise_errors)
     if response is None:
@@ -230,18 +242,19 @@ async def request(url: str, session: Optional[aiohttp.ClientSession] = None, log
         return None
     return await response.text()
 
+
 async def request_json(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
-                  method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
-                  headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
-                  retry_multiplier: int = 1,
-                  raise_errors: bool = False) -> Optional[Any]:
+                       method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
+                       headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
+                       retry_multiplier: int = 1,
+                       raise_errors: bool = False) -> Optional[Any]:
     logger = logger if logger else logging.getLogger('request_json')
     text = await request(url, session, logger, method, params, data, headers, retry_times, retry_delay, retry_multiplier, raise_errors)
     if text is None:
         return None
     try:
-         parsed = json.loads(text)
-         return parsed
+        parsed = json.loads(text)
+        return parsed
     except json.JSONDecodeError as e:
         logger.debug(f'error parsing response from {url}: {e}. Raw response data: "{text}"')
         if raise_errors:
@@ -251,11 +264,11 @@ async def request_json(url: str, session: Optional[aiohttp.ClientSession], logge
 
 
 class Delay:
-    '''Provide method to calculate next delay for exponential backoff based on S-shaped curve'''
+    """Provide method to calculate next delay for exponential backoff based on S-shaped curve"""
 
-    A: float = 4600 # upper asymptote
-    k: float = 0.88 # curve growth rate
-    x0: float = 8 # x value corresponding to midpoint of the curve
+    A: float = 4600  # upper asymptote
+    k: float = 0.88  # curve growth rate
+    x0: float = 8  # x value corresponding to midpoint of the curve
 
     @classmethod
     def _sigmoid(cls, x: float) -> float:
@@ -272,7 +285,12 @@ class Delay:
 
     @classmethod
     def get_next(cls, current: float) -> float:
-        '''Find current value on S-shaped curve and return a next one'''
+        """
+        Find current value on S-shaped curve and return a next one
+
+        Returns 0 if input is not higher than 0,
+        returns cls.A if input higher than cls.A.
+        """
         try:
             current_step = cls._inv_sigmoid(current)
         except ValueError:
@@ -283,13 +301,15 @@ class Delay:
 
 
 def timeit(func: Callable) -> Callable:
-  def timer(*args, **kwargs) -> Any:
-      begin = perf_counter_ns()
-      result = func(*args, **kwargs)
-      duration = perf_counter_ns() - begin
-      logging.warning(f'{func.__name__}: {duration/10**6:10}')
-      return result
-  return timer
+    """measure time "func()" call takes, print it in log"""
+    def timer(*args, **kwargs) -> Any:
+        begin = perf_counter_ns()
+        result = func(*args, **kwargs)
+        duration = perf_counter_ns() - begin
+        logging.warning(f'{func.__name__}: {duration / 10 ** 6:10}')
+        return result
+
+    return timer
 
 
 class LRUCache:
@@ -336,6 +356,7 @@ def sanitize_filename(name: str) -> str:
     """Replace symbols not allowed in file names on NTFS with underscores"""
     return re.sub(r'[\\/:*?"<>|]', "_", name)
 
+
 class OutputFormat(str, Enum):
     str = 'text'
     repr = 'short'
@@ -375,7 +396,7 @@ class Fmt:
         return result
 
     @classmethod
-    def format_path(cls, path: Union[str,Path], record: Record, missing: Optional[str] = None) -> Path:
+    def format_path(cls, path: Union[str, Path], record: Record, missing: Optional[str] = None) -> Path:
         """Take string with placeholders and replace them with record fields, but strip them from bad symbols"""
         fmt = str(path)
         formatted_path = cls.format(fmt, record, missing, sanitize=True)
@@ -401,6 +422,7 @@ class Fmt:
 
 
 def html_to_text(html: str) -> str:
+    """take html fragment, try to parse it and extract text values using lxml"""
     try:
         root = lxml.html.fromstring(html)
         text = root.text_content()
