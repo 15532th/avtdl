@@ -37,6 +37,8 @@ class YoutubeChatRecord(Record):
     message_header: Optional[str] = None
     sticker: Optional[str] = None
     """supersticker name if the message is a supersticker, otherwise empty"""
+    color: Optional[str] = None
+    """message header color, if present"""
 
     uid: str
     """unique id of the message"""
@@ -68,8 +70,9 @@ class YoutubeChatRecord(Record):
 
     def __str__(self):
         timestamp = Fmt.date(self.timestamp)
+        badges = ', '.join(self.badges) if self.badges else ''
         text = self._main_text()
-        return f'{timestamp} [{self.author}] {text}'
+        return f'{timestamp} {badges} [{self.author}] {text}'
 
     def __repr__(self):
         text = shorten(self._main_text(), MAX_REPR_LEN)
@@ -87,7 +90,7 @@ class YoutubeChatRecord(Record):
             'title': self.banner_header,
             'description': self._body_text(),
             'url': None,
-            'color': None,
+            'color': self.color,
             'timestamp': timestamp,
             'author': {'name': author, 'url': self.channel},
             'fields': []
@@ -286,6 +289,13 @@ class Parser:
         message = ''.join(parts)
         return message
 
+    @classmethod
+    def parse_color(cls, color: int) -> Optional[str]:
+        """Take color as 0xAARRGGBB and return it as #RRGGBB"""
+        if not isinstance(color, int):
+            return None
+        return f'#{color & 0xFFFFFF:06x}'
+
     def parse_chat_renderer(self, action_type: str, renderer_type: str, renderer: dict) -> YoutubeChatRecord:
         uid = renderer.get('id')
 
@@ -300,6 +310,7 @@ class Parser:
         header = renderer.get('headerSubtext')
         header_text = self.runs_to_text(header) if header else None
         sticker = find_one(renderer, '$.sticker.accessibility..label')
+        color = self.parse_color(find_one(renderer, '$.headerBackgroundColor,backgroundColor'))
         record = YoutubeChatRecord(uid=uid,
                                     action=action_type,
                                     renderer=renderer_type,
@@ -310,7 +321,8 @@ class Parser:
                                     text=text,
                                     amount=amount,
                                     message_header=header_text,
-                                    sticker=sticker
+                                    sticker=sticker,
+                                    color=color
                     )
         return record
 
