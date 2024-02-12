@@ -37,8 +37,8 @@ class YoutubeChatRecord(Record):
     message_header: Optional[str] = None
     sticker: Optional[str] = None
     """supersticker name if the message is a supersticker, otherwise empty"""
-    color: Optional[str] = None
-    """message header color, if present"""
+    color: Optional[int] = None
+    """message header color (RGB integer), if present"""
 
     uid: str
     """unique id of the message"""
@@ -290,11 +290,11 @@ class Parser:
         return message
 
     @classmethod
-    def parse_color(cls, color: int) -> Optional[str]:
-        """Take color as 0xAARRGGBB and return it as #RRGGBB"""
+    def parse_color(cls, color: int) -> Optional[int]:
+        """Take color as 0xAARRGGBB and return it as 0xRRGGBB"""
         if not isinstance(color, int):
             return None
-        return f'#{color & 0xFFFFFF:06x}'
+        return color & 0xFFFFFF
 
     def parse_chat_renderer(self, action_type: str, renderer_type: str, renderer: dict) -> YoutubeChatRecord:
         uid = renderer.get('id')
