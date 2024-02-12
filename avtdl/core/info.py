@@ -17,7 +17,11 @@ HELP_FILE_STATIC_PART = f'''
 
 ## Description and configuration of available plugins
 
-[TOC]
+<!-- [TOC] -->
+
+{{TOC}}
+
+<!-- [TOC] -->
 '''
 
 # implicitly relies on first of the lines inside `description` being a short title
@@ -204,6 +208,7 @@ def render_markdown(text: str) -> str:
 
 def generate_plugins_description(as_html: bool = False):
     text = render_plugins_descriptions()
+    text = TOC.insert_toc(text)
     if not as_html:
         return text
     html = render_markdown(text)
@@ -222,3 +227,49 @@ def generate_version_string() -> str:
     known_plugins = textwrap.fill(known_plugins, initial_indent='    ', subsequent_indent='    ')
     text = version + '\n' + known_plugins
     return text
+
+
+class TOCToken(BaseModel):
+    name: str
+    id: str
+    level: int
+    children: List['TOCToken']
+
+
+class TOC:
+
+    @staticmethod
+    def generate_toc_tokens(text: str, baselevel: int, toc_depth: int) -> List[TOCToken]:
+        md = markdown.Markdown(extensions=[TocExtension(toc_depth=toc_depth, baselevel=baselevel), 'md_in_html'])
+        _ = md.convert(text)
+        tokens = [TOCToken.model_validate(token) for token in md.toc_tokens]
+        return tokens
+
+    @staticmethod
+    def generate_toc_line(t: TOCToken, level: int = 0, indent: str = '  ') -> str:
+        line = f'{level * indent}* [{t.name}]({t.id})'
+        return line
+
+    @classmethod
+    def generate_toc_md(cls, tokens: List[TOCToken], level: int = 0, indent: str = '  ') -> List[str]:
+        md: List[str] = []
+        for token in tokens:
+            line = cls.generate_toc_line(token, level, indent)
+            md.append(line)
+            children_md = cls.generate_toc_md(token.children, level + 1, indent)
+            md.extend(children_md)
+        return md
+
+    @classmethod
+    def generate_toc(cls, text: str, baselevel: int, toc_depth: int, indent: str = '  ') -> str:
+        tokens = cls.generate_toc_tokens(text, baselevel, toc_depth)
+        md_lines = cls.generate_toc_md(tokens, indent=indent)
+        md = '\n'.join(md_lines)
+        return md
+
+    @classmethod
+    def insert_toc(cls, text: str, toc_marker: str = '{TOC}', baselevel=1, toc_depth=3, indent: str = '  ') -> str:
+       toc = cls.generate_toc(text, baselevel, toc_depth, indent)
+       result = text.replace(toc_marker, toc)
+       return result
+
