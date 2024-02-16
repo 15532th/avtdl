@@ -210,9 +210,9 @@ It features four plugins: two for monitoring data sources (`rss` and `community`
 
 ##### chains
 
-As explained in the [Configuration file terminology](#configuration-file-terminology) section, plugins can be divided into three types `monitors`, `filters` and `actions`. A `monitor` can only produce new records. `filter` consumes records and decides to either output them or not based on its settings. `action` only consumes `records`, but can produce `events`, for example in case of error.
+As explained in the [Configuration file terminology](#configuration-file-terminology) section, plugins can be divided into three types: `monitors`, `filters` and `actions`. A `monitor` can only produce new records. `filter` consumes records and decides to either output them or not based on its settings. `action` only consumes `records`, but can produce `events`, for example in case of error.
 
-A chain groups entities from plugins in the `actors` section in a sequence, where `records` from one or more `monitors` get through `filters` and trigger `actions`. Each entity is identified by a combination of a plugin name and the entity `name` property. General `chains` section structure is:
+A chain groups entities from plugins in the `actors` section in a sequence, where `records` from `monitor` get through `filters` and trigger `actions`. Each entity is identified by a combination of a plugin name and the entity `name` property. General `chains` section structure is:
 
 ```yaml
 chains:
@@ -241,58 +241,6 @@ According to the configuration in the `actors` section defined [before](#actors)
 
 ***
 
-In its simplest form, a `chain` includes one monitor, zero or more `filters` and ends with an `action`. However, for convenience's sake, it is possible to list multiple `monitors` sequentially in one `chain`:
-
-```yaml
-chains:
-  "multiplatform streams notifications":
-    - rss:
-      - "Example Channel"
-    - twitch:
-      - "Example Channel"
-    - discord.hook:
-        - "notifications"
-```
-
-When a `monitor` receives a `record` as input, it will be passed down the chain unchanged. In the example above records from the `rss` monitor will fall through `twitch`, ending in `discord.hook`, along with records from `twitch` itself.
-
-***
-
-If a plugin in the middle of a `chain` lists multiple entities, all of them will receive records from previous one, and all of them will generate records based on it.
-
-```yaml
-chains:
-  "interesting streams notifications":
-    - channel:
-      - "Example Channel"
-    - filter.match:
-      - "sing"
-      - "game"
-      - "talk"
-    - xmpp:
-      - "notifications"
-```
-
-When two entities of such plugin lets the same record through, it will effectively be duplicated, coming down the chain twice. To mitigate it, either give each entity its own `chain`, or use `filter.deduplicate` plugin to drop repeating `records` before passing it to the `action`:
-
-```yaml
-chains:
-  "interesting streams notifications":
-    - channel:
-        - "subscriptions"
-    - rss:
-        - "Example Channel"
-        - "Another Example Channel"
-    - filter.deduplicate:
-        - "youtube notifications"
-    - xmpp:
-        - "notifications"
-```
-
-It is possible for multiple sources to produce duplicate records simply because they monitor the same source, but in this example records from "subscriptions" will be duplicated while passing through two entities of `rss` plugin. Then one of them will be dropped on `filter.deduplicate`.
-
-***
-
 Even though `actions` do not forward `records` they received down the chain, they might produce `events` when a certain event happens while processing a record. For example, `execute` plugin might produce an `event` with "error" type if the shell command it was set to execute failed. `Events` are treated as normal `records` and can be passed through `filters` to other `actors`.
 
 ```yaml
@@ -310,9 +258,55 @@ Records from the `rss` feed will be consumed by `execute` plugin entity and won'
 
 ***
 
-Note that just like with `monitors` and `actions`, `filters` entities are stateful. If one entity is used in multiple chains, every instance will produce all records any of them consume.
+Note, that all plugins entities are stateful in a sense that if certain entity of specific plugin is used in multiple chains, _all_ instances will produce all records consumed by _any_ of them.
 
-In the following example records from Youtube and Twitch monitors are fed into "multiplexor" entity of `noop` filter, which simply passes all records through unchanged. Output of the "multiplexor" then passed to `discord.hook` "notifications" entity.
+In its simplest form, a `chain` includes one monitor, zero or more `filters` and ends with an `action`. It is possible to list multiple `monitors` sequentially in one `chain`:
+
+```yaml
+chains:
+  "multiplatform streams notifications":
+    - rss:
+      - "Example Channel 1"
+    - twitch:
+      - "Example Channel 2"
+    - discord.hook:
+        - "notifications"
+```
+
+When a `monitor` located in the middle of a chain receives a `record` as input, it will be passed down the chain unchanged. In the example above records from the `rss` monitor will fall through `twitch`, ending in `discord.hook`, along with records from `twitch` itself.
+
+However, if aforementioned entity "Example Channel 1" of the `twitch` plugin is also used in another chain to run a command, next entity will receive not only records from "Example Channel 2" on `twitch`, but also anything produced by "Example Channel 1" of the `rss` plugin.
+
+<details>
+  <summary>Like this:</summary>
+
+```yaml
+chains:
+  "multiplatform streams notifications":
+    - rss:
+        - "Example Channel 1"
+    - twitch:
+        - "Example Channel 2"
+    - discord.hook:
+        - "notifications"
+
+  "twitch download":
+    - twitch:
+      - "Example Channel 2"
+    - execute:
+      # receives records from both twitch and rss feed monitors
+      - "streamlink for Example Channel 2"
+```
+
+</details>
+
+**To avoid unexpected chains interconnections, it is generally advised to only place monitors at the beginning of a chain, and only use any `filter` entity in a single place.**
+
+***
+
+One exception from this rule would be using a `filter.noop` (or any other filter's) entity as a way to merge records produced by multiple monitors into a single processing chain.
+
+In the following example records from Youtube and Twitch monitors are fed into "multiplexor" entity of `noop` filter, which simply passes all records through unchanged. Output of the "multiplexor" then passed to `discord.hook` "notifications" entity after some (possible complex) filtering and preprocessing.
 
 ```yaml
 chains:
@@ -333,7 +327,61 @@ chains:
   "to discord":
     - filters.noop:
         - "multiplexor"
+    - filter.exclude:
+        - "notifications blacklist"
+    - filter.channel:
+        - "livestreams notifications"
     - discord.hook:
+        - "notifications"
+```
+
+***
+
+If a plugin in a `chain` lists multiple entities, all of them will receive records from previous one, and all of them will generate records based on it.
+
+```yaml
+chains:
+  "interesting streams notifications":
+    - rss:
+      - "Example Channel"
+    - filter.match:
+      - "sing"
+      - "game"
+      - "talk"
+    - xmpp:
+      - "notifications"
+```
+
+When two entities of such plugin let the same record through, it will effectively be duplicated, coming down the chain twice. To mitigate it, either give each entity its own `chain`, or use `filter.deduplicate` plugin to drop repeating `records` before passing it to the `action`:
+
+```yaml
+chains:
+  "interesting streams notifications":
+    - rss:
+      - "Example Channel"
+    - filter.match:
+      - "sing"
+      - "game"
+      - "talk"
+    - filter.deduplicate:
+        - "interesting streams in Example Channel"
+    - xmpp:
+      - "notifications"
+```
+
+***
+
+It is also possible for multiple entities to produce duplicate records simply because they monitor the same source. In the example below records from "subscriptions feed" might be already seen by "Example Channel". Then one of them will be dropped on `filter.deduplicate`.
+
+```yaml
+chains:
+  "interesting streams notifications":
+    - channel:
+        - "Example Channel"
+        - "subscriptions feed"
+    - filter.deduplicate:
+        - "youtube notifications"
+    - xmpp:
         - "notifications"
 ```
 
