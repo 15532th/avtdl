@@ -168,7 +168,8 @@ Represents event of a stream going live on FC2
 * `user_id`: unique for the given user/channel part of the stream url. 
 * `title`: stream title. 
 * `info`: stream description. 
-* `start`: timestamp of the stream start. 
+* `start`: time of the stream start. 
+* `start_timestamp`: UNIX timestamp of the stream start. 
 * `avatar_url`: link to the user's avatar. 
 * `login_only`: whether logging in is required to view current livestream. 
 
@@ -1143,7 +1144,7 @@ Youtube chat message
 * `banner_header`: used for special objects in chat, such as pinned messages. 
 * `message_header`: . 
 * `sticker`: supersticker name if the message is a supersticker, otherwise empty. 
-* `color`: message header color, if present. 
+* `color`: message header color (RGB integer), if present. 
 * `uid`: unique id of the message. 
 * `action`: internal name of message type. Used for debug purposes. 
 * `renderer`: internal name of message format. Used for debug purposes. 
