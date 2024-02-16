@@ -29,15 +29,15 @@ HELP_FILE_STATIC_PART = f'''
 
 
 STRUCTURE = '''
-## Monitors
+## Monitors:
 
 {}
 
-## Filters
+## Filters:
 
 {}
 
-## Actions
+## Actions:
 
 {}
 '''
