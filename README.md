@@ -210,9 +210,9 @@ It features four plugins: two for monitoring data sources (`rss` and `community`
 
 ##### chains
 
-As explained in the [Configuration file terminology](#configuration-file-terminology) section, plugins can be divided into three types: `monitors`, `filters` and `actions`. A `monitor` can only produce new records. `filter` consumes records and decides to either output them or not based on its settings. `action` only consumes `records`, but can produce `events`, for example in case of error.
+As explained in the [Configuration file terminology](#configuration-file-terminology) section, plugins can be divided into three types: `monitors`, `filters` and `actions`. A `monitor` can only produce new records. A `filter` consumes records and decides to either output them or not based on its settings. An `action` only consumes `records`, but can produce `events`, for example in case of an error.
 
-A chain groups entities from plugins in the `actors` section in a sequence, where `records` from `monitor` get through `filters` and trigger `actions`. Each entity is identified by a combination of a plugin name and the entity `name` property. General `chains` section structure is:
+A chain groups entities from plugins in the `actors` section in a sequence, where `records` from `monitors` get through `filters` and trigger `actions`. Each entity is identified by a combination of a plugin name and the entity `name` property. General `chains` section structure is:
 
 ```yaml
 chains:
@@ -258,7 +258,7 @@ Records from the `rss` feed will be consumed by `execute` plugin entity and won'
 
 ***
 
-Note, that all plugins entities are stateful in a sense that if certain entity of specific plugin is used in multiple chains, _all_ instances will produce all records consumed by _any_ of them.
+Note, that all plugin entities are stateful, in a sense that if a certain entity of specific plugin is used in multiple chains, _all_ instances will produce all records consumed by _any_ of them.
 
 In its simplest form, a `chain` includes one monitor, zero or more `filters` and ends with an `action`. It is possible to list multiple `monitors` sequentially in one `chain`:
 
