@@ -2,137 +2,45 @@
 <!-- This file is manually crafted as part of avtdl -->
 
 ## Description and configuration of available plugins
-
 ---
 ### Table of content:
 
 <!-- [TOC] -->
 
-* [`discord.hook` - Send record to Discord using webhook](#discordhook---send-record-to-discord-using-webhook)
-* [`execute` - Run pre-defined shell command](#execute---run-pre-defined-shell-command)
-* [`fc2` - Monitor for live.fc2.com](#fc2---monitor-for-livefc2com)
-* [`from_file` - Monitor content of a text file](#from_file---monitor-content-of-a-text-file)
-* [`to_file` - Write record to a text file](#to_file---write-record-to-a-text-file)
-* [`filter.noop` - Pass everything through](#filternoop---pass-everything-through)
-* [`filter.void` - Drop everything](#filtervoid---drop-everything)
-* [`filter.match` - Keep records with specific words](#filtermatch---keep-records-with-specific-words)
-* [`filter.exclude` - Drop records with specific words](#filterexclude---drop-records-with-specific-words)
-* [`filter.event` - Filter for records with "Event" type](#filterevent---filter-for-records-with-event-type)
-* [`filter.type` - Filter for records of specific type](#filtertype---filter-for-records-of-specific-type)
-* [`filter.json` - Format record as JSON](#filterjson---format-record-as-json)
-* [`filter.format` - Format record as text](#filterformat---format-record-as-text)
-* [`filter.deduplicate` - Drop already seen records](#filterdeduplicate---drop-already-seen-records)
-* [`nitter` - Monitor for Nitter instances](#nitter---monitor-for-nitter-instances)
-* [`filter.nitter.pick` - Pick `NitterRecord` with specified properties](#filternitterpick---pick-nitterrecord-with-specified-properties)
-* [`filter.nitter.drop` - Drop `NitterRecord` without specified properties.](#filternitterdrop---drop-nitterrecord-without-specified-properties)
-* [`generic_rss` - RSS feed monitor](#generic_rss---rss-feed-monitor)
-* [`twitcast` - Monitor for twitcasting.tv](#twitcast---monitor-for-twitcastingtv)
-* [`twitch` - Monitor for twitch.tv](#twitch---monitor-for-twitchtv)
-* [`get_url` - Monitor web page text](#get_url---monitor-web-page-text)
-* [`xmpp` - Send records as Jabber messages](#xmpp---send-records-as-jabber-messages)
-* [`rss` - Youtube channel RSS feed monitor](#rss---youtube-channel-rss-feed-monitor)
-* [`community` - Youtube community page monitor](#community---youtube-community-page-monitor)
-* [`channel` - Youtube channel monitor](#channel---youtube-channel-monitor)
-* [`filter.channel` - Pick `YoutubeVideoRecord` with specified properties](#filterchannel---pick-youtubevideorecord-with-specified-properties)
-* [`prechat` - Youtube livechat monitor](#prechat---youtube-livechat-monitor)
+* [Monitors](#monitors)
+  * [fc2 - Monitor for live.fc2.com](#fc2---monitor-for-livefc2com)
+  * [from_file - Monitor content of a text file](#from_file---monitor-content-of-a-text-file)
+  * [nitter - Monitor for Nitter instances](#nitter---monitor-for-nitter-instances)
+  * [generic_rss - RSS feed monitor](#generic_rss---rss-feed-monitor)
+  * [twitcast - Monitor for twitcasting.tv](#twitcast---monitor-for-twitcastingtv)
+  * [twitch - Monitor for twitch.tv](#twitch---monitor-for-twitchtv)
+  * [get_url - Monitor web page text](#get_url---monitor-web-page-text)
+  * [rss - Youtube channel RSS feed monitor](#rss---youtube-channel-rss-feed-monitor)
+  * [community - Youtube community page monitor](#community---youtube-community-page-monitor)
+  * [channel - Youtube channel monitor](#channel---youtube-channel-monitor)
+  * [prechat - Youtube livechat monitor](#prechat---youtube-livechat-monitor)
+* [Filters](#filters)
+  * [filter.noop - Pass everything through](#filternoop---pass-everything-through)
+  * [filter.void - Drop everything](#filtervoid---drop-everything)
+  * [filter.match - Keep records with specific words](#filtermatch---keep-records-with-specific-words)
+  * [filter.exclude - Drop records with specific words](#filterexclude---drop-records-with-specific-words)
+  * [filter.event - Filter for records with "Event" type](#filterevent---filter-for-records-with-event-type)
+  * [filter.type - Filter for records of specific type](#filtertype---filter-for-records-of-specific-type)
+  * [filter.json - Format record as JSON](#filterjson---format-record-as-json)
+  * [filter.format - Format record as text](#filterformat---format-record-as-text)
+  * [filter.deduplicate - Drop already seen records](#filterdeduplicate---drop-already-seen-records)
+  * [filter.nitter.pick - Pick NitterRecord with specified properties](#filternitterpick---pick-nitterrecord-with-specified-properties)
+  * [filter.nitter.drop - Drop NitterRecord without specified properties.](#filternitterdrop---drop-nitterrecord-without-specified-properties)
+  * [filter.channel - Pick YoutubeVideoRecord with specified properties](#filterchannel---pick-youtubevideorecord-with-specified-properties)
+* [Actions](#actions)
+  * [discord.hook - Send record to Discord using webhook](#discordhook---send-record-to-discord-using-webhook)
+  * [execute - Run pre-defined shell command](#execute---run-pre-defined-shell-command)
+  * [to_file - Write record to a text file](#to_file---write-record-to-a-text-file)
+  * [xmpp - Send records as Jabber messages](#xmpp---send-records-as-jabber-messages)
 
----
+<!-- [TOC] -->
 
-### `discord.hook` - Send record to Discord using webhook
-
-To generate webhook url follow instructions in "Making a Webhook" section of
-<https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks>
-
-Some record types support rich formatting when sent to Discord, such as
-showing the author's avatar and links to attached images. Youtube videos will
-show thumbnail, however embedding video itself is not supported.
-
-Records coming within six seconds one after another will be batched together into a single message.
-When too many records are received at once, they will be sent with delays to conform to Discord
-rate limits. Records deemed to be too long to fit in a Discord message
-[length limits](https://discord.com/developers/docs/resources/channel#create-message-jsonform-params)
-will be dropped with a warning.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-* `url`: webhook url. Required.
-##### 
-* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
-* `timezone`: takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or OS settings if omitted), converts record fields containing date and time to this timezone. Not required.
-
----
-
-### `execute` - Run pre-defined shell command
-
-Take `command` string, replace keywords provided in `placeholders` with corresponding fields
-of currently processed record. For example, if `command` is set to
-
-    "yt-dlp {url}"`
-
-and currently processed record comes from Youtube RSS feed and has `url` field value
-`https://www.youtube.com/watch?v=L692Sxz3thw`, then with default `placeholders`
-resulting command will be
-
-    yt-dlp https://www.youtube.com/watch?v=L692Sxz3thw
-
-Note that placeholders do not have to be wrapped in `{}` and can, in fact, be any
-arbitrary text strings. However, placeholders are replaced by corresponding values
-one after another, so using piece of text that might come up in record field might
-produce unexpected results.
-
-`command` string is not treated as raw shell command. Instead, it is split into list
- of elements, where first element specifies the program executable, and the rest
- specify the arguments. It is therefore not possible to use shell features such as pipes
- or execute multiple commands in one line.
-
-Make sure the executable the command uses (`yt-dlp` in this case) is installed and
-can be run from the working directory by current user. It is advised to confirm that
-the command can be executed manually and it finishes without errors before automating it.
-
-For each entity, a separate working directory can be configured. Output is shown
-in the same window by default, but can be redirected to a file, with either static
-or autogenerated name.
-
-Produces Events at startup and successful or erroneous termination of the executed command
-if corresponding entity settings are enabled. They can be used to send Discord
-or Jabber notifications or execute another command when it happens.
-
-Processed record itself can also be passed down the chain if the command failed,
-providing a way to try a different one as a fallback. For example, record with
-Youtube url could be first handled by `ytarchive` and passed to `yt-dlp` if
-it happens to fail due to video link not being a livestream.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-* `command`: shell command to be executed on every received record. Supports placeholders that will be replaced with currently processed record fields values. Required.
-##### 
-* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
-* `working_dir`: path to the directory where command will be executed. If not set current working directory is used. Supports templating with {...}. Not required.
-* `log_dir`: write executed process output to a file in this directory if set. If it is not set, output will not be redirected to file. Not required.
-* `log_filename`: filename to write executed process output to. If not defined, it is generated automatically based on command and entity name. Not required.
-* `placeholders`: parts of `command` string that should be replaced with processed record fields, defined as mapping `'placeholder': 'record field name'`. Default value is `"{url}": "url", "{title}": "title", "{text}": "text"`.
-* `static_placeholders`: parts of `command` string that will be replaced with provided values, defined as mapping `'placeholder': 'replacement string'`. Intended to allow reusing same `command` template for multiple entities. Not required.
-* `forward_failed`: emit currently processed record down the chain if the subprocess returned non-zero exit code. Can be used to define fallback command in case this one fails. Default value is `false`.
-* `report_failed`: emit Event with type "error" if the subprocess returned non-zero exit code or raised exception. Default value is `true`.
-* `report_finished`: emit Event with type "finished" if the subprocess returned zero as exit code. Default value is `false`.
-* `report_started`: emit Event with type "started" before starting a subprocess. Default value is `false`.
-
-
-#### Produced records types:
-
-
-<details markdown="block">
-  <summary>Event</summary>
-
-Record produced by an internal event (usually error) inside the plugin
-
-
-* `event_type`: text describing the nature of event, can be used to filter classes of events, such as errors. 
-* `text`: text describing specific even details. 
-
-</details>
+## Monitors
 
 ---
 
@@ -211,242 +119,6 @@ Simplest record, containing only a single text field
 
 ---
 
-### `to_file` - Write record to a text file
-
-Takes a record coming from a Chain, converts it to text representation,
-and writes to a file in given directory. When a file already exists,
-new records can be appended to the end of the file or overwrite it.
-
-Output file name can be static or generated dynamically based on the template
-filled with values from the record fields: every occurrence of `{text}`
-in filename will be replaced with the value of the `text` field of processed
-record, if the record has one.
-
-Allows writing the record as human-readable text representation or as names and
-values of the record fields in json format. For custom format template, pass the record
-through `filter.format` plugin prior to this one.
-
-Produces `Event` with `error` type if writing to target file fails.
-
-Note discrepancy between default value of `encoding` setting between `from_file`
-and `to_file` plugins. Former is expected to be able to read files produced by
-different software and therefore relies on system-wide settings. It would make
-sense to do the same in the latter, but it would introduce possibility of failing
-to write records containing text with Unicode codepoints that cannot be represented
-using system-wide encoding.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-* `filename`: name of the output file. Supports templating with {...}. Required.
-##### 
-* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
-* `path`: directory where output file should be created. Default is current directory. Supports templating with {...}. Not required.
-* `encoding`: output file encoding. Default value is `utf8`.
-* `output_format`: one of `str`, `repr`, `json`, `pretty_json`, `hash`. Default value is `text`.
-* `overwrite`: whether file should be overwritten in if it already exists. Default value is `true`.
-* `append`: if true, new record will be written at the end of the file without overwriting already present lines. Default value is `true`.
-* `prefix`: string that will be appended before the record text. Can be used to separate records from each other or for simple templating. Not required.
-* `postfix`: string that will be appended after the record text. Not required.
-
-
-#### Produced records types:
-
-
-<details markdown="block">
-  <summary>Event</summary>
-
-Record produced by an internal event (usually error) inside the plugin
-
-
-* `event_type`: text describing the nature of event, can be used to filter classes of events, such as errors. 
-* `text`: text describing specific even details. 
-
-</details>
-
----
-
-### `filter.noop` - Pass everything through
-
-Lets all incoming records pass through unchanged, effectively
-doing nothing with them. As any other filter it has entities,
-so it can be used as a merging point to gather records from
-multiple chains and process them in a single place.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-
----
-
-### `filter.void` - Drop everything
-
-Does not produce anything, dropping all incoming records.
-Can be used to stuff multiple chains in one if the need ever arises.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-
----
-
-### `filter.match` - Keep records with specific words
-
-This filter lets through records that have one of the values
-defined by `patterns` list found in any (or specified) field of the record.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-* `patterns`: list of strings to search for in the record. Required.
-##### 
-* `fields`: field names to search the patterns in. If not specified, all fields are checked. Not required.
-
----
-
-### `filter.exclude` - Drop records with specific words
-
-This filter lets through records that have none of the values
-defined by `patterns` list found in any (or specified) field of the record.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-* `patterns`: list of strings to search for in the record. Required.
-##### 
-* `fields`: field names to search the patterns in. If not specified, all fields are checked. Not required.
-
----
-
-### `filter.event` - Filter for records with "Event" type
-
-Only lets through Events and not normal Records. Can be used to
-set up notifications on events (such as errors) from, for example,
-`execute` plugin within the same chain that uses it, by separating
-them from regular records.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-##### 
-* `event_types`: list of event types. See descriptions of plugins producing events for possible values. Not required.
-
-
-#### Produced records types:
-
-
-<details markdown="block">
-  <summary>Event</summary>
-
-Record produced by an internal event (usually error) inside the plugin
-
-
-* `event_type`: text describing the nature of event, can be used to filter classes of events, such as errors. 
-* `text`: text describing specific even details. 
-
-</details>
-
----
-
-### `filter.type` - Filter for records of specific type
-
-Only lets through records of specified types, such as `Event` or `YoutubeVideoRecord`.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-* `types`: list of records class names, such as "Record" and "Event" . Required.
-##### 
-* `exact_match`: whether match should check for exact record type or look in entire records hierarchy up to Record. Default value is `false`.
-
----
-
-### `filter.json` - Format record as JSON
-
-Takes record and produces a new `TextRecord` rendering fields of the
-original record in JSON format, with option for pretty-print.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-##### 
-* `prettify`: whether output should be multiline and indented or a single line. Default value is `false`.
-
-
-#### Produced records types:
-
-
-<details markdown="block">
-  <summary>TextRecord</summary>
-
-Simplest record, containing only a single text field
-
-
-* `text`: content of the record. 
-
-</details>
-
----
-
-### `filter.format` - Format record as text
-
-Takes a record and produces a new `TextRecord` by taking `template` string
-and replacing "{placeholder}" with value of `placeholder` field of the
-current record, where `placeholder` is any field the record might have.
-If one of the placeholders is not a field of a specific record, it will be
-replaced with a value defined in `missing` parameter if it is specified,
-otherwise it will be left intact.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-* `template`: template string with placeholders that will be filled with corresponding values from current record. Required.
-##### 
-* `missing`: if specified, will be used to fill template placeholders that do not have corresponding fields in current record. Not required.
-
-
-#### Produced records types:
-
-
-<details markdown="block">
-  <summary>TextRecord</summary>
-
-Simplest record, containing only a single text field
-
-
-* `text`: content of the record. 
-
-</details>
-
----
-
-### `filter.deduplicate` - Drop already seen records
-
-Checks if the `field` field value of the current record has already been
-present in one of the previous records and only let it through otherwise.
-
-`field` might be either a record field name or one of `hash` or `as_json`
-for sha1 and fulltext comparison. If `field` is not present in the current
-record, it will be passed through as if it's new.
-
-This filter will work with records of any type, as long as they have defined
-field (all records have `hash` and `as_json`). For example, it is possible
-to ensure no multiple records for a single video will be produced
-in a chain, that gather records from Youtube channel and Youtube RSS monitors,
-by passing them to an entity of this filter with `field` set to `video_id`.
-
-Note, that history is kept in memory, so it will not be persisted between
-restarts.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-##### 
-* `field`: field name to use for comparison. Default value is `hash`.
-* `history_size`: how many old records should be kept in memory. Default value is `10000`.
-
----
-
 ### `nitter` - Monitor for Nitter instances
 
 Monitors recent tweets, retweets and replies of Twitter user
@@ -492,94 +164,6 @@ database is kept in memory and not stored on disk at all, providing a clean data
 * `next_page_delay`: when updating feed with pagination support, wait this much before loading next page. Default value is `1`.
 * `allow_discontinuity`: when updating feed with pagination support, if this setting is enabled and error happens when loading a page, records from already parsed pages will not be dropped. It will allow update of the feed to finish, but older records from deeper pages will then never be parsed on consecutive updates. Default value is `false`.
 * `fetch_until_the_end_of_feed_mode`: when updating feed with pagination support, enables special mode, which makes a monitor try loading and parsing all pages until the end, even if they have been already parsed. Designed for purpose of archiving entire feed content. Default value is `false`.
-
-
-#### Produced records types:
-
-
-<details markdown="block">
-  <summary>NitterRecord</summary>
-
-Single post as parsed from Nitter instance
-
-Depending on the tweet type (regular, retweet, reply, quote) some fields might be empty
-
-
-* `retweet_header`: text line saying this is a retweet. 
-* `reply_header`: text line saying this tweet is a reply. 
-* `url`: tweet url. 
-* `author`: user's visible name. 
-* `username`: user's handle. 
-* `avatar_url`: link to the picture used as the user's avatar. 
-* `published`: tweet timestamp. 
-* `text`: tweet text with stripped formatting. 
-* `html`: tweet text as raw html. 
-* `attachments`: list of links to attached images or video thumbnails. 
-* `quote`: Nested NitterRecord containing tweet being quited. 
-
-</details>
-
----
-
-### `filter.nitter.pick` - Pick `NitterRecord` with specified properties
-
-Lets through `NitterRecord` if it matches any of specified criteria.
-All records from other sources pass through without filtering.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-##### 
-* `retweet`: match retweets. Default value is `false`.
-* `reply`: match replies. Default value is `false`.
-* `quote`: match quotes. Default value is `false`.
-* `regular_tweet`: match regular tweets that are not a retweet, reply or quote. Default value is `false`.
-* `author`: match if a given string is a part of the name of the author of the tweet. Not required.
-* `username`: match if a given string is a part of tweet author's username (without the "@" symbol). Not required.
-
-
-#### Produced records types:
-
-
-<details markdown="block">
-  <summary>NitterRecord</summary>
-
-Single post as parsed from Nitter instance
-
-Depending on the tweet type (regular, retweet, reply, quote) some fields might be empty
-
-
-* `retweet_header`: text line saying this is a retweet. 
-* `reply_header`: text line saying this tweet is a reply. 
-* `url`: tweet url. 
-* `author`: user's visible name. 
-* `username`: user's handle. 
-* `avatar_url`: link to the picture used as the user's avatar. 
-* `published`: tweet timestamp. 
-* `text`: tweet text with stripped formatting. 
-* `html`: tweet text as raw html. 
-* `attachments`: list of links to attached images or video thumbnails. 
-* `quote`: Nested NitterRecord containing tweet being quited. 
-
-</details>
-
----
-
-### `filter.nitter.drop` - Drop `NitterRecord` without specified properties.
-
-Lets through `NitterRecord` if it doesn't match all of the specified criteria.
-All records from other sources pass through without filtering.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-##### 
-* `retweet`: match retweets. Default value is `false`.
-* `reply`: match replies. Default value is `false`.
-* `quote`: match quotes. Default value is `false`.
-* `regular_tweet`: match regular tweets that are not a retweet, reply or quote. Default value is `false`.
-* `author`: match if a given string is a part of the name of the author of the tweet. Not required.
-* `username`: match if a given string is a part of tweet author's username (without the "@" symbol). Not required.
 
 
 #### Produced records types:
@@ -779,29 +363,6 @@ Simplest record, containing only a single text field
 * `text`: content of the record. 
 
 </details>
-
----
-
-### `xmpp` - Send records as Jabber messages
-
-Converts records to a text representation and sends them as messages
-to specified recipients. Sends each record in a separate message,
-does not impose any limits on frequency or size of messages, leaving
-it to server side.
-
-
-#### Plugin configuration options:
-* `xmpp_username`: JID of the account to be used to send messages, including resource. Required.
-* `xmpp_pass`: password of the account to be used to send messages. Required.
-
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-* `jid`: JID to send message to. Required.
-##### 
-* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
-* `timezone`: takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> or OS settings if omitted, converts record fields containing date and time to this timezone. Not required.
 
 ---
 
@@ -1047,55 +608,6 @@ as well as playlists, and, with login cookies, subscriptions feed.
 
 ---
 
-### `filter.channel` - Pick `YoutubeVideoRecord` with specified properties
-
-Filter that only lets `YoutubeVideoRecord` through if it has certain properties.
-All records from other sources pass through without filtering.
-
-If multiple settings are set to `true`, they all should match. Use multiple
-entities if picking records with any of multiple properties is required.
-
-
-#### Entity configuration options:
-* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
-##### 
-* `upcoming`: to pass the filter a record should be either upcoming livestream or scheduled premiere. Default value is `false`.
-* `live`: to pass the filter a record should be an ongoing livestream. Default value is `false`.
-* `member_only`: to pass the filter a record should be marked as member-only. Default value is `false`.
-
-
-#### Produced records types:
-
-
-<details markdown="block">
-  <summary>YoutubeVideoRecord</summary>
-
-Youtube video or livestream listed among others on Youtube page
-
-Produced by parsing a channels main page, videos and streams tab,
-as well as playlists, and, with login cookies, subscriptions feed.
-
-
-* `video_id`: short string identifying video on Youtube. Part of video url. 
-* `url`: link to the video, uses `https://www.youtube.com/watch?v=<video_id>` format. 
-* `title`: title of the video at the time of parsing. 
-* `summary`: snippet of the video description. Not always available. 
-* `scheduled`: scheduled date for upcoming stream or premiere. 
-* `author`: channel name. 
-* `avatar_url`: link to the avatar of the channel. Not always available. 
-* `thumbnail_url`: link to the video thumbnail. 
-* `channel_link`: link to the channel uploading the video. 
-* `channel_id`: channel ID in old format (such as `UCK0V3b23uJyU4N8eR_BR0QA`). 
-* `published_text`: localized text saying how long ago the video was uploaded. 
-* `length`: text showing the video duration (hh:mm:ss). 
-* `is_upcoming`: indicates that video is an upcoming livestream or premiere. 
-* `is_live`: indicates that the video is a livestream or premiere that is currently live. 
-* `is_member_only`: indicated that the video is limited to members of the channel. Note that the video status might be changed at any time. 
-
-</details>
-
----
-
 ### `prechat` - Youtube livechat monitor
 
 Monitor chat of a Youtube livestream and produce a record
@@ -1152,3 +664,508 @@ Youtube chat message
 </details>
 
 ---
+
+
+## Filters
+
+---
+
+### `filter.noop` - Pass everything through
+
+Lets all incoming records pass through unchanged, effectively
+doing nothing with them. As any other filter it has entities,
+so it can be used as a merging point to gather records from
+multiple chains and process them in a single place.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+
+---
+
+### `filter.void` - Drop everything
+
+Does not produce anything, dropping all incoming records.
+Can be used to stuff multiple chains in one if the need ever arises.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+
+---
+
+### `filter.match` - Keep records with specific words
+
+This filter lets through records that have one of the values
+defined by `patterns` list found in any (or specified) field of the record.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+* `patterns`: list of strings to search for in the record. Required.
+##### 
+* `fields`: field names to search the patterns in. If not specified, all fields are checked. Not required.
+
+---
+
+### `filter.exclude` - Drop records with specific words
+
+This filter lets through records that have none of the values
+defined by `patterns` list found in any (or specified) field of the record.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+* `patterns`: list of strings to search for in the record. Required.
+##### 
+* `fields`: field names to search the patterns in. If not specified, all fields are checked. Not required.
+
+---
+
+### `filter.event` - Filter for records with "Event" type
+
+Only lets through Events and not normal Records. Can be used to
+set up notifications on events (such as errors) from, for example,
+`execute` plugin within the same chain that uses it, by separating
+them from regular records.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+##### 
+* `event_types`: list of event types. See descriptions of plugins producing events for possible values. Not required.
+
+
+#### Produced records types:
+
+
+<details markdown="block">
+  <summary>Event</summary>
+
+Record produced by an internal event (usually error) inside the plugin
+
+
+* `event_type`: text describing the nature of event, can be used to filter classes of events, such as errors. 
+* `text`: text describing specific even details. 
+
+</details>
+
+---
+
+### `filter.type` - Filter for records of specific type
+
+Only lets through records of specified types, such as `Event` or `YoutubeVideoRecord`.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+* `types`: list of records class names, such as "Record" and "Event" . Required.
+##### 
+* `exact_match`: whether match should check for exact record type or look in entire records hierarchy up to Record. Default value is `false`.
+
+---
+
+### `filter.json` - Format record as JSON
+
+Takes record and produces a new `TextRecord` rendering fields of the
+original record in JSON format, with option for pretty-print.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+##### 
+* `prettify`: whether output should be multiline and indented or a single line. Default value is `false`.
+
+
+#### Produced records types:
+
+
+<details markdown="block">
+  <summary>TextRecord</summary>
+
+Simplest record, containing only a single text field
+
+
+* `text`: content of the record. 
+
+</details>
+
+---
+
+### `filter.format` - Format record as text
+
+Takes a record and produces a new `TextRecord` by taking `template` string
+and replacing "{placeholder}" with value of `placeholder` field of the
+current record, where `placeholder` is any field the record might have.
+If one of the placeholders is not a field of a specific record, it will be
+replaced with a value defined in `missing` parameter if it is specified,
+otherwise it will be left intact.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+* `template`: template string with placeholders that will be filled with corresponding values from current record. Required.
+##### 
+* `missing`: if specified, will be used to fill template placeholders that do not have corresponding fields in current record. Not required.
+
+
+#### Produced records types:
+
+
+<details markdown="block">
+  <summary>TextRecord</summary>
+
+Simplest record, containing only a single text field
+
+
+* `text`: content of the record. 
+
+</details>
+
+---
+
+### `filter.deduplicate` - Drop already seen records
+
+Checks if the `field` field value of the current record has already been
+present in one of the previous records and only let it through otherwise.
+
+`field` might be either a record field name or one of `hash` or `as_json`
+for sha1 and fulltext comparison. If `field` is not present in the current
+record, it will be passed through as if it's new.
+
+This filter will work with records of any type, as long as they have defined
+field (all records have `hash` and `as_json`). For example, it is possible
+to ensure no multiple records for a single video will be produced
+in a chain, that gather records from Youtube channel and Youtube RSS monitors,
+by passing them to an entity of this filter with `field` set to `video_id`.
+
+Note, that history is kept in memory, so it will not be persisted between
+restarts.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+##### 
+* `field`: field name to use for comparison. Default value is `hash`.
+* `history_size`: how many old records should be kept in memory. Default value is `10000`.
+
+---
+
+### `filter.nitter.pick` - Pick `NitterRecord` with specified properties
+
+Lets through `NitterRecord` if it matches any of specified criteria.
+All records from other sources pass through without filtering.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+##### 
+* `retweet`: match retweets. Default value is `false`.
+* `reply`: match replies. Default value is `false`.
+* `quote`: match quotes. Default value is `false`.
+* `regular_tweet`: match regular tweets that are not a retweet, reply or quote. Default value is `false`.
+* `author`: match if a given string is a part of the name of the author of the tweet. Not required.
+* `username`: match if a given string is a part of tweet author's username (without the "@" symbol). Not required.
+
+
+#### Produced records types:
+
+
+<details markdown="block">
+  <summary>NitterRecord</summary>
+
+Single post as parsed from Nitter instance
+
+Depending on the tweet type (regular, retweet, reply, quote) some fields might be empty
+
+
+* `retweet_header`: text line saying this is a retweet. 
+* `reply_header`: text line saying this tweet is a reply. 
+* `url`: tweet url. 
+* `author`: user's visible name. 
+* `username`: user's handle. 
+* `avatar_url`: link to the picture used as the user's avatar. 
+* `published`: tweet timestamp. 
+* `text`: tweet text with stripped formatting. 
+* `html`: tweet text as raw html. 
+* `attachments`: list of links to attached images or video thumbnails. 
+* `quote`: Nested NitterRecord containing tweet being quited. 
+
+</details>
+
+---
+
+### `filter.nitter.drop` - Drop `NitterRecord` without specified properties.
+
+Lets through `NitterRecord` if it doesn't match all of the specified criteria.
+All records from other sources pass through without filtering.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+##### 
+* `retweet`: match retweets. Default value is `false`.
+* `reply`: match replies. Default value is `false`.
+* `quote`: match quotes. Default value is `false`.
+* `regular_tweet`: match regular tweets that are not a retweet, reply or quote. Default value is `false`.
+* `author`: match if a given string is a part of the name of the author of the tweet. Not required.
+* `username`: match if a given string is a part of tweet author's username (without the "@" symbol). Not required.
+
+
+#### Produced records types:
+
+
+<details markdown="block">
+  <summary>NitterRecord</summary>
+
+Single post as parsed from Nitter instance
+
+Depending on the tweet type (regular, retweet, reply, quote) some fields might be empty
+
+
+* `retweet_header`: text line saying this is a retweet. 
+* `reply_header`: text line saying this tweet is a reply. 
+* `url`: tweet url. 
+* `author`: user's visible name. 
+* `username`: user's handle. 
+* `avatar_url`: link to the picture used as the user's avatar. 
+* `published`: tweet timestamp. 
+* `text`: tweet text with stripped formatting. 
+* `html`: tweet text as raw html. 
+* `attachments`: list of links to attached images or video thumbnails. 
+* `quote`: Nested NitterRecord containing tweet being quited. 
+
+</details>
+
+---
+
+### `filter.channel` - Pick `YoutubeVideoRecord` with specified properties
+
+Filter that only lets `YoutubeVideoRecord` through if it has certain properties.
+All records from other sources pass through without filtering.
+
+If multiple settings are set to `true`, they all should match. Use multiple
+entities if picking records with any of multiple properties is required.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+##### 
+* `upcoming`: to pass the filter a record should be either upcoming livestream or scheduled premiere. Default value is `false`.
+* `live`: to pass the filter a record should be an ongoing livestream. Default value is `false`.
+* `member_only`: to pass the filter a record should be marked as member-only. Default value is `false`.
+
+
+#### Produced records types:
+
+
+<details markdown="block">
+  <summary>YoutubeVideoRecord</summary>
+
+Youtube video or livestream listed among others on Youtube page
+
+Produced by parsing a channels main page, videos and streams tab,
+as well as playlists, and, with login cookies, subscriptions feed.
+
+
+* `video_id`: short string identifying video on Youtube. Part of video url. 
+* `url`: link to the video, uses `https://www.youtube.com/watch?v=<video_id>` format. 
+* `title`: title of the video at the time of parsing. 
+* `summary`: snippet of the video description. Not always available. 
+* `scheduled`: scheduled date for upcoming stream or premiere. 
+* `author`: channel name. 
+* `avatar_url`: link to the avatar of the channel. Not always available. 
+* `thumbnail_url`: link to the video thumbnail. 
+* `channel_link`: link to the channel uploading the video. 
+* `channel_id`: channel ID in old format (such as `UCK0V3b23uJyU4N8eR_BR0QA`). 
+* `published_text`: localized text saying how long ago the video was uploaded. 
+* `length`: text showing the video duration (hh:mm:ss). 
+* `is_upcoming`: indicates that video is an upcoming livestream or premiere. 
+* `is_live`: indicates that the video is a livestream or premiere that is currently live. 
+* `is_member_only`: indicated that the video is limited to members of the channel. Note that the video status might be changed at any time. 
+
+</details>
+
+---
+
+
+## Actions
+
+---
+
+### `discord.hook` - Send record to Discord using webhook
+
+To generate webhook url follow instructions in "Making a Webhook" section of
+<https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks>
+
+Some record types support rich formatting when sent to Discord, such as
+showing the author's avatar and links to attached images. Youtube videos will
+show thumbnail, however embedding video itself is not supported.
+
+Records coming within six seconds one after another will be batched together into a single message.
+When too many records are received at once, they will be sent with delays to conform to Discord
+rate limits. Records deemed to be too long to fit in a Discord message
+[length limits](https://discord.com/developers/docs/resources/channel#create-message-jsonform-params)
+will be dropped with a warning.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+* `url`: webhook url. Required.
+##### 
+* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
+* `timezone`: takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or OS settings if omitted), converts record fields containing date and time to this timezone. Not required.
+
+---
+
+### `execute` - Run pre-defined shell command
+
+Take `command` string, replace keywords provided in `placeholders` with corresponding fields
+of currently processed record. For example, if `command` is set to
+
+    "yt-dlp {url}"`
+
+and currently processed record comes from Youtube RSS feed and has `url` field value
+`https://www.youtube.com/watch?v=L692Sxz3thw`, then with default `placeholders`
+resulting command will be
+
+    yt-dlp https://www.youtube.com/watch?v=L692Sxz3thw
+
+Note that placeholders do not have to be wrapped in `{}` and can, in fact, be any
+arbitrary text strings. However, placeholders are replaced by corresponding values
+one after another, so using piece of text that might come up in record field might
+produce unexpected results.
+
+`command` string is not treated as raw shell command. Instead, it is split into list
+ of elements, where first element specifies the program executable, and the rest
+ specify the arguments. It is therefore not possible to use shell features such as pipes
+ or execute multiple commands in one line.
+
+Make sure the executable the command uses (`yt-dlp` in this case) is installed and
+can be run from the working directory by current user. It is advised to confirm that
+the command can be executed manually and it finishes without errors before automating it.
+
+For each entity, a separate working directory can be configured. Output is shown
+in the same window by default, but can be redirected to a file, with either static
+or autogenerated name.
+
+Produces Events at startup and successful or erroneous termination of the executed command
+if corresponding entity settings are enabled. They can be used to send Discord
+or Jabber notifications or execute another command when it happens.
+
+Processed record itself can also be passed down the chain if the command failed,
+providing a way to try a different one as a fallback. For example, record with
+Youtube url could be first handled by `ytarchive` and passed to `yt-dlp` if
+it happens to fail due to video link not being a livestream.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+* `command`: shell command to be executed on every received record. Supports placeholders that will be replaced with currently processed record fields values. Required.
+##### 
+* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
+* `working_dir`: path to the directory where command will be executed. If not set current working directory is used. Supports templating with {...}. Not required.
+* `log_dir`: write executed process output to a file in this directory if set. If it is not set, output will not be redirected to file. Not required.
+* `log_filename`: filename to write executed process output to. If not defined, it is generated automatically based on command and entity name. Not required.
+* `placeholders`: parts of `command` string that should be replaced with processed record fields, defined as mapping `'placeholder': 'record field name'`. Default value is `"{url}": "url", "{title}": "title", "{text}": "text"`.
+* `static_placeholders`: parts of `command` string that will be replaced with provided values, defined as mapping `'placeholder': 'replacement string'`. Intended to allow reusing same `command` template for multiple entities. Not required.
+* `forward_failed`: emit currently processed record down the chain if the subprocess returned non-zero exit code. Can be used to define fallback command in case this one fails. Default value is `false`.
+* `report_failed`: emit Event with type "error" if the subprocess returned non-zero exit code or raised exception. Default value is `true`.
+* `report_finished`: emit Event with type "finished" if the subprocess returned zero as exit code. Default value is `false`.
+* `report_started`: emit Event with type "started" before starting a subprocess. Default value is `false`.
+
+
+#### Produced records types:
+
+
+<details markdown="block">
+  <summary>Event</summary>
+
+Record produced by an internal event (usually error) inside the plugin
+
+
+* `event_type`: text describing the nature of event, can be used to filter classes of events, such as errors. 
+* `text`: text describing specific even details. 
+
+</details>
+
+---
+
+### `to_file` - Write record to a text file
+
+Takes a record coming from a Chain, converts it to text representation,
+and writes to a file in given directory. When a file already exists,
+new records can be appended to the end of the file or overwrite it.
+
+Output file name can be static or generated dynamically based on the template
+filled with values from the record fields: every occurrence of `{text}`
+in filename will be replaced with the value of the `text` field of processed
+record, if the record has one.
+
+Allows writing the record as human-readable text representation or as names and
+values of the record fields in json format. For custom format template, pass the record
+through `filter.format` plugin prior to this one.
+
+Produces `Event` with `error` type if writing to target file fails.
+
+Note discrepancy between default value of `encoding` setting between `from_file`
+and `to_file` plugins. Former is expected to be able to read files produced by
+different software and therefore relies on system-wide settings. It would make
+sense to do the same in the latter, but it would introduce possibility of failing
+to write records containing text with Unicode codepoints that cannot be represented
+using system-wide encoding.
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+* `filename`: name of the output file. Supports templating with {...}. Required.
+##### 
+* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
+* `path`: directory where output file should be created. Default is current directory. Supports templating with {...}. Not required.
+* `encoding`: output file encoding. Default value is `utf8`.
+* `output_format`: one of `str`, `repr`, `json`, `pretty_json`, `hash`. Default value is `text`.
+* `overwrite`: whether file should be overwritten in if it already exists. Default value is `true`.
+* `append`: if true, new record will be written at the end of the file without overwriting already present lines. Default value is `true`.
+* `prefix`: string that will be appended before the record text. Can be used to separate records from each other or for simple templating. Not required.
+* `postfix`: string that will be appended after the record text. Not required.
+
+
+#### Produced records types:
+
+
+<details markdown="block">
+  <summary>Event</summary>
+
+Record produced by an internal event (usually error) inside the plugin
+
+
+* `event_type`: text describing the nature of event, can be used to filter classes of events, such as errors. 
+* `text`: text describing specific even details. 
+
+</details>
+
+---
+
+### `xmpp` - Send records as Jabber messages
+
+Converts records to a text representation and sends them as messages
+to specified recipients. Sends each record in a separate message,
+does not impose any limits on frequency or size of messages, leaving
+it to server side.
+
+
+#### Plugin configuration options:
+* `xmpp_username`: JID of the account to be used to send messages, including resource. Required.
+* `xmpp_pass`: password of the account to be used to send messages. Required.
+
+
+
+#### Entity configuration options:
+* `name`: name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin. Required.
+* `jid`: JID to send message to. Required.
+##### 
+* `consume_record`: whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions. Default value is `true`.
+* `timezone`: takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> or OS settings if omitted, converts record fields containing date and time to this timezone. Not required.
+
+---
+
