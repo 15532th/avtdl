@@ -278,7 +278,7 @@ When a `monitor` located in the middle of a chain receives a `record` as input, 
 However, if aforementioned entity "Example Channel 1" of the `twitch` plugin is also used in another chain to run a command, next entity will receive not only records from "Example Channel 2" on `twitch`, but also anything produced by "Example Channel 1" of the `rss` plugin.
 
 <details>
-  <summary>Like this:</summary>
+  <summary>Like this (click to expand):</summary>
 
 ```yaml
 chains:
@@ -577,9 +577,9 @@ When loading and parsing configuration file, `avtdl` will check the structure an
         error parsing "cookies.txt" in config section actors: channel: entities: 0: cookies_file: Path does not point to a file
         error parsing "cookies.txt" in config section actors: community: entities: 0: cookies_file: Path does not point to a file
 
-It means that `cookies_file` parameters of first entity of both `channel` and `community` plugins specify path to a file that doesn't exists and therefore cannot be loaded and parsed as cookies file.
+It means that `cookies_file` parameters of first entity of both `channel` and `community` plugins specify path to a file that doesn't exist and therefore cannot be loaded and parsed as cookies file.
 
-Even if configuration file is valid and loads successfully, it still might be configured in a way causing application to fail or not produce desired results. Some obviously wrong settings, as well as any runtime errors deemed serious enough, such as network connection problems, will be reported with `[WARNING ]` or `[ERROR  ]` loglevels. Issues of lower severity are reported on `[DEBUG  ]` level along with debug messages providing context of what was happening around the moment. By default they are not shown in console unless application is run with `--debug` argument, but are written in log file, as defined in `settings` section of the configuration file.
+Even if configuration file is valid and loads successfully, it still might be configured in a way causing application to fail or not produce desired results. Some obviously wrong settings, as well as any runtime errors deemed serious enough, such as network connection problems, will be reported with `[WARNING ]` or `[ERROR  ]` loglevels. Issues of lower severity are reported on `[DEBUG  ]` level along with debug messages providing context of what was happening around the moment. By default, they are not shown in console unless application is run with `--debug` argument, but are written in log file, as defined in `settings` section of the configuration file.
 
 ### Tools commonly used for downloading livestreams
 
@@ -595,13 +595,40 @@ All mentioned tools support customization of the output name format and can down
 
 [ytarchive](https://github.com/Kethsar/ytarchive) is a tool for downloading upcoming and ongoing livestreams. Checks scheduled date and waits for upcoming livestream, can monitor channel for livestreams and download them as they start. Typical command would be
 
-    ytarchive --threads 4 --add-metadata --thumbnail --wait {url} best
+    ytarchive --threads 4 --add-metadata --thumbnail --wait --merge {url} best
 
-Running `ytarchive` without an url, specifying the `--wait` key and selecting the livestream quality will cause it to prompt for user input asking to provide missing details, which works in interactive environment but would wait forever if happened in automated job, so caution should be applied to provide all necessary info in command string. 
+Running `ytarchive` without an url, specifying the `--wait` key or selecting the livestream quality will cause it to prompt for user input asking to provide missing details, which works in interactive environment but would wait forever if happened in automated job, so caution should be applied to provide all necessary info in command string. Quality can be specified as a slash-delimited list, and it is generally advised to always add `best` at the end: `1080p/1080p60/best`.
+
+<details>
+  <summary>Commonly used options (click to expand):</summary>
+
+- `--add-metadata` - writes stream info, such as title, description, channel name and date to output file metadata
+- `--cookies "path/to/file.txt"` - file with Youtube login cookies, allows downloading member-only streams
+- `--threads "number"` - run multiple download threads in parallel. Use if download is falling behind the live edge. Usually 2 or 3 threads is enough for a livestream
+- `--thumbnail` - embed the stream thumbnail as a video preview
+- `--wait` and `--merge` are used to avoid prompting for user input
+
+</details>
+
+`ytarchive` depends on [ffmpeg](https://www.ffmpeg.org/download.html) for merging video and audio in output file and for embedding thumbnail and metadata, so it should be installed or provided as an executable.
 
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) can be used to download Youtube videos, playlists or entire channel content. Might not work well with livestreams.
 
     yt-dlp --add-metadata --embed-thumbnail --embed-chapters --embed-subs {url}
+
+`yt-dlp` also requires [ffmpeg](https://www.ffmpeg.org/download.html) for many functions, but might work without it for simple download.
+
+<details>
+  <summary>Commonly used options (click to expand):</summary>
+
+- `--add-metadata` - writes stream info, such as title, description, channel name and date to output file metadata
+- `--cookies "path/to/file.txt"` - file with Youtube login cookies, allows downloading member-only streams
+- `--download-archive archive.txt` - writes video id of successfully downloaded streams into `archive.txt` file, marking them as processed to skip on consequential runs. Commonly used to download only new videos from a playlist or a channel even if already downloaded ones were moved
+- `--embed-thumbnail` - embed the stream thumbnail as a video preview
+- `--embed-subs --write-subs --sub-langs "live_chat, en"` - deals with subtitles and livechat. `--write-subs` stores them as a separate files (`vtt` for subtitles and `json` for livechat), `--embed-subs` will additionally put subtitles (but not a chat) in output video file
+- `--format` - allows to select quality and codecs. See [docs](https://github.com/yt-dlp/yt-dlp#format-selection) for examples
+- `-o` - format of the output file name ([docs](https://github.com/yt-dlp/yt-dlp#output-template)). One particularly useful feature is ability to limit maximum value of specific placeholder in order to prevent total filename length exceeding filesystem limit (typically 255 symbols or bytes). For example, format template `-o "[%(upload_date)s] %(title).200B - %(id)s.%(ext)s"` will ensure video title gets trimmed to 200 bytes regardles of how many characters it takes
+</details>
 
 Youtube livestreams are often encoded with `AVC1` codec, but stream archive would usually also have format encoded in `VP9` available, providing similar quality with much lower size after a certain time, usually a few hours after the stream end. 
 
@@ -613,7 +640,7 @@ This way yt-dlp will skip ongoing and newly finished livestreams, leaving them t
 
 To archive an entire channel, both uploads and livestreams, run yt-dlp with a channel url instead of a specific video or playlist:
 
-    yt-dlp --add-metadata --embed-thumbnail --embed-chapters --embed-subs --write-subs --sub-langs "live_chat, en" --merge-output-format mkv --download-archive archive.txt --format 303+251/248+251/bestvideo*+bestaudio/best -o "[%(upload_date)s] %(title)s - %(id)s.%(ext)s" https://www.youtube.com/@ChannelName
+    yt-dlp --add-metadata --embed-thumbnail --embed-chapters --embed-subs --write-subs --sub-langs "live_chat, en" --merge-output-format mkv --download-archive archive.txt --format 303+251/248+251/bestvideo*+bestaudio/best -o "[%(upload_date)s] %(title).200B - %(id)s.%(ext)s" https://www.youtube.com/@ChannelName
 
 #### Twitcasting
 
