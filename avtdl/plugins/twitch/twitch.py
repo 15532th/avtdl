@@ -89,7 +89,8 @@ class TwitchMonitor(HttpTaskMonitor):
             stream_id = stream_info['id']
             start_text = stream_info['createdAt']
             start = dateutil_parser.parse(start_text)
-            game = stream_info.get('game', {}).get('name', None)
+            game_info = stream_info.get('game') or {}
+            game = game_info.get('name', None)
         except (TypeError, IndexError, KeyError) as e:
             self.logger.debug(f'[{entity.name}] failed to parse response: {type(e)} {e}. Raw response: {response}')
             return None
