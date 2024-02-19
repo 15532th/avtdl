@@ -39,7 +39,11 @@ class FileMonitorEntity(TaskMonitorEntity):
     @classmethod
     def check_length(cls, path: Path) -> Path:
         try:
-            path.exists()
+            if path.is_dir():
+                raise ValueError(f'path is a directory: "{path}"')
+            if path.exists():
+                with open(path, 'rb') as _:
+                    pass
         except OSError as e:
             raise ValueError(f'{e}')
         return path
@@ -104,8 +108,10 @@ class FileMonitor(TaskMonitor):
             else:
                 lines = [text]
             for line in lines:
-                record = TextRecord(text=line.strip())
-                records.append(record)
+                text = line.strip()
+                if text:
+                    record = TextRecord(text=text)
+                    records.append(record)
         return records
 
 
