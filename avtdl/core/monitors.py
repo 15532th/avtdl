@@ -467,7 +467,9 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
         while True:
             if continuation_context is None:
                 self.logger.debug(f'[{entity.name}] no continuation link on {current_page - 1} page, end of feed reached')
-                entity.fetch_until_the_end_of_feed_mode = False
+                if entity.fetch_until_the_end_of_feed_mode:
+                    self.logger.info(f'[{entity.name}] reached the end of the feed at {current_page - 1} page, fetch_until_the_end_of_feed_mode can be disabled now')
+                    entity.fetch_until_the_end_of_feed_mode = False
                 break
             if not entity.fetch_until_the_end_of_feed_mode:
                 if current_page > entity.max_continuation_depth:
