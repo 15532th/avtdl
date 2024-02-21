@@ -40,7 +40,7 @@ class MSG2JBR:
                 try:
                     await asyncio.wait_for(self.jabber.disconnected, DISCONNECT_AFTER_DONE_DELAY * 10)
                 except asyncio.TimeoutError:
-                    logging.warning(f'sending messages takes too long, aborting to retry later')
+                    self.logger.warning(f'sending messages takes too long, aborting to retry later')
                 else:
                     self.logger.debug(f'done sending messages, disconnected')
             if self.jabber.fatal_error is not None:
