@@ -571,7 +571,7 @@ When a template is used as a file name or as a path to a directory, field values
 
 #### Troubleshooting
 
-When loading and parsing configuration file, `avtdl` will check the structure and parameters and report everything it finds wrong. Location of the error is presented as a semicolon-separated list of sections from the top one to most nested. For example, running it with unedited [example.config.yml](example.config.yml) will produce the following output:
+When loading and parsing configuration file, `avtdl` will check the structure and parameters and report everything it finds wrong. Location of the error is presented as a semicolon-separated list of sections from the top one to most nested. For example, running it with unedited `example.config.yml` will produce the following output:
 
     [ERROR  ] [avtdl] Failed to process configuration file, following errors occurred: 
         error parsing "cookies.txt" in config section actors: channel: entities: 0: cookies_file: Path does not point to a file
