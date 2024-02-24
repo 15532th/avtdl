@@ -11,16 +11,21 @@ from pydantic import BaseModel, Field
 
 
 class LoginRequiredError(ValueError):
-    '''Raised when video page returns no data aside from {'playability_status': 'LOGIN_REQUIRED'}, which usually indicated video being private'''
+    '''Raised when video page returns no data aside
+    from {'playability_status': 'LOGIN_REQUIRED'},
+    which usually indicated video being private'''
+
 
 class VideoErrorError(ValueError):
     '''Raised when video page returns {'playability_status': 'ERROR'}'''
+
 
 class VideoFormat(BaseModel):
     itag: int
     url: str = Field(repr=False)
     mime: str
     quality: str
+
 
 class VideoInfo(BaseModel):
     url: str
@@ -54,6 +59,7 @@ def get_video_page(url: str) -> str:
         data = resp.read()
         return data.decode('utf8')
 
+
 async def aget_video_page(url: str, session: Optional[aiohttp.ClientSession] = None) -> str:
     if session is None:
         async with aiohttp.request('GET', url) as response:
@@ -63,11 +69,13 @@ async def aget_video_page(url: str, session: Optional[aiohttp.ClientSession] = N
             text = await response.text()
     return text
 
+
 def get_initial_player_response(page: str) -> dict:
     try:
         return get_initial_response_fast(page)
     except (ValueError, JSONDecodeError):
         return get_initial_response_slow(page)
+
 
 def get_initial_response_fast(page: str) -> dict:
     re_initial_data = 'var ytInitialPlayerResponse = ([^;]*);'
@@ -77,6 +85,7 @@ def get_initial_response_fast(page: str) -> dict:
     raw_data = match.groups()[0]
     data = json.loads(raw_data)
     return data
+
 
 def get_initial_response_slow(page: str) -> dict:
     anchor = 'var ytInitialPlayerResponse = {'
@@ -92,7 +101,7 @@ def get_initial_response_slow(page: str) -> dict:
     while True:
         parentheses += parenthesses_values[page[position]]
         if parentheses == 0:
-            raw_data = page[pos_start:position+1]
+            raw_data = page[pos_start:position + 1]
             response = json.loads(raw_data)
             return response
         position_match = re_parenthesses.search(page, position + 1)
@@ -101,23 +110,25 @@ def get_initial_response_slow(page: str) -> dict:
         except AttributeError:
             raise ValueError(f'Failed to find matching set of parentheses after ytInitialPlayerResponse')
 
+
 def get_embedded_player_response(page: str) -> dict:
     pos_start = page.find('{"embedded_player_response"')
     if pos_start == -1:
         raise ValueError(f'Failed to find embedded_player_response on page')
     parentheses = 1
-    for position in range(pos_start+1, len(page)):
+    for position in range(pos_start + 1, len(page)):
         if page[position] == '{':
             parentheses += 1
         if page[position] == '}':
             parentheses -= 1
         if parentheses == 0:
-            raw_data = page[pos_start:position+1]
+            raw_data = page[pos_start:position + 1]
             response_data = json.loads(raw_data).get('embedded_player_response', '')
             response = json.loads(response_data)
             return response
     else:
         raise ValueError(f'Failed to find closing parenthesis for embedded_player_response')
+
 
 def rename_keys(input_dict: Dict[str, Any], key_mapping: Dict[str, str]) -> Dict[str, Any]:
     output_dict = {}
@@ -127,6 +138,7 @@ def rename_keys(input_dict: Dict[str, Any], key_mapping: Dict[str, str]) -> Dict
             output_dict[data_key] = value
     return output_dict
 
+
 def parse_playability_status(player_response: dict) -> Dict[str, Any]:
     playability_status = player_response.get('playabilityStatus')
     if playability_status is None:
@@ -135,7 +147,8 @@ def parse_playability_status(player_response: dict) -> Dict[str, Any]:
     info = rename_keys(playability_status, {'playability_status': 'status', 'playability_reason': 'reason'})
 
     try:
-        date = playability_status["liveStreamability"]["liveStreamabilityRenderer"]["offlineSlate"]["liveStreamOfflineSlateRenderer"]["scheduledStartTime"]
+        date = playability_status["liveStreamability"]["liveStreamabilityRenderer"]["offlineSlate"][
+            "liveStreamOfflineSlateRenderer"]["scheduledStartTime"]
         date = datetime.datetime.fromtimestamp(int(date), tz=datetime.timezone.utc)
     except (KeyError, TypeError, ValueError):
         pass
@@ -143,6 +156,7 @@ def parse_playability_status(player_response: dict) -> Dict[str, Any]:
         info['scheduled'] = date
 
     return info
+
 
 def parse_video_details(player_response: dict) -> Dict[str, Any]:
     video_details = player_response.get('videoDetails')
@@ -161,6 +175,7 @@ def parse_video_details(player_response: dict) -> Dict[str, Any]:
     info = rename_keys(video_details, key_mapping)
     info['is_upcoming'] = video_details.get('isUpcoming', False)
     return info
+
 
 def parse_microformat(player_response: dict) -> Dict[str, Any]:
     microformat = player_response.get('microformat', {}).get('playerMicroformatRenderer')
@@ -184,12 +199,12 @@ def parse_microformat(player_response: dict) -> Dict[str, Any]:
 
     live_details = microformat.get('liveBroadcastDetails')
     if live_details is not None:
-        if live_details.get('endTimestamp') is not None: # live ended
+        if live_details.get('endTimestamp') is not None:  # live ended
             info['live_start'] = live_details.get('startTimestamp')
             info['live_end'] = live_details.get('endTimestamp')
-        elif live_details.get('isLiveNow') == True: # live is live
+        elif live_details.get('isLiveNow') == True:  # live is live
             info['live_start'] = live_details.get('startTimestamp')
-        else: # live is scheduled
+        else:  # live is scheduled
             date = live_details.get('startTimestamp')
             try:
                 date = datetime.datetime.fromisoformat(date)
@@ -198,6 +213,7 @@ def parse_microformat(player_response: dict) -> Dict[str, Any]:
                 pass
 
     return info
+
 
 def parse_video_formats(player_response: dict) -> List[VideoFormat]:
     formats = player_response.get('streamingData')
@@ -228,6 +244,7 @@ def parse_player_response(player_response: dict) -> Dict[str, Any]:
     info['formats'] = parse_video_formats(player_response)
     return info
 
+
 def parse_video_page(page: str, url: str) -> VideoInfo:
     response = get_initial_player_response(page)
     data = parse_player_response(response)
@@ -239,9 +256,11 @@ def parse_video_page(page: str, url: str) -> VideoInfo:
     info = VideoInfo(**data)
     return info
 
+
 def get_video_info(url: str) -> VideoInfo:
     page = get_video_page(url)
     return parse_video_page(page, url)
+
 
 async def aget_video_info(url: str, session: Optional[aiohttp.ClientSession] = None) -> VideoInfo:
     page = await aget_video_page(url, session)
