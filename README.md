@@ -79,7 +79,7 @@ Available on [Releases](https://github.com/15532th/avtdl/releases) page ([latest
 
 Depending on the installation method and OS, application might be invoked as `avtdl [options]`, `python3 avtdl.py [options]` or `py avtdl.py [options]`
 
-After installing, proceed with writing configuration file, as described in [Configuration](#configuration) section.
+After installing, proceed with writing configuration file, as described in [Configuration](#configuration) section. [example.config.yml](example.config.yml) can be used as a starting point.
 
 By default, configuration file is named `config.yml` and located in current working directory. Current directory is also used as default location to create folders for persistent storage and logs, unless redefined in configuration file.
 
@@ -571,7 +571,7 @@ When a template is used as a file name or as a path to a directory, field values
 
 #### Troubleshooting
 
-When loading and parsing configuration file, `avtdl` will check the structure and parameters and report everything it finds wrong. Location of the error is presented as a semicolon-separated list of sections from the top one to most nested. For example, running it with unedited `example.config.yml` will produce the following output:
+When loading and parsing configuration file, `avtdl` will check the structure and parameters and report everything it finds wrong. Location of the error is presented as a semicolon-separated list of sections from the top one to most nested. For example, running it with unedited [example.config.yml](example.config.yml) will produce the following output:
 
     [ERROR  ] [avtdl] Failed to process configuration file, following errors occurred: 
         error parsing "cookies.txt" in config section actors: channel: entities: 0: cookies_file: Path does not point to a file
