@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Sequence
 import aiohttp
 from pydantic import AnyUrl, Field, FilePath, RootModel, ValidationError
 
-from avtdl.core.download import RemoteFileInfo
+from avtdl.core.download import RemoteFileInfo, download_file
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import Fmt, check_dir, convert_cookiejar, load_cookies, monitor_tasks, sanitize_filename, sha1
@@ -138,7 +138,7 @@ class FileDownload(Action):
             self.logger.warning(f'[{entity.name}] failed to process record: {e}')
             return
         if path.exists() and not entity.overwrite:
-            new_path = Path(path) # making a copy
+            new_path = Path(path)  # making a copy
             i = 0
             while new_path.exists():
                 self.logger.debug(f'[{entity.name}] file with the name "{new_path}" already exists, changing the name of a new file')
@@ -154,9 +154,12 @@ class FileDownload(Action):
 
     async def download(self, entity: FileDownloadEntity, record: Record, url: str, output_file: Path) -> Optional[RemoteFileInfo]:
         """Perform the actual download"""
-
-        async with self.concurrency_limit:
-            pass
+        try:
+            async with self.concurrency_limit:
+                return await download_file(url, output_file, entity.session, headers=entity.headers)
+        except Exception as e:
+            self.logger.exception(f'unexpected error when downloading "{url}" to "{output_file}": {e}')
+            return None
 
     async def run(self):
         tasks = []
