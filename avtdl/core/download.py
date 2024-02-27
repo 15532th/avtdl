@@ -14,10 +14,7 @@ import multidict
 from pydantic import BaseModel
 
 from avtdl.core.loggers import set_logging_format
-
-
-def sha1(text: str) -> str:
-    return hashlib.sha1(text.encode()).digest().hex()
+from avtdl.core.utils import sha1
 
 
 def remove_files(files: Sequence[Path]):

@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import hashlib
 import http
 import json
 import logging
@@ -458,3 +459,7 @@ def read_file(path: Union[str, Path], encoding=None) -> str:
     with open(path, encoding='utf8') as fp:
         text = fp.read()
         return text
+
+
+def sha1(text: str) -> str:
+    return hashlib.sha1(text.encode()).digest().hex()
