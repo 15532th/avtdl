@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import logging
 import mimetypes
 import os
@@ -86,7 +85,7 @@ class FileStorage:
             timeout = aiohttp.ClientTimeout(total=0, connect=60, sock_connect=60, sock_read=60)
             async with session.get(url, timeout=timeout, headers=headers) as response:
                 response.raise_for_status()
-                remote_info = RemoteFileInfo.get_file_info(url, response.headers)
+                remote_info = RemoteFileInfo.from_url_response(url, response.headers)
                 self.logger.debug(f'downloading {remote_info.content_length or ""} from "{url}"')
                 with open(path, 'w+b') as fp:
                     async for data in response.content.iter_chunked(self.CHUNK_SIZE):
@@ -144,13 +143,13 @@ class RemoteFileInfo(BaseModel):
     response_headers: dict
 
     @classmethod
-    def get_file_info(cls, url: str, headers: multidict.CIMultiDictProxy) -> 'RemoteFileInfo':
+    def from_url_response(cls, url: str, headers: multidict.CIMultiDictProxy) -> 'RemoteFileInfo':
         size = headers.get('Content-Length')
-        name = cls.get_filename(url, headers)
+        name = cls.extract_filename(url, headers)
         return cls(url=url, content_length=size, source_name=name, response_headers=dict(headers))
 
     @classmethod
-    def get_filename(cls, url: str, headers: multidict.CIMultiDictProxy) -> Optional[Path]:
+    def extract_filename(cls, url: str, headers: multidict.CIMultiDictProxy) -> Optional[Path]:
         filename = cls._get_filename_from_headers(headers) or cls._get_filename_from_url(url)
         if filename is not None and not filename.suffix:
             extension = cls._get_mime_extension(headers)
