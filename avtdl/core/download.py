@@ -15,6 +15,8 @@ from pydantic import BaseModel
 from avtdl.core.loggers import set_logging_format
 from avtdl.core.utils import sha1
 
+CHUNK_SIZE = 1024 ** 3
+
 
 def remove_files(files: Sequence[Path]):
     for file in files:
@@ -24,6 +26,26 @@ def remove_files(files: Sequence[Path]):
             os.remove(file)
         except OSError:
             pass
+
+
+async def download_file(url: str, path: Path, session: aiohttp.ClientSession, headers: Optional[Dict[str, Any]] = None, logger: Optional[logging.Logger] = None) -> Optional['RemoteFileInfo']:
+    logger = logger or logging.getLogger('download')
+    try:
+        timeout = aiohttp.ClientTimeout(total=0, connect=60, sock_connect=60, sock_read=60)
+        async with session.get(url, timeout=timeout, headers=headers) as response:
+            response.raise_for_status()
+            remote_info = RemoteFileInfo.from_url_response(url, response.headers)
+            logger.debug(f'downloading {remote_info.content_length or ""} from "{url}"')
+            with open(path, 'w+b') as fp:
+                async for data in response.content.iter_chunked(CHUNK_SIZE):
+                    fp.write(data)
+    except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as e:
+        logger.warning(f'failed to download "{url}": {type(e)} {e}')
+        return None
+    except Exception as e:
+        logger.exception(f'failed to download "{url}": {e}')
+        return None
+    return remote_info
 
 
 class CachedFile(BaseModel):
@@ -53,7 +75,6 @@ class CachedFile(BaseModel):
 
 
 class FileStorage:
-    CHUNK_SIZE = 1024 ** 3
     METADATA_EXTENSION = '.info'
     PARTIAL_EXTENSION = '.part'
 
@@ -66,7 +87,11 @@ class FileStorage:
         if file_info is not None:
             self.logger.debug(f'found in local cache: "{url}"')
             return file_info
-        downloaded_file = await self._download_file(url, session, headers)
+        path = self._get_filename_prefix(url).with_suffix(self.PARTIAL_EXTENSION)
+        remote_info = await download_file(url, path, session, headers)
+        if remote_info is None:
+            return None
+        downloaded_file = self._add_downloaded_file(path, remote_info)
         return downloaded_file
 
     def get_cached_file(self, url: str) -> Optional[CachedFile]:
@@ -78,26 +103,6 @@ class FileStorage:
         except Exception as e:
             self.logger.debug(f'error loading metadata for "{url}" from "{metadata_path}"')
             return None
-
-    async def _download_file(self, url: str, session: aiohttp.ClientSession, headers: Optional[Dict[str, Any]] = None) -> Optional[CachedFile]:
-        path = self._get_filename_prefix(url).with_suffix(self.PARTIAL_EXTENSION)
-        try:
-            timeout = aiohttp.ClientTimeout(total=0, connect=60, sock_connect=60, sock_read=60)
-            async with session.get(url, timeout=timeout, headers=headers) as response:
-                response.raise_for_status()
-                remote_info = RemoteFileInfo.from_url_response(url, response.headers)
-                self.logger.debug(f'downloading {remote_info.content_length or ""} from "{url}"')
-                with open(path, 'w+b') as fp:
-                    async for data in response.content.iter_chunked(self.CHUNK_SIZE):
-                        fp.write(data)
-        except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as e:
-            self.logger.warning(f'failed to download "{url}": {type(e)} {e}')
-            return None
-        except Exception as e:
-            self.logger.exception(f'failed to download "{url}": {e}')
-            return None
-        local_info = self._add_downloaded_file(path, remote_info)
-        return local_info
 
     def _add_downloaded_file(self, file: Path, info: 'RemoteFileInfo') -> Optional[CachedFile]:
         if not file.exists():
