@@ -1,1 +1,1 @@
-__all__ = ['text_file']
+__all__ = ['text_file', 'download']
