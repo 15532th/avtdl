@@ -12,7 +12,6 @@ import aiohttp
 import multidict
 from pydantic import BaseModel
 
-from avtdl.core.loggers import set_logging_format
 from avtdl.core.utils import sha1
 
 CHUNK_SIZE = 1024 ** 3
@@ -24,8 +23,31 @@ def remove_files(files: Sequence[Path]):
             continue
         try:
             os.remove(file)
-        except OSError:
-            pass
+        except OSError as e:
+            logging.getLogger('download').debug(f'failed to delete "{file}": {e}')
+
+
+def has_same_content(file1: Path, file2: Path) -> bool:
+    """return True if file1 and file2 are both files and have the same content"""
+    try:
+        if not file1.exists() or not file2.exists():
+            return False
+        if file1.is_dir() or file2.is_dir():
+            return False
+        if file1.lstat().st_size != file2.lstat().st_size:
+            return False
+        with (file1.open('rb') as fp1, file2.open('rb') as fp2):
+            while True:
+                chunk1 = fp1.read(CHUNK_SIZE)
+                chunk2 = fp2.read(CHUNK_SIZE)
+                if chunk1 != chunk2:
+                    return False
+                elif chunk1 and chunk2:
+                    continue
+                else:
+                    return True
+    except OSError:
+        return False
 
 
 async def download_file(url: str, path: Path, session: aiohttp.ClientSession, headers: Optional[Dict[str, Any]] = None, logger: Optional[logging.Logger] = None) -> Optional['RemoteFileInfo']:
@@ -35,7 +57,7 @@ async def download_file(url: str, path: Path, session: aiohttp.ClientSession, he
         async with session.get(url, timeout=timeout, headers=headers) as response:
             response.raise_for_status()
             remote_info = RemoteFileInfo.from_url_response(url, response.headers)
-            logger.debug(f'downloading {remote_info.content_length or ""} from "{url}"')
+            logger.debug(f'downloading {str(remote_info.content_length) + " bytes" or ""} from "{url}"')
             with open(path, 'w+b') as fp:
                 async for data in response.content.iter_chunked(CHUNK_SIZE):
                     fp.write(data)
@@ -143,15 +165,20 @@ class FileStorage:
 
 class RemoteFileInfo(BaseModel):
     url: str
-    source_name: Optional[Path] = None
+    source_name: str
+    extension: str = ''
     content_length: Optional[int] = None
     response_headers: dict
 
     @classmethod
     def from_url_response(cls, url: str, headers: multidict.CIMultiDictProxy) -> 'RemoteFileInfo':
         size = headers.get('Content-Length')
-        name = cls.extract_filename(url, headers)
-        return cls(url=url, content_length=size, source_name=name, response_headers=dict(headers))
+        filename = cls.extract_filename(url, headers)
+        if filename is None:
+            name, extension = '', ''
+        else:
+            name, extension = filename.stem, filename.suffix
+        return cls(url=url, content_length=size, source_name=name, extension=extension, response_headers=dict(headers))
 
     @classmethod
     def extract_filename(cls, url: str, headers: multidict.CIMultiDictProxy) -> Optional[Path]:
