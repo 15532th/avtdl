@@ -36,7 +36,7 @@ class FileDownloadEntity(ActionEntity):
     """name downloaded file should be stored under. If not provided will be inferred from HTTP headers or download url. Supports templating with {...}"""
     extension: Optional[str] = None
     """normally file extension will be inferred from HTTP headers. This option allows to overwrite it"""
-    overwrite: bool = True
+    overwrite: bool = False
     """whether file should be overwritten in if it already exists. If set to false will cause suffix with a number be added to the newly downloaded file name"""
 
     @field_validator('extension')
