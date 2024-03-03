@@ -35,6 +35,7 @@ class CommunityPostInfo(BaseModel):
         full_text = render_full_text(text_runs)
 
         attachments = find_all(post_renderer, '$.backstageAttachment..backstageImageRenderer.image.thumbnails.[-1:].url')
+        attachments = [link.split('=', 1)[0] + '=s0?imgmax=0' if 'fcrop' in link else link for link in attachments]
         video_id = find_one(post_renderer, '$.backstageAttachment..videoRenderer.videoId')
 
         post = CommunityPostInfo(
