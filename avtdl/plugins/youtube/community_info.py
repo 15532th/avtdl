@@ -37,7 +37,7 @@ class CommunityPostInfo(BaseModel):
         attachments = find_all(post_renderer, '$.backstageAttachment..backstageImageRenderer.image.thumbnails.[-1:].url')
         attachments = [link.split('=', 1)[0] + '=s0?imgmax=0' if 'fcrop' in link else link for link in attachments]
         video_id = find_one(post_renderer, '$.backstageAttachment..videoRenderer.videoId')
-        video_thumbnail =  thumbnail_url(video_id) if video_id else find_one(post_renderer, '$.backstageAttachment..videoRenderer.thumbnail')
+        video_thumbnail =  thumbnail_url(video_id) if video_id else find_one(post_renderer, '$.backstageAttachment..videoRenderer.thumbnail.url')
         if video_thumbnail is not None:
             attachments.append(video_thumbnail)
 
