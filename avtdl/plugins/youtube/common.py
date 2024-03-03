@@ -142,11 +142,13 @@ def prepare_next_page_request(innertube_context: dict, continuation_token, cooki
     client_version = find_one(innertube_context, '$..clientVersion') or CLIENT_VERSION
     hl = find_one(innertube_context, '$..hl') or 'en'
     timezone = find_one(innertube_context, '$..timeZone') or ''
+    original_url = find_one(innertube_context, '$.client.originalUrl') or 'https://youtube.com'
 
     headers = {
         'X-Goog-AuthUser': session_index,
         'X-Origin': 'https://www.youtube.com',
         'X-Youtube-Client-Name': '1',
+        'X-Youtube-Client-Version': client_version,
         'Content-Type': 'application/json'
     }
     sapisid = get_cookie_value(cookies, 'SAPISID')
@@ -164,6 +166,7 @@ def prepare_next_page_request(innertube_context: dict, continuation_token, cooki
                 'timeZone': timezone,
                 # Disabled until it gets better testing:
                 # 'utcOffsetMinutes': get_utc_offset() if not timezone else ''
+                'originalUrl': original_url
             }
         },
         'continuation': continuation_token
