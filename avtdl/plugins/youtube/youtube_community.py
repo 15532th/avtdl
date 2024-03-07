@@ -1,5 +1,5 @@
 import json
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import aiohttp
 
@@ -7,7 +7,7 @@ from avtdl.core import utils
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.plugins.youtube.common import get_continuation_token, get_initial_data, get_innertube_context, handle_consent, prepare_next_page_request, thumbnail_url, \
+from avtdl.plugins.youtube.common import NextPageContext, get_continuation_token, get_initial_data, get_innertube_context, get_session_index, handle_consent, prepare_next_page_request, thumbnail_url, \
     video_url
 from avtdl.plugins.youtube.community_info import CommunityPostInfo, SharedCommunityPostInfo, get_posts_renderers, get_renderers, get_shared_posts_renderers
 
@@ -166,7 +166,7 @@ class CommunityPostsMonitor(PagedFeedMonitor):
     def get_record_id(self, record: CommunityPostRecord) -> str:
         return f'{record.channel_id}:{record.post_id}'
 
-    async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+    async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[NextPageContext]]:
         raw_page_text = await self.request(entity.url, entity, session)
         if raw_page_text is None:
             return None, None
@@ -177,18 +177,20 @@ class CommunityPostsMonitor(PagedFeedMonitor):
             self.logger.exception(f'[{entity.name}] failed to get initial data from {entity.url}: {e}')
             return None, None
         records = self._parse_entries(initial_page)
+
         continuation_token = get_continuation_token(initial_page)
         innertube_context = get_innertube_context(raw_page_text)
+        session_index = get_session_index(initial_page)
+        ctx = NextPageContext(innertube_context=innertube_context, session_index=session_index, continuation_token=continuation_token)
 
-        return records, (innertube_context, continuation_token)
+        return records, ctx
 
-    async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
-        innertube_context, continuation_token = context  # type: ignore
-        if continuation_token is None:
+    async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[NextPageContext]) -> Tuple[Optional[Sequence[Record]], Optional[NextPageContext]]:
+        if context is None or context.continuation_token is None:
             self.logger.debug(f'[{entity.name}] no continuation for next page, done loading')
             return [], None
 
-        url, headers, post_body = prepare_next_page_request(innertube_context, continuation_token, cookies=session.cookie_jar)
+        url, headers, post_body = prepare_next_page_request(context.innertube_context, context.continuation_token, session.cookie_jar, context.session_index)
         current_page = await utils.request_json(url, session, self.logger, method='POST', headers=headers,
                                                 data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
                                                 retry_delay=5)
@@ -196,8 +198,9 @@ class CommunityPostsMonitor(PagedFeedMonitor):
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
         current_page_records = self._parse_entries(current_page) or []
-        continuation_token = get_continuation_token(current_page)
-        context = (innertube_context, continuation_token) if continuation_token else None
+        context.continuation_token = get_continuation_token(current_page)
+        if context.continuation_token is None:
+            context = None
         return current_page_records, context
 
     def _parse_entries(self, page: dict) -> List[Union[CommunityPostRecord, SharedCommunityPostRecord]]:

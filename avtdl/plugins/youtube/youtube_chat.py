@@ -5,7 +5,7 @@ from textwrap import shorten
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import aiohttp
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from avtdl.core import utils
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
@@ -13,7 +13,7 @@ from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeed
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import Delay, Fmt, parse_timestamp_us
 from avtdl.plugins.youtube import video_info
-from avtdl.plugins.youtube.common import extract_keys, find_all, find_one, get_innertube_context, handle_consent, \
+from avtdl.plugins.youtube.common import NextPageContext, extract_keys, find_all, find_one, get_innertube_context, get_session_index, handle_consent, \
     parse_navigation_endpoint, prepare_next_page_request
 
 
@@ -97,12 +97,10 @@ class YoutubeChatRecord(Record):
         }
         return [embed]
 
-class Context(BaseModel):
-    innertube_context: Optional[dict] = None
-    continuation_url: Optional[str] = None
-    continuation_token: Optional[str] = None
-    base_update_interval: float = 120
+class ChatPageContext(NextPageContext):
     is_replay: Optional[bool] = None
+    continuation_url: Optional[str] = None
+    base_update_interval: float = 120
     done: bool = False
 
 @Plugins.register('prechat', Plugins.kind.ACTOR_ENTITY)
@@ -110,7 +108,7 @@ class YoutubeChatMonitorEntity(BaseFeedMonitorEntity):
     url: str
     update_interval: float = 20
     adjust_update_interval: bool = Field(exclude=True, default=False)
-    context: Context = Field(exclude=True, default=Context())
+    context: ChatPageContext = Field(exclude=True, default=None)
 
 
 @Plugins.register('prechat', Plugins.kind.ACTOR_CONFIG)
@@ -171,14 +169,15 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         except Exception as e:
             self.logger.warning(f'[{entity.name}] error parsing page {entity.url}: {e}')
             return {}
+        actions, continuation, initial_page = self._get_actions(raw_page_text, first_page=True)
+
+        innertube_context = get_innertube_context(raw_page_text)
+        session_index = get_session_index(initial_page)
+        entity.context = ChatPageContext(innertube_context=innertube_context, session_index=session_index, continuation_token=continuation)
         entity.context.is_replay = not (info.is_upcoming or (info.live_start is not None and info.live_end is None))
         entity.context.continuation_url = self._get_continuation_url(entity.context.is_replay)
-        actions, continuation, initial_data = self._get_actions(raw_page_text, first_page=True)
-        innertube_context = get_innertube_context(raw_page_text)
-        entity.context.innertube_context = innertube_context
-        entity.context.continuation_token = continuation
 
-        message = find_one(initial_data, '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
+        message = find_one(initial_page, '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
         if message is not None:
             text = Parser.runs_to_text(message)
             self.logger.info(f'[{entity.name}] {text}')
@@ -227,7 +226,6 @@ class YoutubeChatMonitor(BaseFeedMonitor):
 
     def _get_continuation_url(self, replay: bool) -> str:
         if replay:
-            # loading chat replay is not implemented yet though
             return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat_replay?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'
         else:
             return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'

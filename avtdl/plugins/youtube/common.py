@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 import aiohttp
 import lxml.html
 from jsonpath import JSONPath
+from pydantic import BaseModel
 
 from avtdl.core.utils import request, request_raw
 
@@ -116,6 +117,12 @@ def get_innertube_context(page: str) -> Optional[dict]:
     return context
 
 
+def get_session_index(page: dict) -> str:
+    session_index = find_one(page, '$..responseContext..sessionIndex')
+    session_index = '' if session_index is None else str(session_index)
+    return session_index
+
+
 def get_utc_offset() -> int:
     offset = datetime.datetime.now(datetime.timezone.utc).astimezone().utcoffset()
     if offset is None:
@@ -131,13 +138,20 @@ def get_cookie_value(jar: aiohttp.CookieJar, key: str) -> Optional[str]:
     return None
 
 
+class NextPageContext(BaseModel):
+    """Values from first or current page required to request next continuation page"""
+    innertube_context: Optional[dict]
+    session_index: str
+    continuation_token: Optional[str] = None
+
+
 CLIENT_VERSION = '2.20231023.04.02'
 
-def prepare_next_page_request(innertube_context: dict, continuation_token, cookies=None) -> Tuple[str, dict, dict]:
+def prepare_next_page_request(innertube_context: Optional[dict], continuation_token, cookies=None, session_index: str = '') -> Tuple[str, dict, dict]:
     BROWSE_ENDPOINT = 'https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
     cookies = cookies or {}
+    innertube_context = innertube_context or {}
 
-    session_index = find_one(innertube_context, '$..sessionIndex') or ''
     visitor_data = find_one(innertube_context, '$..visitorData') or ''
     client_version = find_one(innertube_context, '$..clientVersion') or CLIENT_VERSION
     hl = find_one(innertube_context, '$..hl') or 'en'
