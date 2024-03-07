@@ -217,7 +217,7 @@ async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger
                     _ = await response.text()
                     return response
             else:
-                async with aiohttp.request(method=method, url=url, headers=headers) as response:
+                async with aiohttp.request(method=method, url=url, headers=headers, params=params, data=data) as response:
                     response.raise_for_status()
                     _ = await response.text()
                     return response
