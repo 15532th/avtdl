@@ -47,7 +47,7 @@ def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional
 
 def convert_cookiejar(cookie_jar: cookiejar.CookieJar) -> aiohttp.CookieJar:
     """convert cookie jar produced by stdlib to format used by aiohttp"""
-    cookies = http.cookies.SimpleCookie()
+    cookies = http.cookies.BaseCookie()
     for cookie in cookie_jar:
         name = cookie.name
         cookies[name] = cookie.value
