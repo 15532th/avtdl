@@ -13,7 +13,8 @@ from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeed
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import Delay, Fmt, parse_timestamp_us
 from avtdl.plugins.youtube import video_info
-from avtdl.plugins.youtube.common import NextPageContext, extract_keys, find_all, find_one, get_innertube_context, get_session_index, handle_consent, \
+from avtdl.plugins.youtube.common import NextPageContext, extract_keys, find_all, find_one, get_innertube_context, \
+    get_session_index, handle_consent, \
     parse_navigation_endpoint, prepare_next_page_request
 
 
@@ -97,7 +98,11 @@ class YoutubeChatRecord(Record):
         }
         return [embed]
 
+
 class ChatPageContext(NextPageContext):
+    innertube_context: Optional[dict] = None
+    session_index: str = ''
+    continuation_token: Optional[str] = None
     is_replay: Optional[bool] = None
     continuation_url: Optional[str] = None
     base_update_interval: float = 120
@@ -108,7 +113,7 @@ class YoutubeChatMonitorEntity(BaseFeedMonitorEntity):
     url: str
     update_interval: float = 20
     adjust_update_interval: bool = Field(exclude=True, default=False)
-    context: ChatPageContext = Field(exclude=True, default=None)
+    context: ChatPageContext = Field(exclude=True, default=ChatPageContext())
 
 
 @Plugins.register('prechat', Plugins.kind.ACTOR_CONFIG)
