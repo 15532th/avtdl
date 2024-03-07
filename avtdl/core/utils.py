@@ -57,7 +57,7 @@ def convert_cookiejar(cookie_jar: cookiejar.CookieJar) -> aiohttp.CookieJar:
         cookies[name]['secure'] = cookie.secure
         cookies[name]['version'] = str(cookie.version)
         cookies[name]['comment'] = cookie.comment
-    new_jar = aiohttp.CookieJar()
+    new_jar = aiohttp.CookieJar(quote_cookie=False)
     new_jar.update_cookies(cookies)
     return new_jar
 
