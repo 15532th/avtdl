@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
@@ -38,6 +39,8 @@ class FileDownloadEntity(ActionEntity):
     """normally file extension will be inferred from HTTP headers. This option allows to overwrite it"""
     overwrite: bool = False
     """whether file should be overwritten in if it already exists. If set to false will cause suffix with a number be added to the newly downloaded file name"""
+    rename_suffix: str = ' [{i}]'
+    """when overwriting is disabled, this suffix is attached to base filename with the "{i}" part replaced with a number. Must contain "{i}" exactly once"""
 
     @field_validator('extension')
     @classmethod
@@ -47,7 +50,15 @@ class FileDownloadEntity(ActionEntity):
         if value.startswith('.'):
             return value
         return '.' + value
-        
+
+    @field_validator('rename_suffix')
+    @classmethod
+    def check_suffix(cls, value: str) -> str:
+        found = len(re.findall(r'{i}', value))
+        if found != 1:
+            raise ValueError('rename_suffix must contain exactly one occurrence of "{i}", got '  + str(found))
+        value = sanitize_filename(value)
+        return value
 
 @Plugins.register('download', Plugins.kind.ACTOR)
 class FileDownload(Action):
@@ -160,7 +171,8 @@ class FileDownload(Action):
             i = 0
             while new_path.exists():
                 i += 1
-                new_name = path.stem + f' [{i}]'
+                suffix = entity.rename_suffix.replace('{i}', str(i))
+                new_name = path.stem + suffix
                 new_path = new_path.with_stem(new_name)
             path = new_path
         try:
