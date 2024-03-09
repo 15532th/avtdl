@@ -115,6 +115,7 @@ class FileDownload(Action):
                     self.logger.debug(f'[{entity.name}] {queue.qsize()} records left waiting in the queue')
                     urls = self._get_urls_list(entity, record)
                     if urls is None:
+                        self.logger.debug(f'[{entity.name}] found no values in field "{entity.url_field}", skipping record')
                         continue
                     for url in urls:
                         self.logger.debug(f'[{entity.name}] processing url {url}')
