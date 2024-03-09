@@ -76,7 +76,9 @@ class FileDownload(Action):
 
     def handle(self, entity: FileDownloadEntity, record: Record):
         try:
-            self.queues[entity.name].put_nowait(record)
+            queue = self.queues[entity.name]
+            queue.put_nowait(record)
+            self.logger.debug(f'[{entity.name}] added new record to the queue, current queue size is {queue.qsize()}')
         except (asyncio.QueueFull, KeyError) as e:
             self.logger.exception(f'[{entity.name}] failed to add url, {type(e)}: {e}. This is a bug, please report it.')
 
@@ -110,6 +112,7 @@ class FileDownload(Action):
                 while True:
                     record = await queue.get()
                     self.logger.debug(f'[{entity.name}] processing record {record!r}')
+                    self.logger.debug(f'[{entity.name}] {queue.qsize()} records left waiting in the queue')
                     urls = self._get_urls_list(entity, record)
                     if urls is None:
                         continue
