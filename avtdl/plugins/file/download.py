@@ -8,11 +8,9 @@ import aiohttp
 from pydantic import AnyUrl, Field, FilePath, RootModel, ValidationError, field_validator
 
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, Record
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import Fmt, check_dir, convert_cookiejar, load_cookies, monitor_tasks, sanitize_filename, sha1
-
-Plugins.register('download', Plugins.kind.ASSOCIATED_RECORD)(Event)
 
 
 @Plugins.register('download', Plugins.kind.ACTOR_CONFIG)
