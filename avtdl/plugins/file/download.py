@@ -188,12 +188,15 @@ class FileDownload(Action):
     async def download(self, session: aiohttp.ClientSession, url: str, output_file: Path) -> Optional[RemoteFileInfo]:
         """Perform the actual download"""
         try:
+            self.logger.debug(f'waiting for semaphore({self.concurrency_limit._value}) to download "{url}"')
             async with self.concurrency_limit:
-                self.logger.debug(f'acquired semaphore, downloading "{url}" to "{output_file}"')
-                return await download_file(url, output_file, session)
+                self.logger.debug(f'acquired semaphore({self.concurrency_limit._value}), downloading "{url}" to "{output_file}"')
+                info = await download_file(url, output_file, session)
         except Exception as e:
             self.logger.exception(f'unexpected error when downloading "{url}" to "{output_file}": {e}')
             return None
+        self.logger.debug(f'finished downloading "{url}" to "{output_file}", semaphore({self.concurrency_limit._value}) released')
+        return info
 
     async def run(self):
         tasks = []
