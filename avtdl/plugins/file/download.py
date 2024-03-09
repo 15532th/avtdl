@@ -44,7 +44,7 @@ class FileDownloadEntity(ActionEntity):
 
     @field_validator('extension')
     @classmethod
-    def ensure_dot(cls, value: Optional[str]):
+    def ensure_dot(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
         if value.startswith('.'):
