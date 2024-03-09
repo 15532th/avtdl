@@ -428,19 +428,42 @@ actors:
       - name: "ChannelName"
         url: "https://www.youtube.com/@ChannelName/community"
         cookies_file: cookies.txt
+      - name: "AnotherChannelName"
+        url: "https://www.youtube.com/@AnotherChannelName/community"
+        cookies_file: cookies.txt
 
   to_file:
     entities:
-      - name: "ChannelName"
-        path: "archive/community/channelname/"
+      - name: "community posts"
+        path: "archive/community/{author}/"
         filename: "{post_id}.txt"
+        append: false
+
+  download:
+    config:
+      max_concurrent_downloads: 1
+    entities:
+      - name: "community files"
+        path: "archive/community/{author}/"
+        filename: "{post_id}"
+        rename_suffix: "_{i}"
+        url_field: "attachments"
+
 
 chains:
-  "community posts on ChannelName":
+  "community posts text":
     - community:
         - "ChannelName"
+        - "AnotherChannelName"
     - to_file:
+        - "community posts"
+
+  "community posts files":
+    - community:
         - "ChannelName"
+        - "AnotherChannelName"
+    - download:
+        - "community files"
 ```
 
 ##### Send upcoming livestreams from Youtube subscription feed to Discord
