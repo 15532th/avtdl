@@ -316,17 +316,17 @@ chains:
     - rss:
         - "Example Channel"
         - "Another Example Channel"
-    - filters.noop:
+    - filter.noop:
         - "multiplexor"
 
   "from twitch":
     - twitch:
         - "Example Channel"
-    - filters.noop:
+    - filter.noop:
         - "multiplexor"
 
   "to discord":
-    - filters.noop:
+    - filter.noop:
         - "multiplexor"
     - filter.exclude:
         - "notifications blacklist"
