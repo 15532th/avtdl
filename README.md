@@ -28,6 +28,7 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
         * [`fetch_until_the_end_of_feed_mode`](#fetchuntiltheendoffeedmode)
         * [`quiet_first_time` and `quiet_start`](#quietfirsttime-and-quietstart)
         * [Formatting templates](#formatting-templates)
+        * [Providing path to a file or a directory](#providing-path-to-a-file-or-a-directory)
       * [Troubleshooting](#troubleshooting)
     * [Tools commonly used for downloading livestreams](#tools-commonly-used-for-downloading-livestreams)
       * [Youtube](#youtube)
@@ -591,6 +592,12 @@ actors:
 Note how this makes this plugin entity only suitable for processing records coming from the `community` plugin, since only that plugin uses this field. If currently processed record does not have this field, it will not be replaced with anything, and the resulting file name will be quite literally `{post_id}.txt`. If this happens, debug message is produced in log. Some field names are used by multiple plugins, one notable example being the `url` field, which usually contains the url of a new livestream, video or post.
 
 When a template is used as a file name or as a path to a directory, field values will have characters that are not allowed to be used in filenames replaced with underscore. Final string length and characters are not checked for compliance with OS restrictions, however.
+
+##### Providing path to a file or a directory
+
+Both absolute and relative paths can be used, with relative being resolved in a current working directory `avtdl` is run from. It is possible to use either `/` and `\\` as directory separator regardless of OS, but note that latter must be used twice. Shell variables and aliases, such as `~`, are not expanded, and full path must be provided instead.
+
+
 
 #### Troubleshooting
 
