@@ -45,6 +45,8 @@ class YoutubeChatRecord(Record):
     """video_id of the video chat message was sent to"""
     video_title: str = ''
     """title of the video chat message was sent to"""
+    video_author: str = ''
+    """name of the channel where the video chat message was sent to is published"""
 
     uid: str
     """unique id of the message"""
@@ -112,6 +114,7 @@ class ChatPageContext(NextPageContext):
     continuation_url: Optional[str] = None
     base_update_interval: float = 120
     done: bool = False
+    video_author: str = ''
     video_title: str = ''
     video_id: str = ''
 
@@ -167,6 +170,7 @@ class YoutubeChatMonitor(BaseFeedMonitor):
             records = Parser().run_parsers(new_actions)
             for record in records:
                 record.video_id = entity.context.video_id
+                record.video_author = entity.context.video_author
                 record.video_title = entity.context.video_title
             new_update_interval = self._new_update_interval(entity, len(records))
         # entity.update_interval gets updated by self.request()
@@ -197,6 +201,7 @@ class YoutubeChatMonitor(BaseFeedMonitor):
 
         entity.context.video_id = info.video_id
         entity.context.video_title = info.title
+        entity.context.video_author = info.author
 
         message = find_one(initial_page, '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
         if message is not None:
