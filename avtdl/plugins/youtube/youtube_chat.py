@@ -118,8 +118,11 @@ class ChatPageContext(NextPageContext):
 @Plugins.register('prechat', Plugins.kind.ACTOR_ENTITY)
 class YoutubeChatMonitorEntity(BaseFeedMonitorEntity):
     url: str
-    update_interval: float = 20
+    """url of a video frame with a chat"""
+    update_interval: float = Field(exclude=True, default=20)
+    """unavailable for configuration since update interval is determined dynamically based on chat speed"""
     adjust_update_interval: bool = Field(exclude=True, default=False)
+    """unavailable for configuration since update interval is determined dynamically based on chat speed"""
     context: ChatPageContext = Field(exclude=True, default=ChatPageContext())
 
 
