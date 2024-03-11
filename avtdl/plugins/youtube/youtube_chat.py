@@ -41,6 +41,11 @@ class YoutubeChatRecord(Record):
     color: Optional[int] = None
     """message header color (RGB integer), if present"""
 
+    video_id: str = ''
+    """video_id of the video chat message was sent to"""
+    video_title: str = ''
+    """title of the video chat message was sent to"""
+
     uid: str
     """unique id of the message"""
     action: str
@@ -107,6 +112,8 @@ class ChatPageContext(NextPageContext):
     continuation_url: Optional[str] = None
     base_update_interval: float = 120
     done: bool = False
+    video_title: str = ''
+    video_id: str = ''
 
 @Plugins.register('prechat', Plugins.kind.ACTOR_ENTITY)
 class YoutubeChatMonitorEntity(BaseFeedMonitorEntity):
@@ -155,6 +162,9 @@ class YoutubeChatMonitor(BaseFeedMonitor):
             new_update_interval = Delay.get_next(entity.update_interval)
         else:
             records = Parser().run_parsers(new_actions)
+            for record in records:
+                record.video_id = entity.context.video_id
+                record.video_title = entity.context.video_title
             new_update_interval = self._new_update_interval(entity, len(records))
         # entity.update_interval gets updated by self.request()
         # which doesn't expect anyone else to touch it
@@ -181,6 +191,9 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         entity.context = ChatPageContext(innertube_context=innertube_context, session_index=session_index, continuation_token=continuation)
         entity.context.is_replay = not (info.is_upcoming or (info.live_start is not None and info.live_end is None))
         entity.context.continuation_url = self._get_continuation_url(entity.context.is_replay)
+
+        entity.context.video_id = info.video_id
+        entity.context.video_title = info.title
 
         message = find_one(initial_page, '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
         if message is not None:
