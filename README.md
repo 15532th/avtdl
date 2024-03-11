@@ -17,9 +17,6 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
         * [actors](#actors)
         * [chains](#chains)
       * [Examples](#examples)
-        * [Download livestreams from youtube channel](#download-livestreams-from-youtube-channel)
-        * [Save community posts to files](#save-community-posts-to-files)
-        * [Send upcoming livestreams from Youtube subscription feed to Discord](#send-upcoming-livestreams-from-youtube-subscription-feed-to-discord)
       * [Common options](#common-options)
         * [`update_interval`](#updateinterval)
         * [`cookies_file`](#cookiesfile)
@@ -388,122 +385,8 @@ chains:
 
 #### Examples
 
-##### Download livestreams from youtube channel
-
-Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with default update interval of 30 minutes, send new publications urls to `ytarchive`, run in dedicated directories.
-
-```yaml
-actors:
-
-  rss:
-    entities:
-      - name: "ChannelName"
-        url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCK0V3b23uJyU4N8eR_BR0QA"
-      - name: "AnotherChannelName"
-        url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC3In1x9H3jC4JzsIaocebWg"
-
-  execute:
-    entities:
-      - name: "archive"
-        command: "ytarchive --threads 3 --wait {url} best"
-        working_dir: "archive/livestreams/{author}/"
-
-chains:
-
-  "archive channels":
-    - rss:
-        - "ChannelName"
-        - "AnotherChannelName"
-    - execute:
-        - "archive"
-```
-
-##### Save community posts to files
-
-Monitor community page of `@ChannelName` and save each new post as a text file, using post id as a name. Uses cookies to access member-only posts.
-
-```yaml
-actors:
-  community:
-    entities:
-      - name: "ChannelName"
-        url: "https://www.youtube.com/@ChannelName/community"
-        cookies_file: cookies.txt
-      - name: "AnotherChannelName"
-        url: "https://www.youtube.com/@AnotherChannelName/community"
-        cookies_file: cookies.txt
-
-  to_file:
-    entities:
-      - name: "community posts"
-        path: "archive/community/{author}/"
-        filename: "{post_id}.txt"
-        append: false
-
-  download:
-    config:
-      max_concurrent_downloads: 1
-    entities:
-      - name: "community files"
-        path: "archive/community/{author}/"
-        filename: "{post_id}"
-        rename_suffix: "_{i}"
-        url_field: "attachments"
-
-
-chains:
-  "community posts text":
-    - community:
-        - "ChannelName"
-        - "AnotherChannelName"
-    - to_file:
-        - "community posts"
-
-  "community posts files":
-    - community:
-        - "ChannelName"
-        - "AnotherChannelName"
-    - download:
-        - "community files"
-```
-
-##### Send upcoming livestreams from Youtube subscription feed to Discord
-
-Monitor subscription feed of Youtube account using a provided cookies file, pick livestreams and send notifications to Discord channel using webhook.
-
-```yaml
-actors:
-  channel:
-    entities:
-      - name: "subscriptions"
-        url: "https://www.youtube.com/feed/subscriptions"
-        cookies_file: "cookies.txt"
-        update_interval: 900
-
-  filter.channel:
-    entities:
-      - name: "subs live"
-        live: true
-      - name: "subs scheduled"
-        upcoming: true
-
-  discord.hook:
-    entities:
-      - name: "my-server#announcements"
-        url: "https://discord.com/api/webhooks/..."
-
-chains:
-  "subs notify":
-    - channel:
-        - "subscriptions"
-    - filter.channel:
-        - "subs live"
-        - "subs scheduled"
-    - discord.hook:
-        - "my-server#announcements"
-```
-
-"subscriptions" entity of `channel` monitor looks at the subscription feed, new records then pass through two filters, leaving either upcoming or ongoing livestreams, and then get sent to Discord channel.
+Example configuration file [example.config.yml](example.config.yml) contains a combination of a few common workflows and can be used as starting point.
+[EXAMPLES.md](EXAMPLES.md) lists a few independent configuration files, highlighting usage of specific plugin or plugins combination.
 
 #### Common options
 
