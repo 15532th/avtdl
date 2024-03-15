@@ -302,7 +302,7 @@ chains:
 
 ***
 
-One exception from this rule would be using a `filter.noop` (or any other filter's) entity as a way to merge records produced by multiple monitors into a single processing chain.
+One exception to this rule would be using a `filter.noop` (or any other filter's) entity as a way to merge records produced by multiple monitors into a single processing chain.
 
 In the following example records from Youtube and Twitch monitors are fed into "multiplexor" entity of `noop` filter, which simply passes all records through unchanged. Output of the "multiplexor" then passed to `discord.hook` "notifications" entity after some (possible complex) filtering and preprocessing.
 
