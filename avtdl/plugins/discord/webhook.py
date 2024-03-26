@@ -174,7 +174,7 @@ class MessageFormatter:
         total_length = 0
         embeds = message.get('embeds', [])
         for embed in embeds:
-            author_name = len(embed.get('author', {}).get('name', ''))
+            author_name = len(embed.get('author', {}).get('name', '') or '')
             title = len(embed.get('title') or '')
             description = len(embed.get('description') or '')
             footer_text = len((embed.get('footer') or {}).get('text') or '')
