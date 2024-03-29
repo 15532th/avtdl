@@ -104,6 +104,7 @@ class FC2Monitor(HttpTaskMonitor):
         if record.start_timestamp == entity.latest_live_start:
             self.logger.debug(f'FC2Monitor for {entity.name}: user {entity.user_id} is live since {entity.latest_live_start}, but record was already created')
             return None
+        self.logger.debug(f'FC2Monitor for {entity.name}: user {entity.user_id} is live since {record.start_timestamp}, producing record')
         entity.latest_live_start = record.start_timestamp
         record.name = entity.name
         return record

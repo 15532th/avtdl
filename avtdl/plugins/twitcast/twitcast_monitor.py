@@ -92,6 +92,7 @@ class TwitcastMonitor(HttpTaskMonitor):
         if movie_id == entity.most_recent_movie:
             self.logger.debug(f'[{entity.name}] user {entity.user_id} is live with movie {entity.most_recent_movie}, but record was already created')
             return None
+        self.logger.debug(f'[{entity.name}] user {entity.user_id} is live with movie {movie_id}, producing record')
         entity.most_recent_movie = movie_id
 
         channel_url = f'https://twitcasting.tv/{entity.user_id}'

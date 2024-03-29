@@ -97,6 +97,7 @@ class TwitchMonitor(HttpTaskMonitor):
         if stream_id == entity.most_recent_stream:
             self.logger.debug(f'[{entity.name}] user {entity.username} is live with stream {entity.most_recent_stream}, but record was already created')
             return None
+        self.logger.debug(f'[{entity.name}] user {entity.username} is live with stream {stream_id}, producing record')
         entity.most_recent_stream = stream_id
 
         channel_url = f'https://twitch.tv/{entity.username}/'
