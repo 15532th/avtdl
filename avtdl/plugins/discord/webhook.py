@@ -52,6 +52,7 @@ class DiscordWebhook:
                 continue
             try:
                 message, pending_records = MessageFormatter.format(to_be_sent)
+                self.logger.debug(f'[{self.name}] out of {len(to_be_sent)} records {len(pending_records)} are left pending')
             except Exception as e:
                 self.logger.exception(f'error happened while formatting message: {e}\nRaw records list: "{to_be_sent}"')
                 to_be_sent = []
@@ -91,6 +92,8 @@ class DiscordWebhook:
                     self.logger.warning(f'[{self.name}] got {e.status} from webhook, interrupting operations. Check if webhook url is still valid: {self.hook_url}')
                     break
             # if message got send successfully discard records except these that didn't fit into message
+            if len(pending_records) > 0:
+                self.logger.debug(f'carrying {len(pending_records)} pending records to the next loop')
             to_be_sent = pending_records
             until_next_try = self.get_next_delay(response.headers)
 
