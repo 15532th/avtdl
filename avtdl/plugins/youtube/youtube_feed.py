@@ -11,8 +11,10 @@ from avtdl.core.interfaces import Filter, FilterEntity, Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.plugins.filters.filters import EmptyFilterConfig
-from avtdl.plugins.youtube.common import NextPageContext, get_innertube_context, get_session_index, handle_consent, prepare_next_page_request
-from avtdl.plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_renderers, parse_owner_info, parse_video_renderer
+from avtdl.plugins.youtube.common import NextPageContext, get_innertube_context, get_session_index, handle_consent, \
+    prepare_next_page_request
+from avtdl.plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_renderers, parse_owner_info, \
+    parse_video_renderer
 
 
 @Plugins.register('channel', Plugins.kind.ASSOCIATED_RECORD)
@@ -207,6 +209,15 @@ class VideosMonitor(PagedFeedMonitor):
 
     def get_record_id(self, record: YoutubeVideoRecord) -> str:
         return record.video_id
+
+    def record_got_updated(self, record: YoutubeVideoRecord, entity: VideosMonitorEntity) -> bool:
+        excluded_fields = {'published_text'}
+        stored_record = self.load_record(record, entity)
+        if stored_record is None:
+            return False
+        record_dump = record.model_dump(exclude=excluded_fields)
+        stored_record_dump = stored_record.model_dump(exclude=excluded_fields)
+        return record_dump != stored_record_dump
 
 
 @Plugins.register('filter.channel', Plugins.kind.ACTOR_CONFIG)
