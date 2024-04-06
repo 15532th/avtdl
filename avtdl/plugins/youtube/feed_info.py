@@ -25,6 +25,7 @@ class VideoRendererInfo(BaseModel):
     is_live: bool
     is_member_only: bool
 
+
 def get_video_renderers(page: str, anchor: str = 'var ytInitialData = ') -> Tuple[list, Optional[str], dict]:
     keys = ['gridVideoRenderer', 'videoRenderer', 'playlistVideoRenderer', 'continuationEndpoint']
     items, data = extract_keys(page, keys, anchor)
@@ -33,6 +34,7 @@ def get_video_renderers(page: str, anchor: str = 'var ytInitialData = ') -> Tupl
     for item in items.values():
         renderers.extend(item)
     return renderers, continuation_token, data
+
 
 def parse_scheduled(timestamp: Optional[str]) -> Optional[datetime.datetime]:
     if timestamp is None:
@@ -44,7 +46,8 @@ def parse_scheduled(timestamp: Optional[str]) -> Optional[datetime.datetime]:
     scheduled = datetime.datetime.fromtimestamp(timestamp_value, tz=datetime.timezone.utc)
     return scheduled
 
-def get_author_fallback(item:dict) -> Optional[str]:
+
+def get_author_fallback(item: dict) -> Optional[str]:
     full_text = find_one(item, '$.title.accessibility..label')
     title_part = find_one(item, '$.title.runs..text')
     views_part = find_one(item, '$.viewCountText.simpleText')
@@ -63,7 +66,7 @@ def get_author_fallback(item:dict) -> Optional[str]:
     if -1 in [start, end]:
         return None
     try:
-        author_text = full_text[start + len(title_part) : end].split(':')[1].strip()
+        author_text = full_text[start + len(title_part): end].split(':')[1].strip()
     except (IndexError, AttributeError):
         return None
     return author_text
@@ -74,7 +77,7 @@ class AuthorInfo(BaseModel):
     channel: str
     channel_id: str
     avatar_url: Optional[str] = None
-    
+
     @field_validator('channel')
     @classmethod
     def add_prefix(cls, channel: str) -> str:
@@ -99,6 +102,7 @@ def parse_author(video_render: dict) -> Optional[AuthorInfo]:
     except ValidationError:
         return None
 
+
 def parse_owner_info(page: dict) -> Optional[AuthorInfo]:
     owner_info_data = find_one(page, '$.header.c4TabbedHeaderRenderer')
     if owner_info_data is None:
@@ -112,7 +116,9 @@ def parse_owner_info(page: dict) -> Optional[AuthorInfo]:
     except ValidationError:
         return None
 
-def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_error: bool = False) -> Optional[VideoRendererInfo]:
+
+def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_error: bool = False) -> Optional[
+    VideoRendererInfo]:
     video_id = item.get('videoId')
     url = f'https://www.youtube.com/watch?v={video_id}'
     title = find_one(item, '$.title..text,simpleText')
@@ -121,7 +127,7 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_
 
     author_info = parse_author(item) or owner_info
     if author_info is None:
-        author_name = get_author_fallback(item) 
+        author_name = get_author_fallback(item)
         channel_link = channel_id = avatar_url = None
     else:
         author_name = author_info.name
@@ -132,7 +138,8 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_
     scheduled_timestamp = find_one(item, '$.upcomingEventData.startTime')
     scheduled = parse_scheduled(scheduled_timestamp)
     published_text = find_one(item, '$.publishedTimeText.simpleText')
-    length = find_one(item, '$.lengthText.simpleText') or find_one(item, '$..thumbnailOverlayTimeStatusRenderer.simpleText')
+    length = find_one(item, '$.lengthText.simpleText') or find_one(item,
+                                                                   '$..thumbnailOverlayTimeStatusRenderer.simpleText')
 
     badges = find_all(item, '$.badges..style')
     is_member_only = 'BADGE_STYLE_TYPE_MEMBERS_ONLY' in badges
@@ -160,6 +167,7 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_
         if raise_on_error:
             raise
         return None
+
 
 def handle_page(page: str) -> list:
     items, continuation, data = get_video_renderers(page)
