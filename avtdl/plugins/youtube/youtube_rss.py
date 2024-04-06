@@ -230,8 +230,7 @@ class FeedMonitor(GenericRSSMonitor):
                 latest_row[field] = datetime.fromisoformat(value)
         return YoutubeFeedRecord(**latest_row)
 
-    @classmethod
-    def _parse_entry(cls, entry: feedparser.FeedParserDict) -> YoutubeFeedRecord:
+    def _parse_entry(self, entry: feedparser.FeedParserDict) -> YoutubeFeedRecord:
         parsed = {}
         parsed['url'] = entry['link']
         parsed['title'] = entry['title']
@@ -247,6 +246,7 @@ class FeedMonitor(GenericRSSMonitor):
         else:
             parsed['video_id'] = None
             parsed['thumbnail_url'] = None
+            self.logger.warning(f'[{entry.name}] got entry without video_id: {entry}')
         """link to the video thumbnail"""
         try:
             views = int(entry['media_statistics']['views'])
