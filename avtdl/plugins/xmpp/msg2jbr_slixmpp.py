@@ -1,20 +1,22 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 import slixmpp
 
 ON_ERROR_RETRY_DELAY = 60
 DISCONNECT_AFTER_DONE_DELAY = 30
 
+
 @dataclass
 class Line:
     recipient: str
     message: str
 
+
 class MSG2JBR:
-    def __init__(self, username, passwd, logger=None):
+    def __init__(self, username: str, passwd: str, logger: Optional[logging.Logger] = None):
         self.user = username
         self.passwd = passwd
         self.logger = logger or logging.getLogger('msg2jbr')
@@ -23,18 +25,18 @@ class MSG2JBR:
         # making it possible to await JabberClient.disconnected there
         self.jabber: Optional[JabberClient] = None
 
-    def to_be_send(self, recipient, message):
+    def to_be_send(self, recipient: str, message: str) -> None:
         if self.jabber is None:
             self.logger.debug(f'not running yet, message discarded: (to: {recipient}) "{message[:50]}"')
             return
         line = Line(recipient, message)
         self.jabber.send_query.put_nowait(line)
 
-    async def run(self):
+    async def run(self) -> None:
         self.jabber = JabberClient(self.user, self.passwd, self.logger.getChild('slixmpp'))
         while True:
             pending = self.jabber.send_query.qsize()
-            if  pending > 0:
+            if pending > 0:
                 self.logger.debug(f'connecting to send {pending} pending messages')
                 self.jabber.connect()
                 try:
@@ -52,9 +54,10 @@ class MSG2JBR:
                 await asyncio.sleep(ON_ERROR_RETRY_DELAY)
             await asyncio.sleep(1)
 
+
 class JabberClient(slixmpp.ClientXMPP):  # type: ignore
 
-    def __init__(self, username, passwd, logger=None):
+    def __init__(self, username: str, passwd: str, logger: Optional[logging.Logger] = None) -> None:
         super().__init__(username, passwd)
         self.logger = logger or logging.getLogger('slixmppClient')
         self.send_query: asyncio.Queue = asyncio.Queue()
@@ -63,7 +66,7 @@ class JabberClient(slixmpp.ClientXMPP):  # type: ignore
         self.add_event_handler('failed_all_auth', self.on_bad_auth)
         self.add_error_handlers()
 
-    async def send_pending(self, _):
+    async def send_pending(self, _) -> None:
         self.logger.debug('got session_start event')
         try:
             self.send_presence()
@@ -81,10 +84,10 @@ class JabberClient(slixmpp.ClientXMPP):  # type: ignore
         except Exception as e:
             self.logger.exception(f'got error while sending messages: {e}')
 
-    def on_bad_auth(self, _):
+    def on_bad_auth(self, _) -> None:
         self.fatal_error = f'authentication failed for {self.boundjid.bare}'
 
-    def add_error_handlers(self):
+    def add_error_handlers(self) -> None:
         error_messages = {'connection_failed': 'failed to connect',
                           'reconnect_delay': 'next connection attempt in',
                           'stream_error': 'stream error',
@@ -95,7 +98,7 @@ class JabberClient(slixmpp.ClientXMPP):  # type: ignore
         for event, message in error_messages.items():
             self.add_event_handler(event, self.make_error_handler(message))
 
-    def make_error_handler(self, message):
+    def make_error_handler(self, message: str) -> Callable:
         def error_handler(event):
             msg = f'{message}: {event}' if event else f'{message}'
             self.logger.debug(msg)
