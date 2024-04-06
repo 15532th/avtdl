@@ -65,9 +65,14 @@ class JabberClient(slixmpp.ClientXMPP):  # type: ignore
         self.add_event_handler('session_start', self.send_pending)
         self.add_event_handler('failed_all_auth', self.on_bad_auth)
         self.add_error_handlers()
+        self.now_sending = False
 
     async def send_pending(self, _) -> None:
         self.logger.debug('got session_start event')
+        if self.now_sending:
+            self.logger.warning(f'session_start handler got called but now_sending={self.now_sending}, aborting')
+            return
+        self.now_sending = True
         try:
             self.send_presence()
             await self.get_roster()
@@ -83,6 +88,8 @@ class JabberClient(slixmpp.ClientXMPP):  # type: ignore
             await self.disconnect()
         except Exception as e:
             self.logger.exception(f'got error while sending messages: {e}')
+        finally:
+            self.now_sending = False
 
     def on_bad_auth(self, _) -> None:
         self.fatal_error = f'authentication failed for {self.boundjid.bare}'
