@@ -463,3 +463,10 @@ def read_file(path: Union[str, Path], encoding=None) -> str:
 
 def sha1(text: str) -> str:
     return hashlib.sha1(text.encode()).digest().hex()
+
+
+def get_cookie_value(jar: aiohttp.CookieJar, key: str) -> Optional[str]:
+    for morsel in jar:
+        if morsel.key == key:
+            return morsel.value
+    return None

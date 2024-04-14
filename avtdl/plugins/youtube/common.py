@@ -16,7 +16,7 @@ import lxml.html
 from jsonpath import JSONPath
 from pydantic import BaseModel
 
-from avtdl.core.utils import request, request_raw
+from avtdl.core.utils import get_cookie_value, request, request_raw
 
 
 def find_all(data: Union[dict, list], jsonpath: str, cache={}) -> list:
@@ -129,13 +129,6 @@ def get_utc_offset() -> int:
         # should never happen since astimezone() returns tz-aware object
         return 0
     return offset // datetime.timedelta(minutes=1)
-
-
-def get_cookie_value(jar: aiohttp.CookieJar, key: str) -> Optional[str]:
-    for morsel in jar:
-        if morsel.key == key:
-            return morsel.value
-    return None
 
 
 class NextPageContext(BaseModel):
