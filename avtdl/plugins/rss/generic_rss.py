@@ -183,4 +183,5 @@ class GenericRSSMonitor(BaseFeedMonitor):
                 self.logger.warning(f'rss parser failed to construct record from rss entry {entry}: {e}')
                 continue
             records.append(record)
+        records = records[::-1]  # records are ordered from new to old in the feed, reorder in chronological order
         return records
