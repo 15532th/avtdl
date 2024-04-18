@@ -434,6 +434,15 @@ def html_to_text(html: str) -> str:
     """take html fragment, try to parse it and extract text values using lxml"""
     try:
         root = lxml.html.fromstring(html)
+
+        # text_content() skips <img> content altogether
+        # walk tree manually and for images containing links
+        # add them to text representation
+        for elem in root.iter():
+            if elem.tag == 'img':
+                image_link = elem.get('src')
+                if image_link is not None:
+                    elem.text = f'\n{image_link}\n'
         text = root.text_content()
         return text
     except Exception as e:
