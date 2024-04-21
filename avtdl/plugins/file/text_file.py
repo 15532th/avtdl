@@ -133,6 +133,10 @@ class FileActionEntity(ActionEntity):
     """output file encoding"""
     output_format: OutputFormat = Field(default=OutputFormat.str, description='one of `' + "`, `".join(OutputFormat.__members__) + '`')
     """should record be written in output file as plain text or json"""
+    output_template: Optional[str] = None
+    """if provided, it will be used as a template to format processed record. Only works with `output_format` set to plain text"""
+    missing: Optional[str] = None
+    """if specified, will be used  to fill template placeholders that do not have corresponding fields in current record"""
     overwrite: bool = True
     """whether file should be overwritten in if it already exists"""
     append: bool = True
@@ -158,8 +162,8 @@ class FileAction(Action):
     record, if the record has one.
 
     Allows writing the record as human-readable text representation or as names and
-    values of the record fields in json format. For custom format template, pass the record
-    through `filter.format` plugin prior to this one.
+    values of the record fields in json format. For text representation it is possible
+    to provide a custom format template.
 
     Produces `Event` with `error` type if writing to target file fails.
 
@@ -193,7 +197,11 @@ class FileAction(Action):
             return
         mode = 'at' if entity.append else 'wt'
         try:
-            text = entity.prefix + Fmt.save_as(record, entity.output_format) + entity.postfix
+            if entity.output_template is not None and entity.output_format == OutputFormat.str:
+                text = Fmt.format(entity.output_template, record, entity.missing)
+            else:
+                text = Fmt.save_as(record, entity.output_format)
+            text = entity.prefix + text + entity.postfix
             with open(path, mode, encoding=entity.encoding) as fp:
                 fp.write(text)
         except Exception as e:
