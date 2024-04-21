@@ -1,14 +1,12 @@
 import asyncio
-import datetime
 import json
 import logging
 from textwrap import shorten
 from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
-import dateutil
 import multidict
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
 from avtdl.core.plugins import Plugins
@@ -205,18 +203,9 @@ class DiscordHookConfig(ActorConfig):
 class DiscordHookEntity(ActionEntity):
     url: str
     """webhook url"""
-    timezone: Optional[str] = None # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-    """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or OS settings if omitted), converts record fields containing date and time to this timezone"""
     hook: Optional[Any] = Field(exclude=True, default=None)
     """internal variable to persist state between update calls, holds DiscordWebhook object for this entity"""
 
-    @field_validator('timezone')
-    @classmethod
-    def check_timezone(cls, timezone: str) -> datetime.timezone:
-        tz = dateutil.tz.gettz(timezone)
-        if tz is None:
-            raise ValueError(f'Unknown timezone: {timezone}')
-        return tz
 
 @Plugins.register('discord.hook', Plugins.kind.ACTOR)
 class DiscordHook(Action):
@@ -245,7 +234,7 @@ class DiscordHook(Action):
     def handle(self, entity: DiscordHookEntity, record: Record):
         if entity.hook is None:
             return
-        entity.hook.to_be_sent(record.as_timezone(entity.timezone))
+        entity.hook.to_be_sent(record)
 
     async def run(self):
         tasks = []

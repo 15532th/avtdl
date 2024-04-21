@@ -1,9 +1,5 @@
-import datetime
 import logging
-from typing import Optional, Sequence
-
-import dateutil
-from pydantic import field_validator
+from typing import Sequence
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
@@ -26,20 +22,12 @@ class JabberConfig(ActorConfig):
     xmpp_pass: str
     """password of the account to be used to send messages"""
 
+
 @Plugins.register('xmpp', Plugins.kind.ACTOR_ENTITY)
 class JabberEntity(ActionEntity):
     jid: str
     """JID to send message to"""
-    timezone: Optional[str] = None
-    """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> or OS settings if omitted, converts record fields containing date and time to this timezone"""
 
-    @field_validator('timezone')
-    @classmethod
-    def check_timezone(cls, timezone: str) -> datetime.timezone:
-        tz = dateutil.tz.gettz(timezone)
-        if tz is None:
-            raise ValueError(f'Unknown timezone: {timezone}')
-        return tz
 
 @Plugins.register('xmpp', Plugins.kind.ACTOR)
 class SendJabber(Action):
@@ -57,7 +45,7 @@ class SendJabber(Action):
         self.jbr = MSG2JBR(conf.xmpp_username, conf.xmpp_pass, self.logger)
 
     def handle(self, entity: JabberEntity, record: Record):
-        self.jbr.to_be_send(entity.jid, str(record.as_timezone(entity.timezone)))
+        self.jbr.to_be_send(entity.jid, str(record))
 
     async def run(self):
         await self.jbr.run()

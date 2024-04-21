@@ -7,7 +7,8 @@ from hashlib import sha1
 from textwrap import shorten
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+import dateutil
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_REPR_LEN = 60
 
@@ -28,8 +29,6 @@ class Record(BaseModel):
         '''Short text representation of the record to be printed in logs'''
 
     def as_timezone(self, timezone: Optional[datetime.timezone]=None) -> 'Record':
-        if timezone is None:
-            return self
         fields = self.model_dump()
         for k, v in fields.items():
             if isinstance(v, datetime.datetime):
@@ -233,6 +232,18 @@ class Filter(Actor):
 class ActionEntity(ActorEntity):
     consume_record: bool = True
     """whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions"""
+    timezone: Optional[str] = None
+    """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or local time if omitted), converts record fields containing date and time to this timezone"""
+
+    @field_validator('timezone')
+    @classmethod
+    def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.timezone]:
+        if timezone is None:
+            return None
+        tz = dateutil.tz.gettz(timezone)
+        if tz is None:
+            raise ValueError(f'Unknown timezone: {timezone}')
+        return tz
 
 
 class Action(Actor, ABC):
@@ -241,6 +252,7 @@ class Action(Actor, ABC):
         super().__init__(conf, entities)
 
     def handle_record(self, entity: ActionEntity, record: Record) -> None:
+        record = record.as_timezone(entity.timezone)
         self.handle(entity, record)
         if not entity.consume_record:
             self.on_record(entity, record)
