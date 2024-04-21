@@ -1,8 +1,10 @@
+import datetime
 import json
 from collections import OrderedDict
 from typing import List, Optional, Sequence
 
-from pydantic import Field
+import dateutil
+from pydantic import Field, field_validator
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, TextRecord
@@ -214,6 +216,18 @@ class FormatFilterEntity(FilterEntity):
     """template string with placeholders that will be filled with corresponding values from current record"""
     missing: Optional[str] = None
     """if specified, will be used to fill template placeholders that do not have corresponding fields in current record"""
+    timezone: Optional[str] = None
+    """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or local time if omitted), converts record fields containing date and time to this timezone"""
+
+    @field_validator('timezone')
+    @classmethod
+    def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.timezone]:
+        if timezone is None:
+            return None
+        tz = dateutil.tz.gettz(timezone)
+        if tz is None:
+            raise ValueError(f'Unknown timezone: {timezone}')
+        return tz
 
 
 @Plugins.register('filter.format', Plugins.kind.ACTOR)
@@ -227,12 +241,17 @@ class FormatFilter(Filter):
     If one of the placeholders is not a field of a specific record, it will be
     replaced with a value defined in `missing` parameter if it is specified,
     otherwise it will be left intact.
+    
+    Because output record is essentially a text, timezone offset will be lost
+    for all fields containing date and time value. Therefore, the `timezone`
+    parameter is provided to allow formatting these fields in desired timezone.
     """
 
     def __init__(self, config: EmptyFilterConfig, entities: Sequence[FormatFilterEntity]):
         super().__init__(config, entities)
 
     def match(self, entity: FormatFilterEntity, record: Record) -> TextRecord:
+        record = record.as_timezone(entity.timezone)
         text = Fmt.format(entity.template, record, entity.missing)
         return TextRecord(text=text)
 
