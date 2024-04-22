@@ -23,7 +23,7 @@ class ChannelNotifyFilterConfig(EmptyFilterConfig):
 @Plugins.register('filter.channel.notify', Plugins.kind.ACTOR_ENTITY)
 class ChannelNotifyFilterEntity(FilterEntity):
     prior: Union[int, datetime.timedelta] = 10
-    """output record this many minutes before the live start"""
+    """output a record this many minutes before the scheduled start of a live broadcast"""
     include_ongoing: bool = False
     """whether currently live streams should be included"""
 
@@ -38,13 +38,13 @@ class ChannelNotifyFilterEntity(FilterEntity):
 @Plugins.register('filter.channel.notify', Plugins.kind.ACTOR)
 class ChannelNotifyFilter(Filter):
     """
-    Hold upcoming streams records until the start time
+    Hold upcoming stream's records until the start time
 
-    Determines whether a record represents a Youtube livestream or premiere
-    with scheduled time, and, if so, hold it waiting until the time comes
-    instead of passing down the chain immediately.
+    Determines whether a record represents a Youtube livestream/Premiere
+    with a scheduled time, and holds it waiting until the time comes
+    instead of passing down the chain immediately if needed.
 
-    If record is not an upcoming Youtube livestream, it gets silently dropped.
+    If the record is not an upcoming Youtube livestream, it gets silently dropped.
     """
 
     def __init__(self, config: ChannelNotifyFilterConfig, entities: Sequence[ChannelNotifyFilterEntity]):
