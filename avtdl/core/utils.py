@@ -188,15 +188,21 @@ def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
 async def monitor_tasks(tasks: Iterable[asyncio.Task]) -> None:
     """given list of running tasks, wait for them and report any unhandled exceptions"""
     while True:
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-        for task in done:
-            if not task.done():
-                continue
-            if task.exception() is not None:
-                logging.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
-        if not pending:
+        if not tasks:
             break
-        tasks = list(pending)
+        tasks = await check_tasks(tasks)
+
+
+async def check_tasks(tasks: Iterable[asyncio.Task]) -> List[asyncio.Task]:
+    """given list of running tasks, wait until any of them are done,
+    report unhandled exceptions and return a list of these that are still running"""
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+    for task in done:
+        if not task.done():
+            continue
+        if task.exception() is not None:
+            logging.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
+    return list(pending)
 
 
 async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
