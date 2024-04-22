@@ -165,7 +165,7 @@ def parse_timestamp(timestamp: Union[str, int, None], fraction: int) -> Optional
         return None
     try:
         ts = int(timestamp)
-        dt = datetime.datetime.fromtimestamp(int(ts / 10**fraction), tz=datetime.timezone.utc)
+        dt = datetime.datetime.fromtimestamp(int(ts / 10 ** fraction), tz=datetime.timezone.utc)
         return dt
     except Exception:
         return None
@@ -317,6 +317,7 @@ class Delay:
 
 def timeit(func: Callable) -> Callable:
     """measure time "func()" call takes, print it in log"""
+
     def timer(*args, **kwargs) -> Any:
         begin = perf_counter_ns()
         result = func(*args, **kwargs)
