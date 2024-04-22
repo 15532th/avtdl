@@ -200,6 +200,8 @@ async def check_tasks(tasks: Iterable[asyncio.Task]) -> List[asyncio.Task]:
     for task in done:
         if not task.done():
             continue
+        if task.cancelled():
+            continue
         if task.exception() is not None:
             logging.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
     return list(pending)
