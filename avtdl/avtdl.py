@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import logging
-import os
 from asyncio import AbstractEventLoop
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -21,8 +20,13 @@ from avtdl.core.utils import monitor_tasks, read_file
 
 def load_config(path: Path) -> Any:
     try:
-        if not os.path.exists(path):
-            raise ValueError('Configuration file {} does not exist'.format(path))
+        if not path.exists():
+            alt_path = path.with_suffix(path.suffix + '.txt')
+            if alt_path.exists():
+                print(f'Configuration file {path} not found, trying {alt_path} instead')
+                path = alt_path
+            else:
+                raise ValueError('Configuration file {} does not exist'.format(path))
         config_text = read_file(path)
         config = yaml.load(config_text, Loader=yaml.FullLoader)
     except Exception as e:
