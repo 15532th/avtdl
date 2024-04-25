@@ -185,7 +185,7 @@ class Command(Action):
         command_line = self.shell_for(args)
         self.logger.info(f'[{entity.name}] executing command {command_line}')
         if entity.report_started:
-            event = Event(event_type=EventType.started, text=f'Running command: {command_line}')
+            event = Event(event_type=EventType.started, text=f'Running command: {command_line}', record=record)
             self.on_record(entity, event)
         stdout_path = self._get_output_file(entity, record, task_id)
         try:
@@ -204,7 +204,8 @@ class Command(Action):
         except Exception as e:
             self.logger.warning(f'[{entity.name}] failed to execute command "{command_line}": {e}')
             if entity.report_failed:
-                event = Event(event_type=EventType.error, text=f'[{entity.name}] failed to execute command: {command_line}')
+                text = f'[{entity.name}] failed to execute command: {command_line}'
+                event = Event(event_type=EventType.error, text=text, record=record)
                 self.on_record(entity, event)
             if entity.forward_failed:
                 self.on_record(entity, record)
@@ -221,11 +222,13 @@ class Command(Action):
 
         if process.returncode == 0:
             if entity.report_finished:
-                event = Event(event_type=EventType.finished, text=f'[{entity.name}] command finished successfully: {command_line}')
+                text = f'[{entity.name}] command finished successfully: {command_line}'
+                event = Event(event_type=EventType.finished, text=text, record=record)
                 self.on_record(entity, event)
         else:
             if entity.report_failed:
-                event = Event(event_type=EventType.error, text=f'[{entity.name}] command finished with error: {command_line}')
+                text = f'[{entity.name}] command finished with error: {command_line}'
+                event = Event(event_type=EventType.error, text=text, record=record)
                 self.on_record(entity, event)
             if entity.forward_failed:
                 self.on_record(entity, record)

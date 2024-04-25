@@ -75,6 +75,8 @@ class Event(Record):
     """text describing the nature of event, can be used to filter classes of events, such as errors"""
     text: str
     """text describing specific even details"""
+    record: Record
+    """record that was being processed when this event happened"""
 
     def __str__(self):
         return self.text

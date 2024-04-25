@@ -206,5 +206,5 @@ class FileAction(Action):
                 fp.write(text)
         except Exception as e:
             message = f'error in {self.conf.name}.{entity}: {e}'
-            self.on_record(entity, Event(event_type=EventType.error, text=message))
+            self.on_record(entity, Event(event_type=EventType.error, text=message, record=record))
             self.logger.exception(message)
