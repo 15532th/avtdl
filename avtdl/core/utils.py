@@ -387,10 +387,10 @@ class Fmt:
     """Helper class to interpolate format string from config using data from Record"""
 
     @classmethod
-    def format(cls, fmt: str, record: Record, missing: Optional[str] = None, sanitize: bool = False) -> str:
+    def format(cls, fmt: str, record: Record, missing: Optional[str] = None, tz: Optional[datetime.timezone] = None, sanitize: bool = False) -> str:
         """Take string with placeholders like {field} and replace them with record fields"""
         logger = logging.getLogger().getChild('format')
-        result = fmt
+        result = cls.strftime(fmt, datetime.datetime.now(tz))
         record_as_dict = record.model_dump()
         placeholders: List[str] = re.findall(r'({[^{}\\]+})', fmt)
         if not placeholders:
@@ -414,11 +414,20 @@ class Fmt:
         return result
 
     @classmethod
-    def format_path(cls, path: Union[str, Path], record: Record, missing: Optional[str] = None) -> Path:
+    def format_path(cls, path: Union[str, Path], record: Record, missing: Optional[str] = None, tz: Optional[datetime.timezone] = None) -> Path:
         """Take string with placeholders and replace them with record fields, but strip them from bad symbols"""
         fmt = str(path)
-        formatted_path = cls.format(fmt, record, missing, sanitize=True)
+        formatted_path = cls.format(fmt, record, missing, tz=tz, sanitize=True)
         return Path(formatted_path)
+
+    @classmethod
+    def strftime(cls, fmt: str, dt: datetime.datetime) -> str:
+        try:
+            return dt.strftime(fmt)
+        except ValueError as e:
+            logger = logging.getLogger().getChild('format').getChild('strftime')
+            logger.warning(f'error using formate template "{fmt}": {e}')
+            return fmt
 
     @classmethod
     def date(cls, dt: datetime.datetime) -> str:

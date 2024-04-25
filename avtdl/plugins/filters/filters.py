@@ -252,7 +252,7 @@ class FormatFilter(Filter):
 
     def match(self, entity: FormatFilterEntity, record: Record) -> TextRecord:
         record = record.as_timezone(entity.timezone)
-        text = Fmt.format(entity.template, record, entity.missing)
+        text = Fmt.format(entity.template, record, entity.missing, tz=entity.timezone)
         return TextRecord(text=text)
 
 

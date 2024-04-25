@@ -148,7 +148,7 @@ class Command(Action):
             working_dir = Path.cwd()
             self.logger.info(f'[{entity.name}] working directory is not specified, using current directory instead: {working_dir}')
         else:
-            working_dir = Fmt.format_path(entity.working_dir, record)
+            working_dir = Fmt.format_path(entity.working_dir, record, tz=entity.timezone)
             ok = check_dir(working_dir)
             if not ok:
                 self.logger.warning(f'[{entity.name}] check if working directory "{working_dir}" exists and is a writeable directory')
@@ -172,7 +172,7 @@ class Command(Action):
             self.logger.warning(f'[{entity.name}] output of running command will be redirected to stdout')
             return None
         if entity.log_filename is not None:
-            filename = Fmt.format(entity.log_filename, record)
+            filename = Fmt.format(entity.log_filename, record, tz=entity.timezone)
         else:
             timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')
             command_pre_hash = sha1(task_id.encode())

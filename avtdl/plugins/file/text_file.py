@@ -176,12 +176,12 @@ class FileAction(Action):
     """
 
     def handle(self, entity: FileActionEntity, record: Record):
-        filename = Fmt.format(entity.filename, record)
+        filename = Fmt.format(entity.filename, record, tz=entity.timezone)
         filename = sanitize_filename(filename)
         if entity.path is None:
             path = Path.cwd().joinpath(filename)
         else:
-            path = Fmt.format_path(entity.path, record)
+            path = Fmt.format_path(entity.path, record, tz=entity.timezone)
             ok = check_dir(path)
             if not ok:
                 self.logger.warning(f'[{entity.name}] check "{path}" is a valid and writeable directory')
@@ -198,7 +198,7 @@ class FileAction(Action):
         mode = 'at' if entity.append else 'wt'
         try:
             if entity.output_template is not None and entity.output_format == OutputFormat.str:
-                text = Fmt.format(entity.output_template, record, entity.missing)
+                text = Fmt.format(entity.output_template, record, entity.missing, tz=entity.timezone)
             else:
                 text = Fmt.save_as(record, entity.output_format)
             text = entity.prefix + text + entity.postfix

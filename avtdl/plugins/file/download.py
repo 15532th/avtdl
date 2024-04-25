@@ -149,7 +149,7 @@ class FileDownload(Action):
         - generate resulting file name
         - if exists either rename or replace depending on settings
         """
-        path = Fmt.format_path(entity.path, record)
+        path = Fmt.format_path(entity.path, record, tz=entity.timezone)
         ok = check_dir(path)
         if not ok:
             self.logger.warning(f'[{entity.name}] check "{path}" is a valid and writeable directory')
@@ -166,7 +166,7 @@ class FileDownload(Action):
             return None
 
         if entity.filename is not None:
-            filename = Fmt.format(entity.filename, record)
+            filename = Fmt.format(entity.filename, record, tz=entity.timezone)
         else:
             filename = info.source_name
         filename = sanitize_filename(filename)
