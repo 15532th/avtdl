@@ -457,11 +457,13 @@ The `quiet_start` option does the same on every startup, discarding entities tha
 
 ##### Formatting templates
 
-Allows populating a predefined text string with values of current record fields. Used for making dynamic strings, i.e. output file name, or to change the text representation of the record with help of the `filter.format` plugin.
+Allows populating a predefined text string with values of current record fields. Used for making dynamic strings, i.e. output file name, or to change the text representation of the record by the `filter.format` plugin.
 
 Formatting is performed by taking any text enclosed in `{}` and, if it contains a name of field of the currently processed record, replacing it with the value of the field.
 
-For example, the following config snippet uses a template to output each processed record to a separate file, with the record's `post_id` field used as the file name.
+Additionally, any use of %-encoded format codes specified in https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes in the template string will be replaced with current time formatted accordingly.
+
+For example, the following config snippet uses a template to output each processed record to a separate file, with the record's `post_id` field preceded by current date used as the file name.
 
 ```yaml
 actors:
@@ -469,7 +471,7 @@ actors:
     entities:
       - name: "ChannelName"
         path: "archive/community/channelname/"
-        filename: "{post_id}.txt"
+        filename: "%Y%m%d_{post_id}.txt"
 ```
 
 Note how this makes this plugin entity only suitable for processing records coming from the `community` plugin, since only that plugin uses this field. If currently processed record does not have this field, it will not be replaced with anything, and the resulting file name will be quite literally `{post_id}.txt`. If this happens, debug message is produced in log. Some field names are used by multiple plugins, one notable example being the `url` field, which usually contains the url of a new livestream, video or post.
