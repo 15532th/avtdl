@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_REPR_LEN = 60
 
+
 class Record(BaseModel):
     '''Data entry, passed around from Monitors to Actions through Filters'''
 
@@ -28,7 +29,7 @@ class Record(BaseModel):
     def __repr__(self) -> str:
         '''Short text representation of the record to be printed in logs'''
 
-    def as_timezone(self, timezone: Optional[datetime.timezone]=None) -> 'Record':
+    def as_timezone(self, timezone: Optional[datetime.timezone] = None) -> 'Record':
         fields = self.model_dump()
         for k, v in fields.items():
             if isinstance(v, datetime.datetime):
@@ -64,6 +65,7 @@ class EventType:
     started: str = 'started'
     finished: str = 'finished'
 
+
 class Event(Record):
     """
     Record produced by an internal event (usually error) inside the plugin
@@ -80,6 +82,7 @@ class Event(Record):
     def __repr__(self):
         text = shorten(self.text, MAX_REPR_LEN)
         return f'Event(event_type="{self.event_type}", text="{text}")'
+
 
 class MessageBus:
     PREFIX_IN = 'inputs'
@@ -134,11 +137,13 @@ class ActorConfig(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
     name: str
 
+
 class ActorEntity(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
     name: str
     """name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin"""
+
 
 class Actor(ABC):
     model_config = ConfigDict(use_attribute_docstrings=True)
@@ -205,6 +210,7 @@ class Monitor(Actor, ABC):
         if record.origin is None:
             record.origin = origin
         super().on_record(entity, record)
+
 
 class FilterEntity(ActorEntity):
     pass
