@@ -393,7 +393,7 @@ class Fmt:
         result = cls.strftime(fmt, datetime.datetime.now(tz))
         record_as_dict = record.model_dump()
         placeholders: List[str] = re.findall(r'({[^{}\\]+})', fmt)
-        if not placeholders:
+        if not placeholders and result == fmt:
             logger.debug(f'format string "{fmt}" has no placeholders, it will be the same for all records')
         for placeholder in placeholders:
             field = placeholder.strip('{}')
