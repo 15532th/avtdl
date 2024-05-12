@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 from pathlib import Path
 from typing import List, Optional, Sequence
 
@@ -26,12 +27,26 @@ class FileMonitorEntity(TaskMonitorEntity):
     """encoding used to open the monitored file. If not specified, default system-wide encoding is used"""
     path: Path
     """path to the monitored file"""
-    split_lines: bool = False
-    """if true, each line of the file will create a separate record. Otherwise, a single record will be generated with the entire file content"""
     update_interval: float = 60
     """how often the monitored file should be checked, in seconds"""
+    split_lines: bool = False
+    """split text into multiple records according to "record_start" and "record_end" patterns. If disabled, a single record with entire text will be produced"""
+    record_start: Optional[str] = '^'
+    """regular expression marking beginning of the record in the text, used when "split_lines" enabled"""
+    record_end: Optional[str] = '$'
+    """regular expression marking the end of the record in the text, used when "split_lines" enabled"""
+    follow: bool = False
+    """remember current position in the file and only read lines below it on consequent update"""
+    quiet_start: bool = False
+    """throw away new records on the first update after application startup"""
     mtime: float = Field(exclude=True, default=-1)
     """internal variable to persist state between updates. Used to check if the file has changed"""
+    inode: int = Field(exclude=True, default=-1)
+    """internal variable to persist state between updates. Used to check if the file was replaced with a new one"""
+    position: int = Field(exclude=True, default=-1)
+    """internal variable to persist state between updates. Used to hold current position in the file in follow mode. Value -1 indicates that file hasn't yet been read since application start"""
+    text_buffer: str = Field(exclude=True, default='')
+    """internal variable to persist state between updates. Used to hold fragment of record that was only partially written in the monitored file"""
     base_update_interval: float = Field(exclude=True, default=60)
     """internal variable to persist state between updates. Used to restore configured update interval after delay on network request error"""
 
@@ -47,6 +62,14 @@ class FileMonitorEntity(TaskMonitorEntity):
         except OSError as e:
             raise ValueError(f'{e}')
         return path
+
+    @field_validator('record_start', 'record_end')
+    @classmethod
+    def check_regexp(cls, pattern: str) -> re.Pattern:
+        try:
+            return re.compile(pattern)
+        except re.error as e:
+            raise ValueError(f'invalid regular expression "{pattern}": {e}')
 
     def __post_init__(self):
         self.base_update_interval = self.update_interval
@@ -78,15 +101,13 @@ class FileMonitor(TaskMonitor):
             entity.update_interval = max(entity.update_interval * 1.2, HIGHEST_UPDATE_INTERVAL)
             return []
 
-    def exists(self, entity: FileMonitorEntity) -> bool:
-        if not entity.path.exists():
-            entity.mtime = -1
-            return False
-        else:
-            return True
+    @staticmethod
+    def exists(entity: FileMonitorEntity) -> bool:
+        return entity.path.exists()
 
     def has_changed(self, entity: FileMonitorEntity) -> bool:
         if not self.exists(entity):
+            entity.mtime = -1
             return False
         try:
             current_mtime = os.stat(entity.path).st_mtime
@@ -99,19 +120,120 @@ class FileMonitor(TaskMonitor):
             entity.mtime = current_mtime
             return True
 
+    def has_been_replaced(self, entity: FileMonitorEntity) -> bool:
+        if not self.exists(entity):
+            entity.inode = -1
+            return False
+        try:
+            current_inode = os.stat(entity.path).st_ino
+        except OSError as e:
+            self.logger.debug(f'[{entity.name}] failed to get file info for "{entity.path}": {e}')
+            return False
+        if current_inode == entity.inode:
+            return False
+        else:
+            entity.inode = current_inode
+            return True
+
+    def get_file_content(self, entity: FileMonitorEntity) -> str:
+        if not entity.follow:
+            if entity.position == -1:
+                entity.position = 0
+            return read_file(entity.path, entity.encoding)
+
+        if self.has_been_replaced(entity):
+            entity.text_buffer = ''
+            entity.position = 0
+        with open(entity.path, 'rt', encoding=entity.encoding) as fp:
+            if entity.position == -1:
+                entity.position = fp.seek(0, os.SEEK_END)
+            else:
+                fp.seek(entity.position, os.SEEK_SET)
+            return fp.read()
+
+    def split_text(self, entity: FileMonitorEntity, text: str) -> List[str]:
+        if not entity.split_lines:
+            return [text]
+
+        text, entity.text_buffer = entity.text_buffer + text, ''  # clear buffer in case processing gets interrupted
+        return self.split_text_start_end(text, entity)
+
+    @staticmethod
+    def split_text_start_end(text:str, entity: FileMonitorEntity) -> List[str]:
+        # both start and end pattern provided
+        assert entity.record_start is not None
+        assert entity.record_end is not None
+
+        lines: List[str] = []
+        position = 0
+        while True:
+            start_match = re.search(entity.record_start, text[position:], re.MULTILINE)
+            if start_match is None:
+                # no more records in the rest of text
+                break
+            start = position + start_match.start()
+            end_match = re.search(entity.record_end, text[start:], re.MULTILINE)
+            if end_match is None:
+                # text ended mid-record, store it in the buffer
+                entity.text_buffer = text[start:]
+                break
+            end = start + end_match.end() + 1
+            lines.append(text[start:end])
+            position = end
+        return lines
+
+    @staticmethod
+    def split_text_start(text:str, entity: FileMonitorEntity) -> List[str]:
+        # only start pattern provided
+        assert entity.record_start is not None
+
+        lines: List[str] = []
+        position = 0
+        while True:
+            # note how "start" and "end" values come from "match" from previous iteration
+            first_match = re.search(entity.record_start, text[position:])
+            if first_match is None:
+                # not a single record found
+                break
+            this_record_start = position + first_match.start()
+            second_match_start = position + first_match.end()
+            second_match = re.search(entity.record_start, text[second_match_start:])
+            if second_match is None:
+                # text ended mid-record, store it in the buffer
+                entity.text_buffer = text[this_record_start:]
+                break
+            next_record_start = second_match_start + second_match.start()
+            lines.append(text[this_record_start:next_record_start])
+            position = next_record_start
+        return lines
+
+    @staticmethod
+    def split_text_end(text:str, entity: FileMonitorEntity) -> List[str]:
+        # only end pattern provided
+        assert entity.record_end is not None
+
+        lines: List[str] = []
+        start = 0
+        while True:
+            # note how "start" value comes from previous iteration, while "end" from current
+            match = re.search(entity.record_end, text[start:])
+            if match is None:
+                # text ended mid-record, store it in the buffer
+                entity.text_buffer = text[start:]
+                break
+            lines.append(text[start:match.end()])
+            start = match.end() + 1
+        return lines
+
     def get_records(self, entity: FileMonitorEntity) -> List[TextRecord]:
         records = []
-        if self.exists(entity):
-            text = read_file(entity.path)
-            if entity.split_lines:
-                lines = text.split('\n')
-            else:
-                lines = [text]
-            for line in lines:
-                text = line.strip()
-                if text:
-                    record = TextRecord(text=text)
-                    records.append(record)
+        text = self.get_file_content(entity)
+        lines = self.split_text(entity, text)
+        for line in lines:
+            text = line.strip()
+            if text:
+                record = TextRecord(text=text)
+                records.append(record)
         return records
 
 
