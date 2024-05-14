@@ -8,8 +8,7 @@ from typing import List, Optional, Sequence
 from pydantic import Field, field_validator
 
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, \
-    TextRecord
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, TextRecord
 from avtdl.core.monitors import HIGHEST_UPDATE_INTERVAL, TaskMonitor, TaskMonitorEntity
 from avtdl.core.utils import Fmt, OutputFormat, check_dir, read_file, sanitize_filename
 
@@ -84,8 +83,21 @@ class FileMonitor(TaskMonitor):
     of target file, and if it has changed, read file contents
     either line by line or as a whole and emit it as a text record(s).
 
-    Records are not checked for uniqueness, so appending content to the end
-    of the existing file will produce duplicates of already sent records.
+    When `follow` mode is enabled, current position at the end of the file
+    is preserved and only lines that were appended after it will be read
+    on consequent update.
+
+    Enabling `split_lines` option will cause file content to be split into
+    multiple records according to regular expressions provided with the
+    `record_start` and `record_end` settings.
+
+    They are set to match the beginning and then end of a line by default,
+    which means every line will be treated as a separate record. Note, that
+    both regular expressions are compiled with multiline flag, meaning that
+    match will span over multiple lines.
+
+    It is possible to make a single `record_start` expression to match
+    entire record by setting `record_end` to empty string ``.
     """
 
     async def get_new_records(self, entity: FileMonitorEntity) -> Sequence[TextRecord]:
@@ -157,8 +169,8 @@ class FileMonitor(TaskMonitor):
     def split_text(self, entity: FileMonitorEntity, text: str) -> List[str]:
         if not entity.split_lines:
             return [text]
-
-        text, entity.text_buffer = entity.text_buffer + text, ''  # clear buffer in case processing gets interrupted
+        text = entity.text_buffer + text
+        entity.text_buffer = ''  # clear buffer in case processing gets interrupted
         return self.split_text_start_end(text, entity)
 
     @staticmethod
