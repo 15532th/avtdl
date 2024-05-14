@@ -174,12 +174,13 @@ class FileMonitor(TaskMonitor):
                 # no more records in the rest of text
                 break
             start = position + start_match.start()
-            end_match = re.search(entity.record_end, text[start:])
+            middle = position + start_match.end()
+            end_match = re.search(entity.record_end, text[middle:])
             if end_match is None:
                 # text ended mid-record, store it in the buffer
                 entity.text_buffer = text[start:]
                 break
-            end = start + end_match.end() + 1
+            end = middle + end_match.end() + 1
             lines.append(text[start:end])
             position = end
         return lines
