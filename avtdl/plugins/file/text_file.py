@@ -42,7 +42,7 @@ class FileMonitorEntity(TaskMonitorEntity):
     """internal variable to persist state between updates. Used to check if the file has changed"""
     inode: int = Field(exclude=True, default=-1)
     """internal variable to persist state between updates. Used to check if the file was replaced with a new one"""
-    position: int = Field(exclude=True, default=0)
+    position: int = Field(exclude=True, default=-1)
     """internal variable to persist state between updates. Used to hold current position in the file in follow mode. Value -1 indicates that file hasn't yet been read since application start"""
     text_buffer: str = Field(exclude=True, default='')
     """internal variable to persist state between updates. Used to hold fragment of record that was only partially written in the monitored file"""
@@ -151,7 +151,8 @@ class FileMonitor(TaskMonitor):
         if not entity.follow:
             if entity.position == -1:
                 entity.position = 0
-                return ''
+                if entity.quiet_start:
+                    return ''
             return read_file(entity.path, entity.encoding)
 
         if self.has_been_replaced(entity):
@@ -159,7 +160,10 @@ class FileMonitor(TaskMonitor):
             entity.position = 0
         with open(entity.path, 'rt', encoding=entity.encoding) as fp:
             if entity.position == -1:
-                entity.position = fp.seek(0, os.SEEK_END)
+                if entity.quiet_start:
+                    entity.position = fp.seek(0, os.SEEK_END)
+                else:
+                    entity.position = 0
             else:
                 fp.seek(entity.position, os.SEEK_SET)
             text = fp.read()

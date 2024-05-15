@@ -67,6 +67,11 @@ class TestFirstUpdate:
             {'split_lines': True, 'record_start': 'Line [a-z0-9]+', 'record_end': ''},
             '[LOG] Line 1a Line 1b\n[LOG] Line 2',
             ['Line 1a', 'Line 1b', 'Line 2']
+        ),
+        (  # with quiet_start text is discarded on first update
+            {'quiet_start': True},
+            'Line 1\nLine 2\n',
+            []
         )
     ]
 
@@ -143,6 +148,11 @@ class TestSecondUpdateRotate:
             {'follow': True, 'split_lines': True, 'record_start': r'\[LOG\]', 'record_end': r'\.'},
             '[LOG] Line 1.\n[LOG] Line 2a\n', 'Line 2b\nLine2c.\nUnrelated line.\n[LOG] Line 3.',
             ['[LOG] Line 3.']
+        ),
+            (  # quiet_start doesn't get carried over to rotated file
+            {'quiet_start': True},
+            '', 'Line 3\nLine 4\n',
+            ['Line 3\nLine 4']
         )
     ]
 
