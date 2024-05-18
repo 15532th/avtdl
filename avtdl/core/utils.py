@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, Hashable, Iterable, List, Optional, Unio
 import aiohttp
 import lxml.html
 import multidict
+from jsonpath import JSONPath
 
 from avtdl.core.interfaces import Record
 
@@ -497,3 +498,15 @@ def get_cookie_value(jar: aiohttp.CookieJar, key: str) -> Optional[str]:
         if morsel.key == key:
             return morsel.value
     return None
+
+
+def find_all(data: Union[dict, list], jsonpath: str, cache={}) -> list:
+    if jsonpath not in cache:
+        cache[jsonpath] = JSONPath(jsonpath)
+    parser = cache[jsonpath]
+    return parser.parse(data)
+
+
+def find_one(data: Union[dict, list], jsonpath: str) -> Optional[Any]:
+    result = find_all(data, jsonpath)
+    return result[0] if result else None

@@ -4,7 +4,8 @@ from typing import Optional, Tuple
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from avtdl.plugins.youtube.common import extract_keys, find_all, find_one, get_continuation_token, thumbnail_url
+from avtdl.core.utils import find_all, find_one
+from avtdl.plugins.youtube.common import extract_keys, get_continuation_token, thumbnail_url
 
 
 class VideoRendererInfo(BaseModel):

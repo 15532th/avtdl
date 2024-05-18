@@ -8,27 +8,14 @@ from hashlib import sha1
 from html import unescape
 from http import cookies
 from json import JSONDecodeError
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qs, unquote, urlparse
 
 import aiohttp
 import lxml.html
-from jsonpath import JSONPath
 from pydantic import BaseModel
 
-from avtdl.core.utils import get_cookie_value, request, request_raw
-
-
-def find_all(data: Union[dict, list], jsonpath: str, cache={}) -> list:
-    if jsonpath not in cache:
-        cache[jsonpath] = JSONPath(jsonpath)
-    parser = cache[jsonpath]
-    return parser.parse(data)
-
-
-def find_one(data: Union[dict, list], jsonpath: str) -> Optional[Any]:
-    result = find_all(data, jsonpath)
-    return result[0] if result else None
+from avtdl.core.utils import find_one, get_cookie_value, request, request_raw
 
 
 def get_initial_data(page: str) -> dict:

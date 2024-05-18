@@ -2,7 +2,8 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
-from avtdl.plugins.youtube.common import find_all, find_one, parse_navigation_endpoint, thumbnail_url
+from avtdl.core.utils import find_all, find_one
+from avtdl.plugins.youtube.common import parse_navigation_endpoint, thumbnail_url
 
 
 class CommunityPostInfo(BaseModel):
