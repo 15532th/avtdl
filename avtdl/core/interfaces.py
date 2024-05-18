@@ -8,7 +8,7 @@ from textwrap import shorten
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import dateutil
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator
 
 MAX_REPR_LEN = 60
 
@@ -75,7 +75,7 @@ class Event(Record):
     """text describing the nature of event, can be used to filter classes of events, such as errors"""
     text: str
     """text describing specific even details"""
-    record: Record
+    record: SerializeAsAny[Record] = Field(exclude=True)
     """record that was being processed when this event happened"""
 
     def __str__(self):
