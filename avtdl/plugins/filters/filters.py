@@ -16,6 +16,7 @@ from avtdl.core.utils import Fmt, find_matching_field
 @Plugins.register('filter.match', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('filter.exclude', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('filter.event', Plugins.kind.ACTOR_CONFIG)
+@Plugins.register('filter.event.cause', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('filter.type', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('filter.json', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('filter.format', Plugins.kind.ACTOR_CONFIG)
@@ -25,6 +26,7 @@ class EmptyFilterConfig(ActorConfig):
 
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_ENTITY)
 @Plugins.register('filter.void', Plugins.kind.ACTOR_ENTITY)
+@Plugins.register('filter.event.cause', Plugins.kind.ACTOR_ENTITY)
 class EmptyFilterEntity(FilterEntity):
     pass
 
@@ -111,7 +113,6 @@ class ExcludeFilter(Filter):
         return record
 
 
-
 Plugins.register('filter.event', Plugins.kind.ASSOCIATED_RECORD)(Event)
 
 @Plugins.register('filter.event', Plugins.kind.ACTOR_ENTITY)
@@ -142,6 +143,28 @@ class EventFilter(Filter):
                 if record.event_type == event_type:
                     return record
         return None
+
+
+@Plugins.register('filter.event.cause', Plugins.kind.ACTOR)
+class EventCauseFilter(Filter):
+    """
+    Filter for extracting original record from Event
+
+    Take an Event and return the record that was being processed
+    when it happened. For example, Event sent by `to_file`
+    plugin failing to write a TextRecord in a file will produce
+    the original TextRecord.
+
+    Regular records (not Events) are passed through unchanged.
+    """
+
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity]):
+        super().__init__(config, entities)
+
+    def match(self, entity: EmptyFilterEntity, record: Record) -> Optional[Record]:
+        if isinstance(record, Event):
+            return record.record
+        return record
 
 
 @Plugins.register('filter.type', Plugins.kind.ACTOR_ENTITY)
