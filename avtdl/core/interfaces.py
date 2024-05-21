@@ -75,7 +75,7 @@ class Event(Record):
     """text describing the nature of event, can be used to filter classes of events, such as errors"""
     text: str
     """text describing specific even details"""
-    record: SerializeAsAny[Record] = Field(exclude=True)
+    record: SerializeAsAny[Optional[Record]] = Field(exclude=True, default=None)
     """record that was being processed when this event happened"""
 
     def __str__(self):
