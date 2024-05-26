@@ -203,7 +203,7 @@ def parse_media(tweet_result: dict) -> List[str]:
             video_url = best_variant['url']
             videos.append(video_url)
         else:
-            breakpoint() # unknown media type
+            ... # unknown media type
     return attachments
 
 
@@ -227,6 +227,15 @@ def tweet_text(tweet_result: dict) -> str:
         except KeyError:
             pass
     return text
+
+
+def parse_timeline(text: str) -> Tuple[List[TwitterRecord], Optional[str]]:
+    tweets = []
+    raw_tweets, continuation = extract_contents(text)
+    for tweet_result in raw_tweets:
+        tweet = parse_tweet(tweet_result)
+        tweets.append(tweet)
+    return tweets, continuation
 
 
 def main():
