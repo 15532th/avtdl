@@ -6,12 +6,10 @@ from time import perf_counter_ns
 from typing import List, Optional, Tuple
 
 import dateutil.parser
-from line_profiler_pycharm import profile
 from pydantic import BaseModel
 
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
-from avtdl.core.utils import find_all, find_one
-from avtdl.plugins.youtube.common import extract_keys
+from avtdl.core.utils import find_one
 
 
 class TwitterRecord(Record):
@@ -81,7 +79,6 @@ class UserInfo(BaseModel):
         return cls.from_result(result)
 
     @classmethod
-    @profile
     def from_result(cls, result: dict) -> 'UserInfo':
         typename = result.get('__typename')
         if typename != 'User':
@@ -99,7 +96,6 @@ class UserInfo(BaseModel):
         return cls(rest_id=rest_id, handle=handle, name=name, description=description, avatar_url=avatar_url, banner_url=banner_url, location=location)
 
 
-@profile
 def extract_contents(data: str) -> Tuple[List[dict], Optional[str]]:
     """Picks all tweets, individual and inside conversations. Also picks bottom cursor value"""
     tweets = []
@@ -126,15 +122,6 @@ def extract_contents(data: str) -> Tuple[List[dict], Optional[str]]:
     return tweets, continuation
 
 
-def get_continuation(contents: List[dict]) -> Optional[str]:
-    for item in reversed(contents):  # cursor is likely going to be last on the list
-        if item.get('__typename') == 'TimelineTimelineCursor':
-            if item.get('cursorType') == 'Bottom':
-                return item.get('value')
-    return None
-
-
-@profile
 def parse_tweet(tweet_results: dict):
     tweet_result = tweet_results.get('result')
     if tweet_result is None:
@@ -146,15 +133,14 @@ def parse_tweet(tweet_results: dict):
         raise ValueError(f'failed to parse tweet: __typename is "{typename}, expected "Tweet"')
     rest_id = tweet_result['rest_id']
 
-    # user_result = find_one(tweet_result, '$.core.user_results.result')
     try:
         user_result = tweet_result['core']['user_results']['result']
     except (KeyError, TypeError):
-        raise ValueError(f'failed to parse tweet: no user_result found. Raw tweet_result: "{tweet_result}"')
+        raise ValueError(f'failed to parse tweet: no user_result found')
     try:
         user = UserInfo.from_result(user_result)
     except Exception as e:
-        raise
+        raise ValueError(f'failed to parse tweet: {e}')
     url = f'https://twitter.com/{user.handle}/status/{rest_id}'
 
     legacy = tweet_result['legacy']
@@ -163,7 +149,7 @@ def parse_tweet(tweet_results: dict):
     try:
         text = tweet_text(tweet_result)
     except Exception as e:
-        raise
+        raise ValueError(f'failed to parse tweet: {e}')
 
     attachments = parse_media(tweet_result) or []
 
@@ -192,7 +178,6 @@ def parse_tweet(tweet_results: dict):
     return tweet
 
 
-@profile
 def parse_media(tweet_result: dict) -> List[str]:
     try:
         legacy = tweet_result['legacy']
@@ -218,11 +203,10 @@ def parse_media(tweet_result: dict) -> List[str]:
             video_url = best_variant['url']
             videos.append(video_url)
         else:
-            ...  # unknown media type
+            breakpoint() # unknown media type
     return attachments
 
 
-@profile
 def tweet_text(tweet_result: dict) -> str:
     try:
         legacy = tweet_result['legacy']
@@ -245,15 +229,12 @@ def tweet_text(tweet_result: dict) -> str:
     return text
 
 
-@profile
 def main():
     for name in Path('.').glob('*.json'):
         tweets = []
         print(f'*** {name} ***')
         with open(name, 'rt', encoding='utf8') as fp:
             text = fp.read()
-        extract_1(text)
-        extract_2(text)
         t1 = perf_counter_ns()
         raw_tweets, continuation = extract_contents(text)
         t2 = perf_counter_ns()
@@ -268,28 +249,6 @@ def main():
                 fp.write(str(tweet.as_timezone()))
                 fp.write('\n\n' + '*' * 80 + '\n')
     ...
-
-
-@profile
-def extract_1(text):
-    t1 = perf_counter_ns()
-    data = json.loads(text)
-    t2 = perf_counter_ns()
-    tweet_results = find_all(data, '$..tweet_results')
-    t3 = perf_counter_ns()
-    content = find_all(data, '$..content')
-    entries = find_one(data, '$..entries')
-    items = find_all(data, '$..content.itemContent')
-    non_items = [x for x in content if 'itemContent' not in x]
-    print(f'json: {(t2 - t1) / 10 ** 6}, find: {(t3 - t2) / 10 ** 6}')
-
-
-@profile
-def extract_2(text):
-    t1 = perf_counter_ns()
-    stuff, data = extract_keys(text, ['content', 'tweet_results'])
-    t2 = perf_counter_ns()
-    print(f'extract: {(t2 - t1) / 10 ** 6}')
 
 
 if __name__ == '__main__':
