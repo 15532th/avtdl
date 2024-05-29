@@ -6,14 +6,15 @@
 # - single tweet
 #
 # - user id by screen name
-
+import datetime
 import json
 from dataclasses import dataclass
 from http.cookiejar import CookieJar
 from pathlib import Path
+from time import sleep
 from typing import Any, Dict, Optional
 
-from avtdl.core.utils import find_all, find_one
+from avtdl.core.utils import find_all, find_one, load_cookies
 
 USER_FEATURES = '{"hidden_profile_likes_enabled":true,"hidden_profile_subscriptions_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true}'
 TWEETS_FEATURES = '{"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"tweetypie_unmention_optimization_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_enhance_cards_enabled":false}'
@@ -177,9 +178,28 @@ class UserLikesEndpoint(UserTweetsEndpoint):
 def make_request(endpoint, cookies, **kwargs):
     request = endpoint.prepare(cookies, **kwargs)
     response = requests.get(request.url, params=request.params, headers=request.headers, cookies=cookies)
-    response.raise_for_status()
+    try:
+        check_rate_limit_headers(response.headers)
+        response.raise_for_status()
+    except Exception as e:
+        raise
     data = response.json()
     return data
+
+def check_rate_limit_headers(headers: Dict[str, str]):
+    try:
+        limit_total = int(headers.get('x-rate-limit-limit', -1))
+        limit_remaining = int(headers.get('x-rate-limit-remaining', -1))
+        reset_at = int(headers.get('x-rate-limit-reset', -1))
+    except ValueError as e:
+        print(f'error parsing limit headers')
+        return
+    now = int(datetime.datetime.now().timestamp())
+    reset_after = max(0, reset_at - now)
+    print(f'rate limit {limit_remaining}/{limit_total} after {reset_after} (at {reset_at})')
+    if limit_remaining <= 1:
+        print(f'sleeping {reset_after}')
+        sleep(reset_after + 1)
 
 
 def get_continuation(data):
