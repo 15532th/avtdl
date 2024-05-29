@@ -98,11 +98,17 @@ class UserInfo(BaseModel):
 
 def extract_contents(data: str) -> Tuple[List[dict], Optional[str]]:
     """Picks all tweets, individual and inside conversations. Also picks bottom cursor value"""
-    tweets = []
+    tweets: List[dict] = []
     continuation = None
 
     def handle_item(obj):
         nonlocal continuation
+        # drop pinned tweet
+        if "type" in obj and  obj['type'] == 'TimelinePinEntry':
+            try:
+                tweets.pop()
+            except IndexError:
+                raise ValueError(f'TimelinePinEntry is present but no "tweet_result" was collected')
         if '__typename' not in obj:
             return obj
         # tweet
