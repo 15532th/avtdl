@@ -8,11 +8,14 @@
 # - user id by screen name
 import datetime
 import json
+import logging
 from dataclasses import dataclass
 from http.cookiejar import CookieJar
 from pathlib import Path
 from time import sleep
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
+
+from multidict import CIMultiDictProxy
 
 from avtdl.core.utils import find_all, find_one, load_cookies
 
@@ -186,29 +189,30 @@ def make_request(endpoint, cookies, **kwargs):
     data = response.json()
     return data
 
-def check_rate_limit_headers(headers: Dict[str, str]):
+
+def get_rate_limit_delay(headers: Union[Dict[str, str], CIMultiDictProxy[str]]) -> int:
     try:
         limit_total = int(headers.get('x-rate-limit-limit', -1))
         limit_remaining = int(headers.get('x-rate-limit-remaining', -1))
         reset_at = int(headers.get('x-rate-limit-reset', -1))
     except ValueError as e:
-        print(f'error parsing limit headers')
-        return
+        logging.getLogger().getChild('twitter_endpoints').debug(f'error parsing limit headers: "{headers}"')
+        return 0
     now = int(datetime.datetime.now().timestamp())
     reset_after = max(0, reset_at - now)
     print(f'rate limit {limit_remaining}/{limit_total} after {reset_after} (at {reset_at})')
     if limit_remaining <= 1:
-        print(f'sleeping {reset_after}')
-        sleep(reset_after + 1)
+        return reset_after + 1
+    return 0
 
 
-def get_continuation(data):
+def get_continuation(data: dict) -> Optional[str]:
     entries = find_all(data, '$..instructions..entries..content,itemContent')
     continuation = entries[-1]['value']
     return continuation
 
 
-def get_user_id(data):
+def get_user_id(data: dict) -> Optional[str]:
     return find_one(data, '$.data.user.result.rest_id')
 
 
