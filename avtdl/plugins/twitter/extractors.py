@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter_ns
@@ -10,6 +11,8 @@ from pydantic import BaseModel
 
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.utils import find_one
+
+local_logger = logging.getLogger().getChild('twitter_extractors')
 
 
 class TwitterRecord(Record):
@@ -104,11 +107,20 @@ def extract_contents(data: str) -> Tuple[List[dict], Optional[str]]:
     def handle_item(obj):
         nonlocal continuation
         # drop pinned tweet
-        if "type" in obj and  obj['type'] == 'TimelinePinEntry':
+        if "type" in obj and obj['type'] == 'TimelinePinEntry':
             try:
-                tweets.pop()
+                pinned = obj['entry']['content']['itemContent']['tweet_results']
             except IndexError:
-                raise ValueError(f'TimelinePinEntry is present but no "tweet_result" was collected')
+                local_logger.warning(f'TimelinePinEntry is present but no "tweet_result" was found inside. Raw data:\n"{obj}"')
+                return obj
+            if tweets and tweets[-1] == pinned:
+                # when handle_item() gets called for "TimelinePinEntry", it must have been
+                # already called for the "tweet_results" inside it, which then should be
+                # on top of the "tweets" list now
+                tweets.pop()
+            else:
+                local_logger.warning(f'TimelinePinEntry is present but pinned tweet was not collected. Raw data:\n"{obj}"')
+            return obj
         if '__typename' not in obj:
             return obj
         # tweet
@@ -197,10 +209,11 @@ def parse_media(tweet_result: dict) -> List[str]:
     images = []
     videos = []
     for item in media:
-        if item['type'] == 'photo':
+        item_type = item['type']
+        if item_type == 'photo':
             media_url = item['media_url_https']
             images.append(media_url)
-        elif item['type'] in ['video', 'animated_gif']:
+        elif item_type in ['video', 'animated_gif']:
             try:
                 variants = item['video_info']['variants']
             except (KeyError, TypeError):
@@ -209,7 +222,8 @@ def parse_media(tweet_result: dict) -> List[str]:
             video_url = best_variant['url']
             videos.append(video_url)
         else:
-            ... # unknown media type
+            msg = f'unknown media type {item_type}. Raw tweet_result:\n"{tweet_result}"'
+            local_logger.debug(msg)
     return attachments
 
 
