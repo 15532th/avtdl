@@ -1,3 +1,5 @@
+import asyncio
+import datetime
 from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
@@ -24,19 +26,25 @@ class TwitterMonitorEntity(PagedFeedMonitorEntity):
     """path to a text file containing cookies in Netscape format"""
     user: str
     """user handle"""
-    user_id: Optional[str] = Field(exclude=True, default=None)
-    """internal variable to persist state between updates. Used to cache user id for monitored user"""
-    adjust_update_interval: bool = Field(exclude=True, default=False)
-    """this monitor handles adjusting interval itself, so it is disabled to make sure superclass won't overwrite it"""
+    url: str = 'https://twitter.com'
+    """Twitter domain name"""
     update_interval: float = 1800
     """how often the monitored url will be checked, in seconds"""
+    user_id: Optional[str] = Field(exclude=True, default=None)
+    """internal variable to persist state between updates. Used to cache user id for monitored user"""
+    rate_limited_until: Optional[datetime.datetime] = Field(exclude=True, default=None)
+    """internal variable to persist state between updates. Used to store time when currently active rate limit expires"""
+    adjust_update_interval: bool = Field(exclude=True, default=False)
+    """this monitor handles adjusting interval itself, so it is disabled to make sure superclass won't overwrite it"""
 
 
 @Plugins.register('twitter.user', Plugins.kind.ACTOR)
 class TwitterUserMonitor(PagedFeedMonitor):
     """
-
+    Monitor timeline of a Twitter user
     """
+
+    MIN_CONTINUATION_DELAY: int = 1
 
     async def handle_first_page(self, entity: TwitterMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         raw_page = await self._get_page(entity, session, continuation=None)
@@ -66,6 +74,7 @@ class TwitterUserMonitor(PagedFeedMonitor):
     async def _get_user_id(self, entity: TwitterMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
         if entity.user_id is None:
             r = UserIDEndpoint.prepare(session.cookie_jar, entity.user)
+            r = r.with_base_url(entity.url)
             # does not check for rate x-rate-limit headers, exceeding limit is unlikely since the result is cached
             data = await utils.request_json(url=r.url, session=session, logger=self.logger, headers=r.headers, params=r.params, retry_times=3)
             if data is None:
@@ -75,16 +84,22 @@ class TwitterUserMonitor(PagedFeedMonitor):
         return entity.user_id
 
     async def _get_page(self, entity: TwitterMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
+        if entity.rate_limited_until is not None:
+            delay = entity.rate_limited_until - datetime.datetime.now().astimezone()
+            if delay > datetime.timedelta(self.MIN_CONTINUATION_DELAY):
+                self.logger.info(f'got rate limited by Twitter API, delaying request for {delay}')
+            await asyncio.sleep(delay.total_seconds())
         user_id = await self._get_user_id(entity, session)
         if user_id is None:
             self.logger.warning(f'failed to get user id from user handle for "{entity.user}", aborting update')
             return None
         r = UserTweetsRepliesEndpoint.prepare(session.cookie_jar, user_id, continuation)
-        response = await self.request_raw(entity.url, entity, session, headers=r.headers, params=r.params)
+        r = r.with_base_url(entity.url)
+        response = await self.request_raw(r.url, entity, session, headers=r.headers, params=r.params)
         if response is None:
             return None
-        delay = get_rate_limit_delay(response.headers)
-        entity.update_interval = max(entity.update_interval, delay)
+        new_delay = get_rate_limit_delay(response.headers, self.logger.getChild('rate_limit')) + self.MIN_CONTINUATION_DELAY
+        entity.rate_limited_until = datetime.datetime.now().astimezone() + datetime.timedelta(seconds=new_delay)
         page = await response.text()
         return page
 

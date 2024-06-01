@@ -9,12 +9,14 @@
 import datetime
 import json
 import logging
+import urllib.parse
 from dataclasses import dataclass
 from http.cookiejar import CookieJar
 from pathlib import Path
 from time import sleep
 from typing import Any, Dict, Optional, Union
 
+import aiohttp
 from multidict import CIMultiDictProxy
 
 from avtdl.core.utils import find_all, find_one, load_cookies
@@ -40,9 +42,24 @@ class RequestDetails:
     headers: Dict[str, Any]
     cookies: CookieJar
 
+    def with_base_url(self, base_url: str) -> 'RequestDetails':
+        new_url = replace_url_host(self.url, base_url)
+        return RequestDetails(url=new_url, params=self.params, headers=self.headers, cookies=self.cookies)
 
-def get_cookie_value(jar: CookieJar, name: str) -> Optional[str]:
-    found = [x for x in jar if x.name == name]
+
+def replace_url_host(url: str, new_host: str) -> str:
+    netloc = urllib.parse.urlparse(new_host).netloc
+    parsed_url = urllib.parse.urlparse(url)
+    new_url = urllib.parse.urlunparse((parsed_url.scheme, netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment))
+    return new_url
+
+
+def get_cookie_value(jar: Union[CookieJar,aiohttp.CookieJar], name: str) -> Optional[str]:
+    if isinstance(jar, CookieJar):
+        found = [x for x in jar if x.name == name]
+    else:
+        found = [x for x in jar if x.key == name]
+
     if not found:
         return None
     return found[0].value
@@ -190,17 +207,18 @@ def make_request(endpoint, cookies, **kwargs):
     return data
 
 
-def get_rate_limit_delay(headers: Union[Dict[str, str], CIMultiDictProxy[str]]) -> int:
+def get_rate_limit_delay(headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: Optional[logging.Logger] = None) -> int:
+    logger = logger or logging.getLogger().getChild('twitter_endpoints')
     try:
         limit_total = int(headers.get('x-rate-limit-limit', -1))
         limit_remaining = int(headers.get('x-rate-limit-remaining', -1))
         reset_at = int(headers.get('x-rate-limit-reset', -1))
     except ValueError as e:
-        logging.getLogger().getChild('twitter_endpoints').debug(f'error parsing limit headers: "{headers}"')
+        logger.debug(f'error parsing limit headers: "{headers}"')
         return 0
     now = int(datetime.datetime.now().timestamp())
     reset_after = max(0, reset_at - now)
-    print(f'rate limit {limit_remaining}/{limit_total} after {reset_after} (at {reset_at})')
+    logger.debug(f'rate limit {limit_remaining}/{limit_total}, resets after {reset_after} (at {reset_at})')
     if limit_remaining <= 1:
         return reset_after + 1
     return 0
