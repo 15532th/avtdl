@@ -10,14 +10,16 @@ from avtdl.core import utils
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, RequestDetails, TimelineEndpoint, TwitterEndpoint, UserIDEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint, get_rate_limit_delay, get_user_id
+from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, RequestDetails, TimelineEndpoint, TwitterEndpoint, UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint, get_rate_limit_delay, get_user_id
 from avtdl.plugins.twitter.extractors import TwitterRecord, extract_contents, parse_tweet
 
 Plugins.register('twitter.user', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
+Plugins.register('twitter.likes', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
 Plugins.register('twitter.home', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
 
 
 @Plugins.register('twitter.user', Plugins.kind.ACTOR_CONFIG)
+@Plugins.register('twitter.likes', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('twitter.home', Plugins.kind.ACTOR_CONFIG)
 class TwitterMonitorConfig(PagedFeedMonitorConfig):
     pass
@@ -136,7 +138,7 @@ class TwitterUserMonitor(TwitterMonitor):
     Monitor user tweets
     """
 
-    def pick_endpoint(self, entity: TwitterUserMonitorEntity) -> type[TwitterEndpoint]:
+    def _pick_endpoint(self, entity: TwitterUserMonitorEntity) -> type[TwitterEndpoint]:
         endpoint = UserTweetsRepliesEndpoint if entity.with_replies else UserTweetsEndpoint
         return endpoint
 
@@ -145,7 +147,7 @@ class TwitterUserMonitor(TwitterMonitor):
         if user_id is None:
             self.logger.warning(f'failed to get user id from user handle for "{entity.user}", aborting update')
             return None
-        endpoint = self.pick_endpoint(entity)
+        endpoint = self._pick_endpoint(entity)
         r = endpoint.prepare(session.cookie_jar, user_id, continuation)
         r = r.with_base_url(entity.url)
         return r
@@ -161,3 +163,19 @@ class TwitterUserMonitor(TwitterMonitor):
             user_id = get_user_id(data)
             entity.user_id = user_id
         return entity.user_id
+
+
+@Plugins.register('twitter.likes', Plugins.kind.ACTOR_ENTITY)
+class TwitterLikesMonitorEntity(TwitterUserMonitorEntity):
+    with_replies: bool = Field(exclude=True, default=None)
+    """not used in this subclass, excluded"""
+
+
+@Plugins.register('twitter.likes', Plugins.kind.ACTOR)
+class TwitterLikesMonitor(TwitterUserMonitor):
+    """
+    Monitor user likes
+    """
+
+    def _pick_endpoint(self, entity: TwitterUserMonitorEntity) -> type[TwitterEndpoint]:
+        return UserLikesEndpoint
