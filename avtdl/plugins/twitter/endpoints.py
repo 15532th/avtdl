@@ -6,6 +6,7 @@
 # - single tweet
 #
 # - user id by screen name
+import abc
 import datetime
 import json
 import logging
@@ -54,7 +55,7 @@ def replace_url_host(url: str, new_host: str) -> str:
     return new_url
 
 
-def get_cookie_value(jar: Union[CookieJar,aiohttp.CookieJar], name: str) -> Optional[str]:
+def get_cookie_value(jar: Union[CookieJar, aiohttp.CookieJar], name: str) -> Optional[str]:
     if isinstance(jar, CookieJar):
         found = [x for x in jar if x.name == name]
     else:
@@ -116,7 +117,16 @@ class Endpoint:
         return details
 
 
-class UserIDEndpoint(Endpoint):
+class TwitterEndpoint(abc.ABC):
+    Endpoint = Endpoint
+
+    @abc.abstractmethod
+    @classmethod
+    def prepare(cls, *args, **kwargs) -> RequestDetails:
+        """Prepare a RequestDetails object based on passed arguments"""
+
+
+class UserIDEndpoint(TwitterEndpoint):
     URL = EndpointUrl.USER_BY_SCREEN_NAME
     FEATURES = USER_FEATURES
 
@@ -125,10 +135,10 @@ class UserIDEndpoint(Endpoint):
         user_handle = user_handle.strip('@/')
         variables = {'screen_name': user_handle, 'withSafetyModeUserFields': True}
         variables_text = json.dumps(variables)
-        return super().prepare_for(cookies, variables_text)
+        return cls.Endpoint.prepare_for(cookies, variables_text)
 
 
-class TweetDetailEndpoint(Endpoint):
+class TweetDetailEndpoint(TwitterEndpoint):
     URL = EndpointUrl.TWEET_DETAIL
 
     @classmethod
@@ -137,10 +147,10 @@ class TweetDetailEndpoint(Endpoint):
         if continuation:
             variables.update({'referrer': 'tweet', 'cursor': continuation})
         variables_text = json.dumps(variables)
-        return super().prepare_for(cookies, variables_text)
+        return cls.Endpoint.prepare_for(cookies, variables_text)
 
 
-class LatestTimelineEndpoint(Endpoint):
+class LatestTimelineEndpoint(TwitterEndpoint):
     URL = EndpointUrl.LATEST_TIMELINE
 
     @staticmethod
@@ -154,8 +164,8 @@ class LatestTimelineEndpoint(Endpoint):
 
     @classmethod
     def prepare(cls, cookies, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
-        variables = super().get_variables(continuation=continuation, count=count)
-        return super().prepare_for(cookies, variables)
+        variables = cls.Endpoint.get_variables(continuation=continuation, count=count)
+        return cls.Endpoint.prepare_for(cookies, variables)
 
 
 class TimelineEndpoint(LatestTimelineEndpoint):
@@ -166,7 +176,7 @@ class TimelineEndpoint(LatestTimelineEndpoint):
         return {"includePromotedContent": True, "latestControlAvailable": True, "withCommunity": True}
 
 
-class UserTweetsEndpoint(Endpoint):
+class UserTweetsEndpoint(TwitterEndpoint):
     URL = EndpointUrl.USER_TWEETS
 
     @staticmethod
@@ -175,8 +185,8 @@ class UserTweetsEndpoint(Endpoint):
 
     @classmethod
     def prepare(cls, cookies, user_id: str, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
-        variables = super().get_variables(user_id=user_id, count=count, continuation=continuation)
-        return super().prepare_for(cookies, variables)
+        variables = cls.Endpoint.get_variables(user_id=user_id, count=count, continuation=continuation)
+        return cls.Endpoint.prepare_for(cookies, variables)
 
 
 class UserTweetsRepliesEndpoint(UserTweetsEndpoint):

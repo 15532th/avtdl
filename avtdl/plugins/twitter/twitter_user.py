@@ -10,7 +10,7 @@ from avtdl.core import utils
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, RequestDetails, TimelineEndpoint, UserIDEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint, get_rate_limit_delay, get_user_id
+from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, RequestDetails, TimelineEndpoint, TwitterEndpoint, UserIDEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint, get_rate_limit_delay, get_user_id
 from avtdl.plugins.twitter.extractors import TwitterRecord, extract_contents, parse_tweet
 
 Plugins.register('twitter.user', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
@@ -133,15 +133,19 @@ class TwitterUserMonitorEntity(TwitterMonitorEntity):
 @Plugins.register('twitter.user', Plugins.kind.ACTOR)
 class TwitterUserMonitor(TwitterMonitor):
     """
-    Monitor tweets by specific user
+    Monitor user tweets
     """
+
+    def pick_endpoint(self, entity: TwitterUserMonitorEntity) -> type[TwitterEndpoint]:
+        endpoint = UserTweetsRepliesEndpoint if entity.with_replies else UserTweetsEndpoint
+        return endpoint
 
     async def _prepare_request(self, entity: TwitterUserMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[RequestDetails]:
         user_id = await self._get_user_id(entity, session)
         if user_id is None:
             self.logger.warning(f'failed to get user id from user handle for "{entity.user}", aborting update')
             return None
-        endpoint = UserTweetsRepliesEndpoint if entity.with_replies else UserTweetsEndpoint
+        endpoint = self.pick_endpoint(entity)
         r = endpoint.prepare(session.cookie_jar, user_id, continuation)
         r = r.with_base_url(entity.url)
         return r
