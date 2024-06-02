@@ -76,7 +76,7 @@ def get_auth_headers(ct0: str) -> dict[str, Any]:
     return headers
 
 
-class Endpoint:
+class TwitterEndpoint(abc.ABC):
     """
     Superclass providing utility methods for concrete Endpoints
 
@@ -116,11 +116,6 @@ class Endpoint:
         details = RequestDetails(url=cls.URL, params=params, headers=headers, cookies=cookies)
         return details
 
-
-class TwitterEndpoint(abc.ABC):
-    Endpoint = Endpoint
-
-    @abc.abstractmethod
     @classmethod
     @abc.abstractmethod
     def prepare(cls, *args, **kwargs) -> RequestDetails:
@@ -136,7 +131,7 @@ class UserIDEndpoint(TwitterEndpoint):
         user_handle = user_handle.strip('@/')
         variables = {'screen_name': user_handle, 'withSafetyModeUserFields': True}
         variables_text = json.dumps(variables)
-        return cls.Endpoint.prepare_for(cookies, variables_text)
+        return cls.prepare_for(cookies, variables_text)
 
 
 class TweetDetailEndpoint(TwitterEndpoint):
@@ -148,7 +143,7 @@ class TweetDetailEndpoint(TwitterEndpoint):
         if continuation:
             variables.update({'referrer': 'tweet', 'cursor': continuation})
         variables_text = json.dumps(variables)
-        return cls.Endpoint.prepare_for(cookies, variables_text)
+        return cls.prepare_for(cookies, variables_text)
 
 
 class LatestTimelineEndpoint(TwitterEndpoint):
@@ -165,8 +160,8 @@ class LatestTimelineEndpoint(TwitterEndpoint):
 
     @classmethod
     def prepare(cls, cookies, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
-        variables = cls.Endpoint.get_variables(continuation=continuation, count=count)
-        return cls.Endpoint.prepare_for(cookies, variables)
+        variables = cls.get_variables(continuation=continuation, count=count)
+        return cls.prepare_for(cookies, variables)
 
 
 class TimelineEndpoint(LatestTimelineEndpoint):
@@ -186,8 +181,8 @@ class UserTweetsEndpoint(TwitterEndpoint):
 
     @classmethod
     def prepare(cls, cookies, user_id: str, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
-        variables = cls.Endpoint.get_variables(user_id=user_id, count=count, continuation=continuation)
-        return cls.Endpoint.prepare_for(cookies, variables)
+        variables = cls.get_variables(user_id=user_id, count=count, continuation=continuation)
+        return cls.prepare_for(cookies, variables)
 
 
 class UserTweetsRepliesEndpoint(UserTweetsEndpoint):
