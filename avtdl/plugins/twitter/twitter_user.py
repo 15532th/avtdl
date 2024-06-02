@@ -128,6 +128,8 @@ class TwitterUserMonitorEntity(TwitterMonitorEntity):
     """user handle"""
     with_replies: bool = True
     """include replies by monitored user"""
+    only_likes: bool = False
+    """monitor tweets liked by user instead of the user's own tweets"""
     user_id: Optional[str] = Field(exclude=True, default=None)
     """internal variable to persist state between updates. Used to cache user id for monitored user"""
 
@@ -138,9 +140,14 @@ class TwitterUserMonitor(TwitterMonitor):
     Monitor user tweets
     """
 
-    def _pick_endpoint(self, entity: TwitterUserMonitorEntity) -> type[TwitterEndpoint]:
-        endpoint = UserTweetsRepliesEndpoint if entity.with_replies else UserTweetsEndpoint
-        return endpoint
+    @staticmethod
+    def _pick_endpoint(entity: TwitterUserMonitorEntity) -> type[TwitterEndpoint]:
+        if entity.only_likes:
+            return UserLikesEndpoint
+        elif entity.with_replies:
+            return UserTweetsRepliesEndpoint
+        else:
+            return UserTweetsEndpoint
 
     async def _prepare_request(self, entity: TwitterUserMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[RequestDetails]:
         user_id = await self._get_user_id(entity, session)
@@ -163,19 +170,3 @@ class TwitterUserMonitor(TwitterMonitor):
             user_id = get_user_id(data)
             entity.user_id = user_id
         return entity.user_id
-
-
-@Plugins.register('twitter.likes', Plugins.kind.ACTOR_ENTITY)
-class TwitterLikesMonitorEntity(TwitterUserMonitorEntity):
-    with_replies: bool = Field(exclude=True, default=None)
-    """not used in this subclass, excluded"""
-
-
-@Plugins.register('twitter.likes', Plugins.kind.ACTOR)
-class TwitterLikesMonitor(TwitterUserMonitor):
-    """
-    Monitor user likes
-    """
-
-    def _pick_endpoint(self, entity: TwitterUserMonitorEntity) -> type[TwitterEndpoint]:
-        return UserLikesEndpoint
