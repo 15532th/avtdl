@@ -138,6 +138,9 @@ class TwitterUserMonitorEntity(TwitterMonitorEntity):
 class TwitterUserMonitor(TwitterMonitor):
     """
     Monitor user tweets
+
+    Monitor timeline of a user for new tweets, including retweets and quotes.
+
     """
 
     @staticmethod
