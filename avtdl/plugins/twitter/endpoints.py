@@ -122,6 +122,7 @@ class TwitterEndpoint(abc.ABC):
 
     @abc.abstractmethod
     @classmethod
+    @abc.abstractmethod
     def prepare(cls, *args, **kwargs) -> RequestDetails:
         """Prepare a RequestDetails object based on passed arguments"""
 
