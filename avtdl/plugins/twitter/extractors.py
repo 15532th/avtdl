@@ -65,6 +65,52 @@ class TwitterRecord(Record):
         return '\n'.join(elements)
 
 
+    def discord_embed(self) -> List[dict]:
+        text_items = [self.text]
+        if len(self.attachments) > 1:
+            text_items.extend(self.attachments)
+        if self.quote:
+            text_items.append('\nReferring to ')
+            text_items.append(str(self.quote))
+        text = '\n'.join(text_items)
+
+        if self.retweet is not None:
+            author = f'[{self.published.strftime("%Y-%m-%d %H:%M:%S")}] {self.author} (@{self.username}) has retweeted:'
+            title =  f'{self.retweet.author} ({self.retweet.username})'
+            if self.replying_to_username:
+                title += f', replying to @{self.replying_to_username}:'
+            avatar = self.retweet.avatar_url
+            timestamp = self.retweet.published.isoformat()
+        else:
+            author = f'{self.author} ({self.username})'
+            title = f'Replying to @{self.replying_to_username}:' if self.replying_to_username else self.url
+            avatar = self.avatar_url
+            timestamp = self.published.isoformat()
+
+        embed = {
+            'title': title,
+            'description': text,
+            'url': self.url,
+            'color': None,
+            'author': {'name': author, 'icon_url': avatar},
+            'timestamp': timestamp,
+        }
+
+        def format_attachments(post_url: str, attachments: List[str]) -> List[dict]:
+            return [{'url': post_url, 'image': {'url': attachment}} for attachment in attachments]
+
+        if self.attachments:
+            images = format_attachments(self.url, self.attachments)
+            embed['image'] = images.pop(0)['image']
+            embeds = [embed, *images]
+        elif self.quote and self.quote.attachments:
+            images = format_attachments(self.quote.url, self.quote.attachments)
+            embed['image'] = images.pop(0)['image']
+            embeds = [embed, *images]
+        else:
+            embeds = [embed]
+        return embeds
+
 class UserInfo(BaseModel):
     rest_id: str
     handle: str
