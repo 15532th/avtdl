@@ -388,11 +388,13 @@ class Fmt:
     """Helper class to interpolate format string from config using data from Record"""
 
     @classmethod
-    def format(cls, fmt: str, record: Record, missing: Optional[str] = None, tz: Optional[datetime.timezone] = None, sanitize: bool = False) -> str:
+    def format(cls, fmt: str, record: Record, missing: Optional[str] = None, tz: Optional[datetime.timezone] = None, sanitize: bool = False, extra: Optional[Dict[str, Any]] = None) -> str:
         """Take string with placeholders like {field} and replace them with record fields"""
         logger = logging.getLogger().getChild('format')
         result = cls.strftime(fmt, datetime.datetime.now(tz))
         record_as_dict = record.model_dump()
+        if extra is not None:
+            record_as_dict.update(extra)
         placeholders: List[str] = re.findall(r'({[^{}\\]+})', fmt)
         for placeholder in placeholders:
             field = placeholder.strip('{}')
@@ -413,10 +415,10 @@ class Fmt:
         return result
 
     @classmethod
-    def format_path(cls, path: Union[str, Path], record: Record, missing: Optional[str] = None, tz: Optional[datetime.timezone] = None) -> Path:
+    def format_path(cls, path: Union[str, Path], record: Record, missing: Optional[str] = None, tz: Optional[datetime.timezone] = None, extra: Optional[Dict[str, Any]] = None) -> Path:
         """Take string with placeholders and replace them with record fields, but strip them from bad symbols"""
         fmt = str(path)
-        formatted_path = cls.format(fmt, record, missing, tz=tz, sanitize=True)
+        formatted_path = cls.format(fmt, record, missing, tz=tz, sanitize=True, extra=extra)
         return Path(formatted_path)
 
     @classmethod
