@@ -134,7 +134,7 @@ class TwitterUserMonitorEntity(TwitterMonitorEntity):
     with_replies: bool = True
     """include replies by monitored user"""
     only_likes: bool = False
-    """monitor tweets liked by user instead of the user's own tweets"""
+    """monitor tweets liked by the user instead of user's own tweets"""
     user_id: Optional[str] = Field(exclude=True, default=None)
     """internal variable to persist state between updates. Used to cache user id for monitored user"""
 

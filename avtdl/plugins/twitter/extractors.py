@@ -34,7 +34,7 @@ class TwitterRecord(Record):
     published: datetime.datetime
     """tweet timestamp"""
     text: str
-    """tweet text with stripped formatting"""
+    """tweet text. Links are unshortened if possible"""
     attachments: List[str] = []
     """list of links to attached images or video thumbnails"""
     images: List[str] = []
@@ -44,9 +44,9 @@ class TwitterRecord(Record):
     replying_to_username: Optional[str] = None
     """for replies, name of the user that got replied to"""
     retweet: Optional['TwitterRecord'] = None
-    """Nested TwitterRecord containing tweet that was retweeted"""
+    """for retweets, nested TwitterRecord containing tweet that was retweeted"""
     quote: Optional['TwitterRecord'] = None
-    """Nested TwitterRecord containing tweet being quited"""
+    """for quotes, nested TwitterRecord containing tweet being quoted"""
 
     def __repr__(self):
         return f'TwitterRecord(author="{self.author}", url="{self.url}", text="{shorten(self.text, MAX_REPR_LEN)}")'
