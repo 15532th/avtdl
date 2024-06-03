@@ -112,7 +112,12 @@ class TwitterHomeMonitorEntity(TwitterMonitorEntity):
 @Plugins.register('twitter.home', Plugins.kind.ACTOR)
 class TwitterHomeMonitor(TwitterMonitor):
     """
-    Monitor home timeline
+    Monitor for Twitter home timeline
+
+    Monitors tweets on Twitter Home Timeline, either the "Following"
+    of the "For you" tab.
+
+    Requires login cookies from a logged in Twitter account to work.
     """
 
     async def _prepare_request(self, entity: TwitterHomeMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[RequestDetails]:
@@ -137,10 +142,15 @@ class TwitterUserMonitorEntity(TwitterMonitorEntity):
 @Plugins.register('twitter.user', Plugins.kind.ACTOR)
 class TwitterUserMonitor(TwitterMonitor):
     """
-    Monitor user tweets
+    Monitor for user tweets
 
-    Monitor timeline of a user for new tweets, including retweets and quotes.
+    Monitors timeline of a user for new tweets, including retweets and quotes.
+    Enabling `with_replies` will additionally include replies posted by the user.
 
+    With `only_likes` option enabled tweets from the "Likes" tab are collected
+    instead of user's own tweets.
+
+    Requires login cookies from a logged in Twitter account to work.
     """
 
     @staticmethod
