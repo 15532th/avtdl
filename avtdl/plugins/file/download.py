@@ -32,7 +32,7 @@ class FileDownloadEntity(ActionEntity):
     path: Path
     """directory where downloaded file should be created. Supports templating with {...}"""
     filename: Optional[str] = None
-    """name downloaded file should be stored under. If not provided will be inferred from HTTP headers or download url. Supports templating with {...} (additionally, "{source_name}" placeholder will be replaced with the inferred value). """
+    """name downloaded file should be stored under. If not provided will be inferred from HTTP headers or download url. Supports templating with {...} (additionally, "{source_name}" placeholder will be replaced with the inferred value)"""
     extension: Optional[str] = None
     """normally file extension will be inferred from HTTP headers. This option allows to overwrite it"""
     overwrite: bool = False
