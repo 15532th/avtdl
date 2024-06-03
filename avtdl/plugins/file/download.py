@@ -32,7 +32,7 @@ class FileDownloadEntity(ActionEntity):
     path: Path
     """directory where downloaded file should be created. Supports templating with {...}"""
     filename: Optional[str] = None
-    """name downloaded file should be stored under. If not provided will be inferred from HTTP headers or download url. Supports templating with {...}"""
+    """name downloaded file should be stored under. If not provided will be inferred from HTTP headers or download url. Supports templating with {...} (additionally, "{source_name}" placeholder will be replaced with the inferred value). """
     extension: Optional[str] = None
     """normally file extension will be inferred from HTTP headers. This option allows to overwrite it"""
     overwrite: bool = False
@@ -166,7 +166,8 @@ class FileDownload(Action):
             return None
 
         if entity.filename is not None:
-            filename = Fmt.format(entity.filename, record, tz=entity.timezone)
+            extra = {'source_name': info.source_name}
+            filename = Fmt.format(entity.filename, record, tz=entity.timezone, extra=extra)
         else:
             filename = info.source_name
         filename = sanitize_filename(filename)
