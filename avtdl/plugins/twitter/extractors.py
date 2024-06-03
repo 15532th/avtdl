@@ -21,6 +21,8 @@ class TwitterRecord(Record):
 
     Depending on the tweet type (regular, retweet, reply, quote) some fields might be empty
     """
+    uid: str
+    """tweet id"""
     url: str
     """tweet url"""
     author: str
@@ -35,6 +37,10 @@ class TwitterRecord(Record):
     """tweet text with stripped formatting"""
     attachments: List[str] = []
     """list of links to attached images or video thumbnails"""
+    images: List[str] = []
+    """list of links to attached images"""
+    videos: List[str] = []
+    """list of links to attached videos and gifs"""
     replying_to_username: Optional[str] = None
     """for replies, name of the user that got replied to"""
     retweet: Optional['TwitterRecord'] = None
@@ -215,7 +221,7 @@ def parse_tweet(tweet_results: dict):
     except Exception as e:
         raise ValueError(f'failed to parse tweet: {e}')
 
-    attachments = parse_media(tweet_result) or []
+    attachments, images, videos = parse_media(tweet_result) or []
 
     replying_to_username: Optional[str] = legacy.get('in_reply_to_screen_name')
 
@@ -228,6 +234,7 @@ def parse_tweet(tweet_results: dict):
     quote = parse_tweet(quote_tesult) if quote_tesult else None
 
     tweet = TwitterRecord(
+        uid=rest_id,
         url=url,
         author=user.name,
         username=user.handle,
@@ -235,6 +242,8 @@ def parse_tweet(tweet_results: dict):
         published=published,
         text=text,
         attachments=attachments,
+        images=images,
+        videos=videos,
         replying_to_username=replying_to_username,
         retweet=retweet,
         quote=quote
@@ -242,7 +251,7 @@ def parse_tweet(tweet_results: dict):
     return tweet
 
 
-def parse_media(tweet_result: dict) -> List[str]:
+def parse_media(tweet_result: dict) -> Tuple[List[str], List[str], List[str]]:
     try:
         legacy = tweet_result['legacy']
     except KeyError as e:
@@ -250,7 +259,7 @@ def parse_media(tweet_result: dict) -> List[str]:
     media = (legacy.get('entities') or {}).get('media', [])
     extended_media = (legacy.get('extended_entities') or {}).get('media', [])
     if not media and not extended_media:
-        return []
+        return [], [], []
     attachments = [media_item['media_url_https'] for media_item in media]
     images = []
     videos = []
@@ -270,7 +279,7 @@ def parse_media(tweet_result: dict) -> List[str]:
         else:
             msg = f'unknown media type {item_type}. Raw tweet_result:\n"{tweet_result}"'
             local_logger.debug(msg)
-    return attachments
+    return attachments, images, videos
 
 
 def tweet_text(tweet_result: dict) -> str:
