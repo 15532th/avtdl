@@ -10,7 +10,7 @@ Every example is meant to be a valid configuration file, that can be used standa
   * [Examples](#examples)
       * [Download livestreams from Youtube channel](#download-livestreams-from-youtube-channel)
       * [Download member-only livestreams from subscription feed](#download-member-only-livestreams-from-subscription-feed)
-      * [Monitor and download from both subscriptions feed and channels RSS feeds](#monitor-and-download-from-both-subscriptions-feed-and-channels-rss-feeds)
+      * [Monitor and download streams from both subscriptions feed and channels RSS feeds](#monitor-and-download-streams-from-both-subscriptions-feed-and-channels-rss-feeds)
       * [Download Twitcasting streams using yt-dlp](#download-twitcasting-streams-using-yt-dlp)
       * [Download FC2 streams using fc2-live-dl](#download-fc2-streams-using-fc2-live-dl)
       * [Send Jabber message about Youtube videos with specific words in the title](#send-jabber-message-about-youtube-videos-with-specific-words-in-the-title)
@@ -90,7 +90,7 @@ chains:
       - "archive"
 ```
 
-#### Monitor and download from both subscriptions feed and channels RSS feeds
+#### Monitor and download streams from both subscriptions feed and channels RSS feeds
 
 Both RSS feeds and channel pages are monitored for new uploads. All new records are then fed into the same `filter.deduplicate` entity, so that only one record (from the monitor that noticed it earlier) is generated for a new video. These records are then passed to `execute` plugin entity that runs `ytarchive` on them.
 
