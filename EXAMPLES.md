@@ -230,7 +230,7 @@ actors:
 
   xmpp:
     config:
-        xmpp_username: "bot@example.com/advl"
+        xmpp_username: "bot@example.com/avtdl"
         xmpp_pass: "bot's password"
     entities:
       - name: "user"
@@ -455,7 +455,7 @@ actors:
 
   xmpp:
     config:
-      xmpp_username: "bot@example.com/advl"
+      xmpp_username: "bot@example.com/avtdl"
       xmpp_pass: "bot's password"
     entities:
       - name: "user"
