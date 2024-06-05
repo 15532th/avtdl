@@ -437,7 +437,8 @@ actors:
     entities:
       - name: "L692Sxz3thw"
         url: "https://www.youtube.com/watch?v=L692Sxz3thw"
-        headers: '"Accept-Language": "en-US,en;q=0.9"'
+        headers: 
+          "Accept-Language": "en-US,en;q=0.9"
   
   filter.match:
     entities:
@@ -528,7 +529,7 @@ chains:
         - "another user"
     - filter.twitter:
         - "regular tweets"
-    - to_file:
+    - download:
         - "twitter images"
 ```
 
