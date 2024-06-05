@@ -66,7 +66,7 @@ actors:
     entities:
       - name: "subscriptions"
         url: "https://www.youtube.com/feed/subscriptions"
-        cookies_file: "/path/to/cookies.txt"
+        cookies_file: "cookies.txt"
         update_interval: 900
 
   filter.channel:
@@ -77,7 +77,7 @@ actors:
   execute:
     entities:
       - name: "archive"
-        command: "ytarchive --threads 3 --wait --cookies /path/to/cookies.txt {url} best"
+        command: "ytarchive --threads 3 --wait --cookies cookies.txt {url} best"
         working_dir: "archive/livestreams/{author} (member-only)/"
 
 
