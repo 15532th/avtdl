@@ -150,7 +150,7 @@ chains:
 #### Download Twitcasting streams using yt-dlp
 
 ```yaml
-avtors:
+actors:
 
   twitcast:
     defaults:
@@ -183,7 +183,7 @@ chains:
 
 
 ```yaml
-avtors:
+actors:
 
   fc2:
     entities:
@@ -254,7 +254,7 @@ chains:
 Uses `noop` filter to group records from multiple sources before sending them to a single output.
 
 ```yaml
-avtors:
+actors:
 
   twitcast:
     defaults:
