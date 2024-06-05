@@ -50,3 +50,9 @@ py-modules = ["avtdl"]
 where = ["."]
 namespaces = false
 include = ["avtdl*"]
+
+[tool.mypy]
+show_error_codes = true
+warn_unused_ignores = true
+allow_redefinition = true
+disable_error_code = ["override"]
