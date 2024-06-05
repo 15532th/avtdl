@@ -151,9 +151,9 @@ chains:
 
 #### Download Twitcasting streams using yt-dlp
 
-Channels of users `c:user` and `c:another-user` are checked for being live every 60 seconds. When channel goes live, the url gets passed to `execute` plugin entity that will start yt-dlp. Path to output directory uses template to ensure download process for each user runs in dedicated subdirectory.
+Channels of users `c:user` and `c:another-user` are checked for being live every 60 seconds. When a channel goes live, the url gets passed to `execute` plugin entity that will start yt-dlp. Path to output directory uses template to ensure download process for each user runs in dedicated subdirectory.
 
-Some streams might have limited visibility. In order to download them, cookies file from account that has appropriate permissions should be provided to monitor itself (with `cookies_file` setting) and to yt-dlp in the command line.
+Some streams might have limited visibility. In order to download them, a cookies file from an account that has appropriate permissions should be provided to the monitor (with `cookies_file` setting) and to yt-dlp in the command line.
 
 ```yaml
 actors:
@@ -187,7 +187,7 @@ chains:
 
 #### Download FC2 streams using fc2-live-dl
 
-Monitor channel of user with id `41021654`, run fc2-live-dl when it goes live. Note that while monitoring does not require login cookies, downloading certain stream might do. Providing them only requires adjusting download command in the `execute` plugin section.
+Monitor the channel with user id `41021654` and run fc2-live-dl when it goes live. Note that while monitoring does not require login cookies, downloading certain stream might do. Providing them only requires adjusting the download command in the `execute` plugin section.
 
 ```yaml
 actors:
@@ -486,7 +486,7 @@ chains:
 
 #### Store tweets and images posted by a Twitter account
 
-Tweets posted by `@specificuser` and `@anotheruser` are monitored with default update interval of 30 minutes. All tweets, along with retweets, replies and quotes, are stored to text files, but only regular tweets by the user itself are picked by filter for storing images.
+Tweets posted by `@specificuser` and `@anotheruser` are monitored with a default update interval of 30 minutes. All tweets, along with retweets, replies and quotes, are stored into text files, but only regular tweets by the user themself are picked by the filter for storing images.
 Placeholders are used in the names of the output directories and files to put each user's tweets in dedicated folder.
 
 ```yaml

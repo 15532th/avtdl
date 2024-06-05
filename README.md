@@ -480,7 +480,7 @@ When a template is used as a file name or as a path to a directory, field values
 
 ##### Providing path to a file or a directory
 
-Both absolute and relative paths can be used, with relative being resolved in a current working directory `avtdl` is run from. It is possible to use either `/` and `\\` as directory separator regardless of OS, but note that latter must be used twice. Shell variables and aliases, such as `~`, are not expanded, so full path must be provided instead.
+Both absolute and relative paths can be used, with relative being resolved in the current working directory `avtdl` is run from. It is possible to use either `/` and `\\` as directory separator regardless of OS, but note that latter must be used twice. Shell variables and aliases, such as `~`, are not expanded, so full path must be provided instead.
 
 Shell commands used in `execute` plugin entities are also run from the current working directory. Therefore executables, such as yt-dlp, must be either referenced by absolute path or present in `PATH` environment variable. Alternatively, they might be placed in the working directory itself.
 
