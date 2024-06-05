@@ -1,10 +1,10 @@
 import logging
-from collections import defaultdict, Counter
-from typing import List, OrderedDict, Callable
+from collections import Counter, defaultdict
+from typing import Callable, List, OrderedDict
 
 from pydantic import RootModel
 
-from avtdl.core.interfaces import Record, MessageBus
+from avtdl.core.interfaces import MessageBus, Record
 
 
 class ChainConfigSection(RootModel):
