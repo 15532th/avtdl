@@ -474,3 +474,100 @@ chains:
     - xmpp:
       - "user"
 ```
+
+
+#### Store tweets and images posted by a Twitter account
+
+Tweets posted by `@specificuser` and `@anotheruser` are monitored with default update interval of 30 minutes. All tweets, along with retweets, replies and quotes, are stored to text files, but only regular tweets by the user itself are picked by filter for storing images.
+Placeholders are used in the names of the output directories and files to put each user's tweets in dedicated folder.
+
+```yaml
+actors:
+
+  twitter.user:
+    defaults:
+      cookies_file: "cookies.txt"
+    entities:
+      - name: "user"
+        user: "specificuser"
+      - name: "another user"
+        user: "anotheruser"
+  
+  filter.twitter:
+    entities:
+      - name: "regular tweets"
+        regular_tweet: true
+
+  to_file:
+    defaults:
+      postfix: "\n---------------------------------------------------\n"
+      path: "archive/twitter/{author}"
+    entities:
+      - name: "tweets"
+        filename: "twitter_{username}_%Y.txt"
+
+  download:
+    entities:
+      - name: "twitter images"
+        url_field: 'images'
+        path: "archive/twitter/{author}/images/"
+        filename: '{username}_{uid}_{source_name}'
+
+chains:
+
+  "store tweets":
+    - twitter.user:
+        - "user"
+        - "another user"
+    - to_file:
+        - "tweets"
+  
+  "store images":
+    - twitter.user:
+        - "user"
+        - "another user"
+    - filter.twitter:
+        - "regular tweets"
+    - to_file:
+        - "twitter images"
+```
+
+
+#### Monitor Twitter timeline for tweets by specific users, send the tweets to Discord
+
+Monitor Home Timeline (Following tab) of the account with cookies from `cookies.txt`, use filter to pick tweets made by `@specificuser` and `@anotheruser`, and send them to Discord channel using webhook.
+
+```yaml
+actors:
+
+  twitter.home:
+    entities:
+      - name: "home timeline"
+        following: true
+        cookies_file: "cookies.txt"
+  
+  filter.twitter:
+    entities:
+      - name: "tweets by user"
+        username: "specificuser"
+      - name: "tweets by another user"
+        username: "anotheruser"
+
+  discord.hook:
+    entities:
+      - name: "my-server#tweets"
+        url: "https://discord.com/api/webhooks/..."
+
+
+chains:
+
+  "send tweets":
+    - twitter.home:
+        - "home timeline"
+    - filter.twitter:
+        - "tweets by user"
+        - "tweets by another user"
+    - discord.hook:
+        - "my-server#tweets"
+```
+
