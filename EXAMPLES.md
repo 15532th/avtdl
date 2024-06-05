@@ -19,6 +19,8 @@ Every example is meant to be a valid configuration file, that can be used standa
         * [Archive community tab](#archive-community-tab)
       * [Save Youtube video chat to a text file](#save-youtube-video-chat-to-a-text-file)
       * [Send Jabber message when channel owner comments in the chat](#send-jabber-message-when-channel-owner-comments-in-the-chat)
+      * [Store tweets and images posted by a Twitter account](#store-tweets-and-images-posted-by-a-twitter-account)
+      * [Monitor Twitter timeline for tweets by specific users, send the tweets to Discord](#monitor-twitter-timeline-for-tweets-by-specific-users-send-the-tweets-to-discord)
 <!-- TOC -->
 
 ---
