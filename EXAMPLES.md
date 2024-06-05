@@ -151,13 +151,17 @@ chains:
 
 #### Download Twitcasting streams using yt-dlp
 
+Channels of users `c:user` and `c:another-user` are checked for being live every 60 seconds. When channel goes live, the url gets passed to `execute` plugin entity that will start yt-dlp. Path to output directory uses template to ensure download process for each user runs in dedicated subdirectory.
+
+Some streams might have limited visibility. In order to download them, cookies file from account that has appropriate permissions should be provided to monitor itself (with `cookies_file` setting) and to yt-dlp in the command line.
+
 ```yaml
 actors:
 
   twitcast:
     defaults:
       update_interval: 60
-      cookies_file: "/path/to/twitcasting-cookies.txt"
+      cookies_file: "twitcasting-cookies.txt"
     entities:
       - name: "user"
         user_id: "c:user"
@@ -167,7 +171,7 @@ actors:
   execute:
     entities:
       - name: "twitcasting"
-        command: "yt-dlp --cookies /path/to/twitcasting-cookies.txt -f 220k/best {url}"
+        command: "yt-dlp --cookies twitcasting-cookies.txt -f 220k/best {url}"
         working_dir: "archive/twitcasting/{user_id}/"
 
 
@@ -183,6 +187,7 @@ chains:
 
 #### Download FC2 streams using fc2-live-dl
 
+Monitor channel of user with id `41021654`, run fc2-live-dl when it goes live. Note that while monitoring does not require login cookies, downloading certain stream might do. Providing them only requires adjusting download command in the `execute` plugin section.
 
 ```yaml
 actors:
@@ -203,7 +208,7 @@ chains:
 
   "fc2-dl":
     - fc2:
-        - "fc2user"
+      - "fc2user"
     - execute:
       - "fc2"
 ```
