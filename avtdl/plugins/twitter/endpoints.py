@@ -49,10 +49,14 @@ class RequestDetails:
 
 
 def replace_url_host(url: str, new_host: str) -> str:
-    netloc = urllib.parse.urlparse(new_host).netloc
+    netloc = get_netloc(new_host)
     parsed_url = urllib.parse.urlparse(url)
     new_url = urllib.parse.urlunparse((parsed_url.scheme, netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment))
     return new_url
+
+
+def get_netloc(host: str) -> str:
+    return urllib.parse.urlparse(host).netloc
 
 
 def get_cookie_value(jar: Union[CookieJar, aiohttp.CookieJar], name: str) -> Optional[str]:
@@ -66,8 +70,8 @@ def get_cookie_value(jar: Union[CookieJar, aiohttp.CookieJar], name: str) -> Opt
     return found[0].value
 
 
-def get_auth_headers(ct0: str) -> dict[str, Any]:
-    """ct0: value of the ct0 cookie"""
+def get_auth_headers(cookies) -> dict[str, Any]:
+    ct0 = get_cookie_value(cookies, 'ct0') or ''
     THE_API_KEY = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
     headers = {
         'authorization': THE_API_KEY,
@@ -110,8 +114,7 @@ class TwitterEndpoint(abc.ABC):
         params['variables'] = variables
         params['features'] = cls.FEATURES
 
-        ct0 = get_cookie_value(cookies, 'ct0') or ''
-        headers = get_auth_headers(ct0)
+        headers = get_auth_headers(cookies)
 
         details = RequestDetails(url=cls.URL, params=params, headers=headers, cookies=cookies)
         return details
