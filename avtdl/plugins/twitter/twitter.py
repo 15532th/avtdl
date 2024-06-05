@@ -14,12 +14,10 @@ from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, RequestDetai
 from avtdl.plugins.twitter.extractors import TwitterRecord, extract_contents, parse_tweet
 
 Plugins.register('twitter.user', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
-Plugins.register('twitter.likes', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
 Plugins.register('twitter.home', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
 
 
 @Plugins.register('twitter.user', Plugins.kind.ACTOR_CONFIG)
-@Plugins.register('twitter.likes', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('twitter.home', Plugins.kind.ACTOR_CONFIG)
 class TwitterMonitorConfig(PagedFeedMonitorConfig):
     pass
