@@ -4,6 +4,9 @@
 # Consult documentation at https://github.com/15532th/avtdl#avtdl
 # for detailed description of configuration file format.
 
+# Additional examples can be found at
+# https://github.com/15532th/avtdl/blob/master/EXAMPLES.md
+
 
 # Mandatory top-level "actors" section groups units of work, "entities",
 # of specific plugins. Parameters available for configuration of each plugin
@@ -31,7 +34,7 @@ actors:
     entities:
       - name: "ChannelName"
         url: "https://www.youtube.com/@ChannelName/community"
-        cookies_file: cookies.txt
+        cookies_file: "cookies.txt"
 
 # Filters, filter or transform data
 
