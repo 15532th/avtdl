@@ -109,14 +109,16 @@ class TwitterEndpoint(abc.ABC):
         return variables_text
 
     @classmethod
-    def prepare_for(cls, cookies, variables: str) -> RequestDetails:
+    def prepare_for(cls, host, cookies, variables: str) -> RequestDetails:
+        url = replace_url_host(cls.URL, host)
+
         params = {}
         params['variables'] = variables
         params['features'] = cls.FEATURES
 
         headers = get_auth_headers(cookies)
 
-        details = RequestDetails(url=cls.URL, params=params, headers=headers, cookies=cookies)
+        details = RequestDetails(url=url, params=params, headers=headers, cookies=cookies)
         return details
 
     @classmethod
@@ -130,23 +132,25 @@ class UserIDEndpoint(TwitterEndpoint):
     FEATURES = USER_FEATURES
 
     @classmethod
-    def prepare(cls, cookies, user_handle: str) -> RequestDetails:
+    def prepare(cls, host: str, cookies, user_handle: str) -> RequestDetails:
         user_handle = user_handle.strip('@/')
         variables = {'screen_name': user_handle, 'withSafetyModeUserFields': True}
         variables_text = json.dumps(variables)
-        return cls.prepare_for(cookies, variables_text)
+        return cls.prepare_for(host, cookies, variables_text)
 
 
 class TweetDetailEndpoint(TwitterEndpoint):
     URL = EndpointUrl.TWEET_DETAIL
 
     @classmethod
-    def prepare(cls, cookies, tweet_id: str, continuation: Optional[str] = None) -> RequestDetails:
-        variables = {'focalTweetId': tweet_id, 'with_rux_injections': False, 'includePromotedContent': True, 'withCommunity': True, 'withQuickPromoteEligibilityTweetFields': True, 'withBirdwatchNotes': True, 'withVoice': True, 'withV2Timeline': True}
+    def prepare(cls, host: str, cookies, tweet_id: str, continuation: Optional[str] = None) -> RequestDetails:
+        variables = {'focalTweetId': tweet_id, 'with_rux_injections': False, 'includePromotedContent': True,
+                     'withCommunity': True, 'withQuickPromoteEligibilityTweetFields': True, 'withBirdwatchNotes': True,
+                     'withVoice': True, 'withV2Timeline': True}
         if continuation:
             variables.update({'referrer': 'tweet', 'cursor': continuation})
         variables_text = json.dumps(variables)
-        return cls.prepare_for(cookies, variables_text)
+        return cls.prepare_for(host, cookies, variables_text)
 
 
 class LatestTimelineEndpoint(TwitterEndpoint):
@@ -162,9 +166,9 @@ class LatestTimelineEndpoint(TwitterEndpoint):
         return variables
 
     @classmethod
-    def prepare(cls, cookies, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
+    def prepare(cls, host: str, cookies, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
         variables = cls.get_variables(continuation=continuation, count=count)
-        return cls.prepare_for(cookies, variables)
+        return cls.prepare_for(host, cookies, variables)
 
 
 class TimelineEndpoint(LatestTimelineEndpoint):
@@ -183,9 +187,9 @@ class UserTweetsEndpoint(TwitterEndpoint):
         return {'includePromotedContent': True, 'withQuickPromoteEligibilityTweetFields': True, 'withVoice': True, 'withV2Timeline': True}
 
     @classmethod
-    def prepare(cls, cookies, user_id: str, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
+    def prepare(cls, host: str, cookies, user_id: str, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
         variables = cls.get_variables(user_id=user_id, count=count, continuation=continuation)
-        return cls.prepare_for(cookies, variables)
+        return cls.prepare_for(host, cookies, variables)
 
 
 class UserTweetsRepliesEndpoint(UserTweetsEndpoint):
@@ -205,7 +209,7 @@ class UserLikesEndpoint(UserTweetsEndpoint):
 
 
 def make_request(endpoint, cookies, **kwargs):
-    request = endpoint.prepare(cookies, **kwargs)
+    request = endpoint.prepare('https://twitter.com', cookies, **kwargs)
     response = requests.get(request.url, params=request.params, headers=request.headers, cookies=cookies)
     try:
         check_rate_limit_headers(response.headers)

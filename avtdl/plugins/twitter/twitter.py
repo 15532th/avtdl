@@ -10,7 +10,8 @@ from avtdl.core import utils
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, RequestDetails, TimelineEndpoint, TwitterEndpoint, UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint, get_rate_limit_delay, get_user_id
+from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, RequestDetails, TimelineEndpoint, TwitterEndpoint, \
+    UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint, get_rate_limit_delay, get_user_id
 from avtdl.plugins.twitter.extractors import TwitterRecord, extract_contents, parse_tweet
 
 Plugins.register('twitter.user', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
@@ -59,7 +60,7 @@ class TwitterMonitor(PagedFeedMonitor):
             return None, None
         records, continuation = self._parse_entries(raw_page)
         if not records:
-            # for user timeline twitter keeps responding with cursor even if there is no tweets on continuation page
+            # for user timeline Twitter keeps responding with cursor even if there is no tweets on continuation page
             continuation = None
         return records, continuation
 
@@ -120,8 +121,7 @@ class TwitterHomeMonitor(TwitterMonitor):
 
     async def _prepare_request(self, entity: TwitterHomeMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[RequestDetails]:
         endpoint = LatestTimelineEndpoint if entity.following else TimelineEndpoint
-        r = endpoint.prepare(session.cookie_jar, continuation)
-        r = r.with_base_url(entity.url)
+        r = endpoint.prepare(entity.url, session.cookie_jar, continuation)
         return r
 
 
@@ -166,14 +166,12 @@ class TwitterUserMonitor(TwitterMonitor):
             self.logger.warning(f'failed to get user id from user handle for "{entity.user}", aborting update')
             return None
         endpoint = self._pick_endpoint(entity)
-        r = endpoint.prepare(session.cookie_jar, user_id, continuation)
-        r = r.with_base_url(entity.url)
+        r = endpoint.prepare(entity.url, session.cookie_jar, user_id, continuation)
         return r
 
     async def _get_user_id(self, entity: TwitterUserMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
         if entity.user_id is None:
-            r = UserIDEndpoint.prepare(session.cookie_jar, entity.user)
-            r = r.with_base_url(entity.url)
+            r = UserIDEndpoint.prepare(entity.url, session.cookie_jar, entity.user)
             # does not check for rate x-rate-limit headers, exceeding limit is unlikely since the result is cached
             data = await utils.request_json(url=r.url, session=session, logger=self.logger, headers=r.headers, params=r.params, retry_times=3)
             if data is None:
