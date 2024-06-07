@@ -161,7 +161,7 @@ actors:
   twitcast:
     defaults:
       update_interval: 60
-      cookies_file: "twitcasting-cookies.txt"
+      cookies_file: "cookies.txt"
     entities:
       - name: "user"
         user_id: "c:user"
@@ -171,7 +171,7 @@ actors:
   execute:
     entities:
       - name: "twitcasting"
-        command: "yt-dlp --cookies twitcasting-cookies.txt -f 220k/best {url}"
+        command: "yt-dlp --cookies cookies.txt -f 220k/best {url}"
         working_dir: "archive/twitcasting/{user_id}/"
 
 
