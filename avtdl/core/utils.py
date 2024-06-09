@@ -412,6 +412,8 @@ class Fmt:
                     result = result.replace(placeholder, missing)
                 else:
                     logger.warning(f'placeholder "{placeholder}" used by format string "{fmt}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
+        result = result.replace(r'\{', '{')
+        result = result.replace(r'\}', '}')
         return result
 
     @classmethod
