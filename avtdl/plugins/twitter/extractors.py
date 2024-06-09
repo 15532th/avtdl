@@ -1,10 +1,11 @@
 import datetime
 import json
 import logging
+import re
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter_ns
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import dateutil.parser
 from pydantic import BaseModel
@@ -192,7 +193,7 @@ def extract_contents(data: str) -> Tuple[List[dict], Optional[str]]:
     return tweets, continuation
 
 
-def parse_tweet(tweet_results: dict):
+def parse_tweet(tweet_results: dict) -> TwitterRecord:
     tweet_result = tweet_results.get('result')
     if tweet_result is None:
         raise ValueError(f'failed to parse tweet: no "result"')
@@ -230,8 +231,17 @@ def parse_tweet(tweet_results: dict):
     if retweet is not None:
         text = retweet.text
 
-    quote_tesult = tweet_result.get('quoted_status_result')
-    quote = parse_tweet(quote_tesult) if quote_tesult else None
+    quote_tesults = tweet_result.get('quoted_status_result') or {}
+    quote_tesult = quote_tesults.get('result') or {}
+    if quote_tesult.get('__typename') == 'Tweet':
+        quote: Optional[TwitterRecord] = parse_tweet(quote_tesults)
+    elif quote_tesult.get('__typename') == 'TweetTombstone':
+        quote = parse_quoted_tombstone(tweet_result)
+    elif legacy.get('quoted_status_id_str'):
+        # 'quoted_status_result' might be empty despite quote fields being present in 'legacy'
+        quote = parse_quoted_tombstone(tweet_result)
+    else:
+        quote = None
 
     tweet = TwitterRecord(
         uid=rest_id,
@@ -249,6 +259,33 @@ def parse_tweet(tweet_results: dict):
         quote=quote
     )
     return tweet
+
+
+def parse_quoted_tombstone(tweet_result: dict) -> Optional[TwitterRecord]:
+    """given valid tweet that quotes tombstone, try to extract some data on the tombstone"""
+    try:
+        text = tweet_result['quoted_status_result']['result']['tombstone']['text']['text']
+    except (KeyError, TypeError):
+        text = 'Tweet content is unavailable'
+
+    try:
+        legacy = tweet_result['legacy']
+        url = legacy['quoted_status_permalink']['expanded']
+        rest_id = legacy['quoted_status_id_str']
+        published = tweet_timestamp(rest_id) or datetime.datetime.fromtimestamp(0, tz=datetime.timezone.utc)
+
+        username_match = re.search(r'/([^/]+)/status/\d+', url)
+        username = username_match.groups()[0] if username_match else 'username_missing'
+    except Exception:
+        return None
+
+    return TwitterRecord(
+        uid=rest_id,
+        url=url,
+        author=username,
+        username=username,
+        published=published,
+        text=text)
 
 
 def parse_media(tweet_result: dict) -> Tuple[List[str], List[str], List[str]]:
@@ -302,6 +339,14 @@ def tweet_text(tweet_result: dict) -> str:
         except KeyError:
             pass
     return text
+
+
+def tweet_timestamp(tweet_id: Union[str, int]) -> Optional[datetime.datetime]:
+    try:
+        timestamp = ((int(tweet_id) >> 22) + 1288834974657) / 1000
+        return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
+    except Exception:
+        return None
 
 
 def parse_timeline(text: str) -> Tuple[List[TwitterRecord], Optional[str]]:
