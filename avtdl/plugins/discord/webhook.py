@@ -101,15 +101,16 @@ class DiscordWebhook:
             self.logger.debug(f'Retry-After header is set to {delay}')
         else:
             remaining = headers.get('X-RateLimit-Remaining', '0')
-            self.logger.debug(f'X-RateLimit-Remaining={remaining}')
-            if remaining == '0':
-                delay = headers.get('X-RateLimit-Reset-After', 'no X-RateLimit-Reset-After header in response')
-                self.logger.debug(f'X-RateLimit-Reset-After={delay}')
+            reset_after = headers.get('X-RateLimit-Reset-After')
+            bucket = headers.get('X-RateLimit-Bucket')
+            self.logger.debug(f'X-RateLimit-Remaining: {remaining}, X-RateLimit-Reset-After: {reset_after}, X-RateLimit-Bucket: {bucket}')
+            if remaining in ['0', '1']:
+                delay = reset_after
             else:
                 delay = 0
         try:
             delay = int(delay)
-        except ValueError:
+        except (ValueError, TypeError):
             self.logger.debug(f'failed to parse delay {delay} for {self.hook_url}, using default')
             delay = 6
         return delay
