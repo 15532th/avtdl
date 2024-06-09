@@ -46,7 +46,7 @@ class TwitterMonitor(PagedFeedMonitor):
         raw_page = await self._get_page(entity, session, continuation=None)
         if raw_page is None:
             return None, None
-        records, continuation = self._parse_entries(raw_page)
+        records, continuation = await self._parse_entries(raw_page)
         if not records:
             continuation = None
         return records, continuation
@@ -58,7 +58,7 @@ class TwitterMonitor(PagedFeedMonitor):
         raw_page = await self._get_page(entity, session, continuation)
         if raw_page is None:
             return None, None
-        records, continuation = self._parse_entries(raw_page)
+        records, continuation = await self._parse_entries(raw_page)
         if not records:
             # for user timeline Twitter keeps responding with cursor even if there is no tweets on continuation page
             continuation = None
@@ -88,8 +88,9 @@ class TwitterMonitor(PagedFeedMonitor):
         page = await response.text()
         return page
 
-    def _parse_entries(self, page: str) -> Tuple[List[TwitterRecord], Optional[str]]:
+    async def _parse_entries(self, page: str) -> Tuple[List[TwitterRecord], Optional[str]]:
         raw_tweets, continuation = extract_contents(page)
+        await asyncio.sleep(0)
         records = []
         for tweet_result in raw_tweets:
             try:
