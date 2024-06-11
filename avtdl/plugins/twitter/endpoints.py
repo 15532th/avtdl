@@ -138,6 +138,10 @@ class UserIDEndpoint(TwitterEndpoint):
         variables_text = json.dumps(variables)
         return cls.prepare_for(host, cookies, variables_text)
 
+    @staticmethod
+    def get_user_id(data: dict) -> Optional[str]:
+        return find_one(data, '$.data.user.result.rest_id')
+
 
 class TweetDetailEndpoint(TwitterEndpoint):
     URL = EndpointUrl.TWEET_DETAIL

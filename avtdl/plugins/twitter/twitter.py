@@ -11,7 +11,7 @@ from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, RequestDetails, TimelineEndpoint, TwitterEndpoint, \
-    UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint, get_rate_limit_delay, get_user_id
+    UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint, get_rate_limit_delay
 from avtdl.plugins.twitter.extractors import TwitterRecord, extract_contents, parse_tweet
 
 Plugins.register('twitter.user', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
@@ -177,6 +177,6 @@ class TwitterUserMonitor(TwitterMonitor):
             data = await utils.request_json(url=r.url, session=session, logger=self.logger, headers=r.headers, params=r.params, retry_times=3)
             if data is None:
                 return None
-            user_id = get_user_id(data)
+            user_id = UserIDEndpoint.get_user_id(data)
             entity.user_id = user_id
         return entity.user_id
