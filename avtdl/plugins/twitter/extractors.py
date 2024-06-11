@@ -8,8 +8,9 @@ from time import perf_counter_ns
 from typing import List, Optional, Tuple, Union
 
 import dateutil.parser
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
+from avtdl.core.config import format_validation_error
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.utils import find_one
 
@@ -71,7 +72,6 @@ class TwitterRecord(Record):
             elements.append(str(tweet.quote))
         return '\n'.join(elements)
 
-
     def discord_embed(self) -> List[dict]:
         text_items = [self.text]
         if len(self.attachments) > 1:
@@ -83,7 +83,7 @@ class TwitterRecord(Record):
 
         if self.retweet is not None:
             author = f'[{self.published.strftime("%Y-%m-%d %H:%M:%S")}] {self.author} (@{self.username}) has retweeted:'
-            title =  f'{self.retweet.author} ({self.retweet.username})'
+            title = f'{self.retweet.author} ({self.retweet.username})'
             if self.replying_to_username:
                 title += f', replying to @{self.replying_to_username}:'
             avatar = self.retweet.avatar_url
@@ -117,6 +117,14 @@ class TwitterRecord(Record):
         else:
             embeds = [embed]
         return embeds
+
+    def space_id(self) -> Optional[str]:
+        """if tweet text contains Twitter Space url, return its rest_id"""
+        rest_id_match = re.search(r'/i/spaces/([0-9a-zA-Z]+)/?', self.text)
+        if rest_id_match is None:
+            return None
+        return rest_id_match.groups()[0]
+
 
 class UserInfo(BaseModel):
     rest_id: str
@@ -342,12 +350,22 @@ def tweet_text(tweet_result: dict) -> str:
     return text
 
 
+def maybe_date(timestamp: Optional[int]) -> Optional[datetime.datetime]:
+    if timestamp is None:
+        return None
+    try:
+        date = datetime.datetime.fromtimestamp(timestamp / 1000, tz=datetime.timezone.utc)
+        return date
+    except Exception:
+        return None
+
+
 def tweet_timestamp(tweet_id: Union[str, int]) -> Optional[datetime.datetime]:
     try:
         tweet_id = int(tweet_id)
     except ValueError:
         return None
-    if tweet_id < 30_000_000_000: # old incremental id
+    if tweet_id < 30_000_000_000:  # old incremental id
         return None
     try:
         timestamp = ((tweet_id >> 22) + 1288834974657) / 1000
@@ -363,6 +381,80 @@ def parse_timeline(text: str) -> Tuple[List[TwitterRecord], Optional[str]]:
         tweet = parse_tweet(tweet_result)
         tweets.append(tweet)
     return tweets, continuation
+
+
+def parse_space(data: dict) -> Optional['TwitterSpaceRecord']:
+    metadata = find_one(data, '$..metadata')
+    if metadata is None:
+        raise ValueError(f'failed to parse space: no metadata found')
+    try:
+        user_result = metadata['creator_results']['result']
+        user = UserInfo.from_result(user_result)
+    except (KeyError, TypeError):
+        raise ValueError(f'failed to parse space: no creator_result found')
+    except ValidationError as e:
+        err = format_validation_error(e)
+        raise ValueError(f'failed to parse space author details: {err}')
+    try:
+        uid = metadata['rest_id']
+        record = TwitterSpaceRecord(
+            uid=uid,
+            url=f'https://twitter.com/i/spaces/{uid}',
+            state=metadata['state'],
+            media_key=metadata['media_key'],
+            title=metadata['title'],
+            author=user.name,
+            username=user.handle,
+            avatar_url=user.avatar_url,
+            published=maybe_date(metadata.get('created_at')) or datetime.datetime.now(tz=datetime.timezone.utc),
+            scheduled=maybe_date(metadata.get('scheduled_start')),
+            started=maybe_date(metadata.get('started_at')),
+            ended=maybe_date(metadata.get('ended_at')),
+            updated=maybe_date(metadata.get('updated_at'))
+        )
+    except (KeyError, TypeError):
+        raise ValueError(f'failed to parse space')
+    except ValidationError as e:
+        err = format_validation_error(e)
+        raise ValueError(f'failed to parse space: {err}')
+    return record
+
+
+class TwitterSpaceRecord(Record):
+    uid: str
+    """space id"""
+    url: str
+    """url of the space"""
+    state: str
+    """description of current status of a space: upcoming, ongoing, ended"""
+    media_key: str
+    """id that can be used to fetch url of the underlying HLS stream"""
+    title: str
+    """space title"""
+    author: str
+    """user's visible name"""
+    username: str
+    """user's handle"""
+    avatar_url: Optional[str] = None
+    """link to the picture used as the user's avatar"""
+    published: datetime.datetime
+    """timestamp of the space creation"""
+    scheduled: Optional[datetime.datetime] = None
+    """scheduled time for an upcoming space to start at, otherwise absent"""
+    started: Optional[datetime.datetime] = None
+    """timestamp of the space start, empty for upcoming spaces"""
+    ended: Optional[datetime.datetime] = None
+    """timestamp of the space end, empty for not yet ended spaces"""
+    updated: Optional[datetime.datetime] = None
+    """timestamp of the last update"""
+
+    def __str__(self) -> str:
+        header = f'[{self.published.strftime("%Y-%m-%d %H:%M:%S")}] Twitter Space by {self.author} (@{self.username}) [{self.state}]'
+        scheduled = f'\nscheduled at {self.scheduled}' if self.scheduled else ''
+        return f'{self.url}\n{header}\n{self.title}{scheduled}'
+
+    def __repr__(self):
+        return f'TwitterSpaceRecord(author="{self.author}", url="{self.url}")'
 
 
 def main():
