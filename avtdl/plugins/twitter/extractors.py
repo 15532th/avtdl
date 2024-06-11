@@ -215,7 +215,8 @@ def parse_tweet(tweet_results: dict) -> TwitterRecord:
     url = f'https://twitter.com/{user.handle}/status/{rest_id}'
 
     legacy = tweet_result['legacy']
-    published = dateutil.parser.parse(legacy['created_at'])
+
+    published = tweet_timestamp(rest_id) or dateutil.parser.parse(legacy['created_at'])
 
     try:
         text = tweet_text(tweet_result)
@@ -343,7 +344,13 @@ def tweet_text(tweet_result: dict) -> str:
 
 def tweet_timestamp(tweet_id: Union[str, int]) -> Optional[datetime.datetime]:
     try:
-        timestamp = ((int(tweet_id) >> 22) + 1288834974657) / 1000
+        tweet_id = int(tweet_id)
+    except ValueError:
+        return None
+    if tweet_id < 30_000_000_000: # old incremental id
+        return None
+    try:
+        timestamp = ((tweet_id >> 22) + 1288834974657) / 1000
         return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
     except Exception:
         return None
