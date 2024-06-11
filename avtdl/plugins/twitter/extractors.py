@@ -350,10 +350,11 @@ def tweet_text(tweet_result: dict) -> str:
     return text
 
 
-def maybe_date(timestamp: Optional[int]) -> Optional[datetime.datetime]:
+def maybe_date(timestamp: Union[int, str, None]) -> Optional[datetime.datetime]:
     if timestamp is None:
         return None
     try:
+        timestamp = int(timestamp)
         date = datetime.datetime.fromtimestamp(timestamp / 1000, tz=datetime.timezone.utc)
         return date
     except Exception:
