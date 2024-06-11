@@ -238,18 +238,6 @@ class UserLikesEndpoint(UserTweetsEndpoint):
         return {'includePromotedContent': False, 'withClientEventToken': False, 'withBirdwatchNotes': False, 'withVoice': True, 'withV2Timeline': True}
 
 
-def make_request(endpoint, cookies, **kwargs):
-    request = endpoint.prepare('https://twitter.com', cookies, **kwargs)
-    response = requests.get(request.url, params=request.params, headers=request.headers, cookies=cookies)
-    try:
-        check_rate_limit_headers(response.headers)
-        response.raise_for_status()
-    except Exception as e:
-        raise
-    data = response.json()
-    return data
-
-
 def get_rate_limit_delay(headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: Optional[logging.Logger] = None) -> int:
     logger = logger or logging.getLogger().getChild('twitter_endpoints')
     try:
@@ -272,11 +260,3 @@ def get_continuation(data: dict) -> Optional[str]:
     continuation = entries[-1]['value']
     return continuation
 
-
-def get_user_id(data: dict) -> Optional[str]:
-    return find_one(data, '$.data.user.result.rest_id')
-
-
-def store(name: str, data):
-    with open(name, 'wt', encoding='utf8') as fp:
-        json.dump(data, fp, indent=4, ensure_ascii=False)
