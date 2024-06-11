@@ -173,6 +173,10 @@ class FeedMonitor(GenericRSSMonitor):
     def __init__(self, conf: FeedMonitorConfig, entities: Sequence[FeedMonitorEntity]):
         super().__init__(conf, entities)
 
+    async def get_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeFeedRecord]:
+        records = await super().get_records(entity, session)
+        return records
+
     async def get_new_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeFeedRecord]:
         records = await self.get_records(entity, session)
         new_records = []
