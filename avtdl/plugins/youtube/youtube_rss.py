@@ -12,8 +12,8 @@ from avtdl.core.config import Plugins
 from avtdl.core.db import BaseRecordDB
 from avtdl.core.interfaces import Record
 from avtdl.plugins.rss.generic_rss import GenericRSSMonitor, GenericRSSMonitorConfig, GenericRSSMonitorEntity
-from avtdl.plugins.youtube import video_info
 from avtdl.plugins.youtube.common import thumbnail_url
+from avtdl.plugins.youtube.video_info import VideoInfoError, parse_video_page
 
 
 @Plugins.register('rss', Plugins.kind.ASSOCIATED_RECORD)
@@ -44,16 +44,21 @@ class YoutubeFeedRecord(Record):
     scheduled: Optional[datetime] = None
     """scheduled time for an upcoming livestream to start at, otherwise absent"""
 
-    async def check_scheduled(self, session: Optional[aiohttp.ClientSession] = None):
+    async def check_scheduled(self, session: Optional[aiohttp.ClientSession] = None, logger: Optional[logging.Logger] = None):
+        scheduled = None
         if self.views == 0:
+            logger = logger or logging.getLogger().getChild('check_scheduled')
             try:
-                info = await video_info.aget_video_info(self.url, session)
+                page = await utils.request(self.url, session, logger)
+                if page is None:
+                    raise VideoInfoError('failed to fetch video page')
+                info = parse_video_page(page, self.url)
                 scheduled = info.scheduled
+            except VideoInfoError as e:
+                logger.warning(f'Error while trying to check scheduled date of {self.url}, skipping')
+                logger.warning(f'{e}')
             except Exception:
-                logging.exception('Exception while trying to get "scheduled" field, skipping')
-                scheduled = None
-        else:
-            scheduled = None
+                logger.exception(f'Error while trying to check scheduled date of {self.url}, skipping')
         self.scheduled = scheduled
 
     def __str__(self):
@@ -177,13 +182,13 @@ class FeedMonitor(GenericRSSMonitor):
         for record in records:
             previous = self.load_record(record, entity)
             if previous is None:
-                await record.check_scheduled(session)
+                await record.check_scheduled(session, self.logger)
                 continue
             if not entity.track_reschedule:
                 continue
             if previous is not None and previous.scheduled is not None:
                 self.logger.debug(f'{record.video_id=} has last {previous.scheduled=}, updating')
-                await record.check_scheduled(session)
+                await record.check_scheduled(session, self.logger)
                 if record.scheduled is None:
                     continue
                 if record.scheduled < previous.scheduled:

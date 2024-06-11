@@ -10,14 +10,18 @@ import aiohttp
 from pydantic import BaseModel, Field
 
 
-class LoginRequiredError(ValueError):
-    '''Raised when video page returns no data aside
+class VideoInfoError(ValueError):
+    """Error fetching or parsing video info"""
+
+
+class LoginRequiredError(VideoInfoError):
+    """Raised when video page returns no data aside
     from {'playability_status': 'LOGIN_REQUIRED'},
-    which usually indicated video being private'''
+    which usually indicated video being private"""
 
 
-class VideoErrorError(ValueError):
-    '''Raised when video page returns {'playability_status': 'ERROR'}'''
+class VideoPlayabilityError(VideoInfoError):
+    """Raised when video page returns {'playability_status': 'ERROR'}"""
 
 
 class VideoFormat(BaseModel):
@@ -249,10 +253,11 @@ def parse_video_page(page: str, url: str) -> VideoInfo:
     response = get_initial_player_response(page)
     data = parse_player_response(response)
     data['url'] = url
-    if data['playability_status'] == 'LOGIN_REQUIRED' and data.get('playability_reason') is None:
-        raise LoginRequiredError(f'Video is likely private: {url}. Raw data: {data}')
+    if data['playability_status'] == 'LOGIN_REQUIRED':
+        reason = data.get('playability_reason') or f'Video might be private. Raw data: {data}'
+        raise LoginRequiredError(f'Video info for {url} unavailable: login required. {reason}')
     if data['playability_status'] == 'ERROR':
-        raise VideoErrorError(f'Video was deleted or never existed: {url} . Raw data: {data}')
+        raise VideoPlayabilityError(f'Video was deleted or never existed: {url} . Raw data: {data}')
     info = VideoInfo(**data)
     return info
 
