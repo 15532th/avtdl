@@ -73,12 +73,14 @@ class TwitterRecord(Record):
         return '\n'.join(elements)
 
     def discord_embed(self) -> List[dict]:
+        quote = self.quote if self.retweet is None else self.retweet.quote
+
         text_items = [self.text]
         if len(self.attachments) > 1:
             text_items.extend(self.attachments)
-        if self.quote:
+        if quote:
             text_items.append('\nReferring to ')
-            text_items.append(str(self.quote))
+            text_items.append(str(quote))
         text = '\n'.join(text_items)
 
         if self.retweet is not None:
@@ -110,8 +112,8 @@ class TwitterRecord(Record):
             images = format_attachments(self.url, self.attachments)
             embed['image'] = images.pop(0)['image']
             embeds = [embed, *images]
-        elif self.quote and self.quote.attachments:
-            images = format_attachments(self.quote.url, self.quote.attachments)
+        elif quote and quote.attachments:
+            images = format_attachments(quote.url, quote.attachments)
             embed['image'] = images.pop(0)['image']
             embeds = [embed, *images]
         else:
