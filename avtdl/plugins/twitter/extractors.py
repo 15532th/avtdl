@@ -246,7 +246,7 @@ def parse_tweet(tweet_results: dict) -> TwitterRecord:
         quote: Optional[TwitterRecord] = parse_tweet(quote_tesults)
     elif quote_tesult.get('__typename') == 'TweetTombstone':
         quote = parse_quoted_tombstone(tweet_result)
-    elif legacy.get('quoted_status_id_str'):
+    elif legacy.get('quoted_status_id_str') and not retweet:
         # 'quoted_status_result' might be empty despite quote fields being present in 'legacy'
         quote = parse_quoted_tombstone(tweet_result)
     else:
