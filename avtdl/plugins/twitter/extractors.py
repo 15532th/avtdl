@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter_ns
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import dateutil.parser
 from pydantic import BaseModel, ValidationError
@@ -229,9 +229,9 @@ def parse_tweet(tweet_results: dict) -> TwitterRecord:
     published = tweet_timestamp(rest_id) or dateutil.parser.parse(legacy['created_at'])
 
     try:
-        text = tweet_text(tweet_result)
+        text = note_text(tweet_result) or tweet_text(tweet_result)
     except Exception as e:
-        raise ValueError(f'failed to parse tweet: {e}')
+        raise ValueError(f'failed to parse tweet text: {e}')
 
     attachments, images, videos = parse_media(tweet_result) or []
 
@@ -330,6 +330,15 @@ def parse_media(tweet_result: dict) -> Tuple[List[str], List[str], List[str]]:
     return attachments, images, videos
 
 
+def replace_urls(text: str, urls: List[Dict[str, str]]) -> str:
+    for url in urls:
+        try:
+            text = text.replace(url['url'], url['expanded_url'])
+        except KeyError:
+            pass
+    return text
+
+
 def tweet_text(tweet_result: dict) -> str:
     try:
         legacy = tweet_result['legacy']
@@ -338,17 +347,33 @@ def tweet_text(tweet_result: dict) -> str:
     except (KeyError, TypeError) as e:
         raise ValueError(f'failed to parse tweet text: no {e} found')
     urls = entities.get('urls', [])
-    for url in urls:
-        try:
-            text = text.replace(url['url'], url['expanded_url'])
-        except KeyError:
-            pass
+    text = replace_urls(text, urls)
     img_urls = entities.get('media', [])
+    # remove media links from the bottom of the tweet
     for url in img_urls:
         try:
-            text = text.replace(url['url'], '\n' + url['expanded_url'])
+            text = text.replace(url['url'], '')
         except KeyError:
             pass
+    return text
+
+
+def note_text(tweet_result: dict) -> Optional[str]:
+    note = tweet_result.get('note_tweet')
+    if note is None:
+        return None
+    try:
+        result = note['note_tweet_results']['result']
+    except (KeyError, TypeError):
+        local_logger.debug(f'failed to parse note_tweet: no result. Raw tweet_result: "{tweet_result}"')
+        return None
+    text = result.get('text')
+    if text is None:
+        local_logger.debug(f'failed to parse note_tweet: no text. Raw tweet_result: "{tweet_result}"')
+        return None
+    urls = result.get('entity_set', {}).get('urls', [])
+    if urls:
+        text = replace_urls(text, urls)
     return text
 
 
