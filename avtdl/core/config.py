@@ -35,7 +35,6 @@ def try_parsing(func):
     return wrapper
 
 class SettingsSection(BaseModel):
-    plugins_directory: str = 'plugins'
     log_directory: Path = Path('logs')
     logfile_size: int = 1000000
     logfile_level: LogLevel = LogLevel.debug
@@ -128,7 +127,7 @@ class ConfigParser:
         config = Config(**conf)
 
         configure_loggers(config.settings)
-        Plugins.load(config.settings.plugins_directory)
+        Plugins.load()
 
         # after that entities transformation and specific plugins validation can be safely performed
         flatted_conf = cls.flatten_config(config)

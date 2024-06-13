@@ -57,7 +57,7 @@ class Plugins:
         return wrapper
 
     @classmethod
-    def load(cls, directory='plugins'):
+    def load(cls):
         from avtdl import plugins
         for item in Path(plugins.__file__).parent.glob('*'):
             if item.stem.startswith('__'):
