@@ -70,24 +70,24 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
     and was parsed successfully
     """
 
-    def get_expires_from_cache_control(headers) -> Optional[datetime.datetime]:
+    def get_expires_from_cache_control(headers: multidict.CIMultiDictProxy) -> Optional[datetime.datetime]:
         try:
-            cache_control = headers.get('Cache-control')
-            max_age = re.search('max-age=(\d+)', cache_control)
+            cache_control = headers.get('Cache-Control', '')
+            [max_age] = re.findall('max-age=(\d+)', cache_control, re.IGNORECASE)
             max_age_value = datetime.timedelta(seconds=int(max_age))
 
-            last_modified = headers.get('Last-Modified')
+            last_modified = headers.get('Last-Modified', '')
             last_modified_value = parsedate_to_datetime(last_modified)
 
             expires = last_modified_value + max_age_value
             return expires
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, IndexError):
             return None
 
-    def get_expires_from_expires_header(headers) -> Optional[datetime.datetime]:
+    def get_expires_from_expires_header(headers: multidict.CIMultiDictProxy) -> Optional[datetime.datetime]:
         try:
             expires_header = headers.get('Expires')
-            if expires_header == '0':
+            if expires_header is None or expires_header == '0':
                 return None
             expires_value = parsedate_to_datetime(expires_header)
             return expires_value
