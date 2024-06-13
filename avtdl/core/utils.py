@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import hashlib
-import http
+import http.cookies
 import json
 import logging
 import os
@@ -48,10 +48,10 @@ def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional
 
 def convert_cookiejar(cookie_jar: cookiejar.CookieJar) -> aiohttp.CookieJar:
     """convert cookie jar produced by stdlib to format used by aiohttp"""
-    cookies = http.cookies.BaseCookie()
+    cookies: http.cookies.BaseCookie = http.cookies.BaseCookie()
     for cookie in cookie_jar:
         name = cookie.name
-        cookies[name] = cookie.value
+        cookies[name] = cookie.value or ''
         cookies[name]['domain'] = cookie.domain
         cookies[name]['path'] = cookie.path
         cookies[name]['expires'] = str(cookie.expires)
