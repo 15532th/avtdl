@@ -75,7 +75,7 @@ class CachedFile(BaseModel):
     size: int
     metadata_name: Path
     local_name: Path
-    source_name: Optional[Path] = None
+    source_name: Optional[str] = None
     response_headers: dict
 
     @classmethod
@@ -130,7 +130,7 @@ class FileStorage:
         if not file.exists():
             return None
         base_name = self._get_filename_prefix(info.url)
-        extension = info.source_name.suffix if info.source_name else ''
+        extension = info.extension or ''
         local_info = CachedFile(
             url=info.url,
             source_name=info.source_name,
