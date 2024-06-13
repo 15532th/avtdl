@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import aiohttp
 
@@ -66,7 +66,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         original_post = str(self.original_post) if self.original_post else ''
         text = '\n'.join([self.full_text, attachments, video, original_post])
 
-        embed = {
+        embed: Dict[str, Any] = {
             'title': self.post_id,
             'description': text,
             'url': post_url,

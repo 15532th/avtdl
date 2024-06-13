@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 from textwrap import shorten
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import aiohttp
 from pydantic import Field
@@ -94,7 +94,7 @@ class YoutubeChatRecord(Record):
             author += ' [{}]'.format(', '.join(self.badges))
         if self.amount:
             author += f' [{self.amount}]'
-        embed = {
+        embed: Dict[str, Any] = {
             'title': self.banner_header,
             'description': self._body_text(),
             'url': None,

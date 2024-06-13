@@ -1,7 +1,7 @@
 import datetime
 import json
 from json import JSONDecodeError
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import aiohttp
 from pydantic import Field, ValidationError
@@ -76,7 +76,7 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
         return template.format(self.author or 'Unknown author', self.video_id, self.title[:60])
 
     def discord_embed(self) -> dict:
-        embed = {
+        embed: Dict[str, Any] = {
             'title': self.title,
             # 'description': ,
             'url': self.url,
