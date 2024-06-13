@@ -184,7 +184,7 @@ class NitterMonitor(PagedFeedMonitor):
         return records, next_page_url
 
     async def handle_next_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
-        next_page_url: Optional[str] = context  # type: ignore
+        next_page_url: Optional[str] = context
         if next_page_url is None:
             return None, None
         raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=3, retry_multiplier=2, retry_delay=5)

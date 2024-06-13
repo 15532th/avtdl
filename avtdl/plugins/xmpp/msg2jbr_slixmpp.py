@@ -55,7 +55,7 @@ class MSG2JBR:
             await asyncio.sleep(1)
 
 
-class JabberClient(slixmpp.ClientXMPP):  # type: ignore
+class JabberClient(slixmpp.ClientXMPP):
 
     def __init__(self, username: str, passwd: str, logger: Optional[logging.Logger] = None) -> None:
         super().__init__(username, passwd)
@@ -78,7 +78,7 @@ class JabberClient(slixmpp.ClientXMPP):  # type: ignore
             await self.get_roster()
             while True:
                 line: Line = await asyncio.wait_for(self.send_query.get(), DISCONNECT_AFTER_DONE_DELAY)
-                recipient = slixmpp.JID(line.recipient)  # type: ignore
+                recipient = slixmpp.JID(line.recipient)
                 self.send_message(mto=recipient, mbody=line.message, mtype='chat')
                 self.logger.debug(f'sending message: {str(line)[:90]}')
                 if self.send_query.empty():
