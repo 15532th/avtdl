@@ -3,7 +3,7 @@ import json
 from collections import OrderedDict
 from typing import List, Optional, Sequence
 
-import dateutil
+import dateutil.tz
 from pydantic import Field, field_validator
 
 from avtdl.core.config import Plugins

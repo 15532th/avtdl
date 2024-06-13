@@ -7,7 +7,7 @@ from hashlib import sha1
 from textwrap import shorten
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-import dateutil
+import dateutil.tz
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator
 
 MAX_REPR_LEN = 60
