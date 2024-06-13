@@ -200,7 +200,7 @@ class VideosMonitor(PagedFeedMonitor):
                 info = parse_video_renderer(item, owner_info, raise_on_error=True)
                 record = YoutubeVideoRecord.model_validate(info.model_dump())
                 records.append(record)
-            except (ValueError, JSONDecodeError, ValidationError) as e:
+            except (AttributeError, ValueError, JSONDecodeError, ValidationError) as e:
                 self.logger.warning(f'[{entity.name}] failed to parse video renderer on "{entity.url}": {type(e)}: {e}')
                 self.logger.debug(f'[{entity.name}] raw video renderer:\n{item}')
                 continue
