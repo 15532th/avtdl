@@ -11,7 +11,7 @@ from pydantic import Field, FilePath, field_validator, model_validator
 
 from avtdl.core.db import BaseRecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record
-from avtdl.core.utils import Delay, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, \
+from avtdl.core.utils import Delay, SessionStorage, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, \
     monitor_tasks, show_diff
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
@@ -138,8 +138,8 @@ class HttpTaskMonitor(BaseTaskMonitor):
     the same cookies file will share session'''
 
     def __init__(self, conf: ActorConfig, entities: Sequence[HttpTaskMonitorEntity]):
-        self.sessions: Dict[str, aiohttp.ClientSession] = {}
         super().__init__(conf, entities)
+        self.sessions: SessionStorage = SessionStorage(self.logger)
 
     async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, json: Optional[Any] = None) -> Optional[str]:
         response = await self.request_raw(url, entity, session, method, headers, params, data, json)
@@ -216,24 +216,24 @@ class HttpTaskMonitor(BaseTaskMonitor):
         return response
 
     def _get_session(self, entity: HttpTaskMonitorEntity) -> aiohttp.ClientSession:
-        session_id = str((entity.cookies_file, entity.headers))
-        session = self.sessions.get(session_id)
+        session_id = self.sessions.get_session_id(entity.cookies_file, entity.headers)
+        session = self.sessions.get_session_by_id(session_id)
         if session is None:
-            netscape_cookies = load_cookies(entity.cookies_file)
-            cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
-            session = aiohttp.ClientSession(cookie_jar=cookies, headers=entity.headers)
-            self.sessions[session_id] = session
+            session = self.sessions.get_session(entity.cookies_file, entity.headers)
         else:
             self.logger.debug(f'[{entity.name}] reusing session with cookies from {session_id}')
         return session
 
+    async def run(self):
+        self.sessions.run()
+        await super().run()
+
     async def run_for(self, entity: HttpTaskMonitorEntity):
         try:
             session = self._get_session(entity)
-            async with session:
-                while True:
-                    await self.run_once(entity, session)
-                    await asyncio.sleep(entity.update_interval)
+            while True:
+                await self.run_once(entity, session)
+                await asyncio.sleep(entity.update_interval)
         except Exception:
             self.logger.exception(f'unexpected error in task for entity {entity.name}, task terminated')
 
