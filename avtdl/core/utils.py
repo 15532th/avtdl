@@ -14,7 +14,7 @@ from math import log2
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter_ns
-from typing import Any, Callable, Dict, Hashable, Iterable, List, Optional, Union
+from typing import Any, Callable, Dict, Hashable, Iterable, List, Optional, Tuple, Union
 
 import aiohttp
 import lxml.html
@@ -349,6 +349,16 @@ class LRUCache:
 
 
 def find_matching_field(record: Record, pattern: str, fields: Optional[List[str]] = None) -> Optional[str]:
+    name, _ = find_matching_field_name_and_value(record, pattern, fields)
+    return name
+
+
+def find_matching_field_value(record: Record, pattern: str, fields: Optional[List[str]] = None) -> Optional[str]:
+    _, value = find_matching_field_name_and_value(record, pattern, fields)
+    return value
+
+
+def find_matching_field_name_and_value(record: Record, pattern: str, fields: Optional[List[str]] = None) -> Tuple[Optional[str], Optional[Any]]:
     """
     Return name of the first field of the record that contains pattern,
     return None if nothing found. If fields value specified only check
@@ -358,13 +368,13 @@ def find_matching_field(record: Record, pattern: str, fields: Optional[List[str]
         if fields is not None and field not in fields:
             continue
         if isinstance(value, Record):
-            subrecord_search_result = find_matching_field(value, pattern)
+            subrecord_search_result = find_matching_field_name_and_value(value, pattern)
             if subrecord_search_result is not None:
                 return subrecord_search_result
         else:
             if str(value).find(pattern) > -1:
-                return field
-    return None
+                return field, value
+    return None, None
 
 
 def record_has_text(record: Record, text: str) -> bool:
