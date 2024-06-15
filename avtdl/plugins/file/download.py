@@ -10,7 +10,7 @@ from pydantic import AnyUrl, Field, FilePath, RootModel, ValidationError, field_
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import Fmt, check_dir, convert_cookiejar, load_cookies, monitor_tasks, sanitize_filename, sha1
+from avtdl.core.utils import Fmt, SessionStorage, check_dir, monitor_tasks, sanitize_filename, sha1
 
 
 @Plugins.register('download', Plugins.kind.ACTOR_CONFIG)
@@ -89,6 +89,7 @@ class FileDownload(Action):
         super().__init__(conf, entities)
         self.concurrency_limit = asyncio.BoundedSemaphore(value=conf.max_concurrent_downloads)
         self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
+        self.sessions = SessionStorage(self.logger)
 
     def handle(self, entity: FileDownloadEntity, record: Record):
         try:
@@ -113,29 +114,21 @@ class FileDownload(Action):
             self.logger.debug(f'[{entity.name}] received record with the "{entity.url_field}" field that was not recognised as a valid url or a sequence of urls. Raw record: {record!r}')
             return None
 
-    @staticmethod
-    def _initialize_session(entity: FileDownloadEntity) -> aiohttp.ClientSession:
-        netscape_cookies = load_cookies(entity.cookies_file)
-        cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
-        session = aiohttp.ClientSession(cookie_jar=cookies, headers=entity.headers)
-        return session
-
     async def run_for(self, entity: FileDownloadEntity):
         try:
-            session = self._initialize_session(entity)
+            session = self.sessions.get_session(entity.cookies_file, entity.headers)
             queue = self.queues[entity.name]
-            async with session:
-                while True:
-                    record = await queue.get()
-                    self.logger.debug(f'[{entity.name}] processing record {record!r}')
-                    self.logger.debug(f'[{entity.name}] {queue.qsize()} records left waiting in the queue')
-                    urls = self._get_urls_list(entity, record)
-                    if urls is None:
-                        self.logger.debug(f'[{entity.name}] found no values in field "{entity.url_field}", skipping record')
-                        continue
-                    for url in urls:
-                        self.logger.debug(f'[{entity.name}] processing url {url}')
-                        await self.handle_download(session, entity, record, url)
+            while True:
+                record = await queue.get()
+                self.logger.debug(f'[{entity.name}] processing record {record!r}')
+                self.logger.debug(f'[{entity.name}] {queue.qsize()} records left waiting in the queue')
+                urls = self._get_urls_list(entity, record)
+                if urls is None:
+                    self.logger.debug(f'[{entity.name}] found no values in field "{entity.url_field}", skipping record')
+                    continue
+                for url in urls:
+                    self.logger.debug(f'[{entity.name}] processing url {url}')
+                    await self.handle_download(session, entity, record, url)
         except Exception:
             self.logger.exception(f'[{entity.name}] unexpected error in background task, terminating')
 
@@ -216,7 +209,8 @@ class FileDownload(Action):
         self.logger.debug(f'finished downloading "{url}" to "{output_file}", semaphore({self.concurrency_limit._value}) released')
         return info
 
-    async def run(self):
+    async def run(self) -> None:
+        self.sessions.run()
         tasks = []
         for entity in self.entities.values():
             task = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
