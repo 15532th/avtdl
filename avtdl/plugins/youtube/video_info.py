@@ -6,7 +6,6 @@ from collections import defaultdict
 from json import JSONDecodeError
 from typing import Any, Dict, List, Optional
 
-import aiohttp
 from pydantic import BaseModel, Field
 
 
@@ -62,16 +61,6 @@ def get_video_page(url: str) -> str:
     with urllib.request.urlopen(url, timeout=15) as resp:
         data = resp.read()
         return data.decode('utf8')
-
-
-async def aget_video_page(url: str, session: Optional[aiohttp.ClientSession] = None) -> str:
-    if session is None:
-        async with aiohttp.request('GET', url) as response:
-            text = await response.text()
-    else:
-        async with session.get(url) as response:
-            text = await response.text()
-    return text
 
 
 def get_initial_player_response(page: str) -> dict:
@@ -265,9 +254,3 @@ def parse_video_page(page: str, url: str) -> VideoInfo:
 def get_video_info(url: str) -> VideoInfo:
     page = get_video_page(url)
     return parse_video_page(page, url)
-
-
-async def aget_video_info(url: str, session: Optional[aiohttp.ClientSession] = None) -> VideoInfo:
-    page = await aget_video_page(url, session)
-    return parse_video_page(page, url)
-
