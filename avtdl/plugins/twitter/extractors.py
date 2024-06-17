@@ -122,10 +122,13 @@ class TwitterRecord(Record):
 
     def space_id(self) -> Optional[str]:
         """if tweet text contains Twitter Space url, return its rest_id"""
-        rest_id_match = re.search(r'/i/spaces/([0-9a-zA-Z]+)/?', self.text)
-        if rest_id_match is None:
-            return None
-        return rest_id_match.groups()[0]
+        return find_space_id(self.text)
+
+def find_space_id(text: str) -> Optional[str]:
+    rest_id_match = re.search(r'/i/spaces/([0-9a-zA-Z]+)/?', text)
+    if rest_id_match is None:
+        return None
+    return rest_id_match.groups()[0]
 
 
 class UserInfo(BaseModel):
