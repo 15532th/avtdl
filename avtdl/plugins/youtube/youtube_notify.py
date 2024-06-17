@@ -1,12 +1,12 @@
 import asyncio
 import datetime
-from typing import List, Sequence, Union
+from typing import Sequence, Set, Union
 
 from pydantic import field_validator
 
 from avtdl.core.interfaces import Filter, FilterEntity, Record
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import check_tasks
+from avtdl.core.utils import monitor_tasks_set
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 from avtdl.plugins.youtube.youtube_feed import YoutubeVideoRecord
 from avtdl.plugins.youtube.youtube_rss import YoutubeFeedRecord
@@ -48,7 +48,7 @@ class ChannelNotifyFilter(Filter):
     """
 
     def __init__(self, config: ChannelNotifyFilterConfig, entities: Sequence[ChannelNotifyFilterEntity]):
-        self.tasks: List[asyncio.Task] = []
+        self.tasks: Set[asyncio.Task] = set()
         super().__init__(config, entities)
 
     def match(self, entity: ChannelNotifyFilterEntity, record: Record) -> None:
@@ -70,7 +70,7 @@ class ChannelNotifyFilter(Filter):
 
         at = scheduled - entity.prior
         task = asyncio.create_task(self.notify(at, entity, record))
-        self.tasks.append(task)
+        self.tasks.add(task)
 
     async def notify(self, at: datetime.datetime, entity: ChannelNotifyFilterEntity, record: Record):
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -83,8 +83,4 @@ class ChannelNotifyFilter(Filter):
         self.on_record(entity, record)
 
     async def run(self):
-        while True:
-            if not self.tasks:
-                await asyncio.sleep(1)
-                continue
-            self.tasks = await check_tasks(self.tasks)
+        await monitor_tasks_set(self.tasks)
