@@ -67,7 +67,7 @@ async def run(args: argparse.Namespace) -> None:
     await install_handler()
     tasks = []
     for runnable in actors.values():
-        task = asyncio.create_task(runnable.run(), name=runnable.__class__.__name__)
+        task = asyncio.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
         tasks.append(task)
     await monitor_tasks(tasks)
 
