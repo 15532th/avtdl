@@ -563,7 +563,7 @@ class SessionStorage:
         session = self.get_session_by_id(session_id)
         return session is not None
 
-    def get_session(self, cookies_file: Optional[Path], headers: Optional[Dict[str, Any]], name: str = '') -> aiohttp.ClientSession:
+    def get_session(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None, name: str = '') -> aiohttp.ClientSession:
         session_id = self.get_session_id(cookies_file, headers, name)
         session = self.get_session_by_id(session_id)
         if session is None:
