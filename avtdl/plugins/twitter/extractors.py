@@ -462,6 +462,8 @@ class TwitterSpaceRecord(Record):
     """description of current status of a space: upcoming, ongoing, ended"""
     media_key: str
     """id that can be used to fetch url of the underlying HLS stream"""
+    media_url: Optional[str] = None
+    """link to the underlying stream, when available"""
     title: str
     """space title"""
     author: str
