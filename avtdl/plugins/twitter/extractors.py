@@ -414,7 +414,11 @@ def parse_timeline(text: str) -> Tuple[List[TwitterRecord], Optional[str]]:
     return tweets, continuation
 
 
-def parse_space(data: dict) -> Optional['TwitterSpaceRecord']:
+def space_url_by_id(space_id: str) -> str:
+    return f'https://twitter.com/i/spaces/{space_id}'
+
+
+def parse_space(data: dict) -> 'TwitterSpaceRecord':
     metadata = find_one(data, '$..metadata')
     if metadata is None:
         raise ValueError(f'failed to parse space: no metadata found')
@@ -427,13 +431,13 @@ def parse_space(data: dict) -> Optional['TwitterSpaceRecord']:
         err = format_validation_error(e)
         raise ValueError(f'failed to parse space author details: {err}')
     try:
-        uid = metadata['rest_id']
+        uid = metadata.get('rest_id')
         record = TwitterSpaceRecord(
             uid=uid,
-            url=f'https://twitter.com/i/spaces/{uid}',
-            state=metadata['state'],
-            media_key=metadata['media_key'],
-            title=metadata['title'],
+            url=space_url_by_id(uid),
+            state=metadata.get('state'),
+            media_key=metadata.get('media_key'),
+            title=metadata.get('title', ''),
             author=user.name,
             username=user.handle,
             avatar_url=user.avatar_url,
@@ -443,8 +447,6 @@ def parse_space(data: dict) -> Optional['TwitterSpaceRecord']:
             ended=maybe_date(metadata.get('ended_at')),
             updated=maybe_date(metadata.get('updated_at'))
         )
-    except (KeyError, TypeError):
-        raise ValueError(f'failed to parse space')
     except ValidationError as e:
         err = format_validation_error(e)
         raise ValueError(f'failed to parse space: {err}')
