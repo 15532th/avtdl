@@ -220,7 +220,7 @@ async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger
                       method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
                       headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
                       retry_multiplier: int = 1,
-                      raise_errors: bool = False) -> Optional[aiohttp.ClientResponse]:
+                      raise_errors: bool = False, raise_for_status: bool = True) -> Optional[aiohttp.ClientResponse]:
     logger = logger if logger else logging.getLogger('request')
     current_retry_delay = retry_delay
     for attempt in range(0, retry_times + 1):
@@ -230,12 +230,14 @@ async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger
                 if session.headers is not None and headers is not None:
                     headers.update(session.headers)
                 async with session.request(method=method, url=url, headers=headers, params=params, data=data) as response:
-                    response.raise_for_status()
+                    if raise_for_status:
+                        response.raise_for_status()
                     _ = await response.text()
                     return response
             else:
                 async with aiohttp.request(method=method, url=url, headers=headers, params=params, data=data) as response:
-                    response.raise_for_status()
+                    if raise_for_status:
+                        response.raise_for_status()
                     _ = await response.text()
                     return response
 
