@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 from typing import Optional, Sequence, Set
 
 import aiohttp
@@ -28,12 +27,6 @@ class TwitterSpaceEntity(ActionEntity):
     """path to a text file containing cookies in Netscape format"""
     url: str = 'https://twitter.com'
     """Twitter domain name"""
-    emit_upcoming: bool = True
-    """whether record should be produced for spaces that are scheduled to start in the future"""
-    emit_on_start: bool = True
-    """if enabled, a record is produced when upcoming space starts"""  # if it hasn't started on time should do polling like ytarchive does
-    emit_on_end: bool = True
-    """if enabled, a record is produced when upcoming space ends"""  # if it hasn't started on time should do polling like ytarchive does
 
 
 @Plugins.register('twitter.space', Plugins.kind.ACTOR)
@@ -49,9 +42,6 @@ class TwitterSpace(Action):
     comes from a Twitter monitor, contains a link to a Space and
     the metadata was retrieved successfully.
     """
-
-    UPCOMING_SPACE_POLL_INTERVAL = 5
-    ONGOING_SPACE_POLL_INTERVAL = 600
 
     def __init__(self, conf: TwitterSpaceConfig, entities: Sequence[TwitterSpaceEntity]):
         super().__init__(conf, entities)
@@ -74,17 +64,9 @@ class TwitterSpace(Action):
         space = await self.fetch_space(session, entity, space_id)
         if space is None:
             return
-        if is_upcoming(space):
-            if entity.emit_upcoming:
-                self.on_record(entity, space)
-        else:
+        if not is_upcoming(space):
             space.media_url = await self.fetch_media_url(session, entity, space) or space.media_url
-            self.on_record(entity, space)
-
-        if (is_upcoming(space) and (entity.emit_on_start or entity.emit_on_end)) or (
-                is_ongoing(space) and entity.emit_on_end):
-            task = asyncio.create_task(self.handle_upcoming(session, entity, space))
-            self.tasks.add(task)
+        self.on_record(entity, space)
 
     async def fetch_space(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
         r = AudioSpaceEndpoint.prepare(entity.url, session.cookie_jar, space_id)
@@ -112,39 +94,6 @@ class TwitterSpace(Action):
             return None
         return media_url
 
-    async def handle_upcoming(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
-        while True:
-            if is_unknown(space):
-                self.logger.warning(f'[{entity.name}] space is not upcoming, ongoing or ended: {space!r}')
-                break
-            if has_ended(space):
-                break
-            if is_ongoing(space):
-                space.media_url = await self.fetch_media_url(session, entity, space) or space.media_url
-                if entity.emit_on_start:
-                    self.on_record(entity, space)
-                if entity.emit_on_end:
-                    await self.handle_ongoing(session, entity, space)
-                break
-            if space.scheduled is None:
-                self.logger.warning(f'[{entity.name}] upcoming space has no scheduled field: {space!r}')
-                break
-            until_start = (datetime.datetime.now(tz=datetime.timezone.utc) - space.scheduled).total_seconds()
-            until_start = max(until_start, self.UPCOMING_SPACE_POLL_INTERVAL)
-            await asyncio.sleep(until_start)
-            if until_start > self.UPCOMING_SPACE_POLL_INTERVAL:
-                # first update at presumable a starting time,
-                space = await self.fetch_space(session, entity, space.uid) or space
-            media_url = await self.fetch_media_url(session, entity, space)
-            if media_url is not None:
-                space.media_url = media_url
-                self.on_record(entity, space)
-                break
-
-    async def handle_ongoing(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
-        ...
-
-
 
 def get_space_id(record: Record) -> Optional[str]:
     field = find_matching_field_value(record, pattern=SPACE_URL_PATTERN)
@@ -156,15 +105,3 @@ def get_space_id(record: Record) -> Optional[str]:
 
 def is_upcoming(space: TwitterSpaceRecord) -> bool:
     return space.scheduled is not None and space.started is None
-
-
-def is_ongoing(space: TwitterSpaceRecord) -> bool:
-    return space.started is not None and space.ended is None
-
-
-def has_ended(space: TwitterSpaceRecord) -> bool:
-    return space.ended is not None
-
-
-def is_unknown(space: TwitterSpaceRecord) -> bool:
-    return space.scheduled is None and space.started is None and space.ended is None
