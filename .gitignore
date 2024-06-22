@@ -15,6 +15,8 @@ logs/**
 db/**
 *.txt
 
+tests/manual/**
+
 **/_version.py
 
 .vscode/**
