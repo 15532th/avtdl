@@ -15,7 +15,7 @@ import aiohttp
 import lxml.html
 from pydantic import BaseModel
 
-from avtdl.core.utils import find_one, get_cookie_value, request, request_raw
+from avtdl.core.utils import find_one, get_cookie_value, request
 
 
 def get_initial_data(page: str) -> dict:
@@ -214,11 +214,10 @@ async def submit_consent(url: str, session: aiohttp.ClientSession, logger: loggi
             value = i.value
         data[i.name] = value
     data[submit_name] = submit_value
-    response = await request_raw(form.action, session, method='POST', data=data)
+    response = await request(form.action, session, method='POST', data=data)
     if response is None:
         logger.debug(f'submitting confirmation to "{url}" failed. Raw data that was submitted: {data}')
-    target_page = await response.text() if response else None
-    return target_page
+    return response
 
 
 def find_consent_url(page: str) -> Optional[str]:
