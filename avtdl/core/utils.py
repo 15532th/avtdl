@@ -226,20 +226,17 @@ async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger
     for attempt in range(0, retry_times + 1):
         last_attempt = attempt == retry_times
         try:
+            request: Callable = aiohttp.request
             if session is not None:
+                request = session.request
                 if session.headers is not None and headers is not None:
                     headers.update(session.headers)
-                async with session.request(method=method, url=url, headers=headers, params=params, data=data) as response:
-                    if raise_for_status:
-                        response.raise_for_status()
-                    _ = await response.text()
-                    return response
-            else:
-                async with aiohttp.request(method=method, url=url, headers=headers, params=params, data=data) as response:
-                    if raise_for_status:
-                        response.raise_for_status()
-                    _ = await response.text()
-                    return response
+
+            async with request(method=method, url=url, headers=headers, params=params, data=data) as response:
+                if raise_for_status:
+                    response.raise_for_status()
+                _ = await response.text()
+                return response
 
         except Exception as e:
             logger.warning(f'error when requesting {url}: {e}')
