@@ -2,9 +2,7 @@ import datetime
 import json
 import logging
 import re
-from pathlib import Path
 from textwrap import shorten
-from time import perf_counter_ns
 from typing import Dict, List, Optional, Tuple, Union
 
 import dateutil.parser
@@ -490,29 +488,3 @@ class TwitterSpaceRecord(Record):
 
     def __repr__(self):
         return f'TwitterSpaceRecord(author="{self.author}", url="{self.url}")'
-
-
-def main():
-    for name in Path('.').glob('*.json'):
-        tweets = []
-        print(f'*** {name} ***')
-        with open(name, 'rt', encoding='utf8') as fp:
-            text = fp.read()
-        t1 = perf_counter_ns()
-        raw_tweets, continuation = extract_contents(text)
-        t2 = perf_counter_ns()
-        for tweet_result in raw_tweets:
-            tweet = parse_tweet(tweet_result)
-            tweets.append(tweet)
-        t3 = perf_counter_ns()
-        print(f'extract: {(t2 - t1) / 10 ** 6}, parse: {(t3 - t2) / 10 ** 6}')
-        ...
-        with Path(f'D:/test/{name}.txt').open('wt', encoding='utf8') as fp:
-            for tweet in tweets:
-                fp.write(str(tweet.as_timezone()))
-                fp.write('\n\n' + '*' * 80 + '\n')
-    ...
-
-
-if __name__ == '__main__':
-    main()
