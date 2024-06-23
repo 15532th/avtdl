@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from textwrap import shorten
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import dateutil.parser
 from pydantic import BaseModel, ValidationError
@@ -47,6 +47,11 @@ class TwitterRecord(Record):
     """for retweets, nested TwitterRecord containing tweet that was retweeted"""
     quote: Optional['TwitterRecord'] = None
     """for quotes, nested TwitterRecord containing tweet being quoted"""
+    space_id: Optional[str] = None
+    """for tweets or retweets mentioning Twitter Space url contains unique part of the url, otherwise empty"""
+
+    def model_post_init(self, __context: Any) -> None:
+        self.space_id = find_space_id(self.text)
 
     def __repr__(self):
         return f'TwitterRecord(author="{self.author}", url="{self.url}", text="{shorten(self.text, MAX_REPR_LEN)}")'
@@ -118,9 +123,6 @@ class TwitterRecord(Record):
             embeds = [embed]
         return embeds
 
-    def space_id(self) -> Optional[str]:
-        """if tweet text contains Twitter Space url, return its rest_id"""
-        return find_space_id(self.text)
 
 def find_space_id(text: str) -> Optional[str]:
     rest_id_match = re.search(r'/i/spaces/([0-9a-zA-Z]+)/?', text)
