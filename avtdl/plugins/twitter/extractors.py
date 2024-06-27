@@ -453,6 +453,12 @@ def parse_space(data: dict) -> 'TwitterSpaceRecord':
     return record
 
 
+def parse_media_url(data: dict) -> Optional[str]:
+    source = data.get('source') or {}
+    media_url = source.get('location') or source.get('noRedirectPlaybackUrl') or None
+    return media_url
+
+
 class TwitterSpaceRecord(Record):
     uid: str
     """space id"""

@@ -183,8 +183,7 @@ class TwitterSpace(Action):
         if data is None:
             self.logger.debug(f'[{entity.name}] failed to retrieve media url for {space.url}')
             return None
-        source = data.get('source') or {}
-        media_url = source.get('location') or source.get('noRedirectPlaybackUrl') or None
+        media_url = parse_media_url(data)
         if media_url is None:
             self.logger.debug(f'[{entity.name}] failed to parse media url for {space.url}. Raw data: "{data}"')
             return None
