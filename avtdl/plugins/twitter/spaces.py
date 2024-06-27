@@ -31,12 +31,13 @@ class TwitterSpaceEntity(ActionEntity):
     """path to a text file containing cookies in Netscape format"""
     url: str = 'https://twitter.com'
     """Twitter domain name"""
-    emit_upcoming: bool = True
-    """whether record should be produced for spaces that are scheduled to start in the future"""
-    emit_on_start: bool = True
-    """if enabled, a record is produced when upcoming space starts"""  # if it hasn't started on time should do polling like ytarchive does
-    emit_on_end: bool = True
-    """if enabled, a record is produced when upcoming space ends"""  # if it hasn't started on time should do polling like ytarchive does
+    emit_immediately: bool = True
+    """whether record should be produced immediately, regardless of media_url presence.
+    When disabled, only records with valid media_url are produced, depending on the following settings"""
+    emit_on_live: bool = True
+    """if enabled, a record is produced when livestream media_url becomes available"""
+    emit_on_archive: bool = True
+    """if enabled, a record is produced when archive media_url becomes available"""
 
 
 @Plugins.register('twitter.space', Plugins.kind.ACTOR)
@@ -49,8 +50,7 @@ class TwitterSpace(Action):
     additional information on the space, such as title and start time.
 
     Produces a TwitterSpaceRecord if currently processed record
-    comes from a Twitter monitor, contains a link to a Space and
-    the metadata was retrieved successfully.
+    contains a link to a Space and the metadata was retrieved successfully.
     """
 
     CHECK_UPCOMING_DELAY = 30.0
@@ -74,11 +74,11 @@ class TwitterSpace(Action):
         await monitor_tasks_set(self.tasks)
 
     async def handle_space(self, entity: TwitterSpaceEntity, space_id: str):
-        should_emit_something: bool = entity.emit_upcoming
-        should_emit_live_url: bool = entity.emit_on_start
-        should_emit_replay_url: bool = entity.emit_on_end
+        should_emit_something: bool = entity.emit_immediately
+        should_emit_live_url: bool = entity.emit_on_live
+        should_emit_replay_url: bool = entity.emit_on_archive
 
-        def handle_update_result(space: TwitterSpaceRecord):
+        def handle_update_result(space: TwitterSpaceRecord) -> bool:
             nonlocal should_emit_something
             nonlocal should_emit_live_url
             nonlocal should_emit_replay_url
@@ -88,14 +88,21 @@ class TwitterSpace(Action):
                     should_emit_replay_url = False
                     should_emit_live_url = False
                     should_emit_something = False
+                    self.logger.debug(f'[{entity.name}] task emit_on_archive successfully completed for {space.url}')
             if should_emit_live_url:
                 if space.media_url is not None and StreamUrlType.is_live(space.media_url):
                     self.on_record(entity, space)
                     should_emit_live_url = False
                     should_emit_something = False
+                    self.logger.debug(f'[{entity.name}] task emit_on_live successfully completed for {space.url}')
             if should_emit_something:
                 self.on_record(entity, space)
                 should_emit_something = False
+                self.logger.debug(f'[{entity.name}] task emit_immediately completed for {space.url}')
+            done = not (should_emit_something or should_emit_live_url or should_emit_replay_url)
+            if done:
+                self.logger.debug(f'[{entity.name}] all tasks completed for {space.url}')
+            return done
 
         session = self.sessions.get_session(entity.cookies_file)
         space = await self.fetch_space(session, entity, space_id)
@@ -103,8 +110,8 @@ class TwitterSpace(Action):
             return
         space.media_url = await self.fetch_media_url(session, entity, space) or None
 
-        handle_update_result(space)
-        if not (should_emit_something or should_emit_live_url or should_emit_replay_url):
+        done = handle_update_result(space)
+        if done:
             return
 
         while True:
@@ -127,8 +134,8 @@ class TwitterSpace(Action):
             if media_url:
                 space.media_url = media_url
 
-            handle_update_result(space)
-            if not (should_emit_something or should_emit_live_url or should_emit_replay_url):
+            done = handle_update_result(space)
+            if done:
                 break
 
             space = await self.fetch_space(session, entity, space_id) or space
