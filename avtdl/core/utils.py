@@ -239,15 +239,15 @@ async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger
                 return response
 
         except Exception as e:
-            logger.warning(f'error when requesting {url}: {e}')
             if not last_attempt:
-                logger.debug(f'next attempt in {current_retry_delay:.02f} seconds')
+                logger.warning(f'error when requesting {url}: {e}, retrying in {current_retry_delay:.02f} seconds')
                 await asyncio.sleep(current_retry_delay)
                 current_retry_delay *= retry_multiplier
                 continue
             elif raise_errors:
                 raise
             else:
+                logger.warning(f'error when requesting {url}: {e}')
                 return None
     return None
 
