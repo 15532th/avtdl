@@ -106,7 +106,7 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
     return int(delta)
 
 
-def get_retry_after(headers: multidict.CIMultiDictProxy) -> Optional[int]:
+def get_retry_after(headers: Union[Dict[str, str], multidict.CIMultiDictProxy[str]]) -> Optional[int]:
     """return parsed value of Retry-After header, if present"""
     retry_after = headers.get('Retry-After')
     if retry_after is None:
