@@ -441,7 +441,7 @@ def parse_space(data: dict) -> 'TwitterSpaceRecord':
             author=user.name,
             username=user.handle,
             avatar_url=user.avatar_url,
-            published=maybe_date(metadata.get('created_at')) or datetime.datetime.now(tz=datetime.timezone.utc),
+            published=maybe_date(metadata.get('created_at')) or maybe_date(metadata.get('started_at')) or datetime.datetime.now(tz=datetime.timezone.utc),
             scheduled=maybe_date(metadata.get('scheduled_start')),
             started=maybe_date(metadata.get('started_at')),
             ended=maybe_date(metadata.get('ended_at')),
