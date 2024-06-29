@@ -7,13 +7,14 @@ import logging
 import os
 import re
 from collections import OrderedDict
+from contextlib import ContextDecorator
 from email.utils import mktime_tz, parsedate_to_datetime
 from enum import Enum
 from http import cookiejar
 from math import log2
 from pathlib import Path
 from textwrap import shorten
-from time import perf_counter_ns
+from time import perf_counter
 from typing import Any, Callable, Dict, Hashable, Iterable, List, Optional, Set, Tuple, Union
 
 import aiohttp
@@ -325,17 +326,31 @@ class Delay:
         return next_delay
 
 
-def timeit(func: Callable) -> Callable:
-    """measure time "func()" call takes, print it in log"""
+class timeit(ContextDecorator):
+    """measure time call takes, print it in the log"""
 
-    def timer(*args, **kwargs) -> Any:
-        begin = perf_counter_ns()
-        result = func(*args, **kwargs)
-        duration = perf_counter_ns() - begin
-        logging.warning(f'{func.__name__}: {duration / 10 ** 6:10}')
-        return result
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        self.start: float = 0
+        self.end: float = 0
+        self.logger = logger
 
-    return timer
+    @property
+    def duration(self) -> float:
+        return self.end - self.start
+
+    @property
+    def timedelta(self) -> datetime.timedelta:
+        return datetime.timedelta(seconds=self.duration)
+
+    def __enter__(self):
+        self.start = perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.end = perf_counter()
+        if self.logger is not None:
+            self.logger.debug(f'took {self.timedelta}')
+        return False
 
 
 class LRUCache:
