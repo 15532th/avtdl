@@ -191,11 +191,15 @@ class TwitterSpace(Action):
         return None
 
     async def fetch_space(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
-        self.logger.debug(f'[{entity.name}] fetch space {space_id}')
-        r = AudioSpaceEndpoint.prepare(entity.url, session.cookie_jar, space_id)
-        data = await utils.request_json(r.url, session, self.logger, params=r.params, headers=r.headers, retry_times=3, retry_delay=5)
-        if data is None:
+        self.logger.debug(f'[{entity.name}] fetching metadata for space {space_url_by_id(space_id)}')
+        text = await AudioSpaceEndpoint.request(self.logger, session, entity.url, session.cookie_jar, space_id)
+        if text is None:
             self.logger.warning(f'[{entity.name}] failed to retrieve metadata for {space_url_by_id(space_id)}')
+            return None
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as e:
+            self.logger.warning(f'[{entity.name}] failed to parse space {space_url_by_id(space_id)}: {e}. Raw response: {text}')
             return None
         try:
             space = parse_space(data)

@@ -7,6 +7,7 @@
 #
 # - user id by screen name
 import abc
+import asyncio
 import datetime
 import json
 import logging
@@ -18,6 +19,7 @@ from typing import Any, Dict, Optional, Union
 import aiohttp
 from multidict import CIMultiDictProxy
 
+from avtdl.core import utils
 from avtdl.core.utils import find_all, find_one, get_retry_after
 
 USER_FEATURES = '{"hidden_profile_likes_enabled":true,"hidden_profile_subscriptions_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true}'
@@ -80,6 +82,65 @@ def get_auth_headers(cookies) -> dict[str, Any]:
     return headers
 
 
+class RateLimit:
+
+    def __init__(self, name: str) -> None:
+        self.limit_total: int = 50
+        self.limit_remaining: int = 10
+        self.reset_at: int = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
+
+        self.name = name
+        self.logger = logging.getLogger().getChild('twitter_rate_limit')
+        self.lock = asyncio.Lock()
+
+    async def __aenter__(self) -> 'RateLimit':
+        await self.lock.acquire()
+        if self.limit_remaining <= 1:
+            self.logger.debug(f'[{self.name}] lock acquired, {self.delay} seconds until rate limit reset')
+            await asyncio.sleep(self.delay)
+        else:
+            self.logger.debug(f'[{self.name}] lock acquired, there is no active rate limit')
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.lock.release()
+        self.logger.debug(f'[{self.name}] lock released')
+
+    @property
+    def reset_at_date(self) -> datetime.datetime:
+        return datetime.datetime.fromtimestamp(self.reset_at, tz=datetime.timezone.utc)
+
+    @property
+    def reset_after(self) -> int:
+        now = int(datetime.datetime.now().timestamp())
+        reset_after = max(0, self.reset_at - now)
+        return reset_after
+
+    @property
+    def delay(self) -> int:
+        if self.limit_remaining <= 1:
+            return self.reset_after + 1
+        return 0
+
+    def submit_headers(self, headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: Optional[logging.Logger] = None):
+        logger = logger or logging.getLogger().getChild('twitter_rate_limit')
+
+        retry_after = get_retry_after(headers)
+        if retry_after is not None:
+            self.limit_remaining = 0
+            self.reset_at = int((datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=retry_after)).timestamp())
+            logger.debug(f'[{self.name}] Retry-After is present and set to {retry_after}, setting reset_at to {self.reset_at}')
+            return
+        try:
+            self.limit_total = int(headers.get('x-rate-limit-limit', -1))
+            self.limit_remaining = int(headers.get('x-rate-limit-remaining', -1))
+            self.reset_at = int(headers.get('x-rate-limit-reset', -1))
+        except ValueError:
+            logger.warning(f'[{self.name}] error parsing rate limit headers: "{headers}"')
+        else:
+            logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.reset_after)}')
+
+
 class TwitterEndpoint(abc.ABC):
     """
     Superclass providing utility methods for concrete Endpoints
@@ -92,6 +153,14 @@ class TwitterEndpoint(abc.ABC):
     """
     FEATURES = TWEETS_FEATURES
     URL = 'https://twitter.com/...'
+
+    _rate_limit: Optional[RateLimit] = None
+
+    @classmethod
+    def rate_limit(cls) -> RateLimit:
+        if cls._rate_limit is None:
+            cls._rate_limit =  RateLimit(cls.__name__)
+        return cls._rate_limit
 
     @staticmethod
     def get_base_variables(has_continuation: bool = False):
@@ -125,6 +194,32 @@ class TwitterEndpoint(abc.ABC):
     @abc.abstractmethod
     def prepare(cls, *args, **kwargs) -> RequestDetails:
         """Prepare a RequestDetails object based on passed arguments"""
+
+    @classmethod
+    async def request_raw(cls, logger: logging.Logger, session: aiohttp.ClientSession, *args, **kwargs) -> Optional[aiohttp.ClientResponse]:
+        r = cls.prepare(*args, **kwargs)
+        if r is None:
+            return None
+        async with cls.rate_limit() as rate_limit:
+            try:
+                response = await utils.request_raw(r.url, session, logger, params=r.params, headers=r.headers, retry_times=0, raise_errors=True)
+            except Exception as e:
+                if isinstance(e, aiohttp.ClientResponseError):
+                    rate_limit.submit_headers(e.headers, logger)
+                    logger.debug(f' got code {e.status} ({e.message}) while fetching {r.url}: {e}')
+                else:
+                    logger.debug(f'error while fetching {r.url}: {e}')
+                return None
+            assert response is not None, 'request_raw() returned None despite raise_errors=True'
+            rate_limit.submit_headers(response.headers, logger)
+            return response
+
+    @classmethod
+    async def request(cls, logger: logging.Logger, session: aiohttp.ClientSession, *args, **kwargs) -> Optional[str]:
+        response = await cls.request_raw(logger, session, *args, **kwargs)
+        if response is None:
+            return None
+        return await response.text()
 
 
 class UserIDEndpoint(TwitterEndpoint):
@@ -262,4 +357,3 @@ def get_continuation(data: dict) -> Optional[str]:
     entries = find_all(data, '$..instructions..entries..content,itemContent')
     continuation = entries[-1]['value']
     return continuation
-

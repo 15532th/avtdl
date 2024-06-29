@@ -1,17 +1,17 @@
 import asyncio
 import datetime
+import json
 from abc import abstractmethod
 from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
 from pydantic import Field, FilePath
 
-from avtdl.core import utils
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, RequestDetails, TimelineEndpoint, TwitterEndpoint, \
-    UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint, get_rate_limit_delay
+from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, TimelineEndpoint, TwitterEndpoint, \
+    UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint
 from avtdl.plugins.twitter.extractors import TwitterRecord, extract_contents, parse_tweet
 
 Plugins.register('twitter.user', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
@@ -68,25 +68,8 @@ class TwitterMonitor(PagedFeedMonitor):
         return record.url
 
     @abstractmethod
-    async def _prepare_request(self, entity: TwitterMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[RequestDetails]:
-        """Implementations use this method to pick endpoint and fetch additional info if required"""
-
     async def _get_page(self, entity: TwitterMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
-        r = await self._prepare_request(entity, session, continuation)
-        if r is None:
-            return None
-        if entity.rate_limited_until is not None:
-            delay = entity.rate_limited_until - datetime.datetime.now().astimezone()
-            if delay > datetime.timedelta(self.MIN_CONTINUATION_DELAY):
-                self.logger.info(f'got rate limited by Twitter API, delaying request for {delay}')
-            await asyncio.sleep(delay.total_seconds())
-        response = await self.request_raw(r.url, entity, session, headers=r.headers, params=r.params)
-        if response is None:
-            return None
-        new_delay = get_rate_limit_delay(response.headers, self.logger.getChild('rate_limit')) + self.MIN_CONTINUATION_DELAY
-        entity.rate_limited_until = datetime.datetime.now().astimezone() + datetime.timedelta(seconds=new_delay)
-        page = await response.text()
-        return page
+        """Retrieve raw response string from endpoint"""
 
     async def _parse_entries(self, page: str) -> Tuple[List[TwitterRecord], Optional[str]]:
         raw_tweets, continuation = extract_contents(page)
@@ -120,11 +103,10 @@ class TwitterHomeMonitor(TwitterMonitor):
     Requires login cookies from a logged in Twitter account to work.
     """
 
-    async def _prepare_request(self, entity: TwitterHomeMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[RequestDetails]:
+    async def _get_page(self, entity: TwitterHomeMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
         endpoint = LatestTimelineEndpoint if entity.following else TimelineEndpoint
-        r = endpoint.prepare(entity.url, session.cookie_jar, continuation)
-        return r
-
+        data = await endpoint.request(self.logger, session, entity.url, session.cookie_jar, continuation)
+        return data
 
 @Plugins.register('twitter.user', Plugins.kind.ACTOR_ENTITY)
 class TwitterUserMonitorEntity(TwitterMonitorEntity):
@@ -161,22 +143,25 @@ class TwitterUserMonitor(TwitterMonitor):
         else:
             return UserTweetsEndpoint
 
-    async def _prepare_request(self, entity: TwitterUserMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[RequestDetails]:
+    async def _get_user_id(self, entity: TwitterUserMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
+        if entity.user_id is None:
+            text = await UserIDEndpoint.request(self.logger, session, entity.url, session.cookie_jar, entity.user)
+            if text is None:
+                return None
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError as e:
+                self.logger.warning(f'[{entity.name}] failed to parse user_id for @{entity.user}: {e}. Raw response: {text}')
+                return None
+            user_id = UserIDEndpoint.get_user_id(data)
+            entity.user_id = user_id
+        return entity.user_id
+
+    async def _get_page(self, entity: TwitterUserMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
         user_id = await self._get_user_id(entity, session)
         if user_id is None:
             self.logger.warning(f'failed to get user id from user handle for "{entity.user}", aborting update')
             return None
         endpoint = self._pick_endpoint(entity)
-        r = endpoint.prepare(entity.url, session.cookie_jar, user_id, continuation)
-        return r
-
-    async def _get_user_id(self, entity: TwitterUserMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
-        if entity.user_id is None:
-            r = UserIDEndpoint.prepare(entity.url, session.cookie_jar, entity.user)
-            # does not check for rate x-rate-limit headers, exceeding limit is unlikely since the result is cached
-            data = await utils.request_json(url=r.url, session=session, logger=self.logger, headers=r.headers, params=r.params, retry_times=3)
-            if data is None:
-                return None
-            user_id = UserIDEndpoint.get_user_id(data)
-            entity.user_id = user_id
-        return entity.user_id
+        data = await endpoint.request(self.logger, session, entity.url, session.cookie_jar, user_id, continuation)
+        return data
