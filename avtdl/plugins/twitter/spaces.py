@@ -120,7 +120,7 @@ class TwitterSpace(Action):
             elif SpaceState.is_ongoing(space):
                 media_url = await self.wait_for_archive(session, entity, space)
                 if media_url == '':
-                    self.logger.warning(f'[{entity.name}] space {space.url} has started at {space.started} but media url is unavailable. The space might be private')
+                    self.logger.warning(f'[{entity.name}] space {space.url} has started at {space.started} but media url is unavailable. The space might not have recording enabled')
                     break
             elif SpaceState.has_ended(space):
                 media_url = await self.fetch_media_url(session, entity, space)
@@ -144,7 +144,7 @@ class TwitterSpace(Action):
     async def wait_for_live(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
         assert space.scheduled is not None, f'upcoming space has no scheduled: {space.model_dump()}'
         while True: # waiting until start
-            delay = (datetime.datetime.now(tz=datetime.timezone.utc) - space.scheduled)
+            delay = (space.scheduled - datetime.datetime.now(tz=datetime.timezone.utc))
             delay_seconds = delay.total_seconds()
             if delay_seconds < self.CHECK_UPCOMING_DELAY:
                 break
