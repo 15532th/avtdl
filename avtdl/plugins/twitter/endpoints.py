@@ -11,6 +11,7 @@ import asyncio
 import datetime
 import json
 import logging
+import time
 import urllib.parse
 from dataclasses import dataclass
 from http.cookiejar import CookieJar
@@ -20,7 +21,7 @@ import aiohttp
 from multidict import CIMultiDictProxy
 
 from avtdl.core import utils
-from avtdl.core.utils import find_all, find_one, get_retry_after
+from avtdl.core.utils import find_all, find_one, get_retry_after, timeit
 
 USER_FEATURES = '{"hidden_profile_likes_enabled":true,"hidden_profile_subscriptions_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true}'
 TWEETS_FEATURES = '{"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"tweetypie_unmention_optimization_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_enhance_cards_enabled":false}'
@@ -92,19 +93,24 @@ class RateLimit:
         self.name = name
         self.logger = logging.getLogger().getChild('twitter_rate_limit')
         self.lock = asyncio.Lock()
+        self.perf_lock_acquired_at: float = 0
 
     async def __aenter__(self) -> 'RateLimit':
-        await self.lock.acquire()
+        with timeit() as t:
+            await self.lock.acquire()
+        self.perf_lock_acquired_at = t.end
         if self.limit_remaining <= 1:
-            self.logger.debug(f'[{self.name}] lock acquired, {self.delay} seconds until rate limit reset')
+            self.logger.debug(f'[{self.name}] lock acquired in {t.timedelta}, {self.delay} seconds until rate limit reset')
             await asyncio.sleep(self.delay)
         else:
-            self.logger.debug(f'[{self.name}] lock acquired, there is no active rate limit')
+            self.logger.debug(f'[{self.name}] lock acquired in {t.timedelta}, there is no active rate limit')
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
         self.lock.release()
-        self.logger.debug(f'[{self.name}] lock released')
+        duration = datetime.timedelta(seconds=(time.perf_counter() - self.perf_lock_acquired_at))
+        self.logger.debug(f'[{self.name}] lock released after {duration}')
+        return False
 
     @property
     def reset_at_date(self) -> datetime.datetime:
@@ -159,7 +165,7 @@ class TwitterEndpoint(abc.ABC):
     @classmethod
     def rate_limit(cls) -> RateLimit:
         if cls._rate_limit is None:
-            cls._rate_limit =  RateLimit(cls.__name__)
+            cls._rate_limit = RateLimit(cls.__name__)
         return cls._rate_limit
 
     @staticmethod
