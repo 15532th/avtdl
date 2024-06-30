@@ -380,12 +380,12 @@ def note_text(tweet_result: dict) -> Optional[str]:
     return text
 
 
-def maybe_date(timestamp: Union[int, str, None]) -> Optional[datetime.datetime]:
+def maybe_date(timestamp: Union[int, str, None], tz: Optional[datetime.timezone] = datetime.timezone.utc) -> Optional[datetime.datetime]:
     if timestamp is None:
         return None
     try:
         timestamp = int(timestamp)
-        date = datetime.datetime.fromtimestamp(timestamp / 1000, tz=datetime.timezone.utc)
+        date = datetime.datetime.fromtimestamp(timestamp / 1000, tz=tz)
         return date
     except Exception:
         return None
@@ -445,7 +445,8 @@ def parse_space(data: dict) -> 'TwitterSpaceRecord':
             scheduled=maybe_date(metadata.get('scheduled_start')),
             started=maybe_date(metadata.get('started_at')),
             ended=maybe_date(metadata.get('ended_at')),
-            updated=maybe_date(metadata.get('updated_at'))
+            updated=maybe_date(metadata.get('updated_at')),
+            recording_enabled=metadata.get('is_space_available_for_replay', False)
         )
     except ValidationError as e:
         err = format_validation_error(e)
@@ -488,9 +489,13 @@ class TwitterSpaceRecord(Record):
     """timestamp of the space end, empty for not yet ended spaces"""
     updated: Optional[datetime.datetime] = None
     """timestamp of the last update"""
+    recording_enabled: bool = False
+    """whether host enabled recording of the space. When true, archive is likely to be available"""
 
     def __str__(self) -> str:
         header = f'[{self.published.strftime("%Y-%m-%d %H:%M:%S")}] Twitter Space by {self.author} (@{self.username}) [{self.state}]'
+        if self.recording_enabled:
+            header += ' [rec]'
         scheduled = f'\nscheduled at {self.scheduled}' if self.scheduled else ''
         return f'{self.url}\n{header}\n{self.title}{scheduled}'
 
