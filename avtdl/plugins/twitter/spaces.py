@@ -13,7 +13,8 @@ from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import SessionStorage, find_matching_field_value, monitor_tasks_set
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
-from avtdl.plugins.twitter.extractors import TwitterSpaceRecord, find_space_id, parse_media_url, parse_space, space_url_by_id
+from avtdl.plugins.twitter.extractors import TwitterSpaceRecord, find_space_id, parse_media_url, parse_space, \
+    space_url_by_id
 
 Plugins.register('twitter.space', Plugins.kind.ASSOCIATED_RECORD)(TwitterSpaceRecord)
 
@@ -130,14 +131,14 @@ class TwitterSpace(Action):
                 self.logger.warning(f'[{entity.name}] space {space.url} state is unknown, aborting. {space.model_dump()}')
                 break
 
+            space = await self.fetch_space(session, entity, space_id) or space
+
             if media_url:
                 space.media_url = media_url
 
             done = handle_update_result(space)
             if done:
                 break
-
-            space = await self.fetch_space(session, entity, space_id) or space
 
 
     async def wait_for_live(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
