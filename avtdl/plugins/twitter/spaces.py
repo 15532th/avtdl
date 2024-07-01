@@ -120,8 +120,7 @@ class TwitterSpace(Action):
             elif SpaceState.is_ongoing(space):
                 media_url = await self.wait_for_archive(session, entity, space)
                 if media_url == '':
-                    self.logger.warning(f'[{entity.name}] space {space.url} has started at {space.started} but media url is unavailable. The space might not have recording enabled')
-                    break
+                    self.logger.debug(f'[{entity.name}] media url unavailable for running space {space.url}, updating space metadata to see if it ended')
             elif SpaceState.has_ended(space):
                 media_url = await self.fetch_media_url(session, entity, space)
                 if media_url == '':
