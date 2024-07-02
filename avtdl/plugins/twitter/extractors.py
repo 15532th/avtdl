@@ -501,3 +501,28 @@ class TwitterSpaceRecord(Record):
 
     def __repr__(self):
         return f'TwitterSpaceRecord(author="{self.author}", url="{self.url}")'
+
+    def discord_embed(self) -> List[dict]:
+        author = f'{self.author} ({self.username})'
+        fields: List[dict] = []
+        fields.append({'name': self.state, 'value': '', 'inline': True})
+        if self.recording_enabled:
+            fields.append({'name': '[rec]', 'value': '', 'inline': True})
+        if self.scheduled:
+            fields.append({'name': 'scheduled', 'value': self.scheduled.isoformat()})
+        if self.started:
+            fields.append({'name': 'started', 'value': self.started.isoformat()})
+        if self.ended:
+            fields.append({'name': 'ended', 'value': self.ended.isoformat()})
+
+        embed = {
+            'title': self.title or self.url,
+            'description': self.media_url,
+            'url': self.url,
+            'color': None,
+            'author': {'name': author, 'icon_url': self.avatar_url},
+            'timestamp': self.published.isoformat(),
+            'fields': fields
+        }
+
+        return [embed]
