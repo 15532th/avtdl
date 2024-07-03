@@ -494,8 +494,8 @@ class TwitterSpaceRecord(Record):
 
     def __str__(self) -> str:
         header = f'[{self.published.strftime("%Y-%m-%d %H:%M:%S")}] Twitter Space by {self.author} (@{self.username}) [{self.state}]'
-        if self.recording_enabled:
-            header += ' [rec]'
+        if not self.recording_enabled:
+            header += ' [unarchived]'
         scheduled = f'\nscheduled at {self.scheduled}' if self.scheduled else ''
         return f'{self.url}\n{header}\n{self.title}{scheduled}'
 
@@ -506,8 +506,8 @@ class TwitterSpaceRecord(Record):
         author = f'{self.author} ({self.username})'
         fields: List[dict] = []
         fields.append({'name': self.state, 'value': '', 'inline': True})
-        if self.recording_enabled:
-            fields.append({'name': '[rec]', 'value': '', 'inline': True})
+        if not self.recording_enabled:
+            fields.append({'name': '[unarchived]', 'value': '', 'inline': True})
         if self.scheduled:
             fields.append({'name': 'scheduled', 'value': self.scheduled.isoformat()})
         if self.started:
