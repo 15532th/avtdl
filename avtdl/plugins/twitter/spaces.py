@@ -39,6 +39,9 @@ class TwitterSpaceEntity(ActionEntity):
     """if enabled, a record is produced when livestream media_url becomes available"""
     emit_on_archive: bool = True
     """if enabled, a record is produced when archive media_url becomes available"""
+    emit_on_end: bool = False
+    """if enabled, a record is produced when the space ends, even if there is no archive"""
+
 
 
 @Plugins.register('twitter.space', Plugins.kind.ACTOR)
@@ -46,12 +49,18 @@ class TwitterSpace(Action):
     """
     Retrieve Twitter Space metadata from tweet
 
-    Take a record, coming from a Twitter monitor, check if it
+    Take a record (normally coming from a Twitter monitor), check if it
     has a link to a Twitter Space, and if so try to retrieve
     additional information on the space, such as title and start time.
 
     Produces a TwitterSpaceRecord if currently processed record
     contains a link to a Space and the metadata was retrieved successfully.
+
+    It is possible to produce additional records with updated metadata at the
+    beginning and/or the end of the space by toggling the `emit_*` settings.
+    However, a single state change should only produce one record. For example,
+    if the space has already ended before first update, only single record is
+    produced with all `emit_*` options enabled.
     """
 
     CHECK_UPCOMING_DELAY = 30.0
@@ -79,29 +88,45 @@ class TwitterSpace(Action):
         should_emit_something: bool = entity.emit_immediately
         should_emit_live_url: bool = entity.emit_on_live
         should_emit_replay_url: bool = entity.emit_on_archive
+        should_emit_on_end: bool = entity.emit_on_end
 
         def handle_update_result(space: TwitterSpaceRecord) -> bool:
             nonlocal should_emit_something
             nonlocal should_emit_live_url
             nonlocal should_emit_replay_url
+            nonlocal should_emit_on_end
             if should_emit_replay_url:
                 if space.media_url is not None and StreamUrlType.is_replay(space.media_url):
                     self.on_record(entity, space)
                     should_emit_replay_url = False
+                    should_emit_on_end = False
                     should_emit_live_url = False
                     should_emit_something = False
                     self.logger.debug(f'[{entity.name}] task emit_on_archive successfully completed for {space.url}')
+                elif not space.recording_enabled:
+                    should_emit_replay_url = False
+                    self.logger.debug(f'[{entity.name}] task emit_on_archive for {space.url} is cancelled: recording is disabled')
+            if should_emit_on_end:
+                if space.ended is not None:
+                    self.on_record(entity, space)
+                    should_emit_on_end = False
+                    should_emit_live_url = False
+                    should_emit_something = False
+                    self.logger.debug(f'[{entity.name}] task emit_on_end successfully completed for {space.url}')
             if should_emit_live_url:
                 if space.media_url is not None and StreamUrlType.is_live(space.media_url):
                     self.on_record(entity, space)
                     should_emit_live_url = False
                     should_emit_something = False
                     self.logger.debug(f'[{entity.name}] task emit_on_live successfully completed for {space.url}')
+                elif not space.ended is not None:
+                    should_emit_live_url = False
+                    self.logger.debug(f'[{entity.name}] task emit_on_live for {space.url} is cancelled: space ended')
             if should_emit_something:
                 self.on_record(entity, space)
                 should_emit_something = False
                 self.logger.debug(f'[{entity.name}] task emit_immediately completed for {space.url}')
-            done = not (should_emit_something or should_emit_live_url or should_emit_replay_url)
+            done = not (should_emit_something or should_emit_live_url or should_emit_on_end or should_emit_replay_url)
             if done:
                 self.logger.debug(f'[{entity.name}] all tasks completed for {space.url}')
             return done
@@ -126,7 +151,7 @@ class TwitterSpace(Action):
             elif SpaceState.has_ended(space):
                 media_url = await self.wait_for_any_url(session, entity, space)
                 if media_url == '':
-                    self.logger.warning(f'[{entity.name}] space {space.url} has ended at {space.ended} and media url is unavailable. The space likely does not have archive at this point')
+                    self.logger.debug(f'[{entity.name}] space {space.url} has ended at {space.ended} and media url is unavailable. The space likely does not have archive at this point')
                     break
             else:
                 self.logger.warning(f'[{entity.name}] space {space.url} state is unknown, aborting. {space.model_dump()}')
@@ -182,14 +207,15 @@ class TwitterSpace(Action):
             media_url = await self.fetch_media_url(session, entity, space)
             if media_url is None:
                 retry_delay = utils.Delay.get_next(retry_delay)
+                self.logger.debug(f'[{entity.name}] {space.url} got no media_url on {attempt} attempt, retry after {retry_delay}')
             elif is_done(media_url):
                 return media_url
             else:
                 retry_delay = base_retry_delay
-            self.logger.debug(f'[{entity.name}] {space.url} got no media_url on {attempt} attempt, retry after {retry_delay}')
+                self.logger.debug(f'[{entity.name}] {space.url} got no media_url of expected type on {attempt} attempt, retry after {retry_delay}')
             await asyncio.sleep(retry_delay)
 
-        self.logger.debug(f'[{entity.name}] failed to fetch media_url for {space.url} after {max_attempts} attempts')
+        self.logger.debug(f'[{entity.name}] failed to fetch media_url of expected type after {max_attempts} attempts for {space.url}')
         return None
 
     async def fetch_space(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
