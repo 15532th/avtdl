@@ -3,7 +3,7 @@ import datetime
 import json
 import urllib.parse
 from enum import Enum
-from typing import Optional, Sequence, Set
+from typing import Callable, Optional, Sequence, Set
 
 import aiohttp
 from pydantic import FilePath
@@ -56,6 +56,7 @@ class TwitterSpace(Action):
 
     CHECK_UPCOMING_DELAY = 30.0
     CHECK_LIVE_DELAY = 300.0
+    CHECK_ENDED_DELAY = 30.0
     MAX_SEQUENTIAL_CHECKS = 100
 
     def __init__(self, conf: TwitterSpaceConfig, entities: Sequence[TwitterSpaceEntity]):
@@ -109,7 +110,7 @@ class TwitterSpace(Action):
         space = await self.fetch_space(session, entity, space_id)
         if space is None:
             return
-        space.media_url = await self.fetch_media_url(session, entity, space) or None
+        space.media_url = await self.wait_for_any_url(session, entity, space) or None
 
         done = handle_update_result(space)
         if done:
@@ -119,11 +120,11 @@ class TwitterSpace(Action):
             if SpaceState.is_upcoming(space):
                 media_url = await self.wait_for_live(session, entity, space)
             elif SpaceState.is_ongoing(space):
-                media_url = await self.wait_for_archive(session, entity, space)
+                media_url = await self.wait_for_replay(session, entity, space)
                 if media_url == '':
                     self.logger.debug(f'[{entity.name}] media url unavailable for running space {space.url}, updating space metadata to see if it ended')
             elif SpaceState.has_ended(space):
-                media_url = await self.fetch_media_url(session, entity, space)
+                media_url = await self.wait_for_any_url(session, entity, space)
                 if media_url == '':
                     self.logger.warning(f'[{entity.name}] space {space.url} has ended at {space.ended} and media url is unavailable. The space likely does not have archive at this point')
                     break
@@ -153,41 +154,42 @@ class TwitterSpace(Action):
             return None
 
         self.logger.debug(f'[{entity.name}] space {space.url} should start now, fetching media_url')
-        retry_delay = base_retry_delay = self.CHECK_UPCOMING_DELAY
-        for attempt in range(self.MAX_SEQUENTIAL_CHECKS):
-            media_url = await self.fetch_media_url(session, entity, space)
-            if media_url:
-                return media_url
-            if media_url is None:
-                retry_delay = utils.Delay.get_next(retry_delay)
-            else: # media_url == '', meaning response was 404
-                retry_delay = base_retry_delay
-            self.logger.debug(f'[{entity.name}] upcoming space {space.url} got no media_url on {attempt} attempt, retry after {retry_delay}')
-            await asyncio.sleep(retry_delay)
-        self.logger.debug(f'[{entity.name}] failed to fetch media_url for supposedly ongoing space {space.url}, will try to fetch space status again')
-        return None
+        def is_done(media_url: str) -> bool:
+            return media_url != ''
+        return await self.wait_for_media_url(session, entity, space, self.CHECK_UPCOMING_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
 
-    async def wait_for_archive(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
+    async def wait_for_replay(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
         self.logger.debug(f'[{entity.name}] space {space.url} is ongoing since {space.started}, fetching live media_url')
-        retry_delay = base_retry_delay = self.CHECK_LIVE_DELAY
-        for attempt in range(self.MAX_SEQUENTIAL_CHECKS):
-            media_url = await self.fetch_media_url(session, entity, space)
-            # order of conditions is important since StreamUrlType for empty string is UNKNOWN
-            if media_url is None:
-                self.logger.debug(f'[{entity.name}] supposedly ongoing space {space.url} got no media_url on {attempt} attempt, will try again')
-                retry_delay = utils.Delay.get_next(retry_delay)
-            elif media_url == '':
-                return media_url
+        def is_done(media_url: str) -> bool:
+            if media_url == '':
+                return True
             elif StreamUrlType.is_live(media_url):
-                retry_delay = base_retry_delay
+                return False
             elif StreamUrlType.is_replay(media_url):
-                return media_url
+                return True
             else:
                 self.logger.debug(f'[{entity.name}] space {space.url} got media_url with unknown type: {media_url}')
-                return media_url
+                return True
+        return await self.wait_for_media_url(session, entity, space, self.CHECK_LIVE_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
 
+    async def wait_for_any_url(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
+        return await self.wait_for_media_url(session, entity, space, self.CHECK_ENDED_DELAY, self.MAX_SEQUENTIAL_CHECKS, lambda _: True)
+
+    async def wait_for_media_url(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord,
+                                 retry_delay: float, max_attempts: int, is_done: Callable[[str], bool]) -> Optional[str]:
+        base_retry_delay = retry_delay
+        for attempt in range(max_attempts):
+            media_url = await self.fetch_media_url(session, entity, space)
+            if media_url is None:
+                retry_delay = utils.Delay.get_next(retry_delay)
+            elif is_done(media_url):
+                return media_url
+            else:
+                retry_delay = base_retry_delay
+            self.logger.debug(f'[{entity.name}] {space.url} got no media_url on {attempt} attempt, retry after {retry_delay}')
             await asyncio.sleep(retry_delay)
-        self.logger.debug(f'[{entity.name}] failed to fetch media_url for ongoing space {space.url}, fetching live media_url')
+
+        self.logger.debug(f'[{entity.name}] failed to fetch media_url for {space.url} after {max_attempts} attempts')
         return None
 
     async def fetch_space(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
