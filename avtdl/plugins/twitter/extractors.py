@@ -10,7 +10,7 @@ from pydantic import BaseModel, ValidationError
 
 from avtdl.core.config import format_validation_error
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
-from avtdl.core.utils import find_one
+from avtdl.core.utils import Fmt, find_one
 
 local_logger = logging.getLogger().getChild('twitter_extractors')
 
@@ -104,7 +104,7 @@ class TwitterRecord(Record):
             'description': text,
             'url': self.url,
             'color': None,
-            'author': {'name': author, 'icon_url': avatar},
+            'author': {'name': author, 'icon_url': avatar, 'url': user_url_by_id(self.username)},
             'timestamp': timestamp,
         }
 
@@ -225,7 +225,7 @@ def parse_tweet(tweet_results: dict) -> TwitterRecord:
         user = UserInfo.from_result(user_result)
     except Exception as e:
         raise ValueError(f'failed to parse tweet: {e}')
-    url = f'https://twitter.com/{user.handle}/status/{rest_id}'
+    url = tweet_url_by_id(user.handle, rest_id)
 
     legacy = tweet_result['legacy']
 
@@ -418,6 +418,14 @@ def space_url_by_id(space_id: str) -> str:
     return f'https://twitter.com/i/spaces/{space_id}'
 
 
+def user_url_by_id(handle: str) -> str:
+    return f'https://twitter.com/{handle}'
+
+
+def tweet_url_by_id(handle: str, rest_id: str) -> str:
+    return f'https://twitter.com/{handle}/status/{rest_id}'
+
+
 def parse_space(data: dict) -> 'TwitterSpaceRecord':
     metadata = find_one(data, '$..metadata')
     if metadata is None:
@@ -505,22 +513,23 @@ class TwitterSpaceRecord(Record):
     def discord_embed(self) -> List[dict]:
         author = f'{self.author} ({self.username})'
         fields: List[dict] = []
-        fields.append({'name': self.state, 'value': '', 'inline': True})
+        state_text = ' '.join(re.split('(?=[A-Z])', self.state)).strip().lower()
+        fields.append({'name': f'[{state_text}]', 'value': '', 'inline': True})
         if not self.recording_enabled:
             fields.append({'name': '[unarchived]', 'value': '', 'inline': True})
         if self.scheduled:
-            fields.append({'name': 'scheduled', 'value': self.scheduled.isoformat()})
+            fields.append({'name': 'scheduled', 'value': Fmt.dtf(self.scheduled), 'inline': False})
         if self.started:
-            fields.append({'name': 'started', 'value': self.started.isoformat()})
+            fields.append({'name': 'started', 'value': Fmt.dtf(self.started), 'inline': False})
         if self.ended:
-            fields.append({'name': 'ended', 'value': self.ended.isoformat()})
+            fields.append({'name': 'ended', 'value': Fmt.dtf(self.ended), 'inline': False})
 
         embed = {
             'title': self.title or self.url,
             'description': self.media_url,
             'url': self.url,
             'color': None,
-            'author': {'name': author, 'icon_url': self.avatar_url},
+            'author': {'name': author, 'icon_url': self.avatar_url, 'url': user_url_by_id(self.username)},
             'timestamp': self.published.isoformat(),
             'fields': fields
         }

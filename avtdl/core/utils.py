@@ -469,6 +469,12 @@ class Fmt:
         return dt.strftime('%Y-%m-%d %H:%M')
 
     @classmethod
+    def dtf(cls, dt: datetime.datetime) -> str:
+        """format datetime to Discord timestamp"""
+        ts = int(dt.timestamp())
+        return f'<t:{ts}>'
+
+    @classmethod
     def save_as(cls, record: Record, output_format: OutputFormat = OutputFormat.str) -> str:
         """Take a record and convert in to string as text/json or sha1"""
         if output_format == OutputFormat.str:
