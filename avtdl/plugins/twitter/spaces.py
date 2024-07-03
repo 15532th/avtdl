@@ -119,7 +119,7 @@ class TwitterSpace(Action):
                     should_emit_live_url = False
                     should_emit_something = False
                     self.logger.debug(f'[{entity.name}] task emit_on_live successfully completed for {space.url}')
-                elif not space.ended is not None:
+                elif space.ended is not None:
                     should_emit_live_url = False
                     self.logger.debug(f'[{entity.name}] task emit_on_live for {space.url} is cancelled: space ended')
             if should_emit_something:
