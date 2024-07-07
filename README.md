@@ -586,5 +586,5 @@ Note, that FC2 only allows a single window with particular livestream, and openi
 
 #### Youtube community posts
 
-avtdl supports saving community post text in a file natively, but as an alternative, this fork of [youtube-community-tab](https://github.com/HoloArchivists/youtube-community-tab) might be used. It comes with `ytct.py` script that allows to download either a specific post by direct link or all new posts on a channel. Posts are stored in JSON format, which can be rendered to human-readable text files with third party [ytct-convert.py](https://gist.github.com/15532th/111c8b32e5d82112379703f3eab51e49) script.
+avtdl supports saving community post text in a file natively ([example config](https://github.com/15532th/avtdl/blob/master/EXAMPLES.md#save-community-posts-to-files)), but as an alternative, this fork of [youtube-community-tab](https://github.com/HoloArchivists/youtube-community-tab) might be used. It comes with `ytct.py` script that allows to download either a specific post by direct link or all new posts on a channel. Posts are stored in JSON format, which can be rendered to human-readable text files with third party [ytct-convert.py](https://gist.github.com/15532th/111c8b32e5d82112379703f3eab51e49) script.
 
