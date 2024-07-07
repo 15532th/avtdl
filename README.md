@@ -50,7 +50,7 @@ Some of the supported features include:
 
 For the full list and descriptions of features see [Description and configuration of available plugins](PLUGINS.md)
 
-The goal of avtdl is to provide means for setting up customisable workflows for archiving and sending notifications about events on a number of supported platforms in a uniform way by combining building blocks (monitors, filters and actions) into sequences, representing specific workflow (chains).
+The goal of avtdl is to provide means for setting up customisable workflows for archiving and sending notifications about events on a number of supported platforms in a uniform way by combining building blocks (monitors, filters and actions) into sequences, representing specific workflows (chains). Skip to [Configuration](#configuration) section for more details.
 
 
 ### Installation
