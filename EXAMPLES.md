@@ -21,6 +21,7 @@ Every example is meant to be a valid configuration file, that can be used standa
       * [Send Jabber message when channel owner comments in the chat](#send-jabber-message-when-channel-owner-comments-in-the-chat)
       * [Store tweets and images posted by a Twitter account](#store-tweets-and-images-posted-by-a-twitter-account)
       * [Monitor Twitter timeline for tweets by specific users, send the tweets to Discord](#monitor-twitter-timeline-for-tweets-by-specific-users-send-the-tweets-to-discord)
+      * [Send notifications and download Twitter Spaces](#send-notifications-and-download-twitter-spaces)
 <!-- TOC -->
 
 ---
@@ -577,5 +578,81 @@ chains:
         - "tweets by another user"
     - discord.hook:
         - "my-server#tweets"
+```
+
+#### Send notifications and download Twitter Spaces
+
+Monitor tweets on the home timeline, looking for Twitter Spaces, deduplicate cross-posts, and feed the spaces to `twitter.spaces` plugin, that will monitor them and emit notifications when spaces starts and ends.
+
+Notifications are sent when space gets scheduled or started, and when it ends. Here `emit_on_live` can be disabled because `emit_immediately` will take care of sending initial notification, and `emit_on_end` must be enabled to ensure download will be initiated even for spaces without replay.
+
+`TwitterSpaceRecord`s with `state` field being "Ended", which means corresponding Space has ended, are passed to `execute` plugin entity that uses [tslazer](https://github.com/HoloArchivists/tslazer) to download recording. 
+
+```yaml
+actors:
+
+  twitter.home:
+    entities:
+      - name: "home timeline"
+        following: true
+        cookies_file: "cookies.txt"
+  
+  filter.deduplicate:
+    entities:
+      - name: "spaces"
+        field: "space_id"
+
+  filter.match:
+    entities:
+      - name: "ended spaces"
+        fields:
+          - "state"
+        patterns:
+          - "Ended"
+
+  twitter.space:
+    entities:
+      - name: "home timeline spaces"
+        cookies_file: "cookies.txt"
+        emit_immediately: true
+        emit_on_live: false
+        emit_on_archive: true
+        emit_on_end: true
+
+  discord.hook:
+    entities:
+      - name: "my-server#twitter_spaces"
+        url: "https://discord.com/api/webhooks/..."
+
+  execute:
+    entities:
+      - name: "tslazer"
+        command: "tslazer --dyn_url {media_url} --filename '[{username}] {title} [uid]'"
+        working_dir: "archive/spaces/{username}/"
+
+
+chains:
+
+  "monitor spaces":
+    - twitter.home:
+      - "home timeline"
+    - filter.deduplicate:
+      - "spaces"
+    - twitter.space:
+      - "home timeline spaces" 
+  
+  "send notifications":
+    - twitter.space:
+      - "home timeline spaces" 
+    - discord.hook:
+      - "my-server#twitter_spaces"
+
+  "download ended spaces":
+    - twitter.space:
+      - "home timeline spaces" 
+    - filter.match:
+      - "ended spaces"
+    - execute:
+      - "tslazer"
 ```
 
