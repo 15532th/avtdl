@@ -42,13 +42,15 @@ Some of the supported features include:
 
 - monitoring Youtube channels using RSS feed
 - monitoring Youtube channels, individual tabs of a channel or playlists by parsing html. With authorization cookies from Youtube account it's possible to get notifications for member-only and in any other way restricted streams and uploads, as well as to monitor the entire subscriptions feed
-- monitoring Youtube channel community tab for new posts (including member-only with authorization cookies)
+- monitoring Youtube channel community tab for new posts (including member-only with authorization cookies) and Twitter timelines for new tweets and Spaces (account required)
 - monitoring other streaming platforms, such as Twitch and Twitcasting, for events of a channel going live
 - filtering new videos and streams by channel name, presence or absense of pre-defined keywords in video title or description, picking up only upcoming streams or only member-only content, deduplication of the same stream or video url coming from multiple sources
-- sending notifications to a Discord channel and/or as a Jabber message
-
+- sending notifications to a Discord channel and/or as a Jabber message, storing events in plaintext or json files, downloading images and other files from direct links
+- executing pre-defined command template filled with current event's data, such as stream url and title
 
 For the full list and descriptions of features see [Description and configuration of available plugins](PLUGINS.md)
+
+The goal of avtdl is to provide means for setting up customisable workflows for archiving and sending notifications about events on a number of supported platforms in a uniform way.
 
 ### Installation
 
