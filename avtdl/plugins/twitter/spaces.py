@@ -157,10 +157,13 @@ class TwitterSpace(Action):
                 self.logger.warning(f'[{entity.name}] space {space.url} state is unknown, aborting. {space.model_dump()}')
                 break
 
+            old_media_url = space.media_url
             space = await self.fetch_space(session, entity, space_id) or space
 
             if media_url:
                 space.media_url = media_url
+            else:
+                space.media_url = old_media_url
 
             done = handle_update_result(space)
             if done:
