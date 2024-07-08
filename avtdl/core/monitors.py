@@ -1,5 +1,4 @@
 import asyncio
-import sqlite3
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from datetime import datetime
@@ -9,9 +8,9 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 import aiohttp
 from pydantic import Field, FilePath, field_validator, model_validator
 
-from avtdl.core.db import BaseRecordDB
+from avtdl.core.db import RecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record
-from avtdl.core.utils import Delay, SessionStorage, check_dir, convert_cookiejar, get_cache_ttl, get_retry_after, load_cookies, \
+from avtdl.core.utils import Delay, SessionStorage, check_dir, get_cache_ttl, get_retry_after, load_cookies, \
     monitor_tasks, show_diff
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
@@ -245,29 +244,6 @@ class HttpTaskMonitor(BaseTaskMonitor):
     @abstractmethod
     async def get_new_records(self, entity: TaskMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
         '''Produce new records, optionally adjust update_interval'''
-
-
-
-class RecordDB(BaseRecordDB):
-    table_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
-    row_structure = ':parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json'
-    id_field = 'uid'
-    exact_id_field = 'hashsum'
-    group_id_field = 'feed_name'
-    sorting_field = 'parsed_at'
-
-    def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
-        return super().store(rows)
-
-    def fetch_row(self, uid: str, hashsum: Optional[str] = None) -> Optional[sqlite3.Row]:
-        return super().fetch_row(uid, hashsum)
-
-    def row_exists(self, uid: str, hashsum: Optional[str] = None) -> bool:
-        return super().row_exists(uid, hashsum)
-
-    def get_size(self, feed_name: Optional[str] = None) -> int:
-        '''return number of records, total or for specified feed, are stored in db'''
-        return super().get_size(feed_name)
 
 
 class BaseFeedMonitorConfig(ActorConfig):

@@ -66,3 +66,25 @@ class BaseRecordDB:
         keys = {'group': group}
         self.cursor.execute(sql, keys)
         return int(self.cursor.fetchone()[0])
+
+
+class RecordDB(BaseRecordDB):
+    table_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
+    row_structure = ':parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json'
+    id_field = 'uid'
+    exact_id_field = 'hashsum'
+    group_id_field = 'feed_name'
+    sorting_field = 'parsed_at'
+
+    def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
+        return super().store(rows)
+
+    def fetch_row(self, uid: str, hashsum: Optional[str] = None) -> Optional[sqlite3.Row]:
+        return super().fetch_row(uid, hashsum)
+
+    def row_exists(self, uid: str, hashsum: Optional[str] = None) -> bool:
+        return super().row_exists(uid, hashsum)
+
+    def get_size(self, feed_name: Optional[str] = None) -> int:
+        '''return number of records, total or for specified feed, are stored in db'''
+        return super().get_size(feed_name)
