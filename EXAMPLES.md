@@ -627,7 +627,12 @@ actors:
   execute:
     entities:
       - name: "tslazer"
-        command: "tslazer --dyn_url {media_url} --filename '[{username}] {title} [uid]'"
+        command: "tslazer --dyn_url {media_url} --filename '[{username}] {title} [{uid}]'"
+        placeholders:
+          "{media_url}": "media_url"
+          "{username}": "username"
+          "{title}": "title"
+          "{uid}": "uid"
         working_dir: "archive/spaces/{username}/"
 
 
