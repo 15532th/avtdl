@@ -193,6 +193,15 @@ class FeedMonitor(GenericRSSMonitor):
         rescheduled_records.extend(new_records)
         return rescheduled_records
 
+    def record_got_updated(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity) -> bool:
+        excluded_fields = {'views'}
+        stored_record = self.load_record(record, entity)
+        if stored_record is None:
+            return False
+        record_dump = record.model_dump(exclude=excluded_fields)
+        stored_record_dump = stored_record.model_dump(exclude=excluded_fields)
+        return record_dump != stored_record_dump
+
     def get_record_id(self, record: YoutubeFeedRecord) -> str:
         return record.video_id
 
