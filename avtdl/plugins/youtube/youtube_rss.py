@@ -259,14 +259,22 @@ class Migration:
 
             self.logger.info(f'running migration for table "{self.table_name}" at "{db_path}"')
             self.migrate()
-            self.logger.info(f'migration for table "{self.table_name}" at "{db_path}" completed."'
-                             f'"Original data are preserved at table "{self.backup_table_name}"')
+            self.logger.info(f'migration for table "{self.table_name}" in file "{db_path}" is completed. '
+                             f'Original data are preserved at table "{self.backup_table_name}"')
 
     def migrate(self):
         self.rename_table(self.table_name, self.backup_table_name)
         self.init_target_table(self.table_name)
+        max_bad_records = 5
         for row in self.fetch_all_rows(self.backup_table_name):
-            converted_row = self.transform(row)
+            try:
+                converted_row = self.transform(row)
+            except Exception as e:
+                self.logger.warning(f'failed to transform a row: {e}. Skipping failed record. Raw row: "{dict(row)}"')
+                max_bad_records -= 1
+                if max_bad_records <= 0:
+                    raise Exception('exceeded limit for bad records, aborting migration') from e
+                continue
             self.store(converted_row)
 
     def get_table_schema(self, table_name) -> Optional[str]:
@@ -277,11 +285,18 @@ class Migration:
         if row is None:
             return None
         return row['sql']
+    
+    @staticmethod
+    def _normalize_schema(schema: str) -> str:
+        schema = schema.lower()
+        schema = re.sub('[\s"\'`]', '', schema) 
+        schema = schema.replace('intefer', 'integer')
+        return schema
 
     def is_valid_target(self, table_name: str) -> bool:
         """returns True if this migration can be applied to given database"""
         existing_schema = self.get_table_schema(table_name) or ''
-        return re.sub('\s', '', self.migrated_table_schema) == re.sub('\s', '', existing_schema)
+        return self._normalize_schema(self.migrated_table_schema) == self._normalize_schema(existing_schema)
 
     def rename_table(self, old: str, new: str):
         sql = f'ALTER TABLE {old} RENAME TO {new}'
