@@ -57,9 +57,9 @@ class TwitterSpace(Action):
     contains a link to a Space and the metadata was retrieved successfully.
 
     It is possible to produce additional records with updated metadata at the
-    beginning and/or the end of the space by toggling the `emit_*` settings.
+    beginning and/or at the end of the space by toggling the `emit_*` settings.
     However, a single state change should only produce one record. For example,
-    if the space has already ended before first update, only single record is
+    if a space has already ended before the first update, only a single record is
     produced with all `emit_*` options enabled.
     """
 

@@ -582,11 +582,11 @@ chains:
 
 #### Send notifications and download Twitter Spaces
 
-Monitor tweets on the home timeline, looking for Twitter Spaces, deduplicate cross-posts, and feed the spaces to `twitter.spaces` plugin, that will monitor them and emit notifications when spaces starts and ends.
+Monitor tweets on the home timeline looking for Twitter Spaces, deduplicate cross-posts and feed the spaces to `twitter.spaces` plugin, that will monitor them and emit notifications when spaces start and end.
 
-Notifications are sent when space gets scheduled or started, and when it ends. Here `emit_on_live` can be disabled because `emit_immediately` will take care of sending initial notification, and `emit_on_end` must be enabled to ensure download will be initiated even for spaces without replay.
+Notifications are sent when a space gets scheduled or started, and when it ends. Here `emit_on_live` can be disabled because `emit_immediately` will take care of sending initial notification, and `emit_on_end` must be enabled to ensure a download will be initiated even for spaces without replay.
 
-`TwitterSpaceRecord`s with `state` field being "Ended", which means corresponding Space has ended, are passed to `execute` plugin entity that uses [tslazer](https://github.com/HoloArchivists/tslazer) to download recording. 
+`TwitterSpaceRecord`s with `state` field being "Ended", which means a corresponding Space has ended, are passed to `execute` plugin entity that uses [tslazer](https://github.com/HoloArchivists/tslazer) to download a recording. 
 
 ```yaml
 actors:
