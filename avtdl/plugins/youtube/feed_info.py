@@ -95,9 +95,7 @@ def parse_author(video_render: dict) -> Optional[AuthorInfo]:
     author = find_one(author_info, '$..text')
     channel_link = find_one(author_info, '$..browseEndpoint.canonicalBaseUrl')
     channel_id = find_one(author_info, '$..browseEndpoint.browseId')
-
     avatar_url = find_one(video_render, '$.channelThumbnailSupportedRenderers..thumbnails.[::-1].url')
-
     try:
         return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url)
     except ValidationError:
@@ -105,6 +103,23 @@ def parse_author(video_render: dict) -> Optional[AuthorInfo]:
 
 
 def parse_owner_info(page: dict) -> Optional[AuthorInfo]:
+    return parse_owner_from_header(page) or parse_owner_from_metadata(page) or None
+
+
+def parse_owner_from_metadata(page: dict) -> Optional[AuthorInfo]:
+    metadata = find_one(page, '$.metadata.channelMetadataRenderer')
+    if metadata is None:
+        return None
+    author = find_one(metadata, '$.title')
+    channel_link = find_one(metadata, '$.vanityChannelUrl')
+    channel_id = find_one(metadata, '$.externalId')
+    avatar_url = find_one(metadata, '$.avatar.thumbnails.[::-1].url')
+    try:
+        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url)
+    except ValidationError:
+        return None
+
+def parse_owner_from_header(page: dict) -> Optional[AuthorInfo]:
     owner_info_data = find_one(page, '$.header.c4TabbedHeaderRenderer')
     if owner_info_data is None:
         return None
