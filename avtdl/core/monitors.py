@@ -1,7 +1,7 @@
 import asyncio
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
@@ -328,7 +328,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
         rows = []
         for record in records:
             uid = self._get_record_id(record, entity)
-            parsed_at = datetime.utcnow()
+            parsed_at = datetime.now(tz=timezone.utc)
             hashsum = record.hash()
             feed_name = entity.name
             class_name = record.__class__.__name__
