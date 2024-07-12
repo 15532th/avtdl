@@ -1,7 +1,6 @@
 import asyncio
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
@@ -291,9 +290,6 @@ class BaseFeedMonitor(HttpTaskMonitor):
     async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
         '''Fetch and parse resource, return parsed records, both old and new'''
 
-    def _get_record_id(self, record: Record, entity: BaseFeedMonitorEntity) -> str:
-        return '{}:{}'.format(entity.name, record.get_uid())
-
     async def run(self):
         for entity in self.entities.values():
             session = self._get_session(entity)
@@ -320,33 +316,16 @@ class BaseFeedMonitor(HttpTaskMonitor):
             self.logger.info(f'[{entity.name}] {size} records stored in database')
 
     def store_records(self, records: Sequence[Record], entity: BaseFeedMonitorEntity):
-        rows = []
-        for record in records:
-            uid = self._get_record_id(record, entity)
-            parsed_at = datetime.now(tz=timezone.utc)
-            hashsum = record.hash()
-            feed_name = entity.name
-            class_name = record.__class__.__name__
-            as_json = record.as_json()
-            row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum, 'class_name': class_name, 'as_json': as_json}
-            rows.append(row)
-        self.db.store(rows)
+        self.db.store_records(records, entity.name)
 
     def load_record(self, record: Record, entity: BaseFeedMonitorEntity) -> Optional[Record]:
-        uid = self._get_record_id(record, entity)
-        stored_record = self.db.fetch_row(uid)
-        if stored_record is None:
-            return None
-        stored_record_instance = type(record).model_validate_json(stored_record['as_json'])
-        return stored_record_instance
+        return self.db.load_record(record, entity.name)
 
     def record_is_new(self, record: Record, entity: BaseFeedMonitorEntity) -> bool:
-        uid = self._get_record_id(record, entity)
-        return not self.db.row_exists(uid)
+        return not self.db.record_exists(record, entity.name)
 
     def record_got_updated(self, record: Record, entity: BaseFeedMonitorEntity) -> bool:
-        uid = self._get_record_id(record, entity)
-        return self.db.row_exists(uid) and not self.db.row_exists(uid, record.hash())
+        return self.db.record_got_updated(record, entity.name)
 
     def _log_changes(self, record: Record, entity: BaseFeedMonitorEntity):
         normalized_record = type(record).model_validate_json(record.as_json())

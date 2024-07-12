@@ -212,12 +212,7 @@ class VideosMonitor(PagedFeedMonitor):
 
     def record_got_updated(self, record: YoutubeVideoRecord, entity: VideosMonitorEntity) -> bool:
         excluded_fields = {'published_text'}
-        stored_record = self.load_record(record, entity)
-        if stored_record is None:
-            return False
-        record_dump = record.model_dump(exclude=excluded_fields)
-        stored_record_dump = stored_record.model_dump(exclude=excluded_fields)
-        return record_dump != stored_record_dump
+        return self.db.record_has_changed(record, entity.name, excluded_fields)
 
 
 @Plugins.register('filter.channel', Plugins.kind.ACTOR_CONFIG)

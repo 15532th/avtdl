@@ -1,21 +1,23 @@
+import datetime
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Union
 
+from avtdl.core.interfaces import Record
 from avtdl.core.utils import check_dir
 
 
 class BaseRecordDB:
     table_name = 'records'
     table_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
-    row_structure = ':parsed_at, :feed_name, :author, :video_id, :url, :title, :summary, :published, :updated, :scheduled, :views'
+    row_structure = ':parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json'
     id_field = 'uid'
     exact_id_field = 'hashsum'
     group_id_field = 'feed_name'
     sorting_field = 'parsed_at'
 
-    def __init__(self, db_path: Union[str,Path], logger: Optional[logging.Logger] = None):
+    def __init__(self, db_path: Union[str, Path], logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger('RecordDB')
         try:
             if not db_path == ':memory:' and not Path(db_path).exists():
@@ -39,7 +41,7 @@ class BaseRecordDB:
         self.cursor.executemany(sql, rows)
         self.db.commit()
 
-    def fetch_row(self, uid: Any, exact_id: Optional[Any] = None) -> Optional[sqlite3.Row]:
+    def fetch_row(self, uid: Any, exact_id: Optional[str] = None) -> Optional[sqlite3.Row]:
         if exact_id is not None:
             sql = f'SELECT * FROM records WHERE {self.id_field}=:uid AND {self.exact_id_field}=:exact_id ORDER BY {self.sorting_field} DESC LIMIT 1'
         else:
@@ -48,7 +50,7 @@ class BaseRecordDB:
         self.cursor.execute(sql, keys)
         return self.cursor.fetchone()
 
-    def row_exists(self, uid: Any, exact_id: Optional[Any] = None) -> bool:
+    def row_exists(self, uid: Any, exact_id: Optional[str] = None) -> bool:
         if exact_id is not None:
             sql = f'SELECT 1 FROM records WHERE {self.id_field}=:uid AND {self.exact_id_field}=:exact_id LIMIT 1'
         else:
@@ -57,34 +59,59 @@ class BaseRecordDB:
         self.cursor.execute(sql, keys)
         return self.cursor.fetchone() is not None
 
-    def get_size(self, group: Optional[Any] = None) -> int:
+    def get_size(self, group_id: Optional[str] = None) -> int:
         '''return number of records, total or for specified feed, are stored in db'''
-        if group is None:
+        if group_id is None:
             sql = f'SELECT COUNT(1) FROM {self.table_name}'
         else:
             sql = f'SELECT COUNT(1) FROM {self.table_name} WHERE {self.group_id_field}=:group'
-        keys = {'group': group}
+        keys = {'group': group_id}
         self.cursor.execute(sql, keys)
         return int(self.cursor.fetchone()[0])
 
 
 class RecordDB(BaseRecordDB):
-    table_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
-    row_structure = ':parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json'
-    id_field = 'uid'
-    exact_id_field = 'hashsum'
-    group_id_field = 'feed_name'
-    sorting_field = 'parsed_at'
 
-    def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
-        return super().store(rows)
+    @staticmethod
+    def _get_record_id(record: Record, entity_name: str) -> str:
+        return '{}:{}'.format(entity_name, record.get_uid())
 
-    def fetch_row(self, uid: str, hashsum: Optional[str] = None) -> Optional[sqlite3.Row]:
-        return super().fetch_row(uid, hashsum)
+    def store_records(self, records: Sequence[Record], entity_name: str):
+        rows = []
+        for record in records:
+            uid = self._get_record_id(record, entity_name)
+            parsed_at = datetime.datetime.now(tz=datetime.timezone.utc)
+            hashsum = record.hash()
+            feed_name = entity_name
+            class_name = record.__class__.__name__
+            as_json = record.as_json()
+            row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum, 'class_name': class_name, 'as_json': as_json}
+            rows.append(row)
+        self.store(rows)
 
-    def row_exists(self, uid: str, hashsum: Optional[str] = None) -> bool:
-        return super().row_exists(uid, hashsum)
+    def load_record(self, record: Record, entity_name: str) -> Optional[Record]:
+        """load most recently stored version of the record from db"""
+        uid = self._get_record_id(record, entity_name)
+        stored_record = self.fetch_row(uid)
+        if stored_record is None:
+            return None
+        stored_record_instance = type(record).model_validate_json(stored_record['as_json'])
+        return stored_record_instance
 
-    def get_size(self, feed_name: Optional[str] = None) -> int:
-        '''return number of records, total or for specified feed, are stored in db'''
-        return super().get_size(feed_name)
+    def record_exists(self, record: Record, entity_name: str) -> bool:
+        uid = self._get_record_id(record, entity_name)
+        return self.row_exists(uid)
+
+    def record_got_updated(self, record: Record, entity_name: str) -> bool:
+        """return True when there are different versions of the record in db but not this one"""
+        uid = self._get_record_id(record, entity_name)
+        return self.row_exists(uid) and not self.row_exists(uid, record.hash())
+
+    def record_has_changed(self, record: Record, entity_name: str, excluded_fields: Set[str]):
+        """check if the record differs from most recently stored version, not counting fields listed in excluded_fields"""
+        stored_record = self.load_record(record, entity_name)
+        if stored_record is None:
+            return False
+        record_dump = record.model_dump(exclude=excluded_fields)
+        stored_record_dump = stored_record.model_dump(exclude=excluded_fields)
+        return record_dump != stored_record_dump

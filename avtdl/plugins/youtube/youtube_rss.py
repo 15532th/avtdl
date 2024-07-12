@@ -198,12 +198,7 @@ class FeedMonitor(GenericRSSMonitor):
 
     def record_got_updated(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity) -> bool:
         excluded_fields = {'views'}
-        stored_record = self.load_record(record, entity)
-        if stored_record is None:
-            return False
-        record_dump = record.model_dump(exclude=excluded_fields)
-        stored_record_dump = stored_record.model_dump(exclude=excluded_fields)
-        return record_dump != stored_record_dump
+        return self.db.record_has_changed(record, entity.name, excluded_fields)
 
     def _parse_entry(self, entry: feedparser.FeedParserDict) -> YoutubeFeedRecord:
         parsed: Dict[str, Any] = {}
