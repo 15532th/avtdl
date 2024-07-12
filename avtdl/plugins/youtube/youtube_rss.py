@@ -69,6 +69,9 @@ class YoutubeFeedRecord(Record):
         template = '{} {:<8} [{}] {}'
         return template.format(self.format_date(self.published), self.author, self.video_id, self.title[:60])
 
+    def get_uid(self) -> str:
+        return self.video_id
+
     @staticmethod
     def format_date(date: Union[str, datetime]) -> str:
         if isinstance(date, str):

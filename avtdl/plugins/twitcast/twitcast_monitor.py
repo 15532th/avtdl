@@ -32,6 +32,9 @@ class TwitcastRecord(Record):
         title = shorten(self.title, MAX_REPR_LEN)
         return f'TwitcastRecord(user_id={self.user_id}, movie_id={self.movie_id}, title="{title}")'
 
+    def get_uid(self) -> str:
+        return self.movie_id
+
     def discord_embed(self) -> dict:
         return {
             'title': self.movie_url,

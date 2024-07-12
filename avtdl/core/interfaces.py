@@ -29,6 +29,10 @@ class Record(BaseModel):
     def __repr__(self) -> str:
         '''Short text representation of the record to be printed in logs'''
 
+    def get_uid(self) -> str:
+        '''A string that is the same for different versions of the same record'''
+        return self.hash()
+
     def as_timezone(self, timezone: Optional[datetime.timezone] = None) -> 'Record':
         fields = self.model_dump()
         for k, v in fields.items():

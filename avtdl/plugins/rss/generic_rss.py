@@ -44,6 +44,9 @@ class GenericRSSRecord(Record):
         title = shorten(self.title, MAX_REPR_LEN)
         return f'GenericRSSRecord(updated="{self.published.isoformat()}", url="{self.url}", title="{title}")'
 
+    def get_uid(self) -> str:
+        return self.uid
+
 
 @Plugins.register('generic_rss', Plugins.kind.ACTOR_CONFIG)
 class GenericRSSMonitorConfig(BaseFeedMonitorConfig):

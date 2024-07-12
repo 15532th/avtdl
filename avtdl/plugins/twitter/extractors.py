@@ -75,6 +75,9 @@ class TwitterRecord(Record):
             elements.append(str(tweet.quote))
         return '\n'.join(elements)
 
+    def get_uid(self) -> str:
+        return self.uid
+
     def discord_embed(self) -> List[dict]:
         quote = self.quote if self.retweet is None else self.retweet.quote
 
@@ -509,6 +512,9 @@ class TwitterSpaceRecord(Record):
 
     def __repr__(self):
         return f'TwitterSpaceRecord(author="{self.author}", url="{self.url}")'
+
+    def get_uid(self) -> str:
+        return self.uid
 
     def discord_embed(self) -> List[dict]:
         author = f'{self.author} ({self.username})'

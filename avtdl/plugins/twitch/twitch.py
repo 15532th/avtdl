@@ -35,6 +35,9 @@ class TwitchRecord(Record):
         title = shorten(self.title, MAX_REPR_LEN)
         return f'TwitchRecord(username={self.username}, title="{title}")'
 
+    def get_uid(self) -> str:
+        return self.url
+
     def discord_embed(self) -> dict:
         return {
             'title': self.title,

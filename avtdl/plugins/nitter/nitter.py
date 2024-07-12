@@ -69,6 +69,9 @@ class NitterRecord(Record):
     def __repr__(self):
         return f'NitterRecord(author="{self.author}", url="{self.url}", text="{shorten(self.text, MAX_REPR_LEN)}")'
 
+    def get_uid(self) -> str:
+        return self.url
+
     def discord_embed(self) -> List[dict]:
         text_items = [self.text]
         if len(self.attachments) > 1:

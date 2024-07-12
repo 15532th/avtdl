@@ -75,6 +75,9 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
         template = '{:<8} [{}] {}'
         return template.format(self.author or 'Unknown author', self.video_id, self.title[:60])
 
+    def get_uid(self) -> str:
+        return self.video_id
+
     def discord_embed(self) -> dict:
         embed: Dict[str, Any] = {
             'title': self.title,

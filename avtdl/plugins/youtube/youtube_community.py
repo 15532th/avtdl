@@ -55,6 +55,9 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         original_post = str(self.original_post) if self.original_post else ''
         return '\n'.join((channel_post_url, header, body, video, attachments, original_post))
 
+    def get_uid(self) -> str:
+        return  f'{self.channel_id}:{self.post_id}'
+
     def discord_embed(self) -> List[dict]:
         channel_url = f'https://www.youtube.com/channel/{self.channel_id}'
         post_url = f'https://www.youtube.com/post/{self.post_id}'
@@ -116,6 +119,9 @@ class SharedCommunityPostRecord(Record, SharedCommunityPostInfo):
         body = self.full_text
         original_post = str(self.original_post) if self.original_post else ''
         return '\n'.join((channel_post_url, header, body, original_post))
+
+    def get_uid(self) -> str:
+        return  f'{self.channel_id}:{self.post_id}'
 
     def discord_embed(self) -> List[dict]:
         channel_url = f'https://www.youtube.com/channel/{self.channel_id}'
