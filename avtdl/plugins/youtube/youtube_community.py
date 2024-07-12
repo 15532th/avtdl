@@ -169,9 +169,6 @@ class CommunityPostsMonitor(PagedFeedMonitor):
     - `https://www.youtube.com/channel/UCK0V3b23uJyU4N8eR_BR0QA/community`
     """
 
-    def get_record_id(self, record: CommunityPostRecord) -> str:
-        return f'{record.channel_id}:{record.post_id}'
-
     async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[NextPageContext]]:
         raw_page_text = await self.request(entity.url, entity, session)
         if raw_page_text is None:

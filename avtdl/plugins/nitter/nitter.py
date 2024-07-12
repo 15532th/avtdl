@@ -198,9 +198,6 @@ class NitterMonitor(PagedFeedMonitor):
         next_page_url = self._get_continuation_url(page)
         return records, next_page_url
 
-    def get_record_id(self, record: NitterRecord) -> str:
-        return record.url
-
     async def _get_user_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
         text = await self.request(entity.url, entity, session, headers=self.HEADERS)
         return text

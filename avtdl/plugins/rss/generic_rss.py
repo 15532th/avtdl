@@ -85,9 +85,6 @@ class GenericRSSMonitor(BaseFeedMonitor):
         records = self._parse_entries(raw_feed)
         return records
 
-    def get_record_id(self, record: GenericRSSRecord) -> str:
-        return record.uid
-
     async def _get_feed(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Optional[feedparser.FeedParserDict]:
         response = await self.request_raw(entity.url, entity, session)
         if response is None:

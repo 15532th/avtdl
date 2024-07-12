@@ -151,9 +151,6 @@ class YoutubeChatMonitor(BaseFeedMonitor):
     Some features, such as polls, are not supported.
     """
 
-    def get_record_id(self, record: YoutubeChatRecord) -> str:
-       return record.uid
-
     async def get_records(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeChatRecord]:
         if entity.context.done:
             return []

@@ -205,9 +205,6 @@ class FeedMonitor(GenericRSSMonitor):
         stored_record_dump = stored_record.model_dump(exclude=excluded_fields)
         return record_dump != stored_record_dump
 
-    def get_record_id(self, record: YoutubeFeedRecord) -> str:
-        return record.video_id
-
     def _parse_entry(self, entry: feedparser.FeedParserDict) -> YoutubeFeedRecord:
         parsed: Dict[str, Any] = {}
         parsed['url'] = entry['link']

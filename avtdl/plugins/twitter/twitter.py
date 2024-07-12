@@ -64,9 +64,6 @@ class TwitterMonitor(PagedFeedMonitor):
             continuation = None
         return records, continuation
 
-    def get_record_id(self, record: TwitterRecord) -> str:
-        return record.url
-
     @abstractmethod
     async def _get_page(self, entity: TwitterMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
         """Retrieve raw response string from endpoint"""

@@ -210,9 +210,6 @@ class VideosMonitor(PagedFeedMonitor):
         records = records[::-1] # records are ordered from old to new on page, reorder in chronological order
         return records
 
-    def get_record_id(self, record: YoutubeVideoRecord) -> str:
-        return record.video_id
-
     def record_got_updated(self, record: YoutubeVideoRecord, entity: VideosMonitorEntity) -> bool:
         excluded_fields = {'published_text'}
         stored_record = self.load_record(record, entity)

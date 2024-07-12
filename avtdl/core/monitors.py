@@ -291,12 +291,8 @@ class BaseFeedMonitor(HttpTaskMonitor):
     async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
         '''Fetch and parse resource, return parsed records, both old and new'''
 
-    @abstractmethod
-    def get_record_id(self, record: Record) -> str:
-        '''A string that unique identifies a record even if it has changed'''
-
     def _get_record_id(self, record: Record, entity: BaseFeedMonitorEntity) -> str:
-        return '{}:{}'.format(entity.name, self.get_record_id(record))
+        return '{}:{}'.format(entity.name, record.get_uid())
 
     async def run(self):
         for entity in self.entities.values():
@@ -358,7 +354,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
         if stored_record is None:
             return
         stored_record_instance = type(record).model_validate_json(stored_record.as_json())
-        msg = f'[{entity.name}] fetched record "{self.get_record_id(record)}" (new: {record.hash()[:5]}, old: {stored_record_instance.hash()[:5]}) already exists but has changed:\n'
+        msg = f'[{entity.name}] fetched record "{record.get_uid()}" (new: {record.hash()[:5]}, old: {stored_record_instance.hash()[:5]}) already exists but has changed:\n'
         self.logger.debug(msg + show_diff(normalized_record.model_dump(), stored_record_instance.model_dump()))
 
     def filter_new_records(self, records: Sequence[Record], entity: BaseFeedMonitorEntity) -> Sequence[Record]:
@@ -366,10 +362,10 @@ class BaseFeedMonitor(HttpTaskMonitor):
         for record in records:
             if self.record_is_new(record, entity):
                 new_records.append(record)
-                self.logger.debug(f'[{entity.name}] fetched record is new: "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
+                self.logger.debug(f'[{entity.name}] fetched record is new: "{record.get_uid()}" (hash: {record.hash()[:5]})')
             if self.record_got_updated(record, entity):
                 self._log_changes(record, entity)
-                self.logger.debug(f'[{entity.name}] storing new version of record "{self.get_record_id(record)}" (hash: {record.hash()[:5]})')
+                self.logger.debug(f'[{entity.name}] storing new version of record "{record.get_uid()}" (hash: {record.hash()[:5]})')
         self.store_records(records, entity)
         return new_records
 
