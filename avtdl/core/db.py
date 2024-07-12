@@ -35,7 +35,7 @@ class BaseRecordDB:
             self.logger.debug(f'successfully connected to sqlite database at "{db_path}"')
 
     def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
-        sql = "INSERT OR REPLACE INTO {} VALUES({})".format(self.table_name, self.row_structure)
+        sql = "INSERT OR IGNORE INTO {} VALUES({})".format(self.table_name, self.row_structure)
         if not isinstance(rows, list):
             rows = [rows]
         self.cursor.executemany(sql, rows)
