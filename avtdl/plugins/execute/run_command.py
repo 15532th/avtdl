@@ -163,6 +163,13 @@ class Command(Action):
         task = self.run_subprocess(args, task_id, working_dir, entity, record)
         self.running_commands[task_id] = asyncio.get_event_loop().create_task(task, name=f'{self.conf.name}:{entity.name}:{task_id}')
 
+        self._check_running_commands()
+
+    def _check_running_commands(self):
+        for name, task in self.running_commands.items():
+            if task.done() and task.exception() is not None:
+                self.logger.error(f'[{name}] task {task.get_name()} has terminated with exception', exc_info=task.exception())
+
     def _get_output_file(self, entity: CommandEntity, record: Record, task_id: str) -> Optional[Path]:
         if entity.log_dir is None:
             return None
