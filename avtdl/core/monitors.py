@@ -282,11 +282,10 @@ class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     """throw away new records produced on first update of given url"""
 
 class BaseFeedMonitor(HttpTaskMonitor):
-    RecordDB = RecordDB
 
     def __init__(self, conf: BaseFeedMonitorConfig, entities: Sequence[BaseFeedMonitorEntity]):
         super().__init__(conf, entities)
-        self.db = self.RecordDB(conf.db_path, logger=self.logger.getChild('db'))
+        self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
     @abstractmethod
     async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
