@@ -4,7 +4,9 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set, Union
 
-from avtdl.core.interfaces import Record
+from pydantic import Field, field_validator, model_validator
+
+from avtdl.core.interfaces import ActorConfig, Record
 from avtdl.core.utils import check_dir
 
 
@@ -115,3 +117,30 @@ class RecordDB(BaseRecordDB):
         record_dump = record.model_dump(exclude=excluded_fields)
         stored_record_dump = stored_record.model_dump(exclude=excluded_fields)
         return record_dump != stored_record_dump
+
+
+class BaseDbConfig(ActorConfig):
+    db_path: Union[Path, str] = Field(default='db/', validate_default=True)
+    """path to the sqlite database file keeping history of old records of this monitor.
+    Might specify a path to a directory containing the file (with trailing slash)
+    or a direct path to the file itself (without a slash). If special value `:memory:` is used,
+    database is kept in memory and not stored on disk at all, providing a clean database on every startup"""
+
+    @field_validator('db_path')
+    @classmethod
+    def str_to_path(cls, path: Union[Path, str]):
+        if isinstance(path, Path):
+            return path
+        if path == ':memory:':
+            return path
+        if path.endswith('/') or path.endswith('\\'):
+            ok = check_dir(Path(path), create=True)
+            if not ok:
+                raise ValueError(f'error accessing path {path}, check if it is a valid path and is writeable')
+        return Path(path)
+
+    @model_validator(mode='after')
+    def handle_db_directory(self):
+        if isinstance(self.db_path, Path) and self.db_path.is_dir():
+            self.db_path = self.db_path.joinpath(f'{self.name}.sqlite')
+        return self

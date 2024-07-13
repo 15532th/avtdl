@@ -2,14 +2,14 @@ import asyncio
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import aiohttp
-from pydantic import Field, FilePath, field_validator, model_validator
+from pydantic import Field, FilePath, field_validator
 
-from avtdl.core.db import RecordDB
+from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record
-from avtdl.core.utils import Delay, SessionStorage, check_dir, get_cache_ttl, get_retry_after, load_cookies, \
+from avtdl.core.utils import Delay, SessionStorage, get_cache_ttl, get_retry_after, load_cookies, \
     monitor_tasks, monitor_tasks_dict, show_diff
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
@@ -233,31 +233,9 @@ class HttpTaskMonitor(BaseTaskMonitor):
         '''Produce new records, optionally adjust update_interval'''
 
 
-class BaseFeedMonitorConfig(ActorConfig):
-    db_path: Union[Path, str] = Field(default='db/', validate_default=True)
-    """path to the sqlite database file keeping history of old records of this monitor.
-    Might specify a path to a directory containing the file (with trailing slash)
-    or a direct path to the file itself (without a slash). If special value `:memory:` is used,
-    database is kept in memory and not stored on disk at all, providing a clean database on every startup"""
+class BaseFeedMonitorConfig(BaseDbConfig):
+    pass
 
-    @field_validator('db_path')
-    @classmethod
-    def str_to_path(cls, path: Union[Path, str]):
-        if isinstance(path, Path):
-            return path
-        if path == ':memory:':
-            return path
-        if path.endswith('/') or path.endswith('\\'):
-            ok = check_dir(Path(path), create=True)
-            if not ok:
-                raise ValueError(f'error accessing path {path}, check if it is a valid path and is writeable')
-        return Path(path)
-
-    @model_validator(mode='after')
-    def handle_db_directory(self):
-        if isinstance(self.db_path, Path) and self.db_path.is_dir():
-            self.db_path = self.db_path.joinpath(f'{self.name}.sqlite')
-        return self
 
 class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
     url: str
