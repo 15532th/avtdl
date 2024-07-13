@@ -10,7 +10,7 @@ from pydantic import Field, FilePath, field_validator, model_validator
 from avtdl.core.db import RecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record
 from avtdl.core.utils import Delay, SessionStorage, check_dir, get_cache_ttl, get_retry_after, load_cookies, \
-    monitor_tasks, show_diff
+    monitor_tasks, monitor_tasks_dict, show_diff
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
@@ -31,19 +31,7 @@ class BaseTaskMonitor(Monitor):
         # keep an eye on possible exceptions in startup process
         self.tasks['startup_tasks_monitor'] = asyncio.create_task(monitor_tasks(startup_tasks, logger=self.logger), name='startup_tasks_monitor')
 
-        # check for entities tasks
-        while True:
-            for name, task in self.tasks.items():
-                if task is None:
-                    continue
-                if not task.done():
-                    continue
-                if task.exception() is not None:
-                    self.logger.error(f'[{name}] task {task.get_name()} has terminated with exception', exc_info=task.exception())
-                else:
-                    self.logger.debug(f'[{name}] task {task.get_name()} has finished normally')
-                self.tasks[name] = None
-            await asyncio.sleep(1)
+        await monitor_tasks_dict(self.tasks, logger=self.logger)
 
     async def start_cyclic_tasks(self) -> Sequence[asyncio.Task]:
         by_entity_interval = defaultdict(list)

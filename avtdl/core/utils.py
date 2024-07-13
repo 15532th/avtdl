@@ -219,6 +219,26 @@ async def monitor_tasks_set(tasks: Set[asyncio.Task], poll_interval: float = 5, 
             tasks.discard(task)
 
 
+async def monitor_tasks_dict(tasks: Dict[str, asyncio.Task], poll_interval: float = 5, logger: Optional[logging.Logger] = None) -> None:
+    """given link to a dict with tasks, check on them and remove completed or failed"""
+    logger = logger or logging.getLogger()
+    while True:
+        if not tasks:
+            await asyncio.sleep(poll_interval)
+            continue
+        done, pending = await asyncio.wait(tasks.values(), return_when=asyncio.FIRST_EXCEPTION, timeout=poll_interval)
+        if not done:
+            continue
+        finished_tasks = {name: task for name, task in tasks.items() if task in done}
+
+        for name, task in finished_tasks.items():
+            if not task.done():
+                continue
+            if task.exception() is not None:
+                logger.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
+            tasks.pop(name)
+
+
 async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
                       method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
                       headers: Optional[Dict[str, Any]] = None, retry_times: int = 1, retry_delay: float = 1,
