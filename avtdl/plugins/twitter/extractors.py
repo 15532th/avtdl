@@ -76,7 +76,7 @@ class TwitterRecord(Record):
         return '\n'.join(elements)
 
     def get_uid(self) -> str:
-        return self.uid
+        return self.url
 
     def discord_embed(self) -> List[dict]:
         quote = self.quote if self.retweet is None else self.retweet.quote
