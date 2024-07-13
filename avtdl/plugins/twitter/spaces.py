@@ -9,7 +9,8 @@ import aiohttp
 from pydantic import FilePath
 
 from avtdl.core import utils
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
+from avtdl.core.db import BaseDbConfig, RecordDB
+from avtdl.core.interfaces import Action, ActionEntity, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import SessionStorage, find_matching_field_value, monitor_tasks_dict
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
@@ -22,7 +23,7 @@ SPACE_URL_PATTERN = '/i/spaces/'
 
 
 @Plugins.register('twitter.space', Plugins.kind.ACTOR_CONFIG)
-class TwitterSpaceConfig(ActorConfig):
+class TwitterSpaceConfig(BaseDbConfig):
     pass
 
 
@@ -41,7 +42,6 @@ class TwitterSpaceEntity(ActionEntity):
     """if enabled, a record is produced when archive media_url becomes available"""
     emit_on_end: bool = False
     """if enabled, a record is produced when the space ends, even if there is no archive"""
-
 
 
 @Plugins.register('twitter.space', Plugins.kind.ACTOR)
@@ -72,6 +72,7 @@ class TwitterSpace(Action):
         super().__init__(conf, entities)
         self.sessions = SessionStorage(self.logger)
         self.tasks: Dict[str, asyncio.Task] = {}
+        self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
     def handle(self, entity: TwitterSpaceEntity, record: Record):
         space_id = get_space_id(record)
@@ -139,6 +140,7 @@ class TwitterSpace(Action):
         if space is None:
             return
         space.media_url = await self.wait_for_any_url(session, entity, space) or None
+        self.db.store_records([space], entity.name)
 
         done = handle_update_result(space)
         if done:
@@ -167,15 +169,15 @@ class TwitterSpace(Action):
                 space.media_url = media_url
             else:
                 space.media_url = old_media_url
+            self.db.store_records([space], entity.name)
 
             done = handle_update_result(space)
             if done:
                 break
 
-
     async def wait_for_live(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
         assert space.scheduled is not None, f'upcoming space has no scheduled: {space.model_dump()}'
-        while True: # waiting until start
+        while True:  # waiting until start
             delay = (space.scheduled - datetime.datetime.now(tz=datetime.timezone.utc))
             delay_seconds = delay.total_seconds()
             if delay_seconds < self.CHECK_UPCOMING_DELAY:
@@ -185,12 +187,15 @@ class TwitterSpace(Action):
             return None
 
         self.logger.debug(f'[{entity.name}] space {space.url} should start now, fetching media_url')
+
         def is_done(media_url: str) -> bool:
             return media_url != ''
+
         return await self.wait_for_media_url(session, entity, space, self.CHECK_UPCOMING_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
 
     async def wait_for_replay(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
         self.logger.debug(f'[{entity.name}] space {space.url} is ongoing since {space.started}, fetching live media_url')
+
         def is_done(media_url: str) -> bool:
             if media_url == '':
                 return True
@@ -201,6 +206,7 @@ class TwitterSpace(Action):
             else:
                 self.logger.debug(f'[{entity.name}] space {space.url} got media_url with unknown type: {media_url}')
                 return True
+
         return await self.wait_for_media_url(session, entity, space, self.CHECK_LIVE_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
 
     async def wait_for_any_url(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
