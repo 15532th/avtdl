@@ -244,7 +244,7 @@ class Migration:
         if db_path == ':memory:':
             return
         if not Path(db_path).exists():
-            raise ValueError('db_path does not exist')
+            return
         try:
             self.db = sqlite3.connect(db_path, isolation_level=None)
             self.db.row_factory = sqlite3.Row
