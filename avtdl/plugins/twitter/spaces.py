@@ -3,7 +3,7 @@ import datetime
 import json
 import urllib.parse
 from enum import Enum
-from typing import Callable, Optional, Sequence, Set
+from typing import Callable, Dict, Optional, Sequence
 
 import aiohttp
 from pydantic import FilePath
@@ -11,7 +11,7 @@ from pydantic import FilePath
 from avtdl.core import utils
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import SessionStorage, find_matching_field_value, monitor_tasks_set
+from avtdl.core.utils import SessionStorage, find_matching_field_value, monitor_tasks_dict
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
 from avtdl.plugins.twitter.extractors import TwitterSpaceRecord, find_space_id, parse_media_url, parse_space, \
     space_url_by_id
@@ -71,18 +71,21 @@ class TwitterSpace(Action):
     def __init__(self, conf: TwitterSpaceConfig, entities: Sequence[TwitterSpaceEntity]):
         super().__init__(conf, entities)
         self.sessions = SessionStorage(self.logger)
-        self.tasks: Set[asyncio.Task] = set()
+        self.tasks: Dict[str, asyncio.Task] = {}
 
     def handle(self, entity: TwitterSpaceEntity, record: Record):
         space_id = get_space_id(record)
         if space_id is None:
-            return None
+            return
+        if space_id in self.tasks:
+            self.logger.debug(f'[{entity.name}] task for space {space_id} is already running')
+            return
         task = asyncio.create_task(self.handle_space(entity, space_id))
-        self.tasks.add(task)
+        self.tasks[space_id] = task
 
     async def run(self) -> None:
         self.sessions.run()
-        await monitor_tasks_set(self.tasks, logger=self.logger)
+        await monitor_tasks_dict(self.tasks, logger=self.logger)
 
     async def handle_space(self, entity: TwitterSpaceEntity, space_id: str):
         should_emit_something: bool = entity.emit_immediately
