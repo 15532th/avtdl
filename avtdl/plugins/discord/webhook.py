@@ -242,4 +242,4 @@ class DiscordHook(Action):
         for entity in self.entities.values():
             task = asyncio.create_task(entity.hook.run(), name=f'{self.conf.name}:{entity.name}')
             tasks.append(task)
-        await monitor_tasks(tasks)
+        await monitor_tasks(tasks, logger=self.logger)

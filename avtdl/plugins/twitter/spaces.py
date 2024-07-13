@@ -82,7 +82,7 @@ class TwitterSpace(Action):
 
     async def run(self) -> None:
         self.sessions.run()
-        await monitor_tasks_set(self.tasks)
+        await monitor_tasks_set(self.tasks, logger=self.logger)
 
     async def handle_space(self, entity: TwitterSpaceEntity, space_id: str):
         should_emit_something: bool = entity.emit_immediately

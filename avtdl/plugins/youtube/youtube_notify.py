@@ -83,4 +83,4 @@ class ChannelNotifyFilter(Filter):
         self.on_record(entity, record)
 
     async def run(self):
-        await monitor_tasks_set(self.tasks)
+        await monitor_tasks_set(self.tasks, logger=self.logger)

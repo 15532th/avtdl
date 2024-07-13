@@ -187,8 +187,9 @@ def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
     return '\n'.join(diff)
 
 
-async def monitor_tasks(tasks: Iterable[asyncio.Task]) -> None:
+async def monitor_tasks(tasks: Iterable[asyncio.Task], logger: Optional[logging.Logger] = None) -> None:
     """given list of running tasks, wait for them and report any unhandled exceptions"""
+    logger = logger or logging.getLogger()
     tasks = set(tasks)
     while True:
         if not tasks:
@@ -198,12 +199,13 @@ async def monitor_tasks(tasks: Iterable[asyncio.Task]) -> None:
             if not task.done():
                 continue
             if task.exception() is not None:
-                logging.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
+                logger.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
         tasks = pending
 
 
-async def monitor_tasks_set(tasks: Set[asyncio.Task], poll_interval: float = 5) -> None:
+async def monitor_tasks_set(tasks: Set[asyncio.Task], poll_interval: float = 5, logger: Optional[logging.Logger] = None) -> None:
     """given link to a set of tasks, check on them and remove completed or failed"""
+    logger = logger or logging.getLogger()
     while True:
         if not tasks:
             await asyncio.sleep(poll_interval)
@@ -213,7 +215,7 @@ async def monitor_tasks_set(tasks: Set[asyncio.Task], poll_interval: float = 5) 
             if not task.done():
                 continue
             if task.exception() is not None:
-                logging.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
+                logger.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
             tasks.discard(task)
 
 

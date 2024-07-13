@@ -29,7 +29,7 @@ class BaseTaskMonitor(Monitor):
     async def run(self):
         startup_tasks = await self.start_cyclic_tasks()
         # keep an eye on possible exceptions in startup process
-        self.tasks['startup_tasks_monitor'] = asyncio.create_task(monitor_tasks(startup_tasks), name='startup_tasks_monitor')
+        self.tasks['startup_tasks_monitor'] = asyncio.create_task(monitor_tasks(startup_tasks, logger=self.logger), name='startup_tasks_monitor')
 
         # check for entities tasks
         while True:
