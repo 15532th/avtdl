@@ -121,7 +121,7 @@ class RecordDB(BaseRecordDB):
 
 class BaseDbConfig(ActorConfig):
     db_path: Union[Path, str] = Field(default='db/', validate_default=True)
-    """path to the sqlite database file keeping history of old records of this monitor.
+    """path to the sqlite database file keeping history of old records.
     Might specify a path to a directory containing the file (with trailing slash)
     or a direct path to the file itself (without a slash). If special value `:memory:` is used,
     database is kept in memory and not stored on disk at all, providing a clean database on every startup"""
