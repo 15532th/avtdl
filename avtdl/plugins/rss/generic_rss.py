@@ -1,6 +1,6 @@
 import datetime
 from textwrap import shorten
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, Union
 
 import aiohttp
 import feedparser
@@ -89,7 +89,21 @@ class GenericRSSMonitor(BaseFeedMonitor):
         response = await self.request_raw(entity.url, entity, session)
         if response is None:
             return None
-        text = await response.text()
+        raw_text = await response.text()
+
+        # Charset detection used by aiohttp fails on RSS feed often enough,
+        # and feedparser is capable of taking bytes as input and detecting
+        # encoding itself. Since aiohttp.ClientResponse does not provide
+        # a way to get response body as raw bytes multiple times, encode
+        # text back to bytes instead.
+        # Skip it for UTF-8 since it's most likely to be correct.
+        text: Union[str, bytes] = raw_text
+        if response.get_encoding().lower() in ('utf-8', 'utf8'):
+            self.logger.debug(f'[{entity.name}] detected encoding is {response.get_encoding()}, reverting to bytes')
+            try:
+                text = raw_text.encode(response.get_encoding())
+            except Exception as e:
+                self.logger.exception(f'[{entity.name}] failed to encode raw feed back to bytes: {e}')
 
         # Set "content-location" header to allow feedparser to resolve
         # relative links in feed entries. Header name must be
