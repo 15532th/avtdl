@@ -52,9 +52,10 @@ class RequestDetails:
 
 
 def replace_url_host(url: str, new_host: str) -> str:
-    netloc = get_netloc(new_host)
+    parsed_host = urllib.parse.urlparse(new_host)
     parsed_url = urllib.parse.urlparse(url)
-    new_url = urllib.parse.urlunparse((parsed_url.scheme, netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment))
+    scheme = parsed_url.scheme or parsed_host.scheme or 'https://'
+    new_url = urllib.parse.urlunparse((scheme, parsed_host.netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment))
     return new_url
 
 
