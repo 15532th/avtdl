@@ -1,119 +1,43 @@
 import asyncio
+import datetime
 import json
 import logging
 from textwrap import shorten
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import aiohttp
 import multidict
-from pydantic import Field
 
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import monitor_tasks
+from avtdl.core.utils import RateLimit, monitor_tasks, request_raw
 
 EMBEDS_PER_MESSAGE = 10
 EMBED_TITLE_MAX_LENGTH = 256
 EMBED_DESCRIPTION_MAX_LENGTH = 4096
 
 
-class DiscordWebhook:
+class DiscordRateLimit(RateLimit):
 
-    def __init__(self, name: str, hook_url: str, logger: Optional[logging.Logger] = None):
-        self.logger = logger or logging.getLogger('DiscordHook')
-        self.name = name
-        self.hook_url = hook_url
-        self.send_query: Optional[asyncio.Queue] = None
-        self.session: Optional[aiohttp.ClientSession] = None
-
-    def to_be_sent(self, record: Record):
-        if self.send_query is None:
-            return
-        self.logger.debug(f'adding record to send query: {record!r}')
-        self.send_query.put_nowait(record)
-
-    async def run(self) -> None:
-        self.send_query = asyncio.Queue()
-        self.session = aiohttp.ClientSession()
-
-        until_next_try = 0
-        to_be_sent: List[Record] = []
-        while True:
-            await asyncio.sleep(until_next_try)
-            try:
-                while len(to_be_sent) < EMBEDS_PER_MESSAGE:
-                    record = await asyncio.wait_for(self.send_query.get(), 60/EMBEDS_PER_MESSAGE)
-                    to_be_sent.append(record)
-            except asyncio.TimeoutError:
-                pass
-            if len(to_be_sent) == 0:
-                continue
-            try:
-                message, pending_records = MessageFormatter.format(to_be_sent)
-                self.logger.debug(f'[{self.name}] out of {len(to_be_sent)} records {len(pending_records)} are left pending')
-            except Exception as e:
-                self.logger.exception(f'error happened while formatting message: {e}\nRaw records list: "{to_be_sent}"')
-                to_be_sent = []
-                continue
-            try:
-                limits_ok = MessageFormatter.check_limits(message)
-            except Exception as e:
-                self.logger.exception(f'error checking content length limits for message: {e}\nRaw message: "{message}"')
-                continue
-            if not limits_ok:
-                self.logger.warning(f'[{self.name}] prepared message exceeded Discord length limits. Records will be discarded')
-                self.logger.debug(f'[{self.name}] message content:\n{message}')
-                to_be_sent = pending_records
-                continue
-            try:
-                response = await self.session.post(self.hook_url, json=message)
-                text = await response.text()
-            except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError) as e:
-                self.logger.warning(f'[{self.name}] error while sending message with Discord webhook: {e or type(e)}, saving for the next try')
-                until_next_try = 60
-                continue  # implicitly saving messages in to_be_sent until the next try
-            except Exception as e:
-                self.logger.exception(f'[{self.name}] error while sending message with Discord webhook: {e or type(e)}')
-                self.logger.debug(f'raw message text:\n{message}')
-                to_be_sent = pending_records # discard unsent messages as they might have been the cause of error
-                until_next_try = 60
-                continue
-            try:
-                response.raise_for_status()
-            except aiohttp.ClientResponseError as e:
-                self.logger.warning(f'got {response.status} ({response.reason}) from {self.hook_url}')
-                if e.status == 400:
-                    self.logger.warning(f'[{self.name}] message got rejected with {response.status} ({response.reason}), dropping it')
-                    self.logger.debug(f'[{self.name}] response headers: {response.headers}')
-                    self.logger.debug(f'[{self.name}] raw request body: {json.dumps(message)}')
-                elif e.status in  [404, 403]:
-                    self.logger.warning(f'[{self.name}] got {e.status} from webhook, interrupting operations. Check if webhook url is still valid: {self.hook_url}')
-                    break
-            # if message got send successfully discard records except these that didn't fit into message
-            if len(pending_records) > 0:
-                self.logger.debug(f'carrying {len(pending_records)} pending records to the next loop')
-            to_be_sent = pending_records
-            until_next_try = self.get_next_delay(response.headers)
-
-    def get_next_delay(self, headers: multidict.CIMultiDictProxy):
-        if 'Retry-After' in headers:
-            delay = headers.get('Retry-After', 0)
-            self.logger.debug(f'Retry-After header is set to {delay}')
-        else:
-            remaining = headers.get('X-RateLimit-Remaining', '0')
-            reset_after = headers.get('X-RateLimit-Reset-After')
-            bucket = headers.get('X-RateLimit-Bucket')
-            self.logger.debug(f'X-RateLimit-Remaining: {remaining}, X-RateLimit-Reset-After: {reset_after}, X-RateLimit-Bucket: {bucket}')
-            if remaining in ['0', '1']:
-                delay = reset_after
-            else:
-                delay = 0
+    def _submit_headers(self, headers: Union[Dict[str, str], multidict.CIMultiDictProxy[str]], logger: logging.Logger):
         try:
-            delay = int(delay)
-        except (ValueError, TypeError):
-            self.logger.debug(f'failed to parse delay {delay} for {self.hook_url}, using default')
-            delay = 6
-        return delay
+            self.limit_total = int(headers.get('X-RateLimit-Limit', -1))
+            self.limit_remaining = int(headers.get('X-RateLimit-Remaining', -1))
+            self.reset_at = int(headers.get('X-RateLimit-Reset', -1))
+        except ValueError:
+            logger.warning(f'[{self.name}] error parsing rate limit headers: "{headers}"')
+        else:
+            logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.reset_after)}')
+
+    @staticmethod
+    def get_bucket(headers: multidict.CIMultiDictProxy[str]) -> Optional[str]:
+        return headers.get('X-RateLimit-Bucket')
+
+
+class NoRateLimit(DiscordRateLimit):
+
+    def _submit_headers(self, headers: Union[Dict[str, str], multidict.CIMultiDictProxy[str]], logger: logging.Logger):
+        pass
 
 
 class MessageFormatter:
@@ -204,8 +128,6 @@ class DiscordHookConfig(ActorConfig):
 class DiscordHookEntity(ActionEntity):
     url: str
     """webhook url"""
-    hook: Optional[Any] = Field(exclude=True, default=None)
-    """internal variable to persist state between update calls, holds DiscordWebhook object for this entity"""
 
 
 @Plugins.register('discord.hook', Plugins.kind.ACTOR)
@@ -229,17 +151,112 @@ class DiscordHook(Action):
 
     def __init__(self, conf: DiscordHookConfig, entities: Sequence[DiscordHookEntity]):
         super().__init__(conf, entities)
-        for entity in entities:
-            entity.hook = DiscordWebhook(entity.name, entity.url, self.logger)
+        self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
+        self.buckets: Dict[Optional[str], DiscordRateLimit] = {}
+        self.buckets[None] = NoRateLimit('fallback bucket')
 
     def handle(self, entity: DiscordHookEntity, record: Record):
-        if entity.hook is None:
+        if not entity.name in self.queues:
             return
-        entity.hook.to_be_sent(record)
+        self.logger.debug(f'[{entity.name}] adding record to send query: {record!r}')
+        self.queues[entity.name].put_nowait(record)
 
     async def run(self):
         tasks = []
-        for entity in self.entities.values():
-            task = asyncio.create_task(entity.hook.run(), name=f'{self.conf.name}:{entity.name}')
-            tasks.append(task)
-        await monitor_tasks(tasks, logger=self.logger)
+        async with aiohttp.ClientSession() as session:
+            for entity in self.entities.values():
+                task = asyncio.create_task(self.run_for(entity, session), name=f'{self.conf.name}:{entity.name}')
+                tasks.append(task)
+            await monitor_tasks(tasks, logger=self.logger)
+
+    async def run_for(self, entity: DiscordHookEntity, session: aiohttp.ClientSession):
+        send_queue = self.queues[entity.name]
+
+        bucket: Optional[str] = None
+        until_next_try = 0
+        to_be_sent: List[Record] = []
+
+        while True:
+            await asyncio.sleep(until_next_try)
+            to_be_sent = await self.wait_for_records(send_queue, pending=to_be_sent)
+            message, pending_records = self._prepare_message(to_be_sent, entity)
+            if message is None:
+                to_be_sent = pending_records
+                continue
+
+            async with self.buckets[bucket] as _:
+                try:
+                    response = await request_raw(entity.url, session, self.logger, method='POST', data=json.dumps(message), raise_errors=True, raise_for_status=False)
+                    assert response is not None, 'request_json() returned None despite raise_errors=True'
+                except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError) as e:
+                    self.logger.warning(f'[{entity.name}] error while sending message with Discord webhook: {e or type(e)}, saving for the next try')
+                    until_next_try = 60
+                    continue  # implicitly saving messages in to_be_sent until the next try
+                except Exception as e:
+                    self.logger.exception(f'[{entity.name}] error while sending message with Discord webhook: {e or type(e)}')
+                    self.logger.debug(f'raw message text:\n{message}')
+                    to_be_sent = pending_records # discard unsent messages as they might have been the cause of error
+                    until_next_try = 60
+                    continue
+
+            bucket = DiscordRateLimit.get_bucket(response.headers)
+            if not bucket in self.buckets:
+                self.buckets[bucket] = DiscordRateLimit(f'{bucket}', self.logger)
+            self.buckets[bucket].submit_headers(response.headers, self.logger)
+
+            if self._has_fatal_error(response, entity, message):
+                break
+
+            # if message got send successfully discard records except these that didn't fit into message
+            if pending_records:
+                self.logger.debug(f'carrying {len(pending_records)} pending records to the next loop')
+            to_be_sent = pending_records
+
+    @staticmethod
+    async def wait_for_records(queue: asyncio.Queue, pending: List[Record]) -> List[Record]:
+        to_be_sent = pending
+        while len(to_be_sent) < EMBEDS_PER_MESSAGE:
+            try:
+                record = await asyncio.wait_for(queue.get(), 60 / EMBEDS_PER_MESSAGE)
+                to_be_sent.append(record)
+            except asyncio.TimeoutError:
+                if to_be_sent:
+                    break
+        return to_be_sent
+
+    def _prepare_message(self, to_be_sent: List[Record], entity: DiscordHookEntity) -> Tuple[Optional[dict], List[Record]]:
+        try:
+            message, pending_records = MessageFormatter.format(to_be_sent)
+            if pending_records:
+                self.logger.debug(f'[{entity.name}] out of {len(to_be_sent)} records {len(pending_records)} are left pending')
+        except Exception as e:
+            self.logger.exception(f'error happened while formatting message: {e}\nRaw records list: "{to_be_sent}"')
+            return None, []
+        try:
+            limits_ok = MessageFormatter.check_limits(message)
+        except Exception as e:
+            self.logger.exception(f'error checking content length limits for message: {e}\nRaw message: "{message}"')
+            return None, pending_records
+        if not limits_ok:
+            self.logger.warning(f'[{entity.name}] prepared message exceeded Discord length limits. Records will be discarded')
+            self.logger.debug(f'[{entity.name}] message content:\n{message}')
+            return None, pending_records
+
+        return message, pending_records
+
+    def _has_fatal_error(self, response: aiohttp.ClientResponse, entity: DiscordHookEntity, message: dict) -> bool:
+        try:
+            response.raise_for_status()
+            return False
+        except aiohttp.ClientResponseError as e:
+            self.logger.warning(f'[{entity.name}] failed to send message: got {response.status} ({response.reason}) from {entity.url}')
+            if e.status == 400:
+                self.logger.warning(f'[{entity.name}] message got rejected with {response.status} ({response.reason}), dropping it')
+                self.logger.debug(f'[{entity.name}] response headers: {response.headers}')
+                self.logger.debug(f'[{entity.name}] raw request body: {json.dumps(message)}')
+                return False
+            elif e.status in [404, 401]:
+                self.logger.warning(f'[{entity.name}] got {e.status} from webhook, interrupting operations. Check if webhook url is still valid: {entity.url}')
+                return True
+            else:
+                return False
