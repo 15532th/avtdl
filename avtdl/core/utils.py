@@ -1,3 +1,4 @@
+import abc
 import asyncio
 import datetime
 import hashlib
@@ -6,6 +7,7 @@ import json
 import logging
 import os
 import re
+import time
 from collections import OrderedDict
 from contextlib import ContextDecorator
 from email.utils import mktime_tz, parsedate_to_datetime
@@ -21,6 +23,7 @@ import aiohttp
 import lxml.html
 import multidict
 from jsonpath import JSONPath
+from multidict import CIMultiDictProxy
 
 from avtdl.core.interfaces import Record
 
@@ -630,3 +633,85 @@ class SessionStorage:
        if self.task is None:
            name = f'ensure_closed for {self.logger.name} ({self!r})'
            self.task = asyncio.create_task(self.ensure_closed(), name=name)
+
+
+class RateLimit:
+    """
+    Encapsulate state of rate limits for "bucket of tokens" type of endpoint
+
+    >>> async def endpoint_request(url):
+    >>>     async with RateLimit('endpoint name') as rate_limit:
+    >>>         response = await request_raw(url)
+    >>>         rate_limit.submit_headers(response.headers)
+    >>>
+
+    Request itself, with error handling, is done by the endpoint class,
+    which then should then call RateLimit.submit_headers with response headers
+    to update the limit values and expiration time.
+    """
+
+    def __init__(self, name: str, logger: Optional[logging.Logger] = None) -> None:
+        self.limit_total: int = 50
+        self.limit_remaining: int = 10
+        self.reset_at: int = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
+
+        self.name = name
+        self.logger = logger or logging.getLogger().getChild('rate_limit')
+        self.lock = asyncio.Lock()
+        self.perf_lock_acquired_at: float = 0
+
+    async def __aenter__(self) -> 'RateLimit':
+        with timeit() as t:
+            await self.lock.acquire()
+        self.perf_lock_acquired_at = t.end
+        if self.limit_remaining <= 1:
+            self.logger.debug(f'[{self.name}] lock acquired in {t.timedelta}, {self.delay} seconds until rate limit reset')
+            await asyncio.sleep(self.delay)
+        else:
+            self.logger.debug(f'[{self.name}] lock acquired in {t.timedelta}, there is no active rate limit')
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.lock.release()
+        duration = datetime.timedelta(seconds=(time.perf_counter() - self.perf_lock_acquired_at))
+        self.logger.debug(f'[{self.name}] lock released after {duration}')
+        return False
+
+    @property
+    def reset_at_date(self) -> datetime.datetime:
+        return datetime.datetime.fromtimestamp(self.reset_at, tz=datetime.timezone.utc)
+
+    @property
+    def reset_after(self) -> int:
+        now = int(datetime.datetime.now().timestamp())
+        reset_after = max(0, self.reset_at - now)
+        return reset_after
+
+    @property
+    def delay(self) -> int:
+        if self.limit_remaining <= 1:
+            return self.reset_after + 1
+        return 0
+
+    @abc.abstractmethod
+    def _submit_headers(self, headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: logging.Logger):
+        """parse response headers and update self.limit_total, self.limit_remaining and self.reset_at"""
+
+    def submit_headers(self, headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: Optional[logging.Logger] = None):
+        """
+        Update limits values and reset time using data from headers.
+
+        Client code should call it after completing request. Client code might
+        provide a custom Logger instance to help with identifying debug output
+        from specific request.
+        """
+        logger = logger or self.logger
+
+        retry_after = get_retry_after(headers)
+        if retry_after is not None:
+            self.limit_remaining = 0
+            self.reset_at = int((datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=retry_after)).timestamp())
+            logger.debug(f'[{self.name}] Retry-After is present and set to {retry_after}, setting reset_at to {self.reset_at}')
+            return
+
+        self._submit_headers(headers, logger)
