@@ -185,8 +185,14 @@ class DiscordHook(Action):
                 continue
 
             async with self.buckets[bucket] as _:
+                headers = {'Content-Type': 'application/json'}
                 try:
-                    response = await request_raw(entity.url, session, self.logger, method='POST', data=json.dumps(message), raise_errors=True, raise_for_status=False)
+                    response = await request_raw(entity.url, session, self.logger,
+                                                 method='POST',
+                                                 data=json.dumps(message),
+                                                 headers=headers,
+                                                 raise_errors=True,
+                                                 raise_for_status=False)
                     assert response is not None, 'request_json() returned None despite raise_errors=True'
                 except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError) as e:
                     self.logger.warning(f'[{entity.name}] error while sending message with Discord webhook: {e or type(e)}, saving for the next try')
@@ -252,6 +258,7 @@ class DiscordHook(Action):
             self.logger.warning(f'[{entity.name}] failed to send message: got {response.status} ({response.reason}) from {entity.url}')
             if e.status == 400:
                 self.logger.warning(f'[{entity.name}] message got rejected with {response.status} ({response.reason}), dropping it')
+                self.logger.debug(f'[{entity.name}] request headers: {response.request_info.headers}')
                 self.logger.debug(f'[{entity.name}] response headers: {response.headers}')
                 self.logger.debug(f'[{entity.name}] raw request body: {json.dumps(message)}')
                 return False
