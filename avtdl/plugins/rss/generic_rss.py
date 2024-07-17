@@ -98,7 +98,7 @@ class GenericRSSMonitor(BaseFeedMonitor):
         # text back to bytes instead.
         # Skip it for UTF-8 since it's most likely to be correct.
         text: Union[str, bytes] = raw_text
-        if response.get_encoding().lower() in ('utf-8', 'utf8'):
+        if not response.get_encoding().lower() in ('utf-8', 'utf8'):
             self.logger.debug(f'[{entity.name}] detected encoding is {response.get_encoding()}, reverting to bytes')
             try:
                 text = raw_text.encode(response.get_encoding())
