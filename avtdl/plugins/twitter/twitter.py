@@ -102,10 +102,8 @@ class TwitterHomeMonitor(TwitterMonitor):
 
     async def _get_page(self, entity: TwitterHomeMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
         endpoint = LatestTimelineEndpoint if entity.following else TimelineEndpoint
-        count = 40 if continuation else 20
-        data = await endpoint.request(self.logger, session, entity.url, session.cookie_jar, continuation, count=count)
+        data = await endpoint.request(self.logger, session, entity.url, session.cookie_jar, continuation)
         return data
-
 
 @Plugins.register('twitter.user', Plugins.kind.ACTOR_ENTITY)
 class TwitterUserMonitorEntity(TwitterMonitorEntity):
@@ -162,6 +160,5 @@ class TwitterUserMonitor(TwitterMonitor):
             self.logger.warning(f'failed to get user id from user handle for "{entity.user}", aborting update')
             return None
         endpoint = self._pick_endpoint(entity)
-        count = 40 if continuation else 20
-        data = await endpoint.request(self.logger, session, entity.url, session.cookie_jar, user_id, continuation, count=count)
+        data = await endpoint.request(self.logger, session, entity.url, session.cookie_jar, user_id, continuation)
         return data
