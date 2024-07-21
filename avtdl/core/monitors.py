@@ -1,4 +1,5 @@
 import asyncio
+import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
@@ -127,13 +128,24 @@ class HttpTaskMonitor(BaseTaskMonitor):
         super().__init__(conf, entities)
         self.sessions: SessionStorage = SessionStorage(self.logger)
 
-    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, json: Optional[Any] = None) -> Optional[str]:
-        response = await self.request_raw(url, entity, session, method, headers, params, data, json)
+    async def request_json(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[Any]:
+        text = await self.request(url, entity, session, method, headers, params, data, data_json)
+        if text is None:
+            return None
+        try:
+            parsed = json.loads(text)
+            return parsed
+        except json.JSONDecodeError as e:
+            self.logger.debug(f'error parsing response from {url}: {e}. Raw response data: "{text}"')
+            return None
+
+    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[str]:
+        response = await self.request_raw(url, entity, session, method, headers, params, data, data_json)
         if response is None:
             return None
         return await response.text()
 
-    async def request_raw(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, json: Optional[Any] = None) -> Optional[aiohttp.ClientResponse]:
+    async def request_raw(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[aiohttp.ClientResponse]:
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
         if self.logger.parent is None:
             # should never happen since Actor().logger is constructed with getChild()
@@ -149,7 +161,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
             request_headers['If-None-Match'] = entity.etag
         try:
             text = ''
-            async with session.request(method, url, headers=request_headers, params=params, data=data, json=json) as response:
+            async with session.request(method, url, headers=request_headers, params=params, data=data, json=data_json) as response:
                 # fully read http response to get it cached inside ClientResponse object
                 # client code can then use it by awaiting .text() again without causing
                 # network activity and potentially triggering associated errors
