@@ -7,6 +7,7 @@ import aiohttp
 import dateutil.parser
 from pydantic import Field
 
+from avtdl.core import utils
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
@@ -22,8 +23,12 @@ class RplayRecord(Record):
     """stream title"""
     description: str
     """stream description"""
+    thumbnail_url: Optional[str]
+    """url of the stream thumbnail"""
     start: datetime.datetime
     """time of the stream start"""
+    user_id: str
+    """user's oid"""
     creator_id: str
     """creatorOid"""
     name: str
@@ -36,21 +41,28 @@ class RplayRecord(Record):
     """for restream, unique id of the stream on the source platform"""
 
     def __str__(self):
-        since = '\nsince ' + Fmt.date(self.start) if self.start else ''
-        return f'{self.url}\n{self.title}{since}'
+        restream = get_restream_url(self.restream_platform, self.restream_key)
+        restream = f'({restream})\n' if restream else ''
+        text = f'{self.url}\n{restream}{self.title}\nsince {Fmt.date(self.start)}'
+        return text
 
     def __repr__(self):
         title = shorten(self.title, MAX_REPR_LEN)
-        return f'RplayRecord(user_id={self.user_id}, start={self.start_timestamp}, title={title})'
+        return f'RplayRecord(creator_id={self.creator_id}, start={self.start}, title={title})'
+
+    def get_uid(self) -> str:
+        return f'{self.creator_id}:{int(self.start.timestamp() * 1000)}'
 
     def discord_embed(self) -> dict:
         return {
             'title': self.title,
-            'description': self.url,
+            'url': self.url,
+            'description': get_restream_url(self.restream_platform, self.restream_key) or None,
+            'image': {'url': self.thumbnail_url},
             'color': None,
-            'author': {'name': self.name, 'url': self.url, 'icon_url': self.avatar_url},
-            'timestamp': self.start.isoformat() if self.start else None,
-            'footer': {'text': self.description},
+            'author': {'name': self.name, 'url': None, 'icon_url': self.avatar_url},
+            'timestamp': self.start.isoformat(),
+            'footer': {'text': None},
             'fields': []
         }
 
@@ -62,8 +74,10 @@ class RplayMonitorConfig(BaseFeedMonitorConfig):
 
 @Plugins.register('rplay', Plugins.kind.ACTOR_ENTITY)
 class RplayMonitorEntity(BaseFeedMonitorEntity):
-    update_interval: int = 120
+    update_interval: int = 300
     """how often the monitored channel will be checked, in seconds"""
+    url: str = Field(exclude=True, default=None)
+    """no url is needed"""
     adjust_update_interval: bool = Field(exclude=True, default=True)
     """rplay api endpoints doesn't use caching headers"""
     latest_live_start: datetime.datetime = Field(exclude=True, default=None)
@@ -75,17 +89,26 @@ class RplayMonitor(BaseFeedMonitor):
     """
     """
 
+    def __init__(self, conf: RplayMonitorConfig, entities: Sequence[RplayMonitorEntity]):
+        super().__init__(conf, entities)
+        self.nickname_cache: Dict[str, str] = {}
+
     async def get_records(self, entity: RplayMonitorEntity, session: aiohttp.ClientSession) -> Sequence[RplayRecord]:
         r = RplayUrl.livestreams()
         data = await self.request_json(r.url, entity, session, headers=r.headers, params=r.params)
         if data is None:
             return []
         records = self.parse_livestreams(data)
+
+        await self.update_nicknames_cache(session, entity, records)
+        self.update_nicknames(records)
+
         return records
 
     def parse_livestreams(self, data: List[dict]):
         if not isinstance(data, List):
-            self.logger.warning(f'unexpected response from /livestreams endpoint, not a list of records. Raw response: {data}')
+            self.logger.warning(
+                f'unexpected response from /livestreams endpoint, not a list of records. Raw response: {data}')
             return []
         records = []
         for live in data:
@@ -96,11 +119,13 @@ class RplayMonitor(BaseFeedMonitor):
 
                 record = RplayRecord(
 
-                    url=f'https://rplay.live/play/{oid}/',
+                    url=f'https://rplay.live/live/{creator_oid}/',
                     title=live['title'],
                     description=live['description'],
+                    thumbnail_url=live_thumbnail_url(creator_oid),
                     start=start,
-                    creator_id=live['creatorOid'],
+                    user_id=oid,
+                    creator_id=creator_oid,
                     name=live['creatorNickname'],
                     avatar_url=get_avatar_url(creator_oid),
                     restream_platform=live.get('streamState'),
@@ -111,11 +136,46 @@ class RplayMonitor(BaseFeedMonitor):
                 self.logger.warning(f'failed to parse record: {type(e)} {e}. Raw data: "{data}"')
         return records
 
+    async def update_nicknames_cache(self, session: aiohttp.ClientSession, entity: RplayMonitorEntity,
+                                     records: List[RplayRecord]):
+        creator_oids = [r.creator_id for r in records if r.creator_id not in self.nickname_cache]
+        if not creator_oids:
+            return
+        r = RplayUrl.bulkgetusers(creator_oids)
+        data = await utils.request_json(r.url, session, self.logger, headers=r.headers, params=r.params)
+        if data is None:
+            self.logger.warning(f'[{entity.name}] failed to update nickname cache: failed to get users info')
+            return
+        try:
+            for oid, info in data.items():
+                if 'nickname' in info:
+                    self.nickname_cache[oid] = info['nickname']
+        except Exception as e:
+            self.logger.warning(f'[{entity.name}] failed to update nickname cache: {type(e)} {e}')
 
-def get_avatar_url(creator_oid):
-    ts = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp() * 1000)
-    url = f'https://pb.rplay.live/profilePhoto/{creator_oid}?time={ts}'
+    def update_nicknames(self, records: List[RplayRecord]):
+        for record in records:
+            if record.creator_id in self.nickname_cache:
+                record.name = self.nickname_cache[record.creator_id]
+
+
+def get_avatar_url(creator_oid) -> str:
+    url = f'https://pb.rplay.live/profilePhoto/{creator_oid}'
     return url
+
+
+def live_thumbnail_url(creator_oid: str) -> str:
+    return f'https://pb.rplay.live/liveChannelThumbnails/{creator_oid}'
+
+
+def get_restream_url(platform: Optional[str], restream_key: Optional[str]) -> Optional[str]:
+    if platform is None or restream_key is None:
+        return None
+    if platform == 'twitch':
+        return f'https://twitch.tv/{restream_key}'
+    if platform == 'youtube':
+        return f'https://www.youtube.com/watch?v={restream_key}'
+    return None
 
 
 @dataclass
@@ -154,7 +214,8 @@ class RplayUrl:
     @staticmethod
     def bulkgetusers(oids: List[str]) -> RequestDetails:
         url = f'https://api.rplay.live/account/bulkgetusers'
-        params = {'users': '|'.join(oids), 'toGrab': '|'.join(['_id', 'nickname', 'lastPubDate', 'creatorTags', 'isLive']), 'lang': 'en'}
+        params = {'users': '|'.join(oids),
+                  'toGrab': '|'.join(['_id', 'nickname', 'lastPubDate', 'creatorTags', 'isLive']), 'lang': 'en'}
         return RequestDetails(url=url, params=params)
 
     @staticmethod
@@ -174,7 +235,7 @@ def fetch_json(r: RequestDetails):
 
 
 if __name__ == '__main__':
-    oids = []
+    oids: Any = []
 
     r = RplayUrl.livestreams()
     livestreams_all = fetch_json(r)
@@ -196,4 +257,3 @@ if __name__ == '__main__':
         live_data = fetch_json(r)
         ...
     ...
-
