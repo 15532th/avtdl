@@ -42,8 +42,8 @@ class RplayRecord(Record):
 
     def __str__(self):
         restream = get_restream_url(self.restream_platform, self.restream_key)
-        restream = f'({restream})\n' if restream else ''
-        text = f'{self.url}\n{restream}{self.title}\nsince {Fmt.date(self.start)}'
+        restream = f' (restream from {restream})\n' if restream else ''
+        text = f'[{self.name}] live since {Fmt.date(self.start)}\n{self.title}\n{self.url}\n{restream}'
         return text
 
     def __repr__(self):
