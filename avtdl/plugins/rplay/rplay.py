@@ -37,13 +37,12 @@ class RplayRecord(Record):
     avatar_url: str
     """link to the user's avatar"""
     restream_platform: Optional[str] = None
-    """for restream, platform stream is being hosted on"""
-    restream_key: Optional[str]
-    """for restream, unique id of the stream on the source platform"""
+    """for restream, platform the stream is being hosted on"""
+    restream_url: Optional[str]
+    """for restream, url of the stream on the source platform"""
 
     def __str__(self):
-        restream = get_restream_url(self.restream_platform, self.restream_key)
-        restream = f' (restream from {restream})\n' if restream else ''
+        restream = f' (restream from {self.restream_url})\n' if self.restream_url else ''
         text = f'[{self.name}] live since {Fmt.date(self.start)}\n{self.title}\n{self.url}\n{restream}'
         return text
 
@@ -58,7 +57,7 @@ class RplayRecord(Record):
         return {
             'title': self.title,
             'url': self.url,
-            'description': get_restream_url(self.restream_platform, self.restream_key) or None,
+            'description': self.restream_url or None,
             'image': {'url': self.thumbnail_url},
             'color': None,
             'author': {'name': self.name, 'url': None, 'icon_url': self.avatar_url},
@@ -165,6 +164,11 @@ def get_restream_url(platform: Optional[str], restream_key: Optional[str]) -> Op
 def parse_livestream(item: dict) -> RplayRecord:
     """parse a single item from a list returned by /live/livestreams endpoint"""
     creator_oid = item['creatorOid']
+
+    restream_platform = item.get('streamState')
+    restream_key = item.get('multiPlatformKey')
+    restream_url = get_restream_url(restream_platform, restream_key)
+
     record = RplayRecord(
 
         url=f'https://rplay.live/live/{creator_oid}/',
@@ -176,8 +180,8 @@ def parse_livestream(item: dict) -> RplayRecord:
         creator_id=creator_oid,
         name=item['creatorNickname'],
         avatar_url=get_avatar_url(creator_oid),
-        restream_platform=item.get('streamState'),
-        restream_key=item.get('multiPlatformKey')
+        restream_platform=restream_platform,
+        restream_url=restream_url
     )
     return record
 
@@ -205,10 +209,10 @@ def parse_play(item: dict) -> Optional[RplayRecord]:
         restream_key = item['liveStreamId']
     else:
         raise ValueError(f'unexpected stream state: {state}')
+    restream_url = get_restream_url(restream_platform, restream_key)
 
     creator_oid = item['creatorOid']
     record = RplayRecord(
-
         url=f'https://rplay.live/live/{creator_oid}/',
         title=item['title'],
         description=item['description'],
@@ -219,7 +223,7 @@ def parse_play(item: dict) -> Optional[RplayRecord]:
         name=item['creatorMetadata']['nickname'],
         avatar_url=get_avatar_url(creator_oid),
         restream_platform=restream_platform,
-        restream_key=restream_key
+        restream_url=restream_url
     )
     return record
 
