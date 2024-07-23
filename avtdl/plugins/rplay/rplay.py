@@ -1,4 +1,5 @@
 import datetime
+import enum
 from dataclasses import dataclass
 from textwrap import shorten
 from typing import Any, Dict, List, Optional, Sequence
@@ -113,24 +114,7 @@ class RplayMonitor(BaseFeedMonitor):
         records = []
         for live in data:
             try:
-                oid = live['_id']
-                creator_oid = live['creatorOid']
-                start = dateutil.parser.parse(live['streamStartTime'])
-
-                record = RplayRecord(
-
-                    url=f'https://rplay.live/live/{creator_oid}/',
-                    title=live['title'],
-                    description=live['description'],
-                    thumbnail_url=live_thumbnail_url(creator_oid),
-                    start=start,
-                    user_id=oid,
-                    creator_id=creator_oid,
-                    name=live['creatorNickname'],
-                    avatar_url=get_avatar_url(creator_oid),
-                    restream_platform=live.get('streamState'),
-                    restream_key=live.get('multiPlatformKey')
-                )
+                record = parse_livestream(live)
                 records.append(record)
             except Exception as e:
                 self.logger.warning(f'failed to parse record: {type(e)} {e}. Raw data: "{data}"')
@@ -178,6 +162,68 @@ def get_restream_url(platform: Optional[str], restream_key: Optional[str]) -> Op
     return None
 
 
+def parse_livestream(item: dict) -> RplayRecord:
+    """parse a single item from a list returned by /live/livestreams endpoint"""
+    creator_oid = item['creatorOid']
+    record = RplayRecord(
+
+        url=f'https://rplay.live/live/{creator_oid}/',
+        title=item['title'],
+        description=item['description'],
+        thumbnail_url=live_thumbnail_url(creator_oid),
+        start=dateutil.parser.parse(item['streamStartTime']),
+        user_id=item['_id'],
+        creator_id=creator_oid,
+        name=item['creatorNickname'],
+        avatar_url=get_avatar_url(creator_oid),
+        restream_platform=item.get('streamState'),
+        restream_key=item.get('multiPlatformKey')
+    )
+    return record
+
+
+class StreamState(str, enum.Enum):
+    OFFLINE = 'offline'
+    LIVE = 'live'
+    TWITCH = 'twitch'
+    YOUTUBE = 'youtube'
+
+
+def parse_play(item: dict) -> Optional[RplayRecord]:
+    """parse a single item from a list returned by /live/play/ endpoint"""
+    state = item['streamState']
+    if state == StreamState.OFFLINE:
+        return None
+    elif state == StreamState.LIVE:
+        restream_platform = None
+        restream_key = None
+    elif state == StreamState.TWITCH:
+        restream_platform = state
+        restream_key = item['twitchLogin']
+    elif state == StreamState.YOUTUBE:
+        restream_platform = state
+        restream_key = item['liveStreamId']
+    else:
+        raise ValueError(f'unexpected stream state: {state}')
+
+    creator_oid = item['creatorOid']
+    record = RplayRecord(
+
+        url=f'https://rplay.live/live/{creator_oid}/',
+        title=item['title'],
+        description=item['description'],
+        thumbnail_url=live_thumbnail_url(creator_oid),
+        start=dateutil.parser.parse(item['streamStartTime']),
+        user_id=item['_id'],
+        creator_id=creator_oid,
+        name=item['creatorMetadata']['nickname'],
+        avatar_url=get_avatar_url(creator_oid),
+        restream_platform=restream_platform,
+        restream_key=restream_key
+    )
+    return record
+
+
 @dataclass
 class RequestDetails:
     url: str
@@ -195,6 +241,19 @@ class RplayUrl:
 
     @staticmethod
     def play(oid: str, key: str = '') -> RequestDetails:
+        """
+        'streamState': 'offline', 'live' | 'twitch' | 'youtube'
+        'liveStreamId' - youtube video_id or ""
+        'twitchLogin' - twitch username or ""
+        'streamStartTime': '2024-07-23T11:29:29.000Z'
+        '_id', 'creatorOid', 'title', 'description'
+        'creatorMetadata': {
+            'nickname',
+            'channelImage' - channel banner url,
+            'customUrl' - custom channel name, "/c:creator",
+            'published', 'publishedClips', 'playlists', 'communityPosts', 'pinnedPost' - list of contentOid
+        }
+        """
         url = f'https://api.rplay.live/live/play'
         params = {'creatorOid': oid, 'key': key, 'lang': 'en'}
         return RequestDetails(url=url, params=params)
@@ -235,15 +294,16 @@ def fetch_json(r: RequestDetails):
 
 
 if __name__ == '__main__':
-    oids: Any = []
 
     r = RplayUrl.livestreams()
     livestreams_all = fetch_json(r)
 
+    oids = [x['creatorOid'] for x in livestreams_all]
+
     r = RplayUrl.bulkgetusers(oids)
     bulk = fetch_json(r)
 
-    for oid in oids:
+    for oid in oids[:1]:
         r = RplayUrl.livestreams(oid)
         livestreams_one = fetch_json(r)
 
@@ -253,7 +313,9 @@ if __name__ == '__main__':
         r = RplayUrl.subscriptions(oid)
         subscriptions = fetch_json(r)
 
+    for oid in oids:
         r = RplayUrl.play(oid)
         live_data = fetch_json(r)
+        record = parse_play(live_data)
         ...
     ...
