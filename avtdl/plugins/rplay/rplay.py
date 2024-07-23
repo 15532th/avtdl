@@ -16,6 +16,7 @@ from avtdl.core.utils import Fmt
 
 
 @Plugins.register('rplay', Plugins.kind.ASSOCIATED_RECORD)
+@Plugins.register('rplay.user', Plugins.kind.ASSOCIATED_RECORD)
 class RplayRecord(Record):
     """Represents event of livestream on RPLAY starting"""
     url: str
@@ -68,6 +69,7 @@ class RplayRecord(Record):
 
 
 @Plugins.register('rplay', Plugins.kind.ACTOR_CONFIG)
+@Plugins.register('rplay.user', Plugins.kind.ACTOR_CONFIG)
 class RplayMonitorConfig(BaseFeedMonitorConfig):
     pass
 
@@ -140,6 +142,33 @@ class RplayMonitor(BaseFeedMonitor):
         for record in records:
             if record.creator_id in self.nickname_cache:
                 record.name = self.nickname_cache[record.creator_id]
+
+
+
+@Plugins.register('rplay.user', Plugins.kind.ACTOR_ENTITY)
+class RplayUserMonitorEntity(RplayMonitorEntity):
+    creator_oid: str
+    """ID of the user to monitor"""
+
+
+@Plugins.register('rplay.user', Plugins.kind.ACTOR)
+class RplayUserMonitor(BaseFeedMonitor):
+    """
+    """
+
+    async def get_records(self, entity: RplayUserMonitorEntity, session: aiohttp.ClientSession) -> Sequence[RplayRecord]:
+        r = RplayUrl.play(entity.creator_oid)
+        data = await self.request_json(r.url, entity, session, headers=r.headers, params=r.params)
+        if data is None:
+            return []
+        try:
+            record = parse_play(data)
+        except Exception as e:
+            self.logger.warning(f'failed to parse record: {type(e)} {e}. Raw data: "{data}"')
+            return []
+        if record is None:
+            return []
+        return [record]
 
 
 def parse_livestream(item: dict) -> RplayRecord:
