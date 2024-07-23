@@ -17,7 +17,7 @@ from avtdl.core.utils import Fmt
 
 @Plugins.register('rplay', Plugins.kind.ASSOCIATED_RECORD)
 class RplayRecord(Record):
-    """Represents event of a RPLAY live starting"""
+    """Represents event of livestream on RPLAY starting"""
     url: str
     """livestream url"""
     title: str
@@ -142,25 +142,6 @@ class RplayMonitor(BaseFeedMonitor):
                 record.name = self.nickname_cache[record.creator_id]
 
 
-def get_avatar_url(creator_oid) -> str:
-    url = f'https://pb.rplay.live/profilePhoto/{creator_oid}'
-    return url
-
-
-def live_thumbnail_url(creator_oid: str) -> str:
-    return f'https://pb.rplay.live/liveChannelThumbnails/{creator_oid}'
-
-
-def get_restream_url(platform: Optional[str], restream_key: Optional[str]) -> Optional[str]:
-    if platform is None or restream_key is None:
-        return None
-    if platform == 'twitch':
-        return f'https://twitch.tv/{restream_key}'
-    if platform == 'youtube':
-        return f'https://www.youtube.com/watch?v={restream_key}'
-    return None
-
-
 def parse_livestream(item: dict) -> RplayRecord:
     """parse a single item from a list returned by /live/livestreams endpoint"""
     creator_oid = item['creatorOid']
@@ -171,7 +152,7 @@ def parse_livestream(item: dict) -> RplayRecord:
 
     record = RplayRecord(
 
-        url=f'https://rplay.live/live/{creator_oid}/',
+        url=get_livestream_url(creator_oid),
         title=item['title'],
         description=item['description'],
         thumbnail_url=live_thumbnail_url(creator_oid),
@@ -213,7 +194,7 @@ def parse_play(item: dict) -> Optional[RplayRecord]:
 
     creator_oid = item['creatorOid']
     record = RplayRecord(
-        url=f'https://rplay.live/live/{creator_oid}/',
+        url=get_livestream_url(creator_oid),
         title=item['title'],
         description=item['description'],
         thumbnail_url=live_thumbnail_url(creator_oid),
@@ -226,6 +207,28 @@ def parse_play(item: dict) -> Optional[RplayRecord]:
         restream_url=restream_url
     )
     return record
+
+
+def get_avatar_url(creator_oid: str) -> str:
+    return f'https://pb.rplay.live/profilePhoto/{creator_oid}'
+
+
+def get_livestream_url(creator_oid: str) -> str:
+    return f'https://rplay.live/live/{creator_oid}/'
+
+
+def live_thumbnail_url(creator_oid: str) -> str:
+    return f'https://pb.rplay.live/liveChannelThumbnails/{creator_oid}'
+
+
+def get_restream_url(platform: Optional[str], restream_key: Optional[str]) -> Optional[str]:
+    if platform is None or restream_key is None:
+        return None
+    if platform == 'twitch':
+        return f'https://twitch.tv/{restream_key}'
+    if platform == 'youtube':
+        return f'https://www.youtube.com/watch?v={restream_key}'
+    return None
 
 
 @dataclass
