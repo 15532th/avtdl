@@ -1,5 +1,8 @@
+import base64
 import datetime
 import enum
+import hmac
+import json
 from dataclasses import dataclass
 from textwrap import shorten
 from typing import Any, Dict, List, Optional, Sequence
@@ -319,6 +322,51 @@ class RplayUrl:
         params = {'contentOid': content_oid, 'status': 'published'}
         return RequestDetails(url=url, params=params)
 
+    @staticmethod
+    def playlist(creator_oid: str, key2: Optional[str] = None) -> RequestDetails:
+        url = 'https://api.rplay.live/live/stream/playlist.m3u8'
+        params = {'creatorOid': creator_oid, 'key2': key2}
+        return RequestDetails(url=url, params=params)
+
+    @staticmethod
+    def key2(requestor_oid, authorization) -> RequestDetails:
+        """response is the key as a plaintext"""
+        url = f'https://api.rplay.live/live/key2'
+        params = {'requestorOid': requestor_oid, 'loginType': 'plax'}
+        headers = {'Authorization': authorization}
+        return RequestDetails(url=url, params=params, headers=headers)
+
+
+def dict_to_b64url(data: dict) -> str:
+    data_json = json.dumps(data).replace(' ', '')
+    data_b64url = base64.urlsafe_b64encode(data_json.encode())
+    return data_b64url.decode().strip('=')
+
+
+def hmac_signature_b64url(message: str, secret: str) -> str:
+    signature = hmac.new(secret.encode(), msg=message.encode(), digestmod='sha256').digest()
+    return base64.urlsafe_b64encode(signature).decode().strip('=')
+
+
+def jwt_auth(eml: str, psw: str, dat: Optional[datetime.datetime]) -> str:
+    header = {'alg': 'HS256', 'typ': 'JWT'}
+    header_encoded = dict_to_b64url(header)
+
+    dat = dat or datetime.datetime.now().astimezone()
+    dat_text = dat.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+    iat = int(dat.timestamp())
+    if dat.utcoffset() is not None:
+        iat += int(dat.utcoffset().total_seconds())
+
+    payload = {'eml': eml, 'dat': dat_text, 'iat': iat}
+    payload_encoded = dict_to_b64url(payload)
+
+    token = f'{header_encoded}.{payload_encoded}'
+    signature = hmac_signature_b64url(token, psw)
+    signed_token = f'{token}.{signature}'
+
+    return signed_token
+
 
 def fetch_json(r: RequestDetails):
     import requests
@@ -330,7 +378,6 @@ def fetch_json(r: RequestDetails):
 
 
 if __name__ == '__main__':
-
     r = RplayUrl.livestreams()
     livestreams_all = fetch_json(r)
 
