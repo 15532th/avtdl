@@ -457,12 +457,7 @@ class Fmt:
             field = placeholder.strip('{}')
             value = record_as_dict.get(field)
             if value is not None:
-                if isinstance(value, datetime.datetime):
-                    value = cls.date(value)
-                else:
-                    value = str(value)
-                    if sanitize:
-                        value = sanitize_filename(value)
+                value = cls.format_value(value, sanitize)
                 result = result.replace(placeholder, value)
             else:
                 if missing is not None:
@@ -472,6 +467,18 @@ class Fmt:
         result = result.replace(r'\{', '{')
         result = result.replace(r'\}', '}')
         return result
+    
+    @classmethod
+    def format_value(cls, value: Any, sanitize: bool = False) -> str:
+        if value is None:
+            value = ''
+        elif isinstance(value, datetime.datetime):
+            value = cls.date(value)
+        else:
+            value = str(value)
+            if sanitize:
+                value = sanitize_filename(value)
+        return value
 
     @classmethod
     def format_path(cls, path: Union[str, Path], record: Record, missing: Optional[str] = None, tz: Optional[datetime.timezone] = None, extra: Optional[Dict[str, Any]] = None) -> Path:

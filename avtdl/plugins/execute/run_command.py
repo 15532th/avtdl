@@ -126,6 +126,7 @@ class Command(Action):
             for placeholder, field in entity.placeholders.items():
                 value = record_as_dict.get(field)
                 if value is not None:
+                    value = Fmt.format_value(value, sanitize=False)
                     new_arg = new_arg.replace(placeholder, value)
                 else:
                     if placeholder in arg:
