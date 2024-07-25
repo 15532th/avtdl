@@ -51,8 +51,9 @@ class RplayRecord(Record):
     Might be invalid even when present in case of insufficient permissions or network error"""
 
     def __str__(self):
-        restream = f' (restream from {self.restream_url})\n' if self.restream_url else ''
-        text = f'[{self.name}] live since {Fmt.date(self.start)}\n{self.title}\n{self.url}\n{restream}'
+        restream = f'\n(restream from {self.restream_url})\n' if self.restream_url else ''
+        playlist = f'\n({self.playlist_url})\n' if self.playlist_url else ''
+        text = f'[{self.name}] live since {Fmt.date(self.start)}\n{self.title}\n{self.url}{restream}{playlist}'
         return text
 
     def __repr__(self):
@@ -66,7 +67,7 @@ class RplayRecord(Record):
         return {
             'title': self.title,
             'url': self.url,
-            'description': self.restream_url or None,
+            'description': self.restream_url or self.playlist_url or None,
             'image': {'url': self.thumbnail_url},
             'color': None,
             'author': {'name': self.name, 'url': None, 'icon_url': self.avatar_url},
