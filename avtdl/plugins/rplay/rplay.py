@@ -87,7 +87,7 @@ class RplayMonitorEntity(BaseFeedMonitorEntity):
     update_interval: int = 300
     """how often the monitored channel will be checked, in seconds"""
     url: str = Field(exclude=True, default=None)
-    """url is not used, all streams checked through the same api endpoing"""
+    """url is not used, all streams are checked through the same api endpoing"""
     cookies_file: Optional[FilePath] = Field(exclude=True, default=None)
     """cookies are not used to log in"""
     adjust_update_interval: bool = Field(exclude=True, default=True)
@@ -190,7 +190,7 @@ class RplayUserMonitor(BaseFeedMonitor):
     """
     Monitor livestreams on RPLAY channel
 
-    Monitors user with given `creator_oid`, produces record
+    Monitors a user with given `creator_oid`, produces record
     when the user starts a livestream. `creator_oid` is the
     unique part of the user's home or livestream url.
     For example, `creator_oid` is `6596e71c04a7ea2fd7c36ae7`
