@@ -1,15 +1,17 @@
 import base64
 import datetime
 import enum
+import hashlib
 import hmac
 import json
+import urllib.parse
 from dataclasses import dataclass
 from textwrap import shorten
 from typing import Any, Dict, List, Optional, Sequence
 
 import aiohttp
 import dateutil.parser
-from pydantic import Field
+from pydantic import Field, FilePath, model_validator
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
@@ -42,8 +44,11 @@ class RplayRecord(Record):
     """link to the user's avatar"""
     restream_platform: Optional[str] = None
     """for restream, platform the stream is being hosted on"""
-    restream_url: Optional[str]
+    restream_url: Optional[str] = None
     """for restream, url of the stream on the source platform"""
+    playlist_url: Optional[str] = None
+    """for native stream, link to the underlying hls playlist if if was retrieved successfully. 
+    Might be invalid even when present in case of insufficient permissions or network error"""
 
     def __str__(self):
         restream = f' (restream from {self.restream_url})\n' if self.restream_url else ''
@@ -72,7 +77,6 @@ class RplayRecord(Record):
 
 
 @Plugins.register('rplay', Plugins.kind.ACTOR_CONFIG)
-@Plugins.register('rplay.user', Plugins.kind.ACTOR_CONFIG)
 class RplayMonitorConfig(BaseFeedMonitorConfig):
     pass
 
@@ -83,6 +87,8 @@ class RplayMonitorEntity(BaseFeedMonitorEntity):
     """how often the monitored channel will be checked, in seconds"""
     url: str = Field(exclude=True, default=None)
     """no url is needed"""
+    cookies_file: Optional[FilePath] = Field(exclude=True, default=None)
+    """cookies are not used to log in"""
     adjust_update_interval: bool = Field(exclude=True, default=True)
     """rplay api endpoints doesn't use caching headers"""
     latest_live_start: datetime.datetime = Field(exclude=True, default=None)
@@ -105,6 +111,8 @@ class RplayMonitor(BaseFeedMonitor):
             return []
         records = self.parse_livestreams(data)
 
+        # nickname field in data from /livestreams endpoint is empty,
+        # get them from /bulkgetusers instead
         await self.update_nicknames_cache(session, entity, records)
         self.update_nicknames(records)
 
@@ -147,6 +155,23 @@ class RplayMonitor(BaseFeedMonitor):
                 record.name = self.nickname_cache[record.creator_id]
 
 
+@Plugins.register('rplay.user', Plugins.kind.ACTOR_CONFIG)
+class RplayUserMonitorConfig(BaseFeedMonitorConfig):
+    login: Optional[str] = None
+    """rplay login of the account used for monitoring"""
+    password: Optional[str] = None
+    """rplay password of the account used for monitoring"""
+    user_id: Optional[str] = None
+    """userOid of the account used for monitoring. When absent can be retrieved automatically by performing a login request"""
+
+    @model_validator(mode='after')
+    def check_invariants(self):
+        if (self.login and not self.password) or (not self.login and self.password):
+            raise ValueError('provide either both login and password or none of them')
+        if self.user_id and not self.login:
+            raise ValueError('when user_id is set,  credentials must also be provided')
+        return self
+
 
 @Plugins.register('rplay.user', Plugins.kind.ACTOR_ENTITY)
 class RplayUserMonitorEntity(RplayMonitorEntity):
@@ -158,6 +183,10 @@ class RplayUserMonitorEntity(RplayMonitorEntity):
 class RplayUserMonitor(BaseFeedMonitor):
     """
     """
+
+    def __init__(self, conf: RplayUserMonitorConfig, entities: Sequence[RplayUserMonitorEntity]):
+        super().__init__(conf, entities)
+        self.own_user: Optional['User'] = None
 
     async def get_records(self, entity: RplayUserMonitorEntity, session: aiohttp.ClientSession) -> Sequence[RplayRecord]:
         r = RplayUrl.play(entity.creator_oid)
@@ -171,7 +200,45 @@ class RplayUserMonitor(BaseFeedMonitor):
             return []
         if record is None:
             return []
+        record.playlist_url = await self.get_playlist_url(session, record)
         return [record]
+
+    async def get_playlist_url(self, session: aiohttp.ClientSession, record: RplayRecord) -> Optional[str]:
+        if record.restream_url is not None:
+            return None
+
+        own_user = await self.get_own_user(session)
+        if own_user is not None:
+            r = RplayUrl.key2(own_user)
+            key2 = await utils.request(r.url, session, self.logger, r.method, r.params, r.data, r.headers)
+            if key2 is None:
+                key2 = ''
+        else:
+            key2 = ''
+        r = RplayUrl.playlist(record.creator_id, key=key2)
+        return r.url_with_query
+
+    async def get_own_user(self, session: aiohttp.ClientSession) -> Optional['User']:
+        if self.conf.login is None:
+            return None
+        if self.own_user is None:
+            token = User.token_for(self.conf.login, self.conf.password)
+            if self.conf.user_id is not None:
+                self.logger.debug(f'using userOid from configuration')
+                user_oid = self.conf.user_id
+            else:
+                r = RplayUrl.login(token)
+                user_info = await utils.request_json(r.url, session, self.logger, r.method, r.params, r.data, r.headers)
+                if user_info is None:
+                    self.logger.debug(f'failed to log in')
+                    return None
+                if not 'oid' in user_info:
+                    self.logger.debug(f'user oid is absent in login response. Raw response: {user_info}')
+                    return None
+                user_oid = user_info['oid']
+                self.logger.info(f'successfully logged in, user_id is "{user_oid}"')
+            self.own_user = User(user_oid, token)
+        return self.own_user
 
 
 def parse_livestream(item: dict) -> RplayRecord:
@@ -263,19 +330,88 @@ def get_restream_url(platform: Optional[str], restream_key: Optional[str]) -> Op
     return None
 
 
+class JWTAuth:
+
+    @staticmethod
+    def _dict_to_b64url(data: dict) -> str:
+        data_json = json.dumps(data).replace(' ', '')
+        data_b64url = base64.urlsafe_b64encode(data_json.encode())
+        return data_b64url.decode().strip('=')
+
+    @staticmethod
+    def _hmac_signature_b64url(message: str, secret: str) -> str:
+        signature = hmac.new(secret.encode(), msg=message.encode(), digestmod='sha256').digest()
+        return base64.urlsafe_b64encode(signature).decode().strip('=')
+
+    @classmethod
+    def generate_token(cls, eml: str, dat: Optional[datetime.datetime] = None) -> str:
+        header = {'alg': 'HS256', 'typ': 'JWT'}
+        header_encoded = cls._dict_to_b64url(header)
+
+        dat = dat or datetime.datetime.now()
+        dat = dat.astimezone()
+        dat_text = dat.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+        iat = int(dat.timestamp())
+        if dat.utcoffset() is not None:
+            # timestamp is calculated from local time as if it was UTC
+            iat += int(dat.utcoffset().total_seconds())
+
+        payload = {'eml': eml, 'dat': dat_text, 'iat': iat}
+        payload_encoded = cls._dict_to_b64url(payload)
+
+        return f'{header_encoded}.{payload_encoded}'
+
+    @classmethod
+    def sign_token(cls, token: str, secret: str) -> str:
+        secret = hashlib.sha256(secret.encode()).digest().hex()
+        signature = cls._hmac_signature_b64url(token, secret)
+        return f'{token}.{signature}'
+
+    @classmethod
+    def new(cls, eml: str, psw: str, dat: Optional[datetime.datetime] = None) -> str:
+        """generate new signed token"""
+        token = cls.generate_token(eml, dat)
+        signed_token = cls.sign_token(token, psw)
+        return signed_token
+
+
+@dataclass
+class User:
+    user_oid: str
+    token: str
+
+    @staticmethod
+    def token_for(email: str, passwd: str) -> str:
+        return JWTAuth.new(email, passwd)
+
+    def get_auth_header(self) -> Dict[str, str]:
+        return {'Authorization': self.token}
+
+
 @dataclass
 class RequestDetails:
     url: str
+    method: str = 'GET'
     params: Optional[Dict[str, Any]] = None
+    data: Optional[Any] = None
     headers: Optional[Dict[str, Any]] = None
+
+    @property
+    def url_with_query(self) -> str:
+        if self.params is None:
+            return self.url
+        parsed = urllib.parse.urlparse(self.url)
+        parsed._replace(query=urllib.parse.urlencode(self.params))
+        url = parsed.geturl()
+        return url
 
 
 class RplayUrl:
 
     @staticmethod
-    def livestreams(oid: str = '') -> RequestDetails:
+    def livestreams(creator_oid: str = '') -> RequestDetails:
         url = f'https://api.rplay.live/live/livestreams'
-        params = {'creatorOid': oid, 'lang': 'en'}
+        params = {'creatorOid': creator_oid, 'lang': 'en'}
         return RequestDetails(url=url, params=params)
 
     @staticmethod
@@ -298,9 +434,17 @@ class RplayUrl:
         return RequestDetails(url=url, params=params)
 
     @staticmethod
-    def getuser(oid: str) -> RequestDetails:
+    def getuser_by_oid(creator_oid: str) -> RequestDetails:
+        """get user info and live status by userOid"""
         url = f'https://api.rplay.live/account/getuser'
-        params = {'userOid': oid, 'filter[]': ['_id', 'nickname', 'creatorTags'], 'lang': 'en'}
+        params = {'userOid': creator_oid, 'filter[]': ['_id', 'nickname', 'creatorTags'], 'lang': 'en'}
+        return RequestDetails(url=url, params=params)
+
+    @staticmethod
+    def getuser_by_name(cursom_url: str) -> RequestDetails:
+        """get user info and live status by custom channel url"""
+        url = f'https://api.rplay.live/account/getuser'
+        params = {'customUrl': cursom_url, 'filter[]': ['_id', 'nickname', 'creatorTags'], 'lang': 'en'}
         return RequestDetails(url=url, params=params)
 
     @staticmethod
@@ -317,88 +461,32 @@ class RplayUrl:
         return RequestDetails(url=url, params=params)
 
     @staticmethod
-    def content(content_oid) -> RequestDetails:
+    def content(content_oid, user: Optional[User] = None) -> RequestDetails:
         url = f'https://api.rplay.live/content'
-        params = {'contentOid': content_oid, 'status': 'published'}
-        return RequestDetails(url=url, params=params)
-
-    @staticmethod
-    def playlist(creator_oid: str, key2: Optional[str] = None) -> RequestDetails:
-        url = 'https://api.rplay.live/live/stream/playlist.m3u8'
-        params = {'creatorOid': creator_oid, 'key2': key2}
-        return RequestDetails(url=url, params=params)
-
-    @staticmethod
-    def key2(requestor_oid, authorization) -> RequestDetails:
-        """response is the key as a plaintext"""
-        url = f'https://api.rplay.live/live/key2'
-        params = {'requestorOid': requestor_oid, 'loginType': 'plax'}
-        headers = {'Authorization': authorization}
+        params = {'contentOid': content_oid, 'status': 'published', 'withContentMetadata': True, 'requestCanView': True, 'lang': 'en'}
+        headers = {}
+        if user is not None:
+            params.update({'requestorOid': user.user_oid, 'loginType': 'plax'})
+            headers.update(user.get_auth_header())
         return RequestDetails(url=url, params=params, headers=headers)
 
+    @staticmethod
+    def playlist(creator_oid: str, key: str = '', key2: str = '') -> RequestDetails:
+        url = 'https://api.rplay.live/live/stream/playlist.m3u8'
+        params = {'creatorOid': creator_oid, 'key': key, 'key2': key2}
+        return RequestDetails(url=url, params=params)
 
-def dict_to_b64url(data: dict) -> str:
-    data_json = json.dumps(data).replace(' ', '')
-    data_b64url = base64.urlsafe_b64encode(data_json.encode())
-    return data_b64url.decode().strip('=')
+    @staticmethod
+    def key2(user: User) -> RequestDetails:
+        """response is the key as a plaintext"""
+        url = f'https://api.rplay.live/live/key2'
+        params = {'requestorOid': user.user_oid, 'loginType': 'plax'}
+        headers = user.get_auth_header()
+        return RequestDetails(url=url, params=params, headers=headers)
 
-
-def hmac_signature_b64url(message: str, secret: str) -> str:
-    signature = hmac.new(secret.encode(), msg=message.encode(), digestmod='sha256').digest()
-    return base64.urlsafe_b64encode(signature).decode().strip('=')
-
-
-def jwt_auth(eml: str, psw: str, dat: Optional[datetime.datetime]) -> str:
-    header = {'alg': 'HS256', 'typ': 'JWT'}
-    header_encoded = dict_to_b64url(header)
-
-    dat = dat or datetime.datetime.now().astimezone()
-    dat_text = dat.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
-    iat = int(dat.timestamp())
-    if dat.utcoffset() is not None:
-        iat += int(dat.utcoffset().total_seconds())
-
-    payload = {'eml': eml, 'dat': dat_text, 'iat': iat}
-    payload_encoded = dict_to_b64url(payload)
-
-    token = f'{header_encoded}.{payload_encoded}'
-    signature = hmac_signature_b64url(token, psw)
-    signed_token = f'{token}.{signature}'
-
-    return signed_token
-
-
-def fetch_json(r: RequestDetails):
-    import requests
-    try:
-        response = requests.get(r.url, params=r.params, headers=r.headers)
-        return response.json()
-    except Exception as e:
-        return None
-
-
-if __name__ == '__main__':
-    r = RplayUrl.livestreams()
-    livestreams_all = fetch_json(r)
-
-    oids = [x['creatorOid'] for x in livestreams_all]
-
-    r = RplayUrl.bulkgetusers(oids)
-    bulk = fetch_json(r)
-
-    for oid in oids[:1]:
-        r = RplayUrl.livestreams(oid)
-        livestreams_one = fetch_json(r)
-
-        r = RplayUrl.getuser(oid)
-        user_data = fetch_json(r)
-
-        r = RplayUrl.subscriptions(oid)
-        subscriptions = fetch_json(r)
-
-    for oid in oids:
-        r = RplayUrl.play(oid)
-        live_data = fetch_json(r)
-        record = parse_play(live_data)
-        ...
-    ...
+    @staticmethod
+    def login(token: str) -> RequestDetails:
+        url = f'https://api.rplay.live/account/login'
+        data = {'checkAdmin': None, 'lang': 'en', 'loginType': None, 'token': token}
+        headers = {'Content-Type': 'application/json'}
+        return RequestDetails(url=url, method='POST', data=json.dumps(data), headers=headers)
