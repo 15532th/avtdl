@@ -215,7 +215,7 @@ class RplayUserMonitor(BaseFeedMonitor):
                 key2 = ''
         else:
             key2 = ''
-        r = RplayUrl.playlist(record.creator_id, key=key2)
+        r = RplayUrl.playlist(record.creator_id, key2=key2)
         return r.url_with_query
 
     async def get_own_user(self, session: aiohttp.ClientSession) -> Optional['User']:
@@ -401,8 +401,8 @@ class RequestDetails:
         if self.params is None:
             return self.url
         parsed = urllib.parse.urlparse(self.url)
-        parsed._replace(query=urllib.parse.urlencode(self.params))
-        url = parsed.geturl()
+        with_query = parsed._replace(query=urllib.parse.urlencode(self.params))
+        url = urllib.parse.urlunparse(with_query)
         return url
 
 
