@@ -190,6 +190,9 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
         if response.status == 304:
             logger.debug(f'[{entity.name}] got {response.status} ({response.reason}) from {url}')
+            if entity.update_interval != entity.base_update_interval:
+                logger.info(f'[{entity.name}] restoring update interval {entity.base_update_interval} seconds for {url} after getting 304 response')
+                entity.update_interval = entity.base_update_interval
             return None
         # some servers do not have cache headers in 304 response, so only updating on 200
         entity.last_modified = response.headers.get('Last-Modified', None)
