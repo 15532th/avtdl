@@ -1,9 +1,12 @@
-from typing import Optional
+import datetime
+from typing import List, Optional
 
 import pytest
 
 from avtdl.core.interfaces import Event, EventType, TextRecord
-from avtdl.plugins.filters.filters import EmptyFilterConfig, EmptyFilterEntity, EventCauseFilter, FormatFilter, FormatFilterEntity
+from avtdl.plugins.filters.filters import EmptyFilterConfig, EmptyFilterEntity, EventCauseFilter, FormatFilter, \
+    FormatFilterEntity, MatchFilter, MatchFilterEntity
+from avtdl.plugins.twitch.twitch import TwitchRecord
 
 
 @pytest.fixture()
@@ -97,3 +100,25 @@ class TestFormatFilter:
         result = fmt.match(entity, text_record)
 
         assert result.text == '*** {text}={test text message} ***'
+
+
+class TestMatchFilter:
+
+    @staticmethod
+    def prepare_filter(patterns: List[str], fields: List[str]):
+        config = EmptyFilterConfig(name='test')
+        entity = MatchFilterEntity(name='test', patterns=patterns, fields=fields)
+        return MatchFilter(config, [entity]), entity
+
+    def test_empty_field_matches(self):
+        record = TwitchRecord(
+            url='https://twitch.tv/test',
+            username='test',
+            title='test',
+            start=datetime.datetime.fromtimestamp(0),
+            avatar_url='https://example.com/'
+        )
+        match_filter, entity = self.prepare_filter([''], ['game'])
+
+        result = match_filter.match(entity, record)
+        assert result == record
