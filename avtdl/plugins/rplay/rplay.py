@@ -23,7 +23,7 @@ from avtdl.core.utils import Fmt
 @Plugins.register('rplay', Plugins.kind.ASSOCIATED_RECORD)
 @Plugins.register('rplay.user', Plugins.kind.ASSOCIATED_RECORD)
 class RplayRecord(Record):
-    """Represents event of livestream on RPLAY starting"""
+    """Ongoing livestream on RPLAY"""
     url: str
     """livestream url"""
     title: str
@@ -37,7 +37,7 @@ class RplayRecord(Record):
     user_id: str
     """user's oid"""
     creator_id: str
-    """creatorOid"""
+    """creatorOid, unique id used in channel and livestream urls"""
     name: str
     """visible name of the user"""
     avatar_url: str
@@ -47,7 +47,7 @@ class RplayRecord(Record):
     restream_url: Optional[str] = None
     """for restream, url of the stream on the source platform"""
     playlist_url: Optional[str] = None
-    """for native stream, link to the underlying hls playlist if if was retrieved successfully. 
+    """for native stream, link to the underlying hls playlist if was retrieved successfully.
     Might be invalid even when present in case of insufficient permissions or network error"""
 
     def __str__(self):
@@ -87,18 +87,23 @@ class RplayMonitorEntity(BaseFeedMonitorEntity):
     update_interval: int = 300
     """how often the monitored channel will be checked, in seconds"""
     url: str = Field(exclude=True, default=None)
-    """no url is needed"""
+    """url is not used, all streams checked through the same api endpoing"""
     cookies_file: Optional[FilePath] = Field(exclude=True, default=None)
     """cookies are not used to log in"""
     adjust_update_interval: bool = Field(exclude=True, default=True)
     """rplay api endpoints doesn't use caching headers"""
-    latest_live_start: datetime.datetime = Field(exclude=True, default=None)
-    """internal variable to persist state between updates. Used to distinguish between different livestreams of the user"""
 
 
 @Plugins.register('rplay', Plugins.kind.ACTOR)
 class RplayMonitor(BaseFeedMonitor):
     """
+    Monitor livestreams on RPLAY
+
+    Work in progress, functionality and configuration format
+    are subjects to change.
+
+    Checks all listed streams at once, does not support providing
+    credentials, does not try to retrieve playlist url.
     """
 
     def __init__(self, conf: RplayMonitorConfig, entities: Sequence[RplayMonitorEntity]):
@@ -183,6 +188,23 @@ class RplayUserMonitorEntity(RplayMonitorEntity):
 @Plugins.register('rplay.user', Plugins.kind.ACTOR)
 class RplayUserMonitor(BaseFeedMonitor):
     """
+    Monitor livestreams on RPLAY channel
+
+    Monitors user with given `creator_oid`, produces record
+    when the user starts a livestream. `creator_oid` is the
+    unique part of the user's home or livestream url.
+    For example, `creator_oid` is `6596e71c04a7ea2fd7c36ae7`
+    for the following urls:
+
+    - `https://rplay.live/creatorhome/6596e71c04a7ea2fd7c36ae7`
+    - `https://rplay.live/live/6596e71c04a7ea2fd7c36ae7`
+
+    When producing a record, this plugin will generate `playlist_url`
+    for the stream. If credentials are provided in the `config` section,
+    it will try to update it with the key required to access livestreams
+    limited to subscribers. Resulting `playlist_url` might still be
+    invalid if the update failed or account does not have permissions
+    to view the stream.
     """
 
     def __init__(self, conf: RplayUserMonitorConfig, entities: Sequence[RplayUserMonitorEntity]):
