@@ -139,6 +139,9 @@ class TwitterSpace(Action):
         space = await self.fetch_space(session, entity, space_id)
         if space is None:
             return
+        if self.db.record_exists(space, entity.name):
+            self.logger.debug(f'[{entity.name}] space {space_id} has already been processed')
+            return
         space.media_url = await self.wait_for_any_url(session, entity, space) or None
         self.db.store_records([space], entity.name)
 
