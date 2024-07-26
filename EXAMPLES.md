@@ -661,3 +661,65 @@ chains:
       - "tslazer"
 ```
 
+##### Monitor and download RPLAY livestreams
+
+Monitor creators channels for livestreams, attempt to generate a HLS playlist url when a stream goes live, and pass it to yt-dlp for downloading.
+
+Streams hosted on other platforms (Youtube or Twitch) are filtered out by the "rplay internal" `match` filter by checking that "restream_platform" field on the record is empty.
+
+Streams on RPLAY do not get any unique ID until they have ended and got reencoded, so time the stream has started at is used as part of the filename instead.
+
+By providing login credentials it is possible to download subscriber-only livestreams, accessible to the given account.
+
+```yaml
+actors:
+
+  rplay.user:
+    config:
+      login: "username@example.com"
+      password: "the password"
+    defaults:
+      update_interval: 320
+      quiet_first_time: false
+    entities:
+      - name: "creator1"
+        creator_oid: "665afa669da3d5cd36c18401"
+      - name: "creator2"
+        creator_oid: "665afa669da3d5cd36c18402"
+      - name: "creator3"
+        creator_oid: "665afa669da3d5cd36c18403"
+
+  filter.match:
+    entities:
+      - name: "rplay internal"
+        fields:
+          - "restream_platform"
+        patterns:
+          - ""
+
+  execute:
+    entities:
+      - name: "rplay"
+        command: "yt-dlp --windows-filenames --add-header Referer:'https://rplay.live' {playlist_url} --output '{start} [{name}] {title}.%(ext)s'"
+        placeholders:
+          "{playlist_url}": "playlist_url"
+          "{name}": "name"
+          "{title}": "title"
+          "{start}": "start"
+        working_dir: "archive/rplay/{name} [{creator_id}]/"
+        log_dir: "archive/rplay/logs/"
+        log_filename: "{start} {name} [{creator_id}].log"
+
+chains:
+  
+  "rplay-dl":
+    - rplay.user:
+      - "creator1"
+      - "creator2"
+      - "creator3"
+    - filter.match:
+      - "rplay internal"
+    - execute:
+      - "rplay"
+
+```
