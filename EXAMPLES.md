@@ -664,11 +664,11 @@ chains:
 
 #### Monitor and download RPLAY livestreams
 
-Monitor creators channels for livestreams, attempt to generate a HLS playlist url when a stream goes live, and pass it to yt-dlp for downloading.
+Monitor creators channels for livestreams, attempt to generate an HLS playlist url when a stream goes live, and pass it to yt-dlp for downloading.
 
 Streams hosted on other platforms (Youtube or Twitch) are filtered out by the "rplay restream" `exclude` filter by checking the "restream_platform" field on the record.
 
-Streams on RPLAY does not get a unique ID, so time the stream has started at is used as part of the output filename instead.
+Streams on RPLAY do not get a unique ID, so the starting time is used instead.
 
 By providing login credentials it is possible to download subscriber-only livestreams accessible to a given account.
 
