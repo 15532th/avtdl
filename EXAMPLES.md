@@ -22,6 +22,7 @@ Every example is meant to be a valid configuration file, that can be used standa
       * [Store tweets and images posted by a Twitter account](#store-tweets-and-images-posted-by-a-twitter-account)
       * [Monitor Twitter timeline for tweets by specific users, send the tweets to Discord](#monitor-twitter-timeline-for-tweets-by-specific-users-send-the-tweets-to-discord)
       * [Send notifications and download Twitter Spaces](#send-notifications-and-download-twitter-spaces)
+      * [Monitor and download RPLAY livestreams](#monitor-and-download-rplay-livestreams)
 <!-- TOC -->
 
 ---
@@ -661,7 +662,7 @@ chains:
       - "tslazer"
 ```
 
-##### Monitor and download RPLAY livestreams
+#### Monitor and download RPLAY livestreams
 
 Monitor creators channels for livestreams, attempt to generate a HLS playlist url when a stream goes live, and pass it to yt-dlp for downloading.
 
