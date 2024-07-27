@@ -233,7 +233,7 @@ class RplayUserMonitor(BaseFeedMonitor):
         own_user = await self.get_own_user(session)
         if own_user is not None:
             r = RplayUrl.key2(own_user)
-            key2 = await utils.request(r.url, session, self.logger, r.method, r.params, r.data, r.headers)
+            key2 = await utils.request(r.url, session, self.logger, r.method, r.params, r.data, r.headers, retry_times=3, retry_multiplier=3)
             if key2 is None:
                 key2 = ''
         else:
