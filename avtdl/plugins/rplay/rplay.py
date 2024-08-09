@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import datetime
 import enum
@@ -84,8 +85,12 @@ class RplayMonitorConfig(BaseFeedMonitorConfig):
 
 @Plugins.register('rplay', Plugins.kind.ACTOR_ENTITY)
 class RplayMonitorEntity(BaseFeedMonitorEntity):
+    creators: Optional[List[str]] = None
+    """list of IDs of the users to monitor. Entity with no IDs will report on every user going live"""
     update_interval: int = 300
     """how often the monitored channel will be checked, in seconds"""
+    selected_for_update: bool = Field(exclude=True, default=False)
+    """internal variable, used to mark one entity that actually makes network request to update queues"""
     url: str = Field(exclude=True, default=None)
     """url is not used, all streams are checked through the same api endpoing"""
     cookies_file: Optional[FilePath] = Field(exclude=True, default=None)
@@ -99,22 +104,49 @@ class RplayMonitor(BaseFeedMonitor):
     """
     Monitor livestreams on RPLAY
 
-    Work in progress, functionality and configuration format
-    are subjects to change.
+    Monitors users with `creator_oid` listed in `creators`, produces a record
+    when any of them starts a livestream. When `creators` list is not provided,
+    every livestream on the site will generate a record. `creator_oid` is the
+    unique part of the user's home or livestream url.
+    For example, `creator_oid` is `6596e71c04a7ea2fd7c36ae7`
+    for the following urls:
 
-    Checks all listed streams at once, does not support providing
-    credentials, does not try to retrieve playlist url.
+    - `https://rplay.live/creatorhome/6596e71c04a7ea2fd7c36ae7`
+    - `https://rplay.live/live/6596e71c04a7ea2fd7c36ae7`
+
+    This monitor checks all creators with a single request,
+    however, because of that it does not try to retrieve the
+    direct `playlist url` for livestreams, and therefore does
+    not support providing login credentials.
     """
 
     def __init__(self, conf: RplayMonitorConfig, entities: Sequence[RplayMonitorEntity]):
         super().__init__(conf, entities)
         self.nickname_cache: Dict[str, str] = {}
+        self.consumers: Dict[str, asyncio.Queue] = {}
+        for entity in self.entities.values():
+            self.consumers[entity.name] = asyncio.Queue()
+
+        # new data are only fetched in a single entity with the shortest update interval
+        # it allows to avoid creating and monitoring a dedicated task for performing update
+        entity_for_update = min(entities, key=lambda entity: entity.update_interval)
+        entity_for_update.selected_for_update = True
 
     async def get_records(self, entity: RplayMonitorEntity, session: aiohttp.ClientSession) -> Sequence[RplayRecord]:
+        if entity.selected_for_update:
+            await self.update_records(entity, session)
+
+        records = []
+        queue = self.consumers[entity.name]
+        while not queue.empty():
+            records.append(queue.get_nowait())
+        return records
+
+    async def update_records(self, entity: RplayMonitorEntity, session: aiohttp.ClientSession) -> None:
         r = RplayUrl.livestreams()
         data = await self.request_json(r.url, entity, session, headers=r.headers, params=r.params)
         if data is None:
-            return []
+            return
         records = self.parse_livestreams(data)
 
         # nickname field in data from /livestreams endpoint is empty,
@@ -122,7 +154,11 @@ class RplayMonitor(BaseFeedMonitor):
         await self.update_nicknames_cache(session, entity, records)
         self.update_nicknames(records)
 
-        return records
+        for record in records:
+            for name, queue in self.consumers.items():
+                creators = self.entities[name].creators
+                if creators is None or record.creator_id in creators:
+                    await queue.put(record)
 
     def parse_livestreams(self, data: List[dict]):
         if not isinstance(data, List):
