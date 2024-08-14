@@ -38,7 +38,7 @@ class YoutubeFeedRecord(Record):
     """author's name, as shown on the channel icon"""
     video_id: str
     """short string identifying the video on Youtube. Part of the video url"""
-    summary: str
+    summary: Optional[str] = None
     """video's description"""
     views: Optional[int]
     """current number of views. Is zero for upcoming and ongoing livestreams"""
