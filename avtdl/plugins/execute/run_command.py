@@ -210,7 +210,7 @@ class Command(Action):
                     stdout.flush()
                     process = await asyncio.create_subprocess_exec(*args, cwd=working_dir, stdout=stdout, stderr=stdout)
         except Exception as e:
-            self.logger.warning(f'[{entity.name}] failed to execute command "{command_line}": {e}')
+            self.logger.exception(f'[{entity.name}] failed to execute command "{command_line}": {e}')
             if entity.report_failed:
                 text = f'[{entity.name}] failed to execute command: {command_line}'
                 event = Event(event_type=EventType.error, text=text, record=record)
