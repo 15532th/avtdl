@@ -15,7 +15,8 @@ dynamic = ["version"]
 requires-python = ">= 3.9"
 dependencies = [
     "pydantic",
-    "aiohttp",
+    "aiohttp<3.10;sys_platform == 'win32'",
+    "aiohttp;sys_platform != 'win32'",
     "multidict",
     "feedparser",
     "python-dateutil",

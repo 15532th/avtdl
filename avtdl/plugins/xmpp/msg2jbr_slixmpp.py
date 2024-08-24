@@ -1,9 +1,13 @@
 import asyncio
 import logging
+import sys
 from dataclasses import dataclass
 from typing import Callable, Optional
 
 import slixmpp
+
+if sys.platform == 'win32':
+    slixmpp.xmlstream.resolver.AIODNS_AVAILABLE = False
 
 ON_ERROR_RETRY_DELAY = 60
 DISCONNECT_AFTER_DONE_DELAY = 30
