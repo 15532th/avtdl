@@ -197,7 +197,7 @@ class Command(Action):
             self.on_record(entity, event)
         stdout_path = self._get_output_file(entity, record, task_id)
         try:
-            stdout = open(stdout_path, 'at') if stdout_path is not None else None
+            stdout = open(stdout_path, 'at', encoding='utf8') if stdout_path is not None else None
         except OSError as e:
             self.logger.warning(f'[{entity.name}] failed to open file {stdout_path}: {e}. Command output will not be written')
             stdout = None
