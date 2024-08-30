@@ -53,18 +53,18 @@ def handler(loop: AbstractEventLoop, context: Dict[str, Any]) -> None:
     loop.default_exception_handler(context)
 
 
-async def install_handler() -> None:
+async def install_exception_handler() -> None:
     loop = asyncio.get_running_loop()
     loop.set_exception_handler(handler)
     loop.slow_callback_duration = 100
 
 
-async def run(args: argparse.Namespace) -> None:
-    conf = load_config(args.config)
+async def run(config: Path) -> None:
+    conf = load_config(config)
     actors, chains = parse_config(conf)
     config_sancheck(actors, chains)
 
-    await install_handler()
+    await install_exception_handler()
     tasks = []
     for runnable in actors.values():
         task = asyncio.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
@@ -72,8 +72,7 @@ async def run(args: argparse.Namespace) -> None:
     await monitor_tasks(tasks)
 
 
-def make_docs(args: argparse.Namespace) -> None:
-    output = args.plugins_doc
+def make_docs(output: Path) -> None:
     doc = generate_plugins_description(output.suffix == '.html')
     try:
         with open(output, 'wt', encoding='utf8') as fp:
@@ -108,9 +107,9 @@ def main() -> None:
         if args.version:
             print(generate_version_string())
         elif args.plugins_doc is not None:
-            make_docs(args)
+            make_docs(args.plugins_doc)
         else:
-            asyncio.run(run(args), debug=True)
+            asyncio.run(run(args.config), debug=True)
     except KeyboardInterrupt:
         if args.debug:
             logging.exception('Interrupted, exiting... Printing stacktrace for debugging purpose:')
