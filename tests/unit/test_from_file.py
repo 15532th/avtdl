@@ -47,37 +47,42 @@ async def test_no_change_on_update(entity, monitor):
 
 
 class TestFirstUpdate:
-    testcases = [
-        (  # default entity settings
+    testcases = {
+        'default entity settings':
+        (
             {},
             'Line 1\nLine 2\n',
             ['Line 1\nLine 2']
         ),
-        (  # split_lines splits on newline by default
+        'split_lines splits on newline by default':
+        (
             {'split_lines': True},
             'Line 1\nLine 2\n',
             ['Line 1', 'Line 2']
         ),
-        (  # split_lines with record_start and record_end provided
+        'split_lines with record_start and record_end provided':
+        (
             {'split_lines': True, 'record_start': 'Line', 'record_end': '$'},
             '[LOG] Line 1a Line 1b\n[LOG] Unrelated record\n[LOG] Line 2',
             ['Line 1a Line 1b', 'Line 2']
         ),
-        (  # split_lines with record_start including entire record and record_end being "match all" pattern
+        'split_lines with record_start including entire record and record_end being "match all" pattern':
+        (
             {'split_lines': True, 'record_start': 'Line [a-z0-9]+', 'record_end': ''},
             '[LOG] Line 1a Line 1b\n[LOG] Line 2',
             ['Line 1a', 'Line 1b', 'Line 2']
         ),
-        (  # with quiet_start text is discarded on first update
+        'with quiet_start text is discarded on first update':
+        (
             {'quiet_start': True},
             'Line 1\nLine 2\n',
             []
         )
-    ]
+    }
 
     @staticmethod
     @pytest.mark.asyncio
-    @pytest.mark.parametrize('params, data, expected', testcases)
+    @pytest.mark.parametrize('params, data, expected', testcases.values(), ids=testcases.keys())
     async def test_single_update(entity, monitor, params, data, expected):
         add_to_file(data, entity.path, entity.encoding)
 
@@ -88,32 +93,36 @@ class TestFirstUpdate:
 
 
 class TestSecondUpdateAppend:
-    testcases = [
-        (  # without follow enabled entire file content gets read on second update
+    testcases = {
+        'without follow enabled entire file content gets read on second update':
+        (
             {'follow': False},
             'Line 1\nLine 2\n', 'Line 3\nLine 4\n',
             ['Line 1\nLine 2\nLine 3\nLine 4']
         ),
-        (  # follow with second update shorter than first
+        'follow with second update shorter than first':
+        (
             {'follow': True},
             'Line 1\nLine 2\nLine 3\n', 'Line 4\n',
             ['Line 4']
         ),
-        (  # follow with first update shorter than second
+        'follow with first update shorter than second':
+        (
             {'follow': True},
             'Line 1\n', 'Line 2\nLine 3\nLine 4\n',
             ['Line 2\nLine 3\nLine 4']
         ),
-        (  # partial record stored in buffer gets merged when continuation appended
+        'partial record stored in buffer gets merged when continuation appended':
+        (
             {'follow': True, 'split_lines': True, 'record_start': r'\[LOG\]', 'record_end': r'\.'},
             '[LOG] Line 1.\n[LOG] Line 2a\n', 'Line 2b\nLine2c.\nUnrelated line.\n[LOG] Line 3.',
             ['[LOG] Line 2a\nLine 2b\nLine2c.', '[LOG] Line 3.']
         )
-    ]
+    }
 
     @staticmethod
     @pytest.mark.asyncio
-    @pytest.mark.parametrize('params, data1, data2, expected', testcases)
+    @pytest.mark.parametrize('params, data1, data2, expected', testcases.values(), ids=testcases.keys())
     async def test_append(entity, monitor, params, data1, data2, expected):
         add_to_file(data1, entity.path, entity.encoding)
         _ = await monitor.get_new_records(entity)
@@ -128,37 +137,42 @@ class TestSecondUpdateAppend:
 
 
 class TestSecondUpdateRotate:
-    testcases = [
-        (  # old file content gets cut on rotate
+    testcases = {
+        'old file content gets cut on rotate':
+        (
             {'follow': False},
             'Line 1\nLine 2\n', 'Line 3\nLine 4\n',
             ['Line 3\nLine 4']
         ),
-        (  # follow with second update shorter than first
+        'follow with second update shorter than first':
+        (
             {'follow': True},
             'Line 1\nLine 2\nLine 3\n', 'Line 4\n',
             ['Line 4']
         ),
-        (  # follow with first update shorter than second
+        'follow with first update shorter than second':
+        (
             {'follow': True},
             'Line 1\n', 'Line 2\nLine 3\nLine 4\n',
             ['Line 2\nLine 3\nLine 4']
         ),
-        (  # partial record stored in buffer is discarded on rotate
+        'partial record stored in buffer is discarded on rotate':
+        (
             {'follow': True, 'split_lines': True, 'record_start': r'\[LOG\]', 'record_end': r'\.'},
             '[LOG] Line 1.\n[LOG] Line 2a\n', 'Line 2b\nLine2c.\nUnrelated line.\n[LOG] Line 3.',
             ['[LOG] Line 3.']
         ),
-            (  # quiet_start doesn't get carried over to rotated file
+        "quiet_start doesn't get carried over to rotated file":
+        (
             {'quiet_start': True},
             '', 'Line 3\nLine 4\n',
             ['Line 3\nLine 4']
         )
-    ]
+    }
 
     @staticmethod
     @pytest.mark.asyncio
-    @pytest.mark.parametrize('params, data1, data2, expected', testcases)
+    @pytest.mark.parametrize('params, data1, data2, expected', testcases.values(), ids=testcases.keys())
     async def test_rotate(entity, monitor, params, data1, data2, expected):
         add_to_file(data1, entity.path, entity.encoding)
         _ = await monitor.get_new_records(entity)

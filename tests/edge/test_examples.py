@@ -46,9 +46,10 @@ def empty_cookies(tmp_path: Path):
 # for tests parametrization. All preparations are done by regular
 # functions instead
 examples = [*configs('EXAMPLES.md'), *configs('example.config.yml')]
+ids = [f'example_{i}' for i in range(len(examples))]
 
 
-@pytest.mark.parametrize('config', examples)
+@pytest.mark.parametrize('config', examples, ids=ids)
 def test_config_loading(config: str, tmp_path, caplog):
     """
     Smoke test for configuration examples
