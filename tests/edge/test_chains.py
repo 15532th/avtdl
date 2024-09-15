@@ -55,7 +55,7 @@ class Receiver:
         return self.records_received >= len(self.expected_history)
 
 
-async def test_run(config: str, senders: List[Sender], receivers: List[Receiver]):
+async def run(config: str, senders: List[Sender], receivers: List[Receiver]):
     silence_library_loggers()
     set_logging_format('WARNING')
 
@@ -129,4 +129,4 @@ chains:
 @pytest.mark.asyncio
 @pytest.mark.parametrize('config, senders, receivers', list(testcases.values()), ids=testcases.keys())
 async def test_config_loading(config: str, senders, receivers):
-    await test_run(config, senders, receivers)
+    await run(config, senders, receivers)
