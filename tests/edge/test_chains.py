@@ -7,7 +7,7 @@ import yaml
 
 from avtdl.avtdl import parse_config
 from avtdl.core.config import config_sancheck
-from avtdl.core.interfaces import Actor, Record, TextRecord
+from avtdl.core.interfaces import Actor, MessageBus, Record, TextRecord
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.utils import monitor_tasks
 from avtdl.plugins.utils.utils import TestAction, TestMonitor
@@ -58,6 +58,10 @@ class Receiver:
 async def run(config: str, senders: List[Sender], receivers: List[Receiver]):
     silence_library_loggers()
     set_logging_format('WARNING')
+
+    # class field value persists between isolated testcases runs, breaking tests
+    # clean it before test as a temporary workaround
+    MessageBus._subscriptions.clear()
 
     conf = yaml.load(config, Loader=yaml.FullLoader)
     actors, chains = parse_config(conf)
