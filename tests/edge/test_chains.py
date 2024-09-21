@@ -62,12 +62,10 @@ async def run(config: str, senders: List[Sender], receivers: List[Receiver]):
     conf = yaml.load(config, Loader=yaml.FullLoader)
     actors, chains = parse_config(conf)
     config_sancheck(actors, chains)
-
     tasks = []
     for runnable in actors.values():
         task = asyncio.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
         tasks.append(task)
-
     send_records(actors, senders)
     try:
         await asyncio.wait_for(monitor_tasks(tasks), 3)
@@ -100,29 +98,171 @@ def check_received(actors: Dict[str, Actor], receivers: List[Receiver]):
 
 
 testcases: Dict[str, Tuple[str, List[Sender], List[Receiver]]] = {
-    'single chain': (
+    'test records passthrough through monitors and actors': (
         '''
 actors:
   utils.producer:
     entities:
       - name: test1
+      - name: test2
   utils.consumer:
     entities:
-      - name: test2
       - name: test3
+        consume_record: false
+      - name: test4
+      - name: test5
 chains:
   chain1:
     - utils.producer:
       - test1
-    - utils.consumer:
+    - utils.producer:
       - test2
     - utils.consumer:
       - test3
+    - utils.consumer:
+      - test4
+    - utils.consumer:
+      - test5
         ''',
         [Sender('utils.producer', 'test1', ['one', 'two', 'three'])],
-        [Receiver('utils.consumer', 'test2', ['one', 'two', 'three']),
-         Receiver('utils.consumer', 'test3', [])]
-    )
+        [
+            Receiver('utils.consumer', 'test3', ['one', 'two', 'three']),
+            Receiver('utils.consumer', 'test4', ['one', 'two', 'three']),
+            Receiver('utils.consumer', 'test5', [])
+        ]
+    ),
+    'test listing multiple entities of the same actor': (
+        '''
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+      - name: producer2
+      - name: producer3
+  utils.consumer:
+    entities:
+      - name: consumer_a
+      - name: consumer_b
+      - name: consumer_c
+chains:
+  chain_1abc:
+    - utils.producer:
+      - producer1
+    - utils.consumer:
+      - consumer_a
+      - consumer_b
+      - consumer_c
+  chain_23b:
+    - utils.producer:
+      - producer2
+      - producer3
+    - utils.consumer:
+      - consumer_b
+  chain_3c:
+    - utils.producer:
+      - producer3
+    - utils.consumer:
+      - consumer_c
+        ''',
+        [
+            Sender('utils.producer', 'producer1', ['record1']),
+            Sender('utils.producer', 'producer2', ['record2']),
+            Sender('utils.producer', 'producer3', ['record3']),
+        ],
+        [
+            Receiver('utils.consumer', 'consumer_a', ['record1']),
+            Receiver('utils.consumer', 'consumer_b', ['record1', 'record2', 'record3']),
+            Receiver('utils.consumer', 'consumer_c', ['record1', 'record3']),
+        ]
+    ),
+    'test second monitor entity leaking passthrough records': (
+        '''
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+      - name: producer2
+  utils.consumer:
+    entities:
+      - name: consumer1
+      - name: consumer2
+chains:
+  chain1:
+    - utils.producer:
+      - producer1
+    - utils.producer:
+      - producer2
+    - utils.consumer:
+      - consumer1
+  chain2:
+    - utils.producer:
+      - producer2
+    - utils.consumer:
+      - consumer2
+        ''',
+        [
+            Sender('utils.producer', 'producer1', ['record-1']),
+            Sender('utils.producer', 'producer2', ['record-2']),
+        ],
+        [
+            Receiver('utils.consumer', 'consumer1', ['record-1', 'record-2']),
+            Receiver('utils.consumer', 'consumer2', ['record-1', 'record-2']),
+        ]
+    ),
+    'test same filter entity in multiple chains': (
+        '''
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+      - name: producer2
+      - name: producer3
+  utils.consumer:
+    entities:
+      - name: consumer1
+      - name: consumer2
+      - name: consumer3
+  filter.noop:
+    entities:
+      - name: noop1
+chains:
+  chain1:
+    - utils.producer:
+      - producer1
+    - filter.noop:
+      - noop1
+    - utils.consumer:
+      - consumer1
+  chain2:
+    - utils.producer:
+      - producer2
+    - filter.noop:
+      - noop1
+    - utils.consumer:
+      - consumer2
+  chain3a:
+    - filter.noop:
+      - noop1
+    - utils.consumer:
+      - consumer3
+  chain3b:
+    - utils.producer:
+      - producer3
+    - utils.consumer:
+      - consumer3
+        ''',
+        [
+            Sender('utils.producer', 'producer1', ['record1']),
+            Sender('utils.producer', 'producer2', ['record2']),
+            Sender('utils.producer', 'producer3', ['record3']),
+        ],
+        [
+            Receiver('utils.consumer', 'consumer1', ['record1', 'record2']),
+            Receiver('utils.consumer', 'consumer2', ['record1', 'record2']),
+            Receiver('utils.consumer', 'consumer3', ['record1', 'record2', 'record3']),
+        ]
+    ),
+
 }
 
 
