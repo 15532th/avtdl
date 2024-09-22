@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Union
 
@@ -9,7 +8,6 @@ from avtdl.avtdl import parse_config
 from avtdl.core.config import config_sancheck
 from avtdl.core.interfaces import Actor, MessageBus, Record, TextRecord
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
-from avtdl.core.utils import monitor_tasks
 from avtdl.plugins.utils.utils import TestAction, TestMonitor
 
 
@@ -66,15 +64,8 @@ async def run(config: str, senders: List[Sender], receivers: List[Receiver]):
     conf = yaml.load(config, Loader=yaml.FullLoader)
     actors, chains = parse_config(conf)
     config_sancheck(actors, chains)
-    tasks = []
-    for runnable in actors.values():
-        task = asyncio.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
-        tasks.append(task)
+
     send_records(actors, senders)
-    try:
-        await asyncio.wait_for(monitor_tasks(tasks), 3)
-    except (asyncio.CancelledError, asyncio.TimeoutError) as e:
-        pass
     check_received(actors, receivers)
 
 
