@@ -1,0 +1,35 @@
+actors:
+  utils.producer:
+    entities:
+      - name: test1
+      - name: test2
+  utils.consumer:
+    entities:
+      - name: test3
+        consume_record: false
+      - name: test4
+      - name: test5
+chains:
+  chain1:
+    - utils.producer:
+        - test1
+    - utils.producer:
+        - test2
+    - utils.consumer:
+        - test3
+    - utils.consumer:
+        - test4
+    - utils.consumer:
+        - test5
+
+testcases:
+  senders:
+    - entity: test1
+      records: ['record1', 'record2', 'record3']
+  receivers:
+    - entity: test3
+      expected_history: ['record1', 'record2', 'record3']
+    - entity: test4
+      expected_history: ['record1', 'record2', 'record3']
+    - entity: test5
+      expected_history: []

@@ -1,0 +1,55 @@
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+      - name: producer2
+      - name: producer3
+  utils.consumer:
+    entities:
+      - name: consumer1
+      - name: consumer2
+      - name: consumer3
+  filter.noop:
+    entities:
+      - name: noop1
+chains:
+  chain1:
+    - utils.producer:
+        - producer1
+    - filter.noop:
+        - noop1
+    - utils.consumer:
+        - consumer1
+  chain2:
+    - utils.producer:
+        - producer2
+    - filter.noop:
+        - noop1
+    - utils.consumer:
+        - consumer2
+  chain3a:
+    - filter.noop:
+        - noop1
+    - utils.consumer:
+        - consumer3
+  chain3b:
+    - utils.producer:
+        - producer3
+    - utils.consumer:
+        - consumer3
+
+testcases:
+  senders:
+    - entity: producer1
+      records: ['record1']
+    - entity: producer2
+      records: ['record2']
+    - entity: producer3
+      records: ['record3']
+  receivers:
+    - entity: consumer1
+      expected_history: ['record1', 'record2']
+    - entity: consumer2
+      expected_history: ['record1', 'record2']
+    - entity: consumer3
+      expected_history: ['record1', 'record2', 'record3']
