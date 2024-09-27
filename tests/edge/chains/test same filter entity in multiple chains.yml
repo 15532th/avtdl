@@ -48,8 +48,8 @@ testcases:
       records: ['record3']
   receivers:
     - entity: consumer1
-      expected_history: ['record1', 'record2']
+      expected_history: ['record1']
     - entity: consumer2
-      expected_history: ['record1', 'record2']
+      expected_history: ['record2']
     - entity: consumer3
-      expected_history: ['record1', 'record2', 'record3']
+      expected_history: ['record3']

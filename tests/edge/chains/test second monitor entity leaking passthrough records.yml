@@ -31,4 +31,4 @@ testcases:
     - entity: consumer1
       expected_history: ['record1', 'record2']
     - entity: consumer2
-      expected_history: ['record1', 'record2']
+      expected_history: ['record2']

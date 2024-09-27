@@ -45,8 +45,8 @@ class Chain:
         for consumer_name, consumer in actors[1:]:
             for producer_entity in producer:
                 for consumer_entity in consumer:
-                    producer_topic = self.bus.outgoing_topic_for(producer_name, producer_entity)
-                    consumer_topic = self.bus.incoming_topic_for(consumer_name, consumer_entity)
+                    producer_topic = self.bus.outgoing_topic_for(producer_name, producer_entity, self.name)
+                    consumer_topic = self.bus.incoming_topic_for(consumer_name, consumer_entity, self.name)
                     handler = self.get_handler(consumer_topic)
                     self.bus.sub(producer_topic, handler)
             producer_name, producer = consumer_name, consumer
