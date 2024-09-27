@@ -20,6 +20,9 @@ class Record(BaseModel):
 
     origin: Optional[str] = Field(default=None, exclude=True)
     """semicolon-separated names of actor and entity record originated from"""
+    chain: str = Field(default='', exclude=True)
+    """name of the Chain this record is going through.
+    Empty string means it was just produced and should go to every subscriber"""
 
     @abstractmethod
     def __str__(self) -> str:
@@ -107,14 +110,32 @@ class MessageBus:
 
     def pub(self, topic: str, message: Record):
         self.logger.debug(f'on topic {topic} message "{message!r}"')
-        for cb in self.subscriptions[topic]:
-            cb(topic, message)
+        if message.chain:
+            matching_callbacks = self.get_matching_callbacks(topic)
+            for generic_topic, callbacks in matching_callbacks.items():
+                for callback in callbacks:
+                    callback(topic, message)
+        else:
+            matching_callbacks = self.get_matching_callbacks(topic)
+            for specific_topic, callbacks in matching_callbacks.items():
+                _, _, chain = self.split_message_topic(specific_topic)
+                targeted_message = message.copy(deep=True)
+                targeted_message.chain = chain
+                for callback in callbacks:
+                    callback(specific_topic, targeted_message)
+
+    def get_matching_callbacks(self, topic_pattern: str) -> Dict[str, List[Callable[[str, Record], None]]]:
+        callbacks = defaultdict(list)
+        for topic, callback in self.subscriptions.items():
+            if topic.startswith(topic_pattern) or topic_pattern.startswith(topic):
+                callbacks[topic].extend(self.subscriptions[topic])
+        return callbacks
 
     def get_subscribed(self) -> Dict[str, List[str]]:
         '''return list of pairs [actor, entity] present in subscriptions'''
         subscribed: Dict[str, List[str]] = defaultdict(list)
         for topic in self._subscriptions.keys():
-            actor, entity = self.split_message_topic(topic)
+            actor, entity, chain = self.split_message_topic(topic)
             subscribed[actor].append(entity)
         return subscribed
 
@@ -124,19 +145,19 @@ class MessageBus:
     def split_topic(self, topic: str):
         return topic.split(self.SEPARATOR)
 
-    def incoming_topic_for(self, actor: str, entity: str) -> str:
-        return self.make_topic(self.PREFIX_IN, actor, entity)
+    def incoming_topic_for(self, actor: str, entity: str, chain: str = '') -> str:
+        return self.make_topic(self.PREFIX_IN, actor, entity, chain)
 
-    def outgoing_topic_for(self, actor: str, entity: str) -> str:
-        return self.make_topic(self.PREFIX_OUT, actor, entity)
+    def outgoing_topic_for(self, actor: str, entity: str, chain: str = '') -> str:
+        return self.make_topic(self.PREFIX_OUT, actor, entity, chain)
 
-    def split_message_topic(self, topic) -> Tuple[str, str]:
+    def split_message_topic(self, topic) -> Tuple[str, str, str]:
         try:
-            _, actor, entity = self.split_topic(topic)
+            _, actor, entity, chain = self.split_topic(topic)
         except ValueError:
             self.logger.error(f'failed to split message topic "{topic}"')
             raise
-        return actor, entity
+        return actor, entity, chain
 
 
 class ActorConfig(BaseModel):
@@ -169,7 +190,7 @@ class Actor(ABC):
         return shorten(text, MAX_REPR_LEN)
 
     def _handle(self, topic: str, record: Record) -> None:
-        _, entity_name = self.bus.split_message_topic(topic)
+        _, entity_name, _ = self.bus.split_message_topic(topic)
         if entity_name not in self.entities:
             logging.warning(f'received record on topic {topic}, but have no entity with name {entity_name} configured, dropping record {record!r}')
             return
@@ -185,7 +206,7 @@ class Actor(ABC):
 
     def on_record(self, entity: ActorEntity, record: Record):
         '''Implementation should call it for every new Record it produces'''
-        topic = self.bus.outgoing_topic_for(self.conf.name, entity.name)
+        topic = self.bus.outgoing_topic_for(self.conf.name, entity.name, record.chain)
         self.bus.pub(topic, record)
 
     async def run(self):
