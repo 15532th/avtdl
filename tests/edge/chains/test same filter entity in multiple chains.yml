@@ -9,27 +9,29 @@ actors:
       - name: consumer1
       - name: consumer2
       - name: consumer3
-  filter.noop:
+  filter.format:
     entities:
-      - name: noop1
+      - name: formatter
+        template: '[x] {text}'
+
 chains:
   chain1:
     - utils.producer:
         - producer1
-    - filter.noop:
-        - noop1
+    - filter.format:
+        - formatter
     - utils.consumer:
         - consumer1
   chain2:
     - utils.producer:
         - producer2
-    - filter.noop:
-        - noop1
+    - filter.format:
+        - formatter
     - utils.consumer:
         - consumer2
   chain3a:
-    - filter.noop:
-        - noop1
+    - filter.format:
+        - formatter
     - utils.consumer:
         - consumer3
   chain3b:
@@ -48,8 +50,8 @@ testcases:
       records: ['record3']
   receivers:
     - entity: consumer1
-      expected_history: ['record1']
+      expected_history: ['[x] record1']
     - entity: consumer2
-      expected_history: ['record2']
+      expected_history: ['[x] record2']
     - entity: consumer3
       expected_history: ['record3']

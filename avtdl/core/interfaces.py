@@ -260,14 +260,27 @@ class Filter(Actor):
     def handle_record(self, entity: FilterEntity, record: Record):
         filtered = self.match(entity, record)
         if filtered is not None:
+            filtered.origin = filtered.origin or record.origin
+            if filtered.chain is None:
+                filtered.chain = ''
+            elif not filtered.chain:
+                filtered.chain = record.chain
             self.on_record(entity, filtered)
         else:
             self.logger.debug(f'[{entity.name}] record dropped: "{record!r}"')
 
     @abstractmethod
     def match(self, entity: FilterEntity, record: Record) -> Optional[Record]:
-        '''Take a record and return it if it matches some condition
-        or otherwise process it, else return None'''
+        '''
+        Take a record and return it or a new/updated record
+        if it matches some condition, otherwise return None.
+
+        If returned record does not have "origin" field, it
+        is copied from the original one. "chain" field is
+        also copied if not set unless it is set to None, in
+        which case it is set to empty string, making record
+        propagate in all chains the filter is registered in.
+        '''
 
 
 class ActionEntity(ActorEntity):
