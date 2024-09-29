@@ -4,7 +4,7 @@ from typing import List, Optional
 import pytest
 
 from avtdl.core.interfaces import Event, EventType, TextRecord
-from avtdl.plugins.filters.filters import EmptyFilterConfig, EmptyFilterEntity, EventCauseFilter, FormatFilter, \
+from avtdl.plugins.filters.filters import EmptyFilterConfig, EmptyFilterEntity, EventCauseFilter, FormatEventFilter, FormatEventFilterEntity, FormatFilter, \
     FormatFilterEntity, MatchFilter, MatchFilterEntity
 from avtdl.plugins.twitch.twitch import TwitchRecord
 
@@ -100,6 +100,23 @@ class TestFormatFilter:
         result = fmt.match(entity, text_record)
 
         assert result.text == '*** {text}={test text message} ***'
+
+
+class TestFormatEvent:
+
+    @staticmethod
+    def prepare_filter():
+        empty_config = EmptyFilterConfig(name='test')
+        entity = FormatEventFilterEntity(name='test', type_template='error', text_template='Event: *{text}*')
+        return FormatEventFilter(config=empty_config, entities=[entity]), entity
+
+    def test_match(self, text_record):
+        format_event_filter, entity = self.prepare_filter()
+        result = format_event_filter.match(entity, text_record)
+        assert isinstance(result, Event)
+        assert result.record == text_record
+        assert result.event_type == 'error'
+        assert result.text == 'Event: *test*'
 
 
 class TestMatchFilter:
