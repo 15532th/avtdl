@@ -1,0 +1,30 @@
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+  utils.consumer:
+    entities:
+      - name: consumer1
+  filter.format:
+    entities:
+      - name: format_a
+        template: 'format_a: {text}'
+      - name: format_b
+        template: 'format_b: {text}'
+chains:
+  chain1:
+    - utils.producer:
+        - producer1
+    - filter.format:
+        - format_a
+        - format_b
+    - utils.consumer:
+        - consumer1
+
+testcases:
+  senders:
+    - entity: producer1
+      records: ['record1']
+  receivers:
+    - entity: consumer1
+      expected_history: ['format_a: record1', 'format_b: record1']

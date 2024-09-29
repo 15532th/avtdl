@@ -1,0 +1,35 @@
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+      - name: producer2
+  utils.consumer:
+    entities:
+      - name: consumer1
+        consume_record: false
+      - name: consumer2
+chains:
+  chain1:
+    - utils.producer:
+        - producer1
+    - utils.consumer:
+        - consumer1
+  chain2:
+    - utils.producer:
+        - producer2
+    - utils.consumer:
+        - consumer1
+    - utils.consumer:
+        - consumer2
+
+testcases:
+  senders:
+    - entity: producer1
+      records: ['record1']
+    - entity: producer2
+      records: ['record2']
+  receivers:
+    - entity: consumer1
+      expected_history: ['record1', 'record2']
+    - entity: consumer2
+      expected_history: ['record2']
