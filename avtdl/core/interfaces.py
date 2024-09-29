@@ -32,16 +32,24 @@ class Record(BaseModel):
     def __repr__(self) -> str:
         '''Short text representation of the record to be printed in logs'''
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Record):
+            return NotImplemented
+        return self.model_dump() == other.model_dump()
+
     def get_uid(self) -> str:
         '''A string that is the same for different versions of the same record'''
         return self.hash()
 
     def as_timezone(self, timezone: Optional[datetime.timezone] = None) -> 'Record':
-        fields = self.model_dump()
+        fields = dict(self)
         for k, v in fields.items():
+            if isinstance(v, Record):
+                fields[k] = v.as_timezone(timezone)
             if isinstance(v, datetime.datetime):
                 fields[k] = v.astimezone(timezone)
-        return self.model_validate(fields)
+        record_copy = self.model_validate(fields)
+        return record_copy
 
     def as_json(self, indent: Union[int, str, None] = None) -> str:
         return json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False, default=str, indent=indent)
