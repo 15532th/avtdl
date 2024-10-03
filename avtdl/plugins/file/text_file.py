@@ -300,9 +300,16 @@ class FileAction(Action):
             else:
                 text = Fmt.save_as(record, entity.output_format)
             text = entity.prefix + text + entity.postfix
-            with open(path, mode, encoding=entity.encoding) as fp:
-                fp.write(text)
         except Exception as e:
-            message = f'error in {self.conf.name}.{entity}: {e}'
+            message = f'[{entity.name}] failed to convert record "{record!r}" into a text: {e}'
             self.on_record(entity, Event(event_type=EventType.error, text=message, record=record))
             self.logger.exception(message)
+            return
+        try:
+            with open(path, mode, encoding=entity.encoding) as fp:
+                fp.write(text)
+        except OSError as e:
+            message = f'[{entity.name}] error writing to output file "{path}": {e}'
+            self.on_record(entity, Event(event_type=EventType.error, text=message, record=record))
+            self.logger.warning(message)
+
