@@ -1,0 +1,46 @@
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+  utils.consumer:
+    entities:
+      - name: consumer1
+      - name: consumer2
+  filter.format:
+    entities:
+      - name: event_to_text_1
+        template: '[1] {text}'
+      - name: event_to_text_2
+        template: '[2] {text}'
+  to_file:
+    entities:
+      - name: file1
+        path: ''
+        filename: '' # will fail with "Permission denied"
+chains:
+  chain1:
+    - utils.producer:
+        - producer1
+    - to_file:
+        - file1
+    - filter.format:
+        - event_to_text_1
+    - utils.consumer:
+        - consumer1
+  chain2:
+    - to_file:
+        - file1
+    - filter.format:
+        - event_to_text_2
+    - utils.consumer:
+        - consumer2
+
+testcases:
+  senders:
+    - entity: producer1
+      records: ['record1']
+  receivers:
+    - entity: consumer1
+      expected_history: ["[1] [file1] error writing to output file \".\": [Errno 13] Permission denied: '.'"]
+    - entity: consumer2
+      expected_history: []

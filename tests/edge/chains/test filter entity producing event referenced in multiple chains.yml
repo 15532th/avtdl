@@ -1,0 +1,44 @@
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+  utils.consumer:
+    entities:
+      - name: consumer1
+      - name: consumer2
+  filter.format.event:
+    entities:
+      - name: event_producer_1
+        type_template: 'info'
+        text_template: 'event1: {text}'
+  filter.format:
+    entities:
+      - name: event_to_text_1
+        template: '[1] {text}'
+chains:
+  chain1:
+    - utils.producer:
+        - producer1
+    - filter.format.event:
+        - event_producer_1
+    - filter.format:
+        - event_to_text_1
+    - utils.consumer:
+        - consumer1
+  chain2:
+    - filter.format.event:
+      - event_producer_1
+    - filter.format:
+        - event_to_text_2
+    - utils.consumer:
+        - consumer2
+
+testcases:
+  senders:
+    - entity: producer1
+      records: ['record1']
+  receivers:
+    - entity: consumer1
+      expected_history: ['[1] event1: record1']
+    - entity: consumer2
+      expected_history: []

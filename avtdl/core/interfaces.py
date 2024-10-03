@@ -67,10 +67,10 @@ class TextRecord(Record):
     text: str
     """content of the record"""
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.text
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'TextRecord("{shorten(self.text, MAX_REPR_LEN)}")'
 
 
@@ -99,6 +99,11 @@ class Event(Record):
     def __repr__(self):
         text = shorten(self.text, MAX_REPR_LEN)
         return f'Event(event_type="{self.event_type}", text="{text}")'
+
+    def model_post_init(self, __context):
+        if self.record is not None:
+            self.origin = self.record.origin
+            self.chain = self.record.chain
 
 
 class MessageBus:
