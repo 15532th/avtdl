@@ -1,0 +1,63 @@
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+      - name: producer2
+      - name: producer3
+      - name: producer4
+  utils.consumer:
+    entities:
+      - name: consumer1
+        consume_record: false
+        reset_origin: true
+      - name: consumer2
+      - name: consumer3
+        consume_record: false
+        reset_origin: false
+      - name: consumer4
+chains:
+  chain1:
+    - utils.producer:
+        - producer1
+    - utils.consumer:
+        - consumer1
+  chain2:
+    - utils.producer:
+        - producer2
+    - utils.consumer:
+        - consumer1
+    - utils.consumer:
+        - consumer2
+  chain3:
+    - utils.producer:
+        - producer3
+    - utils.consumer:
+        - consumer3
+  chain4:
+    - utils.producer:
+        - producer4
+    - utils.consumer:
+        - consumer3
+    - utils.consumer:
+        - consumer4
+
+testcases:
+  senders:
+    - entity: producer1
+      records: ['record1']
+    - entity: producer2
+      records: ['record2']
+    - entity: producer3
+      records: ['record3']
+    - entity: producer4
+      records: ['record4']
+  receivers:
+    - entity: consumer1
+      expected_history: ['record1', 'record2']
+    - entity: consumer2
+      expected_history: ['record1', 'record2']
+    - entity: consumer3
+      expected_history: ['record3', 'record4']
+    - entity: consumer4
+      expected_history: ['record4']
+

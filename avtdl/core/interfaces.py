@@ -183,6 +183,9 @@ class ActorEntity(BaseModel):
 
     name: str
     """name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin"""
+    reset_origin: bool = False
+    """treat passthrouth records as if they have originated from this entity, 
+    emitting them in every Chain this entity is used"""
 
 
 class Actor(ABC):
@@ -219,6 +222,8 @@ class Actor(ABC):
 
     def on_record(self, entity: ActorEntity, record: Record):
         '''Implementation should call it for every new Record it produces'''
+        if entity.reset_origin:
+            record.chain = ''
         topic = self.bus.outgoing_topic_for(self.conf.name, entity.name, record.chain)
         self.bus.pub(topic, record)
 
@@ -228,7 +233,8 @@ class Actor(ABC):
 
 
 class MonitorEntity(ActorEntity):
-    pass
+    reset_origin: bool = Field(default=False, exclude=True)
+    """excluded for Monitors because no good usecases"""
 
 
 class Monitor(Actor, ABC):
