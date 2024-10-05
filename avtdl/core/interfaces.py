@@ -144,14 +144,6 @@ class MessageBus:
                 callbacks[topic].extend(self.subscriptions[topic])
         return callbacks
 
-    def get_subscribed(self) -> Dict[str, List[str]]:
-        '''return list of pairs [actor, entity] present in subscriptions'''
-        subscribed: Dict[str, List[str]] = defaultdict(list)
-        for topic in self._subscriptions.keys():
-            actor, entity, chain = self.split_message_topic(topic)
-            subscribed[actor].append(entity)
-        return subscribed
-
     def make_topic(self, *args: str):
         return self.SEPARATOR.join(args)
 
