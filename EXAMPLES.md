@@ -47,6 +47,7 @@ actors:
         command: "ytarchive --threads 3 --wait {url} best"
         working_dir: "archive/livestreams/{author}/"
 
+
 chains:
 
   "archive channels":
@@ -96,7 +97,7 @@ chains:
 
 #### Monitor and download streams from both subscriptions feed and channels RSS feeds
 
-Both RSS feeds and channel pages are monitored for new uploads. All new records are then fed into the same `filter.deduplicate` entity, so that only one record (from the monitor that noticed it earlier) is generated for a new video. These records are then passed to `execute` plugin entity that runs `ytarchive` on them.
+Both RSS feeds and channel pages are monitored for new uploads. All new records are then fed into the same `filter.deduplicate` entity, so that only one record (from the monitor that noticed it first) is generated for a new video. These records are then passed to `execute` plugin entity that runs `ytarchive` on them.
 
 ```yaml
 actors:
@@ -121,12 +122,14 @@ actors:
     entities:
       - name: "youtube channels"
         field: "video_id"
+        reset_origin: true
 
   execute:
     entities:
       - name: "archive"
         command: "ytarchive --threads 3 --wait {url} best"
         working_dir: "archive/livestreams/{author}/"
+
 
 chains:
 
@@ -260,14 +263,14 @@ chains:
 
 #### Send Discord notification about Twitcasting and FC2 livestreams
 
-Uses `noop` filter to group records from multiple sources before sending them to a single output.
+Check two Twitcast channels and an FC2 user with the specified update intervals, send message into Discord channel when livestream is detected on any of them.
 
 ```yaml
 actors:
 
   twitcast:
     defaults:
-        update_interval: 60
+        update_interval: 120
     entities:
       - name: "user"
         user_id: "c:user"
@@ -278,10 +281,7 @@ actors:
     entities:
       - name: "fc2user"
         user_id: "41021654"
-        
-  filter.noop:
-    entities:
-      - name: "livestreams"
+        update_interval: 60
 
   discord.hook:
     entities:
@@ -295,18 +295,12 @@ chains:
     - twitcast:
       - "user"
       - "another-user"
-    - filter.noop:
-      - "livestreams"
+    - discord.hook:
+        - "my-server#livestream_announcements"
  
   "from_fc2": 
     - fc2:
       - "fc2user"
-    - filter.noop:
-      - "livestreams"
-  
-  "notify":
-    - filter.noop:
-        - "livestreams"
     - discord.hook:
         - "my-server#livestream_announcements"
 

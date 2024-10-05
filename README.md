@@ -24,6 +24,7 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
         * [`timezone`](#timezone)
         * [`fetch_until_the_end_of_feed_mode`](#fetch_until_the_end_of_feed_mode)
         * [`quiet_first_time` and `quiet_start`](#quiet_first_time-and-quiet_start)
+        * [`reset_origin`](#resetorigin)
         * [Formatting templates](#formatting-templates)
         * [Providing path to a file or a directory](#providing-path-to-a-file-or-a-directory)
       * [Troubleshooting](#troubleshooting)
@@ -211,7 +212,7 @@ It features four plugins: two for monitoring data sources (`rss` and `community`
 
 ##### chains
 
-As explained in the [Configuration file terminology](#configuration-file-terminology) section, plugins can be divided into three types: `monitors`, `filters` and `actions`. A `monitor` can only produce new records. A `filter` consumes records and decides to either output them or not based on its settings. An `action` only consumes `records`, but can produce `events`, for example in case of an error.
+As explained in the [Configuration file terminology](#configuration-file-terminology) section, plugins can be divided into three types: `monitors`, `filters` and `actions`. A `monitor` can only produce new records. A `filter` consumes records and decides to either output them or not based on its settings. An `action` consumes `records` and can produce `events`, for example in case of an error.
 
 A chain groups entities from plugins in the `actors` section in a sequence, where `records` from `monitors` get through `filters` and trigger `actions`. Each entity is identified by a combination of a plugin name and the entity `name` property. General `chains` section structure is:
 
@@ -238,7 +239,7 @@ chains:
 ```
 
 In this example a single `chain` named "new streams notifications" declares that all records produced by two entities of the `rss` monitor are forwarded into the `discord.hook` entity to be sent as a messages into a Discord channel.
-According to the configuration in the `actors` section defined [before](#actors), `rss` plugin will check RSS feeds of the two Youtube channels every 3600 seconds. When a new video is uploaded, a new entry appears in the RSS feed, leading to a new `record` being generated on the next update. Due to the `rss` plugin entities being listed in the `chain`, it then gets fed into the `discord.hook` "notifications" entity, which in turn will convert the `record` into a fitting representation and send it to Discord by making a request to a webhook url.
+Assuming the `actors` section defined [before](#actors) is used, `rss` plugin will check RSS feeds of the two Youtube channels every 3600 seconds. When a new video is uploaded, a new entry appears in the RSS feed, leading to a new `record` being generated on the next update. Due to the `rss` plugin entities being listed in the `chain`, it then gets fed into the `discord.hook` "notifications" entity, which in turn will perform an action of converting the `record` into a fitting representation and sending it to Discord.
 
 ***
 
@@ -259,7 +260,7 @@ Records from the `rss` feed will be consumed by `execute` plugin entity and won'
 
 ***
 
-Note, that all plugin entities are stateful, in a sense that if a certain entity of specific plugin is used in multiple chains, _all_ instances will produce all records consumed by _any_ of them.
+Before version 1.0 all plugin entities were stateful, in a sense that if a certain entity of specific plugin is used in multiple chains, all instances would produce all records consumed by any of them. Old behavior can be enabled on per-entity basic by enabling `reset_origin` option.
 
 In its simplest form, a `chain` includes one monitor, zero or more `filters` and ends with an `action`. It is possible to list multiple `monitors` sequentially in one `chain`:
 
@@ -276,7 +277,9 @@ chains:
 
 When a `monitor` located in the middle of a chain receives a `record` as input, it will be passed down the chain unchanged. In the example above records from the `rss` monitor will fall through `twitch`, ending in `discord.hook`, along with records from `twitch` itself.
 
-However, if aforementioned entity "Example Channel 1" of the `twitch` plugin is also used in another chain to run a command, next entity will receive not only records from "Example Channel 2" on `twitch`, but also anything produced by "Example Channel 1" of the `rss` plugin.
+A copy of a `record` produced by a `monitor` entity spawns in every `chain` this entity is listed in. Each copy then gets tied to the `chain` and only gets passed through within its bounds.
+
+For example, if aforementioned entity "Example Channel 1" of the `twitch` plugin is also used in a second chain to run a command, next entity of that chain will only receive records from "Example Channel 2" on `twitch`, but anything produced by "Example Channel 1" of the `rss` plugin will stay in the first chain and only get into the `discord.hook`, along with records from the `twitch` entity.
 
 <details>
   <summary>Like this (click to expand):</summary>
@@ -289,27 +292,33 @@ chains:
     - twitch:
         - "Example Channel 2"
     - discord.hook:
+        # receives records from both twitch and rss feed monitors
         - "notifications"
 
   "twitch download":
     - twitch:
       - "Example Channel 2"
     - execute:
-      # receives records from both twitch and rss feed monitors
+      # receives records only from twitch monitor
       - "streamlink for Example Channel 2"
 ```
 
 </details>
 
-**To avoid unexpected chains interconnections, it is generally advised to only place monitors at the beginning of a chain, and only use any `filter` entity in a single place.**
-
 ***
 
-One exception to this rule would be using a `filter.noop` (or any other filter's) entity as a way to merge records produced by multiple monitors into a single processing chain.
+It might be useful to disable this behavior when using a `filter.noop` (or any other filter's) entity as a way to merge records produced by multiple monitors into a single processing chain.
 
 In the following example records from Youtube and Twitch monitors are fed into "multiplexor" entity of `noop` filter, which simply passes all records through unchanged. Output of the "multiplexor" then passed to `discord.hook` "notifications" entity after some (possible complex) filtering and preprocessing.
 
 ```yaml
+actors:
+  filter.noop:
+    entities:
+      - name: "multiplexor"
+        reset_origin: true
+  # rest of the "actors" section is omitted for brevity
+
 chains:
 
   "from youtube":
@@ -327,6 +336,7 @@ chains:
 
   "to discord":
     - filter.noop:
+        # records from both other chains are forwarded here
         - "multiplexor"
     - filter.exclude:
         - "notifications blacklist"
@@ -349,6 +359,7 @@ chains:
       - "sing"
       - "game"
       - "talk"
+    # if a record matches two of three filters above, it will be duplicated at this point
     - xmpp:
       - "notifications"
 ```
@@ -370,13 +381,56 @@ chains:
       - "notifications"
 ```
 
+
+***
+
+The same is also true for monitors: 
+
+```yaml
+chains:
+  "youtube notifications":
+    - rss:
+        - "Example Channel 1"
+    - channel:
+        - "Example Channel 2"
+        - "Example Channel 3"
+    # records from rss are duplicated at this point
+    - discord.hook:
+        - "notifications"
+```
+
+Records from the "Example Channel 1" pass through both "Example Channel 2" and "Example Channel 3", getting duplicated. To avoid this, split monitor listing two entities in two sequential copies listing a single entity each (variant 1), or only use multiple entities at the beginning of the chain (variant 2):
+
+```yaml
+chains:
+
+  "youtube notifications, variant 1":
+    - rss:
+        - "Example Channel 1"
+    - channel:
+        - "Example Channel 2"
+    - channel:
+        - "Example Channel 3"
+    - discord.hook:
+        - "notifications"
+
+  "youtube notifications, variant 2":
+    - channel:
+        - "Example Channel 2"
+        - "Example Channel 3"
+    - rss:
+        - "Example Channel 1"
+    - discord.hook:
+        - "notifications"
+```
+
 ***
 
 It is also possible for multiple entities to produce duplicate records simply because they monitor the same source. In the example below records from "subscriptions feed" might be already seen by "Example Channel". Then one of them will be dropped on `filter.deduplicate`.
 
 ```yaml
 chains:
-  "interesting streams notifications":
+  "streams notifications":
     - channel:
         - "Example Channel"
         - "subscriptions feed"
@@ -393,7 +447,7 @@ Example configuration file [example.config.yml](example.config.yml) contains a c
 
 #### Common options
 
-Main description of plugins configuration is provided in [Description and configuration of available plugins](PLUGINS.md), this section aims to explain some nuances of several options used in multiple plugins without overloading each plugin description.
+Main description of plugins configuration is provided in [Description and configuration of available plugins](PLUGINS.md). This section aims to explain some nuances of several options used in multiple plugins without overloading each plugin description.
 
 ##### `update_interval`
 
@@ -457,6 +511,11 @@ When content of a newly added feed is loaded and parsed for the first time, it m
 It means that after a feed url is added to the monitor, it will only generate records when feed gets new entries that came in after the moment of first update on startup.
 
 The `quiet_start` option does the same on every startup, discarding entities that were added to the feed while the application wasn't running.
+
+
+##### `reset_origin`
+
+Normally, once produced record is bound to its chain, meaning that any filter or action entity listed in multiple chains will only pass each processed record to the chain it has come from. However it might sometimes be useful to remove this limitation in order to merge output of multiple chains in one. See the [chains](#chains) sections above for detailed explanation and usage example.
 
 ##### Formatting templates
 
