@@ -1,9 +1,10 @@
 import asyncio
 import datetime
 import shlex
+from asyncio.subprocess import Process
 from hashlib import sha1
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
 
 from pydantic import field_validator
 
@@ -107,6 +108,7 @@ class Command(Action):
     def __init__(self, conf: CommandConfig, entities: Sequence[CommandEntity]):
         super().__init__(conf, entities)
         self.running_commands: Dict[str, asyncio.Task] = {}
+        self.done_callbacks: List[Callable[[Process, CommandEntity, Record], None]] = []
 
     def handle(self, entity: CommandEntity, record: Record):
         self.add(entity, record)
@@ -240,3 +242,10 @@ class Command(Action):
                 self.on_record(entity, event)
             if entity.forward_failed:
                 self.on_record(entity, record)
+
+        for cb in self.done_callbacks:
+            cb(process, entity, record)
+
+    def add_done_callback(self, callback: Callable[[Process, CommandEntity, Record], None]):
+        """register function to be called on every completed subprocess"""
+        self.done_callbacks.append(callback)
