@@ -15,6 +15,8 @@ actors:
     entities:
       - name: event_to_text_1
         template: '[1] {text}'
+      - name: event_to_text_2
+        template: '[2] {text}'
 chains:
   chain1:
     - utils.producer:
