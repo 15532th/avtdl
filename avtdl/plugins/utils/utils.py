@@ -63,7 +63,7 @@ Plugins.register('utils.producer', Plugins.kind.ACTOR_ENTITY)(MonitorEntity)
 
 
 @Plugins.register('utils.producer', Plugins.kind.ACTOR)
-class TestMonitor(Monitor):
+class Producer(Monitor):
     """
     Used for testing purposes
 
@@ -82,7 +82,7 @@ Plugins.register('utils.consumer', Plugins.kind.ACTOR_ENTITY)(ActionEntity)
 
 
 @Plugins.register('utils.consumer', Plugins.kind.ACTOR)
-class TestAction(Action):
+class Consumer(Action):
     """
     Used for testing purposes
 

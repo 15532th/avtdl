@@ -9,7 +9,7 @@ from avtdl.avtdl import parse_config
 from avtdl.core.config import config_sancheck
 from avtdl.core.interfaces import Actor, MessageBus, Record, TextRecord
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
-from avtdl.plugins.utils.utils import TestAction, TestMonitor
+from avtdl.plugins.utils.utils import Consumer, Producer
 
 
 class Sender(BaseModel):
@@ -44,7 +44,7 @@ class Receiver(BaseModel):
         self.expected_history = updated_expected_history
 
 
-class Testcases(BaseModel):
+class _Testcases(BaseModel):
     senders: List[Sender]
     receivers: List[Receiver]
 
@@ -63,7 +63,7 @@ async def run(config: str):
     MessageBus._subscriptions.clear()
 
     conf: dict = yaml.load(config, Loader=yaml.FullLoader)
-    senders, receivers = Testcases.load(conf.pop('testcases'))
+    senders, receivers = _Testcases.load(conf.pop('testcases'))
     actors, chains = parse_config(conf)
     config_sancheck(actors, chains)
 
@@ -75,7 +75,7 @@ def send_records(actors: Dict[str, Actor], senders: List[Sender]):
     for sender in senders:
         actor = actors[sender.actor]
         entity = actor.entities[sender.entity]
-        if not isinstance(actor, TestMonitor):
+        if not isinstance(actor, Producer):
             raise Exception(f'incorrect sender: expected TestMonitor, got {actor.__class__}')
         for record in sender.records:
             assert isinstance(record, Record), f'post_init hook failed for {sender}'
@@ -86,7 +86,7 @@ def check_received(actors: Dict[str, Actor], receivers: List[Receiver]):
     for receiver in receivers:
         actor = actors[receiver.actor]
         entity = actor.entities[receiver.entity]
-        if not isinstance(actor, TestAction):
+        if not isinstance(actor, Consumer):
             raise Exception(f'incorrect receiver: expected TestAction, got {actor.__class__}')
         assert all(isinstance(record, Record) for record in receiver.expected_history), f'post_init hook failed for {receiver}'
 
