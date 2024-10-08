@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional
 
 import pytest
@@ -34,29 +35,43 @@ class TestFormatFilter:
         assert result.text == '*** --- ***'
 
     def test_missing_disabled(self, text_record):
-        fmt, entity = self.prepare_filter('*** {url} ***', missing=None)
+        fmt, entity = self.prepare_filter('*** {url} ***')
 
         result = fmt.match(entity, text_record)
 
         assert result.text == '*** {url} ***'
 
     def test_empty_placeholder(self, text_record):
-        fmt, entity = self.prepare_filter('*** {} ***', missing=None)
+        fmt, entity = self.prepare_filter('*** {} ***')
 
         result = fmt.match(entity, text_record)
 
         assert result.text == '*** {} ***'
 
     def test_nested_placeholder(self, text_record):
-        fmt, entity = self.prepare_filter('*** {{text}} ***', missing=None)
+        fmt, entity = self.prepare_filter('*** {{text}} ***')
 
         result = fmt.match(entity, text_record)
 
         assert result.text == '*** {test text message} ***'
 
     def test_escaped_placeholder(self, text_record):
-        fmt, entity = self.prepare_filter('*** \{text\}=\{{text}\} ***', missing=None)
+        fmt, entity = self.prepare_filter('*** \{text\}=\{{text}\} ***')
 
         result = fmt.match(entity, text_record)
 
         assert result.text == '*** {text}={test text message} ***'
+
+    def test_unpaired_braces(self, text_record):
+        fmt, entity = self.prepare_filter('}{ {text} }{')
+
+        result = fmt.match(entity, text_record)
+
+        assert result.text == '}{ test text message }{'
+
+    def test_datetime(self, text_record):
+        fmt, entity = self.prepare_filter('[%Y-%m-%d] {text}')
+        now = datetime.datetime.now()
+        result = fmt.match(entity, text_record)
+
+        assert result.text == f'[{now.year}-{now.month:02}-{now.day:02}] test text message'
