@@ -132,7 +132,7 @@ class MessageBus:
             matching_callbacks = self.get_matching_callbacks(topic)
             for specific_topic, callbacks in matching_callbacks.items():
                 _, _, chain = self.split_message_topic(specific_topic)
-                targeted_message = message.copy(deep=True)
+                targeted_message = message.model_copy(deep=True)
                 targeted_message.chain = chain
                 for callback in callbacks:
                     callback(specific_topic, targeted_message)
