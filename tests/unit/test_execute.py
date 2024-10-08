@@ -138,3 +138,10 @@ class TestFormatter(TestCommandArgs):
         )
         result = self.args_for(entity, text_record)
         assert result == ['powershell', '(New-Object -ComObject Wscript.Shell).Popup("test test", 0, "Done", 0x0)']
+
+    def test_datetime(self, feed_record):
+        entity = CommandEntity(name='test', command="yt-dlp {url} --output '[%Y-%m-%d] {title}.%(ext)s'")
+        now = datetime.datetime.now()
+        result = self.args_for(entity, feed_record)
+        assert result == ['yt-dlp', 'https://example.com/1.html',
+                          '--output', f'[{now.year}-{now.month:02}-{now.day:02}] #1.%(ext)s']

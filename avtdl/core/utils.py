@@ -489,6 +489,8 @@ class Fmt:
 
     @classmethod
     def strftime(cls, fmt: str, dt: datetime.datetime) -> str:
+        if '%' in fmt:
+            fmt = re.sub(r'(%[^aAwdbBmyYHIpMSfzZjUWcxX%GuV])', r'%\1', fmt)
         try:
             return dt.strftime(fmt)
         except ValueError as e:
