@@ -493,7 +493,7 @@ class Fmt:
             return dt.strftime(fmt)
         except ValueError as e:
             logger = logging.getLogger().getChild('format').getChild('strftime')
-            logger.warning(f'error using formate template "{fmt}": {e}')
+            logger.debug(f'error adding current date to template "{fmt}": {e}')
             return fmt
 
     @classmethod
