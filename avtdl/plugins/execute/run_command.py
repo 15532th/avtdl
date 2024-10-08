@@ -138,7 +138,7 @@ class Command(Action):
 
     @staticmethod
     def shell_for(args: List[str]) -> str:
-        return ' '.join(args)
+        return shlex.join(args)
 
     def _generate_task_id(self, entity: CommandEntity, record: Record, command_line: str) -> str:
         record_hash = record.hash()
