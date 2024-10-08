@@ -114,8 +114,11 @@ class Command(Action):
         self.add(entity, record)
 
     def args_for(self, entity: CommandEntity, record: Record):
+        command = entity.command
+        for placeholder, static_value in entity.static_placeholders.items():
+            command = command.replace(placeholder, static_value)
         try:
-            args = shlex.split(entity.command)
+            args = shlex.split(command)
         except ValueError as e:
             self.logger.error(f'{self.conf.name}: error parsing "command" field of entity "{entity.name}" with value "{entity.command}": {e}')
             raise
@@ -123,8 +126,6 @@ class Command(Action):
         new_args = []
         for arg in args:
             new_arg = arg
-            for placeholder, static_value in entity.static_placeholders.items():
-                new_arg = new_arg.replace(placeholder, static_value)
             for placeholder, field in entity.placeholders.items():
                 value = record_as_dict.get(field)
                 if value is not None:

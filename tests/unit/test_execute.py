@@ -119,9 +119,9 @@ class TestPlaceholders(TestCommandArgs):
 
     def test_static_placeholders(self, text_record):
         entity = CommandEntity(name='test', command='echo {text} {image}',
-                               static_placeholders={'{image}': '-o "{text}.txt"'})
+                               static_placeholders={'{image}': '-o {text}.txt'})
         result = self.args_for(entity, text_record)
-        assert result == ['echo', 'test test', '-o "test test.txt"']
+        assert result == ['echo', 'test test', '-o', 'test test.txt']
 
 
 class TestFormatter(TestCommandArgs):
