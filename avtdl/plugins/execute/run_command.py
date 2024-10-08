@@ -30,8 +30,6 @@ class CommandEntity(ActionEntity):
     """write executed process output to a file in this directory if set. If it is not set, output will not be redirected to file"""
     log_filename: Optional[str] = None
     """filename to write executed process output to. If not defined, it is generated automatically based on command and entity name"""
-    placeholders: Dict[str, str] = {'{url}': 'url', '{title}': 'title', '{text}': 'text'}
-    """parts of `command` string that should be replaced with processed record fields, defined as mapping `'placeholder': 'record field name'`"""
     static_placeholders: Dict[str, str] = {}
     """parts of `command` string that will be replaced with provided values, defined as mapping `'placeholder': 'replacement string'`. Intended to allow reusing same `command` template for multiple entities"""
     forward_failed: bool = False
@@ -66,7 +64,7 @@ class Command(Action):
     """
     Run pre-defined shell command
 
-    Take `command` string, replace keywords provided in `placeholders` with corresponding fields
+    Take `command` string, replace keywords wrapped in curly braces with corresponding fields
     of currently processed record. For example, if `command` is set to
 
         "yt-dlp {url}"`
@@ -77,10 +75,8 @@ class Command(Action):
 
         yt-dlp https://www.youtube.com/watch?v=L692Sxz3thw
 
-    Note that placeholders do not have to be wrapped in `{}` and can, in fact, be any
-    arbitrary text strings. However, placeholders are replaced by corresponding values
-    one after another, so using piece of text that might come up in record field might
-    produce unexpected results.
+    See `Formatting templates` section of README.md for more detailed description
+    of the formatting options.
 
     `command` string is not treated as raw shell command. Instead, it is split into list
      of elements, where first element specifies the program executable, and the rest
@@ -114,6 +110,13 @@ class Command(Action):
         self.add(entity, record)
 
     def args_for(self, entity: CommandEntity, record: Record):
+        '''
+        Fill entity.command with placeholders
+
+        - fill static_placeholders
+        - split into args
+        - fill each argument using generic Fmt.format
+        '''
         command = entity.command
         for placeholder, static_value in entity.static_placeholders.items():
             command = command.replace(placeholder, static_value)
@@ -122,18 +125,9 @@ class Command(Action):
         except ValueError as e:
             self.logger.error(f'{self.conf.name}: error parsing "command" field of entity "{entity.name}" with value "{entity.command}": {e}')
             raise
-        record_as_dict = record.model_dump()
         new_args = []
         for arg in args:
-            new_arg = arg
-            for placeholder, field in entity.placeholders.items():
-                value = record_as_dict.get(field)
-                if value is not None:
-                    value = Fmt.format_value(value, sanitize=False)
-                    new_arg = new_arg.replace(placeholder, value)
-                else:
-                    if placeholder in arg:
-                        self.logger.warning(f'[{entity.name}] configured placeholder "{field}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
+            new_arg = Fmt.format(arg, record, tz=entity.timezone)
             new_args.append(new_arg)
         return new_args
 

@@ -110,7 +110,7 @@ class TestPlaceholders(TestCommandArgs):
         )
         result = self.args_for(entity, feed_record)
         assert result == ['yt-dlp', '--add-header', 'Referer:https://example.com',
-                          'https://example.com/1.html', '--output', '[{author}] #1 ({uid}).%(ext)s']
+                          'https://example.com/1.html', '--output', '[example.com] #1 (1).%(ext)s']
 
     def test_missing_placeholder_unchanged(self, text_record):
         entity = CommandEntity(name='test', command='echo {text} {image}')
