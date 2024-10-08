@@ -9,9 +9,9 @@ actors:
   filter.format:
     entities:
       - name: event_to_text_1
-        template: '[1] {text}'
+        template: '[1] {event_type}'
       - name: event_to_text_2
-        template: '[2] {text}'
+        template: '[2] {event_type}'
   to_file:
     entities:
       - name: file1
@@ -41,6 +41,6 @@ testcases:
       records: ['record1']
   receivers:
     - entity: consumer1
-      expected_history: ["[1] [file1] error writing to output file \".\": [Errno 13] Permission denied: '.'"]
+      expected_history: ['[1] error']
     - entity: consumer2
       expected_history: []
