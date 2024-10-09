@@ -260,7 +260,7 @@ Records from the `rss` feed will be consumed by `execute` plugin entity and won'
 
 ***
 
-Before version 1.0 all plugin entities were stateful, in a sense that if a certain entity of specific plugin is used in multiple chains, all instances would produce all records consumed by any of them. Old behavior can be enabled on per-entity basic by enabling `reset_origin` option.
+Before version 1.0 all plugin entities were stateful, in a sense that if a certain entity of specific plugin is used in multiple chains, all instances would produce all records consumed by any of them. Old behavior can be enabled on per-entity basis by enabling `reset_origin` option.
 
 In its simplest form, a `chain` includes one monitor, zero or more `filters` and ends with an `action`. It is possible to list multiple `monitors` sequentially in one `chain`:
 
@@ -515,7 +515,7 @@ The `quiet_start` option does the same on every startup, discarding entities tha
 
 ##### `reset_origin`
 
-Normally, once produced record is bound to its chain, meaning that any filter or action entity listed in multiple chains will only pass each processed record to the chain it has come from. However it might sometimes be useful to remove this limitation in order to merge output of multiple chains in one. See the [chains](#chains) sections above for detailed explanation and usage example.
+Normally, once produced, record is bound to its chain, meaning that any filter or action entity listed in multiple chains will only pass each processed record to the chain it has come from. However it might sometimes be useful to remove this limitation in order to merge output of multiple chains in one. See the [chains](#chains) sections above for detailed explanation and usage example.
 
 ##### Formatting templates
 
