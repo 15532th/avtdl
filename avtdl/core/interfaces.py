@@ -176,7 +176,7 @@ class ActorEntity(BaseModel):
     name: str
     """name of a specific entity. Used to reference it in `chains` section. Must be unique within a plugin"""
     reset_origin: bool = False
-    """treat passthrouth records as if they have originated from this entity, 
+    """treat throughput records as if they have originated from this entity, 
     emitting them in every Chain this entity is used"""
 
 
