@@ -265,17 +265,24 @@ class RplayUserMonitor(BaseFeedMonitor):
     async def get_playlist_url(self, session: aiohttp.ClientSession, record: RplayRecord) -> Optional[str]:
         if record.restream_url is not None:
             return None
-
-        own_user = await self.get_own_user(session)
-        if own_user is not None:
-            r = RplayUrl.key2(own_user)
-            key2 = await utils.request(r.url, session, self.logger, r.method, r.params, r.data, r.headers, retry_times=3, retry_multiplier=3)
-            if key2 is None:
-                key2 = ''
-        else:
-            key2 = ''
+        key2 = await self.get_key2(session) or ''
         r = RplayUrl.playlist(record.creator_id, key2=key2)
         return r.url_with_query
+
+    async def get_key2(self, session: aiohttp.ClientSession) -> Optional[str]:
+        own_user = await self.get_own_user(session)
+        if own_user is None:
+            return None
+        r = RplayUrl.key2(own_user)
+        raw_key2 = await utils.request(r.url, session, self.logger, r.method, r.params, r.data, r.headers, retry_times=3, retry_multiplier=3)
+        if raw_key2 is None:
+            return None
+        try:
+            key2 = json.loads(raw_key2)['authKey']
+        except (TypeError, KeyError, json.JSONDecodeError) as e:
+            self.logger.warning(f'failed to process key2 "{raw_key2}": {type(e)}:{e}')
+            return None
+        return key2
 
     async def get_own_user(self, session: aiohttp.ClientSession) -> Optional['User']:
         if self.conf.login is None:
