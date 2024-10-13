@@ -696,7 +696,7 @@ actors:
   execute:
     entities:
       - name: "rplay"
-        command: "yt-dlp --windows-filenames --add-header Referer:'https://rplay.live' {playlist_url} --output '{start} [{name}] {title}.%(ext)s'"
+        command: "yt-dlp --windows-filenames --add-header Referer:'https://rplay.live' --add-header Origin:'https://rplay.live'  {playlist_url} --output '{start} [{name}] {title}.%(ext)s'"
         placeholders:
           "{playlist_url}": "playlist_url"
           "{name}": "name"
