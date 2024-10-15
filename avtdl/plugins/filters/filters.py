@@ -4,7 +4,7 @@ from collections import OrderedDict
 from typing import List, Optional, Sequence
 
 import dateutil.tz
-from pydantic import Field, field_validator
+from pydantic import Field, field_serializer, field_validator
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, TextRecord
@@ -245,13 +245,20 @@ class FormatFilterEntity(FilterEntity):
 
     @field_validator('timezone')
     @classmethod
-    def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.timezone]:
+    def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.tzinfo]:
         if timezone is None:
             return None
         tz = dateutil.tz.gettz(timezone)
         if tz is None:
             raise ValueError(f'Unknown timezone: {timezone}')
         return tz
+
+    @field_serializer('timezone')
+    @classmethod
+    def serialize_timezone(cls, timezone: Optional[datetime.tzinfo]) -> Optional[str]:
+        if timezone is None:
+            return None
+        return timezone.tzname(datetime.datetime.now())
 
 
 @Plugins.register('filter.format', Plugins.kind.ACTOR)
@@ -296,13 +303,20 @@ class FormatEventFilterEntity(FilterEntity):
 
     @field_validator('timezone')
     @classmethod
-    def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.timezone]:
+    def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.tzinfo]:
         if timezone is None:
             return None
         tz = dateutil.tz.gettz(timezone)
         if tz is None:
             raise ValueError(f'Unknown timezone: {timezone}')
         return tz
+
+    @field_serializer('timezone')
+    @classmethod
+    def serialize_timezone(cls, timezone: Optional[datetime.tzinfo]) -> Optional[str]:
+        if timezone is None:
+            return None
+        return timezone.tzname(datetime.datetime.now())
 
 
 @Plugins.register('filter.format.event', Plugins.kind.ACTOR)

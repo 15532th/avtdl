@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_serializer, field_validator
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, TextRecord
@@ -69,6 +69,11 @@ class FileMonitorEntity(TaskMonitorEntity):
             return re.compile(pattern, re.MULTILINE)
         except re.error as e:
             raise ValueError(f'invalid regular expression "{pattern}": {e}')
+
+    @field_serializer('record_start', 'record_end')
+    @classmethod
+    def serialize_regexp(cls, pattern: re.Pattern) -> str:
+        return pattern.pattern
 
     def __post_init__(self):
         self.base_update_interval = self.update_interval

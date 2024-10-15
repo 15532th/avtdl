@@ -2,7 +2,7 @@ import asyncio
 import datetime
 from typing import Sequence, Set, Union
 
-from pydantic import field_validator
+from pydantic import field_serializer, field_validator
 
 from avtdl.core.interfaces import Filter, FilterEntity, Record
 from avtdl.core.plugins import Plugins
@@ -33,6 +33,10 @@ class ChannelNotifyFilterEntity(FilterEntity):
         if isinstance(minutes, datetime.timedelta):
             return minutes
         return datetime.timedelta(minutes=minutes)
+
+    @field_serializer('prior')
+    def from_timedelta(self, minutes: datetime.timedelta, _info) -> int:
+        return int(minutes.total_seconds() / 60)
 
 
 @Plugins.register('filter.channel.notify', Plugins.kind.ACTOR)

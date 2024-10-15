@@ -8,7 +8,7 @@ from textwrap import shorten
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import dateutil.tz
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer, field_validator
 
 MAX_REPR_LEN = 60
 
@@ -294,13 +294,20 @@ class ActionEntity(ActorEntity):
 
     @field_validator('timezone')
     @classmethod
-    def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.timezone]:
+    def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.tzinfo]:
         if timezone is None:
             return None
         tz = dateutil.tz.gettz(timezone)
         if tz is None:
             raise ValueError(f'Unknown timezone: {timezone}')
         return tz
+
+    @field_serializer('timezone')
+    @classmethod
+    def serialize_timezone(cls, timezone: Optional[datetime.tzinfo]) -> Optional[str]:
+        if timezone is None:
+            return None
+        return timezone.tzname(datetime.datetime.now())
 
 
 class Action(Actor, ABC):
