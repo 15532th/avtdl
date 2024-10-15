@@ -6,6 +6,7 @@ from typing import Any, Dict, Generic, List, Tuple, Type, TypeVar
 from pydantic import BaseModel, ConfigDict, ValidationError, create_model
 
 from avtdl.core.chain import Chain, ChainConfigSection
+from avtdl.core.interfaces import Actor
 from avtdl.core.loggers import LogLevel, override_loglevel, set_file_logger
 from avtdl.core.plugins import Plugins
 
@@ -68,7 +69,7 @@ class ActorParser:
 
     @staticmethod
     def flatten_actor_section(name: str, section: ActorConfigSection) -> ActorConfigSection:
-        config = {**section.config, **{'name': name}}
+        config = {**section.config, **{'name': name}, **{'defaults': section.defaults}}
         data: Dict[str, Any] = {'name': name, 'config': config, 'entities': []}
         for entity in section.entities:
             data['entities'].append({**section.defaults, **entity})
@@ -92,6 +93,17 @@ class ActorParser:
             actors[name] = ActorFactory(actor_section.config, actor_section.entities)
         return actors
 
+    @classmethod
+    def serialize_actor(cls, actor: Actor) -> ActorConfigSection:
+        actor_config = actor.conf.model_dump()
+        defaults = actor.conf.defaults
+        entities = [entity.model_dump() for entity in actor.entities.values()]
+        for entity in entities:
+            for field, value in defaults.items():
+                if field in entity and entity[field] == value:
+                    entity.pop(field)
+        section = ActorConfigSection(config=actor_config, defaults=defaults, entities=entities)
+        return section
 
 class ConfigParser:
 
@@ -138,6 +150,13 @@ class ConfigParser:
         chains = ConfigParser.create_chains(specific_config.chains)
 
         return actors, chains
+
+    @classmethod
+    def serialize(cls, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]) -> Config:
+        actors_section = {name: ActorParser.serialize_actor(actor) for name, actor in actors.items()}
+        chains_section = {name: chain.conf for name, chain in chains.items()}
+        config = Config(settings=settings, actors=actors_section, chains=chains_section)
+        return config
 
 
 def config_sancheck(actors, chains):

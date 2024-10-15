@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from hashlib import sha1
 from textwrap import shorten
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import dateutil.tz
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer, field_validator
@@ -167,8 +167,9 @@ class MessageBus:
 
 class ActorConfig(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
-    name: str
 
+    name: str
+    defaults: Dict[str, Any] = Field(default={}, exclude=True)
 
 class ActorEntity(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
