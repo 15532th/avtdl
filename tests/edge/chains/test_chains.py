@@ -64,7 +64,7 @@ async def run(config: str):
 
     conf: dict = yaml.load(config, Loader=yaml.FullLoader)
     senders, receivers = _Testcases.load(conf.pop('testcases'))
-    actors, chains = parse_config(conf)
+    _, actors, chains = parse_config(conf)
     config_sancheck(actors, chains)
 
     send_records(actors, senders)

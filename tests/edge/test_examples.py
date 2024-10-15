@@ -69,7 +69,7 @@ def test_config_loading(config: str, tmp_path, caplog):
     path = text_as_path(tmp_path, config)
 
     conf = load_config(path)
-    actors, chains = parse_config(conf)
+    _, actors, chains = parse_config(conf)
     config_sancheck(actors, chains)
 
     assert not caplog.records

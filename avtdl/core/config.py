@@ -134,7 +134,7 @@ class ConfigParser:
 
     @classmethod
     @try_parsing
-    def parse(cls, conf) -> Tuple[Dict[str, Any], Dict[str, Chain]]:
+    def parse(cls, conf) -> Tuple[SettingsSection, Dict[str, Any], Dict[str, Chain]]:
         # do basic structural validation of config file
         config = Config(**conf)
 
@@ -149,7 +149,7 @@ class ConfigParser:
         actors = ActorParser.create_actors(specific_config.actors)
         chains = ConfigParser.create_chains(specific_config.chains)
 
-        return actors, chains
+        return config.settings, actors, chains
 
     @classmethod
     def serialize(cls, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]) -> Config:

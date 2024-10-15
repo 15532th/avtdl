@@ -10,7 +10,7 @@ from typing import Any, Dict, Tuple
 import yaml
 
 from avtdl.core.chain import Chain
-from avtdl.core.config import ConfigParser, ConfigurationError, config_sancheck
+from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection, config_sancheck
 from avtdl.core.info import generate_plugins_description, generate_version_string
 from avtdl.core.interfaces import Actor
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
@@ -36,16 +36,16 @@ def load_config(path: Path) -> Any:
     return config
 
 
-def parse_config(conf) -> Tuple[Dict[str, Actor], Dict[str, Chain]]:
+def parse_config(conf) -> Tuple[SettingsSection, Dict[str, Actor], Dict[str, Chain]]:
     try:
-        actors, chains = ConfigParser.parse(conf)
+        settings, actors, chains = ConfigParser.parse(conf)
     except (ConfigurationError, UnknownPluginError) as e:
         logging.error(e)
         raise SystemExit from e
     except Exception as e:
         logging.exception(e)
         raise SystemExit from e
-    return actors, chains
+    return settings, actors, chains
 
 
 def handler(loop: AbstractEventLoop, context: Dict[str, Any]) -> None:
@@ -61,7 +61,7 @@ async def install_exception_handler() -> None:
 
 async def run(config: Path) -> None:
     conf = load_config(config)
-    actors, chains = parse_config(conf)
+    settings, actors, chains = parse_config(conf)
     config_sancheck(actors, chains)
 
     await install_exception_handler()
