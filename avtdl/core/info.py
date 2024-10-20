@@ -228,6 +228,21 @@ def get_default(field_info: FieldInfo) -> Optional[str]:
     return str(value)
 
 
+def get_plugin_type(name: str) -> Optional[str]:
+    plugin = Plugins.known[Plugins.kind.ACTOR].get(name)
+    if plugin is None:
+        return None
+    if name.startswith(INTERNAL_PLUGINS_PATTERN):
+        return 'Utils'
+    if issubclass(plugin, Monitor):
+        return 'Monitors'
+    if issubclass(plugin, Filter):
+        return 'Filters'
+    if issubclass(plugin, Action):
+        return 'Actions'
+    return None
+
+
 def get_plugins_descriptions(plugin_type: type = object):
     descriptions = {}
     for name, constructor in Plugins.known[Plugins.kind.ACTOR].items():
@@ -252,9 +267,11 @@ def render_plugins_descriptions() -> str:
     return text
 
 
+md = markdown.Markdown(extensions=[TocExtension(toc_depth=3), 'md_in_html'])
+
+
 def render_markdown(text: str) -> str:
     """convert markdown to html fragment"""
-    md = markdown.Markdown(extensions=[TocExtension(toc_depth=3), 'md_in_html'])
     html = md.convert(text)
     return html
 

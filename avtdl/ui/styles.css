@@ -1,0 +1,676 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+header {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+}
+
+nav {
+    display: flex;
+    justify-content: flex-start;
+}
+
+nav a {
+    text-decoration: none;
+    color: #007bff;
+    padding: 10px 15px;
+    margin-right: 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+nav a:hover {
+    background-color: #e2e6ea;
+}
+
+nav a.active {
+    background-color: #007bff;
+    color: white;
+}
+
+#main {
+    display: flex;
+    position: relative; /* Position relative for child elements */
+}
+
+#sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    width: 20%; /* Takes 20% of the page width */
+    min-width: 200px;
+    background-color: #f4f4f4; /* Light gray background */
+    padding: 20px; /* Adds some padding */
+    border-right: 1px solid #ddd; /* Adds a border on the right */
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); /* Adds a subtle shadow */
+    overflow-y: auto; /* Allows vertical scrolling */
+    scrollbar-width: thin;
+}
+
+#sidebar p {
+    padding: 10px; /* Adds padding to menu items */
+    margin: 5px 0; /* Adds margin between menu items */
+    border-radius: 4px; /* Rounds the corners */
+    transition: background-color 0.3s; /* Smooth transition for hover effect */
+}
+
+#sidebar p:hover {
+    background-color: #e2e2e2; /* Darker gray on hover */
+    cursor: pointer; /* Changes cursor to pointer on hover */
+}
+
+#output {
+    max-width: 900px;
+    padding: 20px; /* Adds some padding */
+    padding-left: 40px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); /* Adds a subtle shadow */
+    flex-grow: 1; /* Takes remaining space */
+}
+
+#message-area {
+    margin: 5px;
+    position: fixed;
+    z-index: 999;
+    right: 40px;
+    top: 5%;
+    max-width: 80%;
+    max-height: 80%;
+    overflow: auto;
+}
+
+.message-container {
+    display: flex; /* Use flexbox for alignment */
+    justify-content: space-between; /* Space between text and close button */
+    align-items: center; /* Center items vertically */
+    padding: 10px;
+    margin: 5px;
+    border-radius: 5px;
+}
+
+.message-container.success {
+    background-color: #dff0d8;
+    color: #3c763d;
+    border: 1px solid #d6e9c6;
+}
+
+.message-container.error {
+    background-color: #f2dede;
+    color: #a94442;
+    border: 1px solid #ebccd1;
+}
+
+.message {
+    position: relative;
+    display: block;
+    max-height: 400px;
+    overflow: auto;
+    margin-right: 10px; /* Add some space between the message text and close button */
+}
+
+.message-container.error p {
+    margin: auto;
+    text-decoration: underline;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+details {
+    margin: 10px 0;
+    margin-bottom: 20px;
+    border: 0px solid #ccc; /* Outline border around the details */
+}
+
+.actor {
+    margin: 5px 0;
+    margin-bottom: 5px;
+}
+
+summary {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 5px; /* Add padding for vertical space */
+    background-color: #ddd; /* Optional: change color when open */
+    border: 0px solid #ccc; /* Optional: adds a border */
+    border-radius: 0px; /* Optional: rounded corners */
+
+    position: relative; /* Positioning context for the absolute child */
+}
+
+.summary-headline {
+    font-weight: normal;
+    margin: 0 auto; /* Center the first span */
+    text-align: center; /* Make sure the text inside is centered */
+    position: absolute; /* Remove from normal flow */
+    left: 50%; /* Move it to the middle */
+    transform: translateX(-50%); /* Center it horizontally */
+}
+
+details.top-level-section {
+    background-color: #f9f9f9; /* Light gray background for visibility */
+    border: 1px solid #ddd; /* Light gray border for separation */
+    border-radius: 5px; /* Rounded corners for a softer appearance */
+    padding: 10px; /* Padding for spacing */
+    margin: 10px 0; /* Margin to separate from other elements */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.top-level-section > summary {
+    outline: none; /* Remove default outline */
+}
+
+details.top-level-section[open] > summary {
+    background-color: #bbb;
+    margin-bottom: 10px;
+}
+
+details[open] > summary {
+    background-color: #eeeeee;
+}
+
+.section-content {
+    padding: 10px;
+    border-left: 2px solid #007bff; /* Optional left border for emphasis */
+}
+
+textarea {
+    width: 100%;
+    padding: 10px; /* Optional: add padding inside the textarea */
+    box-sizing: border-box; /* Ensure padding is included in total width */
+}
+
+/* General form styling */
+form {
+    padding: 2px;
+}
+
+/* Fieldset styling */
+fieldset {
+    border: 1px solid #e0e0e0; /* Light border for fieldsets */
+    margin-bottom: 10px; /* Space between fieldsets */
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.additional-fields {
+    margin: 5px 0px;
+    padding: 5px 0px;
+}
+
+.required-fields {
+    margin: 5px 0px;
+    padding: 5px 0px;
+}
+
+.toggle-additional {
+    background-color: #eeeeee8f;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 3px 5px;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-family: monospace;
+}
+
+.toggle-additional:hover {
+    background-color: #ccc;
+}
+
+.hidden {
+    display: none;
+}
+
+legend {
+    font-weight: lighter;
+    padding-top: 5px;
+}
+
+.legend-text {
+    white-space: pre;
+}
+
+/* Label styling */
+.form-label {
+    margin-right: 10px; /* Space between label and input */
+    flex: 0 0 200px; /* Fixed width for labels */
+    color: #333; /* Dark text color */
+    padding: 6px 10px; /* Adjust padding for better alignment */
+    border: 1px solid #ddd; /* Light border for label background */
+    border-radius: 4px; /* Match the roundness of input fields */
+    background-color: #f9f9f9; /* Light background color for labels */
+    display: inline-block; /* Ensure the background wraps around the label */
+    vertical-align: middle; /* Align vertically with input fields */
+    block-size: fit-content;
+}
+
+/* Input styling */
+.form-input {
+    padding: 5px; /* Padding inside inputs */
+    border: 1px solid #ddd; /* Light border around inputs */
+    border-radius: 4px; /* Slightly rounded corners */
+    font-size: 1em; /* Font size for inputs */
+    transition: border 0.3s; /* Transition for border */
+}
+
+input[type='text'] {
+    flex: auto;
+}
+
+/* Focus effect for inputs */
+.form-input:focus {
+    border-color: #007bff; /* Blue border on focus */
+    outline: none; /* Remove default outline */
+}
+
+/* Form field styling */
+.form-field {
+    display: flex; /* Use flexbox for alignment */
+    align-items: center; /* Vertically center align items */
+    margin-bottom: 4px; /* Space below each form field */
+}
+
+.form-error {
+    display: none;
+    padding: 5px;
+    color: red;
+    font-size: 0.9em;
+}
+
+.default {
+    color: #aaa;
+}
+
+.tooltip {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px;
+    z-index: 1000;
+    min-width: 300px;
+    max-width: 600px;
+    max-height: 400px;
+    overflow: auto;
+    font-family: monospace;
+    font-weight: normal;
+    font-size: 1em;
+}
+
+dfn {
+    font-style: normal;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    padding-right: 2px;
+}
+
+span:hover .tooltip {
+    display: inline;
+}
+
+summary .tooltip {
+    right: 20px;
+}
+
+.show-info {
+    padding-left: 0.5em;
+    float: right;
+}
+
+.entry-container {
+    position: relative;
+    margin: 0px 0;
+    padding: 0px;
+    border: 0px solid #cccccc;
+}
+
+.entry-container > fieldset {
+    background-color: #f9f9f9; /* Light background color */
+    border: 2px solid #cccccc;
+    padding-right: 50px;
+}
+
+.delete-entry {
+    position: absolute;
+    background-color: #cccccccc;
+    top: 10px;
+    right: 10px;
+    color: black;
+    font-family: monospace;
+    font-weight: bold;
+    border: none;
+    padding: 5px 5px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.delete-entry:hover {
+    background-color: #ccc;
+}
+
+.delete-field {
+    color: black;
+    font-family: monospace;
+    font-weight: bold;
+    border: none;
+    margin: 5px;
+}
+
+.delete-field:hover {
+    background-color: #ccc;
+}
+
+.field-container {
+    position: relative;
+    margin-bottom: 4px;
+}
+.editable-list {
+    position: relative;
+}
+
+.add-button {
+    padding: 1px;
+    right: 10px;
+    font-family: monospace;
+    font-weight: bold;
+    background-color: #007bff;
+    color: white;
+    border: none;
+}
+
+.actor-type {
+    text-align: center; /* Center text alignment */
+    color: #000000; /* Example text color */
+}
+
+.top-level-menu-item {
+    padding: 2px;
+    margin: 5px 0;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.top-level-menu-item:hover {
+    background-color: #d0d0d0;
+}
+
+.nested-menu-item {
+    padding: 0px;
+    margin-left: 15px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.nested-menu-item:hover {
+    background-color: #e0e0e0;
+}
+
+.menu-item-text {
+    padding: 2px 8px;
+    flex: 100%;
+    white-space: pre;
+}
+
+.menu-header {
+    display: flex;
+}
+
+.menu-container {
+    margin: 5px;
+}
+
+.action-bar {
+    padding: 8px;
+    margin: 16px;
+    border-radius: 3px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); /* Adds a subtle shadow */
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    width: 200px;
+}
+
+.action-button {
+    padding: 8px 4px;
+    margin: 2px 2%;
+    width: 96%;
+    background-color: #5d7895;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.action-button:hover {
+    background-color: #0056b3;
+}
+
+.inline-button {
+    background: none;
+    border: none;
+    color: inherit;
+    margin-left: 2px;
+    padding: 2px;
+    font-family: monospace;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.modal-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.modal-content {
+    background-color: #eeeeee;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+    flex: 0 0 30%;
+}
+
+.modal-input {
+    margin: 10px 0;
+    padding: 5px;
+    width: 80%;
+}
+
+.modal-button {
+    margin: 5px;
+    padding: 5px 10px;
+}
+
+.chains-form {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    padding-bottom: 25px;
+}
+
+.add-chain-button {
+    position: absolute;
+    left: 10px;
+    bottom: 0;
+    margin: 5px;
+}
+
+.chain {
+    margin: 3px 0;
+    border-radius: 3px;
+}
+
+.chain-section {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    height: 100%;
+    padding-left: 5px;
+    padding-bottom: 5px;
+}
+
+.chain-card {
+    background-color: white;
+    border: 1px solid #dedede;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    margin: 4px 0;
+    margin-left: 10px;
+    width: 190px;
+}
+
+.chain-card select {
+    border-radius: 0;
+    border-width: 2px;
+    border-style: solid;
+    box-shadow: none;
+    border-color: rgba(0, 0, 0, 0.583);
+    background-color: #cdcdcd20;
+}
+
+.bg-monitors {
+    background-color: #00808020;
+}
+
+.bg-filters {
+    background-color: #ffdab940;
+}
+
+.bg-actions {
+    background-color: #ff7f5030;
+}
+
+.card-header-container {
+    display: flex;
+}
+
+.card-header {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.card-items {
+    margin-bottom: 2px;
+}
+
+.card-item-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.card-item-select {
+    flex: 1;
+    margin-right: 5px;
+}
+
+.card-container {
+    display: flex;
+    flex-direction: row;
+}
+
+.card-controls {
+    display: flex;
+    flex-direction: column;
+    margin: 10px 0;
+    align-items: center;
+}
+
+.card-button {
+    margin: 5px 0;
+    background: none;
+    border: none;
+    color: inherit;
+    margin: 2px;
+    padding: 2px;
+    font-family: monospace;
+    cursor: pointer;
+}
+
+.add-card-button {
+    background-color: #007bff;
+    color: white;
+    margin-top: auto;
+}
+
+.add-card-item-button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-family: monospace;
+    cursor: pointer;
+    font-size: smaller;
+}
+
+.add-card-item-button:hover {
+    background-color: #e9e8e844;
+}
+
+.chain:hover {
+    background-color: #ffffff;
+}
+
+.card-button:hover {
+    background-color: #c9c9c9;
+}
+
+.highlight {
+    transition: background-color 2s ease-out;
+}
+
+.bg-highlight {
+    background-color: #00b3ff56;
+}
+
+.optsearch-container {
+    position: relative;
+}
+
+.optsearch-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.optsearch-suggestions {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    max-height: 150px; /* 6 lines if line height is ~25px */
+    overflow-y: auto;
+    background-color: white;
+    position: absolute; /* Positioning may be adjusted to your needs */
+    width: calc(100% - 2px); /* Adjust for border */
+    top: 100%;
+    z-index: 900; /* Ensure it's on top */
+}
+
+.optsearch-suggestion {
+    padding: 8px;
+    cursor: pointer;
+}
+
+.optsearch-suggestion:hover {
+    background-color: #f0f0f0; /* Highlight on hover */
+}

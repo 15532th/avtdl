@@ -9,6 +9,7 @@ from typing import Any, Dict, Tuple
 
 import yaml
 
+from avtdl.core import webui
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection, config_sancheck
 from avtdl.core.info import generate_plugins_description, generate_version_string
@@ -69,6 +70,8 @@ async def run(config: Path) -> None:
     for runnable in actors.values():
         task = asyncio.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
         tasks.append(task)
+    ui_task = asyncio.create_task(webui.run(settings, actors, chains), name='webui')
+    tasks.append(ui_task)
     await monitor_tasks(tasks)
 
 

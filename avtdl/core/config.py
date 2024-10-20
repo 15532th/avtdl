@@ -3,7 +3,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Tuple, Type, TypeVar
 
-from pydantic import BaseModel, ConfigDict, ValidationError, create_model
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 
 from avtdl.core.chain import Chain, ChainConfigSection
 from avtdl.core.interfaces import Actor
@@ -36,10 +36,18 @@ def try_parsing(func):
     return wrapper
 
 class SettingsSection(BaseModel):
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
     log_directory: Path = Path('logs')
-    logfile_size: int = 1000000
+    """path to a directory where application will write log file"""
+    logfile_size: int = Field(gt=0, default=1000000)
+    """size of a single log file in bytes. After reaching this size the file will be replaced by a new one. Only last 10 files are kept inside the log directory"""
     logfile_level: LogLevel = LogLevel.debug
+    """how detailed the output to log file is. Can be "DEBUG", "INFO", "WARNING" or "ERROR". It is recommended to keep log file loglevel set to "DEBUG" """
     loglevel_override: Dict[str, LogLevel] = {'bus': LogLevel.info, 'chain': LogLevel.info, 'actor.request': LogLevel.info}
+    """allows to overwrite loglevel of a specific logger. Used to prevent a single talkative logger from filling up the log file"""
+    port: int = Field(gt=0, le=65535, default=8080)
+    """web-interface port"""
 
 def configure_loggers(settings: SettingsSection):
     override_loglevel(settings.loglevel_override)
