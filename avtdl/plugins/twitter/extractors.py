@@ -232,7 +232,7 @@ def parse_tweet(tweet_results: dict) -> TwitterRecord:
 
     legacy = tweet_result.get('legacy')
     if legacy is None:
-        raise ValueError(f'failed to parse tweet: no "legacy" field in tweet_result')
+        raise ValueError(f'failed to parse tweet: no "legacy" field in tweet_result for {url}')
 
     published = tweet_timestamp(rest_id) or dateutil.parser.parse(legacy['created_at'])
 

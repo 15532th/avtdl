@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import traceback
 from abc import abstractmethod
 from typing import Any, List, Optional, Sequence, Tuple
 
@@ -76,7 +77,8 @@ class TwitterMonitor(PagedFeedMonitor):
             try:
                 record = parse_tweet(tweet_result)
             except Exception as e:
-                self.logger.exception(f'error parsing tweet: {e}')
+                self.logger.warning(f'error parsing tweet: {e}')
+                self.logger.debug(f'stack trace: {traceback.format_exc()}')
                 self.logger.debug(f'raw tweet_result: {tweet_result}')
             else:
                 records.append(record)
