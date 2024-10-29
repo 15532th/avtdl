@@ -13,6 +13,7 @@ config.yml
 *.yml
 logs/**
 db/**
+cache/**
 *.txt
 
 tests/manual/**
