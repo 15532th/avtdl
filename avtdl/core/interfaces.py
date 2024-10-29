@@ -171,6 +171,7 @@ class ActorConfig(BaseModel):
     name: str
     defaults: Dict[str, Any] = Field(default={}, exclude=True)
 
+
 class ActorEntity(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -296,19 +297,12 @@ class ActionEntity(ActorEntity):
     @field_validator('timezone')
     @classmethod
     def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.tzinfo]:
-        if timezone is None:
-            return None
-        tz = dateutil.tz.gettz(timezone)
-        if tz is None:
-            raise ValueError(f'Unknown timezone: {timezone}')
-        return tz
+        return Timezone.get_tz(timezone)
 
     @field_serializer('timezone')
     @classmethod
     def serialize_timezone(cls, timezone: Optional[datetime.tzinfo]) -> Optional[str]:
-        if timezone is None:
-            return None
-        return timezone.tzname(datetime.datetime.now())
+        return Timezone.get_name(timezone)
 
 
 class Action(Actor, ABC):
@@ -325,3 +319,26 @@ class Action(Actor, ABC):
     @abstractmethod
     def handle(self, entity: ActionEntity, record: Record):
         '''Method for implementation to process incoming record'''
+
+
+class Timezone:
+    known: Dict[str, Any] = {}
+
+    @classmethod
+    def get_tz(cls, name: Optional[str]) -> Optional[datetime.tzinfo]:
+        if name is None:
+            return None
+        tz = dateutil.tz.gettz(name)
+        if tz is None:
+            raise ValueError(f'Unknown timezone: {name}')
+        cls.known[name] = tz
+        return tz
+
+    @classmethod
+    def get_name(cls, tz: Optional[datetime.tzinfo]) -> Optional[str]:
+        if tz is None:
+            return None
+        for name, timezone in cls.known.items():
+            if tz == timezone:
+                return name
+        return tz.tzname(datetime.datetime.now())

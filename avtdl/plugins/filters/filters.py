@@ -5,12 +5,11 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-import dateutil.tz
 from pydantic import Field, field_serializer, field_validator
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, TextRecord
+from avtdl.core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, TextRecord, Timezone
 from avtdl.core.utils import Fmt, find_matching_field
 
 
@@ -248,19 +247,13 @@ class FormatFilterEntity(FilterEntity):
     @field_validator('timezone')
     @classmethod
     def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.tzinfo]:
-        if timezone is None:
-            return None
-        tz = dateutil.tz.gettz(timezone)
-        if tz is None:
-            raise ValueError(f'Unknown timezone: {timezone}')
-        return tz
+        return Timezone.get_tz(timezone)
 
     @field_serializer('timezone')
     @classmethod
     def serialize_timezone(cls, timezone: Optional[datetime.tzinfo]) -> Optional[str]:
-        if timezone is None:
-            return None
-        return timezone.tzname(datetime.datetime.now())
+        return Timezone.get_name(timezone)
+
 
 
 @Plugins.register('filter.format', Plugins.kind.ACTOR)
@@ -306,19 +299,12 @@ class FormatEventFilterEntity(FilterEntity):
     @field_validator('timezone')
     @classmethod
     def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.tzinfo]:
-        if timezone is None:
-            return None
-        tz = dateutil.tz.gettz(timezone)
-        if tz is None:
-            raise ValueError(f'Unknown timezone: {timezone}')
-        return tz
+        return Timezone.get_tz(timezone)
 
     @field_serializer('timezone')
     @classmethod
     def serialize_timezone(cls, timezone: Optional[datetime.tzinfo]) -> Optional[str]:
-        if timezone is None:
-            return None
-        return timezone.tzname(datetime.datetime.now())
+        return Timezone.get_name(timezone)
 
 
 @Plugins.register('filter.format.event', Plugins.kind.ACTOR)
