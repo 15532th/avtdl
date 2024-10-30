@@ -134,7 +134,7 @@ class ConfigParser:
 
     @classmethod
     @try_parsing
-    def parse(cls, conf) -> Tuple[SettingsSection, Dict[str, Any], Dict[str, Chain]]:
+    def parse(cls, conf: dict) -> Tuple[SettingsSection, Dict[str, Any], Dict[str, Chain]]:
         # do basic structural validation of config file
         config = Config(**conf)
 
@@ -157,6 +157,15 @@ class ConfigParser:
         chains_section = {name: chain.conf for name, chain in chains.items()}
         config = Config(settings=settings, actors=actors_section, chains=chains_section)
         return config
+
+    @classmethod
+    @try_parsing
+    def validate(cls, conf: dict) -> 'SpecificConfig':
+        """try parsing object, raise ConfigurationError on failure"""
+        config = Config(**conf)
+        flatted_conf = cls.flatten_config(config)
+        SpecificConfig = cls.load_models(config)
+        return SpecificConfig(**flatted_conf.model_dump())
 
 
 def config_sancheck(actors, chains):
