@@ -6,15 +6,17 @@
 **/.mypy_cache/**
 
 dist/**
+build/**
 *egg-info/**
 
 **/*.sqlite
 config.yml
-*.yml
 logs/**
 db/**
 cache/**
 *.txt
+*.yml
+*.exe
 
 tests/manual/**
 
