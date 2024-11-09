@@ -2,7 +2,7 @@ import logging
 from collections import Counter, defaultdict
 from typing import Callable, List, OrderedDict
 
-from pydantic import RootModel
+from pydantic import RootModel, field_validator
 
 from avtdl.core.interfaces import MessageBus, Record
 
@@ -26,6 +26,14 @@ class ChainConfigSection(RootModel):
         if isinstance(value, list):
             return [x.copy().popitem() for x in value if x]
         return value.copy().popitem()
+
+    @field_validator('root')
+    @classmethod
+    def check_chains(cls, values):
+        if len(values) < 2:
+            raise ValueError('chain must contain at least 2 elements')
+        return values
+
 
 class Chain:
 
