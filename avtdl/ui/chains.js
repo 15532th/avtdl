@@ -98,35 +98,62 @@ class ChainCard {
             itemSelect.value = freeValue;
         }
 
+        this.createItemHints(itemContainer);
         this.updateItemHints(itemContainer, this.headerSelect.value, itemSelect.value);
 
         this.itemsContainer.appendChild(itemContainer);
     }
 
-    updateItemHints(itemContainer, header, value) {
-        let hintConsumeRecord = itemContainer.querySelector('.hint-consume-record');
-        if (!hintConsumeRecord) {
-            const hint =
-                'This entity has "consume_record" option enabled. It will not pass any incoming records down the chain. It may, however, produce records itself.';
-            hintConsumeRecord = createDefinition('⭳', hint);
-            hintConsumeRecord.className = 'hint-consume-record';
-            hintConsumeRecord.style.display = 'none';
-            itemContainer.insertBefore(hintConsumeRecord, itemContainer.firstChild);
-        }
-        const showConsumeRecord = this.info.getConsumeRecord(header, value) === true;
-        changeElementVisibility(hintConsumeRecord, showConsumeRecord);
+    addItemHint(symbol, text, className, container) {
+        const hint = createDefinition(symbol, text);
+        hint.classList.add(className);
+        hint.style.display = 'none';
+        container.insertBefore(hint, container.firstChild);
+    }
 
-        let hintResetOrigin = itemContainer.querySelector('.hint-reset-origin');
-        if (!hintResetOrigin) {
-            const hint =
-                'This entity has "reset_origin" option enabled. When used it multiple chains, it will pass incoming records from any of them to all of them.';
-            hintResetOrigin = createDefinition('⤋', hint);
-            hintResetOrigin.className = 'hint-reset-origin';
-            hintResetOrigin.style.display = 'none';
-            itemContainer.insertBefore(hintResetOrigin, itemContainer.firstChild);
+    createItemHints(itemContainer) {
+        let text =
+            'This entity has "consume_record" option enabled. ' +
+            'It will not pass any incoming records down the chain. ' +
+            'It may, however, produce records itself.';
+        const hintConsumeRecord = this.addItemHint('⤓', text, 'hint-consume-record', itemContainer);
+
+        text =
+            'This entity has "reset_origin" option enabled. ' +
+            'When used it multiple chains, it will pass incoming records ' +
+            'from any of them to all of them.';
+        const hintResetOrigin = this.addItemHint('⤋', text, 'hint-reset-origin', itemContainer);
+
+        text =
+            'This card uses multiple entities in the middle of a Chain. ' +
+            'Incoming records are fed into each of then in parallel, ' +
+            'and the records each of them produce are passed down the chain.';
+        const hintDuplicate = this.addItemHint('', text, 'hint-duplicate', itemContainer);
+    }
+
+    showItemHint(className, hintContainer, show = true) {
+        let hint = hintContainer.querySelector('.' + className);
+        if (!hint) {
+            return;
         }
+        changeElementVisibility(hint, show);
+    }
+
+    cardPositionChanged(atEdgeOfChain = true) {
+        const cardsContainers = Array.from(this.itemsContainer.children);
+        if (cardsContainers.length > 1) {
+        cardsContainers.forEach((itemContainer) => {
+            this.showItemHint('hint-duplicate', itemContainer, !atEdgeOfChain);
+        });
+        }
+    }
+
+    updateItemHints(itemContainer, header, value) {
+        const showConsumeRecord = this.info.getConsumeRecord(header, value) === true;
+        this.showItemHint('hint-consume-record', itemContainer, showConsumeRecord);
+
         const showResetOrigin = this.info.getResetOrigin(header, value) === true;
-        changeElementVisibility(hintResetOrigin, showResetOrigin);
+        this.showItemHint('hint-reset-origin', itemContainer, showResetOrigin);
     }
 
     removeItem(itemContainer) {
