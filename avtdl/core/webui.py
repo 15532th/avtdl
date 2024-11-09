@@ -15,6 +15,7 @@ from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.info import get_plugin_type
 from avtdl.core.interfaces import Actor
 from avtdl.core.plugins import Plugins
+from avtdl.core.utils import strip_text
 
 
 def serialize_config(settings: SettingsSection,
@@ -175,6 +176,9 @@ class WebUI:
                     error.pop('url')
                 if 'ctx' in error:
                     error.pop('ctx')
+                if 'msg' in error:
+                    error['msg'] = strip_text(error['msg'], 'Value error, ')
+
             return web.json_response(data=data, dumps=json_dumps, status=422, reason='Bad config')
         except Exception as e:
             raise web.HTTPBadRequest(text=f'{type(e)}: {e}')
