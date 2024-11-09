@@ -125,10 +125,10 @@ class ChainCard {
         const hintResetOrigin = this.addItemHint('⤋', text, 'hint-reset-origin', itemContainer);
 
         text =
-            'This card uses multiple entities in the middle of a Chain. ' +
+            'This card lists multiple entities while being the middle of the Chain. ' +
             'Incoming records are fed into each of then in parallel, ' +
-            'and the records each of them produce are passed down the chain.';
-        const hintDuplicate = this.addItemHint('', text, 'hint-duplicate', itemContainer);
+            'and the records all of them produce are passed down the chain.';
+        const hintDuplicate = this.addItemHint('⚬', text, 'hint-duplicate', itemContainer);
     }
 
     showItemHint(className, hintContainer, show = true) {
@@ -141,11 +141,9 @@ class ChainCard {
 
     cardPositionChanged(atEdgeOfChain = true) {
         const cardsContainers = Array.from(this.itemsContainer.children);
-        if (cardsContainers.length > 1) {
         cardsContainers.forEach((itemContainer) => {
-            this.showItemHint('hint-duplicate', itemContainer, !atEdgeOfChain);
+            this.showItemHint('hint-duplicate', itemContainer, !atEdgeOfChain && cardsContainers.length > 1);
         });
-        }
     }
 
     updateItemHints(itemContainer, header, value) {
@@ -236,6 +234,7 @@ class ChainSection {
         });
 
         this.cards = this.generateCards(data);
+        this.handleReordering();
     }
 
     isEmpty() {
@@ -341,6 +340,8 @@ class ChainSection {
         this.cards.splice(newIndex, 0, card);
 
         this.container.insertBefore(card.getElement(), neighbour);
+
+        this.handleReordering();
     }
 
     addEmptyCard(referenceCard) {
@@ -354,12 +355,23 @@ class ChainSection {
             const position = this.cards.indexOf(referenceCard);
             this.cards.splice(position + 1, 0, card);
         }
+        this.handleReordering();
     }
+
     deleteCard(card) {
         this.container.removeChild(card.getElement());
         this.cards = this.cards.filter((x) => x !== card);
         if (this.cards.length == 0) {
             this.addEmptyCard();
+        }
+        this.handleReordering();
+    }
+
+    handleReordering() {
+        for (let i = 0; i < this.cards.length; i++) {
+            const atEdgeOfChain = i == 0 || i == this.cards.length - 1;
+            const card = this.cards[i];
+            card.cardPositionChanged(atEdgeOfChain);
         }
     }
 
