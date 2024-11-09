@@ -125,9 +125,9 @@ class ChainCard {
         const hintResetOrigin = this.addItemHint('⤋', text, 'hint-reset-origin', itemContainer);
 
         text =
-            'This card lists multiple entities while being the middle of the Chain. ' +
+            'This card lists multiple entities while being in the middle of the chain. ' +
             'Incoming records are fed into each of then in parallel, ' +
-            'and the records all of them produce are passed down the chain.';
+            'and the records each of them produce are passed down the chain.';
         const hintDuplicate = this.addItemHint('⚬', text, 'hint-duplicate', itemContainer);
     }
 
