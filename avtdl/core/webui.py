@@ -49,7 +49,21 @@ def json_dumps(obj):
 
 
 def get_known_plugins() -> List[str]:
-    return list(Plugins.known[Plugins.kind.ACTOR].keys())
+    plugins_by_type: Dict[str, List[str]] = {
+        'Monitors': [],
+        'Filters': [],
+        'Actions': [],
+        'Other': []
+    }
+    for name, plugin in Plugins.known[Plugins.kind.ACTOR].items():
+        plugin_type = get_plugin_type(name)
+        if plugin_type not in plugins_by_type:
+            plugin_type = 'Other'
+        plugins_by_type[plugin_type].append(name)
+    plugins = []
+    for plugin_list in plugins_by_type.values():
+        plugins.extend(plugin_list)
+    return plugins
 
 
 def get_actor_description(name: str) -> str:
