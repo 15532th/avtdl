@@ -203,3 +203,23 @@ function registerOnClickOutside(element, callback) {
         }
     });
 }
+
+function observeChildMutations(element, callback) {
+    if (!window.MutationObserver) {
+        console.error("MutationObserver is not supported in this browser.");
+        return;
+    }
+
+    const observer = new MutationObserver((mutationsList) => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                callback(mutation);
+            }
+        }
+    });
+    const config = { childList: true, subtree: true };
+    observer.observe(element, config);
+
+    // Return a function to stop observing  
+    return () => observer.disconnect();
+}

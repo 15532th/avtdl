@@ -234,7 +234,7 @@ class ChainSection {
         });
 
         this.cards = this.generateCards(data);
-        this.handleReordering();
+        observeChildMutations(this.container, () => this.handleReordering())
     }
 
     isEmpty() {
@@ -340,8 +340,6 @@ class ChainSection {
         this.cards.splice(newIndex, 0, card);
 
         this.container.insertBefore(card.getElement(), neighbour);
-
-        this.handleReordering();
     }
 
     addEmptyCard(referenceCard) {
@@ -355,7 +353,6 @@ class ChainSection {
             const position = this.cards.indexOf(referenceCard);
             this.cards.splice(position + 1, 0, card);
         }
-        this.handleReordering();
     }
 
     deleteCard(card) {
@@ -364,7 +361,6 @@ class ChainSection {
         if (this.cards.length == 0) {
             this.addEmptyCard();
         }
-        this.handleReordering();
     }
 
     handleReordering() {
