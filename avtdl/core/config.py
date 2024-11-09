@@ -9,6 +9,7 @@ from avtdl.core.chain import Chain, ChainConfigSection
 from avtdl.core.interfaces import Actor
 from avtdl.core.loggers import LogLevel, override_loglevel, set_file_logger
 from avtdl.core.plugins import Plugins
+from avtdl.core.utils import strip_text
 
 
 class ConfigurationError(Exception):
@@ -21,8 +22,9 @@ def format_validation_error(e: ValidationError) -> str:
         user_input = str(err['input'])
         user_input = user_input if len(user_input) < 85 else user_input[:50] + ' [...] ' + user_input[-30:]
         location = ': '.join(str(l) for l in err['loc'])
+        error_message = strip_text(err['msg'], 'Value error, ')
         error = 'error parsing "{}" in config section {}: {}'
-        errors.append(error.format(user_input, location, err['msg']))
+        errors.append(error.format(user_input, location, error_message))
     return '\n    '.join([msg] + errors)
 
 def try_parsing(func):

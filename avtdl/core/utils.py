@@ -724,3 +724,9 @@ class RateLimit:
             return
 
         self._submit_headers(headers, logger)
+
+
+def strip_text(s: str, text: str) -> str:
+    if s.startswith(text):
+        return s[len(text):]
+    return s
