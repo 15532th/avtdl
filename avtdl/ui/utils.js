@@ -364,7 +364,13 @@ function moveElement(element, forward = true) {
         return;
     }
     const parent = element.parentElement;
-    const sibling = forward ? element.nextSibling : element.previousSibling;
+    if (forward && element === parent.lastChild) {
+        return;
+    }
+    if (!forward && element === parent.firstChild) {
+        return;
+    }
+    const sibling = forward ? element.nextSibling && element.nextSibling.nextSibling : element.previousSibling;
     parent.removeChild(element);
     parent.insertBefore(element, sibling);
 }
