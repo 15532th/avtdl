@@ -525,7 +525,7 @@ class ChainsForm {
         const step = forward ? 1 : -1;
         this.chains.move(chainSection.name, step);
         moveElement(chainContainer, forward);
-        // moveElement(menuItem, forward);
+        moveElement(menuItem.getElement(), forward);
     }
 
     deleteChain(chainSection, chainContainer, menuItem) {
