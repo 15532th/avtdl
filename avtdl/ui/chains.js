@@ -408,7 +408,7 @@ class ChainsForm {
         this.container.classList.add('chains-form');
         this.menu = menu;
         this.info = info;
-        this.chains = {};
+        this.chains = new OrderedDict();
 
         for (const [name, chainElements] of Object.entries(data)) {
             this.addChain(name, chainElements);

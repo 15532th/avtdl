@@ -234,7 +234,7 @@ function chooseNewName(base, usedNames) {
 
     const match = name.match(/(.*) \((\d+)\)$/);
     if (match) {
-        base = match[1]
+        base = match[1];
         start = Number(match[2]) + 1;
     }
     for (let i = start; i < 1000; i++) {
@@ -250,4 +250,113 @@ function chooseNewName(base, usedNames) {
         }
     }
     return null;
+}
+
+class OrderedDict {
+    constructor() {
+        this.data = {};
+        this.order = [];
+        this.proxy = this.createProxy(); // Call the method to create the Proxy
+        return this.proxy; // Return the proxy instance
+    }
+
+    createProxy() {
+        return new Proxy(this, {
+            get: (target, prop) => {
+                // If prop is a string, use it to access data
+                if (typeof prop === 'string') {
+                    return target.get(prop);
+                }
+                // If it's a symbol, get directly from target
+                return target[prop];
+            },
+            set: (target, prop, value) => {
+                // If prop is a string, use it to set data
+                if (typeof prop === 'string') {
+                    target.set(prop, value);
+                    return true;
+                }
+                // Allow setting other properties directly
+                target[prop] = value;
+                return true;
+            },
+            has: (target, prop) => {
+                // Check if the prop exists in data
+                return prop in target.data;
+            },
+            deleteProperty: (target, prop) => {
+                if (prop in target.data) {
+                    delete target.data[prop];
+                    target.order = target.order.filter((key) => key !== prop);
+                    return true;
+                }
+                return false;
+            },
+            ownKeys: (target) => {
+                // Return keys in insertion order
+                return [...target.order];
+            },
+            getOwnPropertyDescriptor: (target, prop) => {
+                if (prop in target.data) {
+                    return {
+                        configurable: true,
+                        enumerable: true,
+                        value: target.data[prop],
+                    };
+                }
+                return { configurable: true, enumerable: false };
+            },
+        });
+    }
+
+    set(key, value) {
+        if (!this.data.hasOwnProperty(key)) {
+            this.order.push(key);
+        }
+        this.data[key] = value;
+    }
+
+    get(key) {
+        return this.data[key];
+    }
+
+    *[Symbol.iterator]() {
+        for (const key of this.order) {
+            yield [key, this.data[key]];
+        }
+    }
+
+    insertAfter(existingName, newName, newValue) {
+        const index = this.order.indexOf(existingName);
+        if (index !== -1) {
+            this.set(newName, newValue);
+            this.order.splice(index + 1, 0, newName);
+        }
+    }
+
+    insertAfterValue(existingValue, newName, newValue) {
+        const index = this.order.findIndex((key) => this.data[key] === existingValue);
+        if (index !== -1) {
+            this.set(newName, newValue);
+            this.order.splice(index + 1, 0, newName);
+        }
+    }
+
+    move(name, steps = 1) {
+        const index = this.order.indexOf(name);
+        if (index > -1) {
+            const newIndex = index + steps;
+
+            if (newIndex < 0) {
+                this.order.splice(index, 1);
+                this.order.unshift(name);
+            } else if (newIndex >= this.order.length) {
+                this.order.splice(index, 1);
+                this.order.push(name);
+            } else if (newIndex !== index) {
+                this.order.splice(index, 1);
+                this.order.splice(newIndex, 0, name);
+            }
+        }
+    }
 }
