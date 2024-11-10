@@ -358,3 +358,13 @@ class OrderedDict {
         }
     }
 }
+
+function moveElement(element, forward = true) {
+    if (!element.parentElement) {
+        return;
+    }
+    const parent = element.parentElement;
+    const sibling = forward ? element.nextSibling : element.previousSibling;
+    parent.removeChild(element);
+    parent.insertBefore(element, sibling);
+}

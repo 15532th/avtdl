@@ -234,7 +234,7 @@ class ChainSection {
         });
 
         this.cards = this.generateCards(data);
-        observeChildMutations(this.container, () => this.handleReordering())
+        observeChildMutations(this.container, () => this.handleReordering());
     }
 
     isEmpty() {
@@ -458,7 +458,25 @@ class ChainsForm {
         const chainContainer = document.createElement('div');
         chainContainer.className = 'chain';
 
-        const deleteChain = () => this.deleteChain(chainSection, chainContainer, menuItem);
+        const legend = chainSection.getElement().firstChild;
+
+        const renameButton = this.makeRenameButton(chainSection, menuItem);
+        legend.appendChild(renameButton);
+
+        const leftButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '⇦', false);
+        legend.appendChild(leftButton);
+        const rightButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '⇨', true);
+        legend.appendChild(rightButton);
+
+        const deleteButton = this.makeDeleteButton(chainSection, chainContainer, menuItem);
+        legend.appendChild(deleteButton);
+
+        chainContainer.appendChild(chainSection.getElement());
+
+        return chainContainer;
+    }
+
+    makeRenameButton(chainSection, menuItem) {
         const checkName = (name) => {
             if (name in this.chains) {
                 return `chain ${name} already exists`;
@@ -482,19 +500,31 @@ class ChainsForm {
             },
             'inline-button'
         );
-        renameButton.title = 'Rename';
+        renameButton.title = 'Rename chain';
+        return renameButton;
+    }
 
-        const legend = chainSection.getElement().firstChild;
-        legend.appendChild(renameButton);
-
+    makeDeleteButton(chainSection, chainContainer, menuItem) {
+        const deleteChain = () => this.deleteChain(chainSection, chainContainer, menuItem);
         const deleteButton = createButton('[×]', () => deleteChain(), 'inline-button');
         deleteButton.classList.add('delete-chain-button');
         deleteButton.title = 'Delete';
-        legend.appendChild(deleteButton);
+        return deleteButton;
+    }
 
-        chainContainer.appendChild(chainSection.getElement());
+    makeMoveButton(chainSection, chainContainer, menuItem, symbol, forward) {
+        const moveChain = (forward) => {
+            this.moveChain(chainSection, chainContainer, menuItem, forward);
+        };
+        const moveButton = createButton(symbol, moveChain, 'inline-button');
+        return moveButton;
+    }
 
-        return chainContainer;
+    moveChain(chainSection, chainContainer, menuItem, forward = true) {
+        const step = forward ? 1 : -1;
+        this.chains.move(chainSection.name, step);
+        moveElement(chainContainer, forward);
+        // moveElement(menuItem, forward);
     }
 
     deleteChain(chainSection, chainContainer, menuItem) {
