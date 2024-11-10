@@ -207,7 +207,7 @@ async def run_app(webui: WebUI):
     site = web.TCPSite(runner, webui.host, webui.port)
     webui.logger.debug('starting server...')
     await site.start()
-    webui.logger.info(f'server is running on {webui.host}:{webui.port}')
+    webui.logger.info(f'server is running on http://{webui.host}:{webui.port}')
     try:
         await asyncio.Future()
     except (KeyboardInterrupt, asyncio.CancelledError):
