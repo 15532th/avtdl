@@ -263,6 +263,10 @@ class OrderedDict {
     createProxy() {
         return new Proxy(this, {
             get: (target, prop) => {
+                const ownValue = target[prop];
+                if (ownValue) {
+                    return typeof ownValue === 'function' ? ownValue.bind(target) : ownValue;
+                }
                 // If prop is a string, use it to access data
                 if (typeof prop === 'string') {
                     return target.get(prop);
@@ -318,12 +322,6 @@ class OrderedDict {
 
     get(key) {
         return this.data[key];
-    }
-
-    *[Symbol.iterator]() {
-        for (const key of this.order) {
-            yield [key, this.data[key]];
-        }
     }
 
     insertAfter(existingName, newName, newValue) {
