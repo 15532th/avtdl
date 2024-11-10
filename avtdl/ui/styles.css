@@ -235,6 +235,7 @@ legend {
 
 .legend-text {
     white-space: pre;
+    padding-left: 4px;
 }
 
 /* Label styling */
@@ -300,9 +301,8 @@ input[type='text'] {
     max-width: 600px;
     max-height: 400px;
     overflow: auto;
-    font-family: monospace;
     font-weight: normal;
-    font-size: 1em;
+    font-size: 0.9em;
 }
 
 dfn {
@@ -529,6 +529,10 @@ summary .tooltip {
     margin: 5px;
 }
 
+.delete-chain-button {
+    margin-left: auto;
+}
+
 .chain {
     margin: 3px 0;
     border-radius: 3px;
@@ -541,6 +545,13 @@ summary .tooltip {
     height: 100%;
     padding-left: 5px;
     padding-bottom: 5px;
+}
+
+.chain-section > legend {
+    display: flex;
+    width: 100%;
+    border-radius: 3px;
+    background-color: #ddd;
 }
 
 .chain-card {

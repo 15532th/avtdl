@@ -463,9 +463,9 @@ class ChainsForm {
         const renameButton = this.makeRenameButton(chainSection, menuItem);
         legend.appendChild(renameButton);
 
-        const leftButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '⇦', false);
+        const leftButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '[⇦', false);
         legend.appendChild(leftButton);
-        const rightButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '⇨', true);
+        const rightButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '⇨]', true);
         legend.appendChild(rightButton);
 
         const deleteButton = this.makeDeleteButton(chainSection, chainContainer, menuItem);
@@ -508,7 +508,7 @@ class ChainsForm {
         const deleteChain = () => this.deleteChain(chainSection, chainContainer, menuItem);
         const deleteButton = createButton('[×]', () => deleteChain(), 'inline-button');
         deleteButton.classList.add('delete-chain-button');
-        deleteButton.title = 'Delete';
+        deleteButton.title = 'Delete chain';
         return deleteButton;
     }
 
@@ -517,6 +517,7 @@ class ChainsForm {
             this.moveChain(chainSection, chainContainer, menuItem, forward);
         };
         const moveButton = createButton(symbol, moveChain, 'inline-button');
+        moveButton.title = forward? 'Move forward' : 'Move back';
         return moveButton;
     }
 
