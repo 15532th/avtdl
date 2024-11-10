@@ -206,7 +206,7 @@ function registerOnClickOutside(element, callback) {
 
 function observeChildMutations(element, callback) {
     if (!window.MutationObserver) {
-        console.error("MutationObserver is not supported in this browser.");
+        console.error('MutationObserver is not supported in this browser.');
         return;
     }
 
@@ -220,6 +220,10 @@ function observeChildMutations(element, callback) {
     const config = { childList: true, subtree: true };
     observer.observe(element, config);
 
-    // Return a function to stop observing  
+    // Return a function to stop observing
     return () => observer.disconnect();
+}
+
+function countOccurrences(array, value) {
+    return array.reduce((count, item) => (item === value ? count + 1 : count), 0);
 }

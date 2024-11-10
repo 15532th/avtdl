@@ -34,6 +34,14 @@ class InputField {
     }
 }
 
+class NameInputField extends InputField {
+    constructor(propertyName, schema) {
+        super(propertyName, schema);
+        this.input = selectInput(this.fieldContainer);
+        this.input.classList.add('name-input');
+    }
+}
+
 class SuggestionsInputField {
     constructor(propertyName, schema, possibleValues) {
         this.propertyName = propertyName;
@@ -43,7 +51,7 @@ class SuggestionsInputField {
         this.possibleValues = possibleValues || [];
 
         // Create the input element
-        this.inputField = this.container.querySelector('input');
+        this.inputField = selectInput(this.container);
         if (!this.inputField) {
             this.inputField = document.createElement('input');
             this.inputField.classList.add('optsearch-input');
@@ -371,6 +379,9 @@ class Fieldset {
         this.schema = schema;
         this.fieldset = container || document.createElement('fieldset');
         this.fieldInputs = [];
+
+        this.nameField = null;
+        this.nameInput = null;
         this.separatorToggler = (newState) => {};
         this.generateFieldsInputs(this.fieldset);
     }
@@ -388,7 +399,11 @@ class Fieldset {
 
         for (const [propertyName, propertySchema] of Object.entries(this.schema)) {
             let fieldInput;
-            if (propertyName == 'timezone') {
+            if (propertyName == 'name') {
+                fieldInput = new InputField(propertyName, propertySchema);
+                this.nameField = fieldInput;
+                this.nameInput = selectInput(fieldInput.getElement());
+            } else if (propertyName == 'timezone') {
                 const timezonesList = getTimezonesList();
                 fieldInput = new SuggestionsInputField(propertyName, propertySchema, timezonesList);
             } else {
@@ -449,6 +464,27 @@ class Fieldset {
             };
         }
     }
+
+    getName() {
+        if (!this.nameInput) {
+            return null;
+        }
+        return this.nameInput.value;
+    }
+
+    registerNameChangeCallback(callback) {
+        if (!this.nameInput) {
+            return;
+        }
+        this.nameInput.addEventListener('input', (event) => {
+            const value = event.target.value;
+            if (!value) {
+                return;
+            }
+            callback(value, this.nameField);
+        });
+    }
+
     fill(data) {
         for (const fieldInput of this.fieldInputs) {
             const value = data[fieldInput.propertyName];

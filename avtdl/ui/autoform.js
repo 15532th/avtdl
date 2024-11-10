@@ -82,8 +82,15 @@ function generateInput(schema) {
     return inputField;
 }
 
+function selectInput(fieldContainer) {
+    return fieldContainer.querySelector('.form-input');
+}
+
 function fillInput(fieldContainer, value) {
-    const inputField = fieldContainer.querySelector('.form-input');
+    const inputField = selectInput(fieldContainer);
+    if (!inputField) {
+        return;
+    }
     switch (inputField.type) {
         case 'checkbox':
             inputField.checked = Boolean(value);
@@ -101,7 +108,7 @@ function fillInput(fieldContainer, value) {
 
 function readInput(fieldContainer, defaultValue) {
     let value;
-    const inputField = fieldContainer.querySelector('.form-input') || fieldContainer;
+    const inputField = selectInput(fieldContainer) || fieldContainer;
     switch (inputField.type) {
         case 'checkbox':
             value = inputField.checked; // Return boolean value

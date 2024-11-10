@@ -27,6 +27,10 @@ class EntitiesList {
 
         const deleteButton = createButton('[×]', () => this.deleteEntry(entity, entryDiv), 'delete-entry');
         entryDiv.appendChild(deleteButton);
+
+        entity.registerNameChangeCallback((newName, nameField) => {
+            this.handleNameUpdate(newName, nameField);
+        });
     }
 
     deleteEntry(entry, entryDiv) {
@@ -41,16 +45,29 @@ class EntitiesList {
     listEntries() {
         const names = [];
         for (const entry of this.entries) {
-            const data = entry.read();
-            names.push(data['name']);
+            names.push(entry.getName());
         }
         return names;
     }
 
+    handleNameUpdate(name, nameField) {
+        const sameNameEntries = [];
+        for (const entry of this.entries) {
+            entry.showError(['name'], ''); // clear error by setting empty error message
+            if (name == entry.getName()) {
+                sameNameEntries.push(entry);
+            }
+        }
+        if (sameNameEntries.length > 1) {
+            sameNameEntries.forEach((entry) => {
+                entry.showError(['name'], 'name used more than once');
+            });
+        }
+    }
+
     getEntry(entryName) {
         for (const entry of this.entries) {
-            const data = entry.read();
-            if (data['name'] === entryName) {
+            if (entryName == entry.getName()) {
                 return entry;
             }
         }
