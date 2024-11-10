@@ -1,7 +1,7 @@
 class MenuItem {
-    constructor(name, parent = null, container = null) {
+    constructor(name, parent, container) {
         this.name = name;
-        this.parent = parent;
+        this.parent = parent || null;
         this.submenuItems = [];
         this.isHighlighted = false; // Track highlight state
 
@@ -16,7 +16,6 @@ class MenuItem {
         // Create toggle button
         this.toggleButton = document.createElement('span');
         this.toggleButton.style.fontFamily = 'monospace';
-        this.toggleButton.textContent = this.submenuItems.length ? '[+]' : ''; // Show + only if there are nested items
         this.toggleButton.style.cursor = 'pointer';
         this.toggleButton.onclick = () => this.toggleSubmenu();
 
@@ -31,10 +30,15 @@ class MenuItem {
         this.highlightIndicator.style.color = 'red';
         this.highlightIndicator.style.display = 'none'; // Hidden by default
 
+        this.submenuCount = document.createElement('span');
+        this.submenuCount.classList.add('menu-item-count');
+        this._disableCountUpdateCallback = null;
+
         // Append toggle button, highlight indicator, and name to the element
         this.headerContainer.appendChild(this.toggleButton);
         this.headerContainer.appendChild(this.highlightIndicator);
         this.headerContainer.appendChild(this.text);
+        this.headerContainer.appendChild(this.submenuCount);
 
         // Create a container for nested items
         this.submenuContainer = document.createElement('div');
@@ -52,8 +56,12 @@ class MenuItem {
         }
     }
 
+    submenuIsOpen() {
+        return this.submenuContainer.style.display !== 'none';
+    }
+
     toggleSubmenu(open) {
-        let isVisible = this.submenuContainer.style.display === 'block';
+        let isVisible = this.submenuIsOpen();
         if (typeof open === 'boolean') {
             isVisible = !open;
         }
@@ -66,7 +74,6 @@ class MenuItem {
         this.highlightIndicator.style.display = 'inline'; // Show the highlight indicator
         this.submenuItems.forEach((item) => item.highlight()); // Highlight all children
 
-        // Ensure parent is also highlighted
         if (this.parent) {
             this.parent.highlight(); // Highlight parent if it exists
         }
@@ -76,6 +83,32 @@ class MenuItem {
         this.isHighlighted = false;
         this.highlightIndicator.style.display = 'none'; // Hide the highlight indicator
         this.submenuItems.forEach((item) => item.clearHighlight()); // Clear highlight from children
+    }
+
+    updateSubmenuCount() {
+        const count = this.submenuContainer.childNodes.length;
+        if (!count) {
+            this.submenuCount.innerText = '';
+            return;
+        }
+        this.submenuCount.innerText = `[${count}]`;
+    }
+
+    showSubmenuCount(show = true) {
+        if (show) {
+            if (this._disableCountUpdateCallback instanceof Function) {
+                return;
+            }
+            this._disableCountUpdateCallback = observeChildMutations(this.submenuContainer, () => {
+                this.updateSubmenuCount();
+            });
+        } else {
+            if (this._disableCountUpdateCallback instanceof Function) {
+                this._disableCountUpdateCallback();
+                this._disableCountUpdateCallback = null;
+                this.headerContainer.innerText = '';
+            }
+        }
     }
 
     addSubmenu(name) {
