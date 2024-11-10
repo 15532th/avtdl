@@ -207,7 +207,7 @@ function registerOnClickOutside(element, callback) {
 function observeChildMutations(element, callback) {
     if (!window.MutationObserver) {
         console.error('MutationObserver is not supported in this browser.');
-        return;
+        return () => {};
     }
 
     const observer = new MutationObserver((mutationsList) => {
