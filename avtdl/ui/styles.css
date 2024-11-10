@@ -352,7 +352,21 @@ summary .tooltip {
     border-radius: 5px;
 }
 
-.delete-entry:hover {
+.copy-entry {
+    position: absolute;
+    background-color: #cccccccc;
+    top: 40px;
+    right: 10px;
+    color: black;
+    font-family: monospace;
+    font-weight: bold;
+    border: none;
+    padding: 5px 5px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.delete-entry:hover, .copy-entry:hover {
     background-color: #ccc;
 }
 

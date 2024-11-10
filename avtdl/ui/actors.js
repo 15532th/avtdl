@@ -13,24 +13,46 @@ class EntitiesList {
         return this.entries.length == 0;
     }
 
-    addEntry(data = null) {
+    createEntry(data) {
         const entryDiv = document.createElement('div');
         entryDiv.classList.add('entry-container');
-        this.container.insertBefore(entryDiv, this.addButton);
 
         const entity = new Fieldset(this.schema);
         if (data) {
             entity.fill(data);
         }
-        this.entries.push(entity);
         entryDiv.appendChild(entity.getElement());
 
+        const copyButton = createButton('[+]', () => this.copyEntry(entity, entryDiv), 'copy-entry');
+        copyButton.title = 'Duplicate entity';
+        entryDiv.appendChild(copyButton);
+
         const deleteButton = createButton('[×]', () => this.deleteEntry(entity, entryDiv), 'delete-entry');
+        deleteButton.title = 'Delete entity';
         entryDiv.appendChild(deleteButton);
 
         entity.registerNameChangeCallback((newName, nameField) => {
             this.handleNameUpdate(newName, nameField);
         });
+        return [entity, entryDiv];
+    }
+
+    addEntry(data = null) {
+        const [entity, entityDiv] = this.createEntry(data);
+        this.container.insertBefore(entityDiv, this.addButton);
+        this.entries.push(entity);
+    }
+
+    copyEntry(entry, entryDiv) {
+        const data = entry.read();
+        data['name'] = chooseNewName(data['name'], this.listEntries()) || data['name'];
+
+        const [newEntity, newEntryDiv] = this.createEntry(data);
+        this.container.insertBefore(newEntryDiv, entryDiv.nextSibling);
+        newEntryDiv.scrollIntoView();
+
+        const pos = this.entries.indexOf(entry) + 1;
+        this.entries.splice(pos, 0, newEntity);
     }
 
     deleteEntry(entry, entryDiv) {

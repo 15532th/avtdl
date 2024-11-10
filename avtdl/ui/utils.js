@@ -227,3 +227,27 @@ function observeChildMutations(element, callback) {
 function countOccurrences(array, value) {
     return array.reduce((count, item) => (item === value ? count + 1 : count), 0);
 }
+
+function chooseNewName(base, usedNames) {
+    let name = base;
+    let start = 0;
+
+    const match = name.match(/(.*) \((\d+)\)$/);
+    if (match) {
+        base = match[1]
+        start = Number(match[2]) + 1;
+    }
+    for (let i = start; i < 1000; i++) {
+        name = `${base} (${i})`;
+        if (usedNames instanceof Array) {
+            if (!usedNames.includes(name)) {
+                return name;
+            }
+        } else if (usedNames instanceof Object) {
+            if (!(name in usedNames)) {
+                return name;
+            }
+        }
+    }
+    return null;
+}

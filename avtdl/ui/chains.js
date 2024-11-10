@@ -426,14 +426,8 @@ class ChainsForm {
     }
 
     chooseChainName(base = 'Chain') {
-        let name = base;
-        for (let i = 0; i < 100; i++) {
-            name = `${base} (${i})`;
-            if (!(name in this.chains)) {
-                break;
-            }
-        }
-        if (name in this.chains) {
+        let name = chooseNewName(base, this.chains);
+        if (name === null) {
             getUserInput('Name for a new chain:')
                 .then((newName) => {
                     name = newName;
