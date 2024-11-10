@@ -513,7 +513,7 @@ class ChainsForm {
     }
 
     makeMoveButton(chainSection, chainContainer, menuItem, symbol, forward) {
-        const moveChain = (forward) => {
+        const moveChain = () => {
             this.moveChain(chainSection, chainContainer, menuItem, forward);
         };
         const moveButton = createButton(symbol, moveChain, 'inline-button');
