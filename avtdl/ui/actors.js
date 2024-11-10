@@ -23,7 +23,7 @@ class EntitiesList {
         }
         entryDiv.appendChild(entity.getElement());
 
-        const copyButton = createButton('[+]', () => this.copyEntry(entity, entryDiv), 'copy-entry');
+        const copyButton = createButton('[⧉]', () => this.copyEntry(entity, entryDiv), 'copy-entry');
         copyButton.title = 'Duplicate entity';
         entryDiv.appendChild(copyButton);
 
