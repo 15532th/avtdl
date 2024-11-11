@@ -241,6 +241,10 @@ class ChainSection {
         return !this.name || !this.cards;
     }
 
+    getName() {
+        return this.name;
+    }
+
     rename(newName) {
         this.name = newName;
         const legend = this.container.firstChild;
@@ -437,18 +441,18 @@ class ChainsForm {
         return name;
     }
 
-    addChain(name, chainElements) {
+    addChain(name, data, anchor = null) {
         name = name || this.chooseChainName();
         if (!name) {
             return;
         }
-        const chainSection = new ChainSection(name, chainElements, this.info);
+        const chainSection = new ChainSection(name, data, this.info);
         this.chains[name] = chainSection;
-        if (!chainElements) {
+        if (!data) {
             chainSection.addEmptyCard();
         }
         const sectionContainer = this.wrapChain(chainSection);
-        this.container.insertBefore(sectionContainer, this.addButton);
+        this.container.insertBefore(sectionContainer, anchor || this.addButton);
     }
 
     wrapChain(chainSection) {
@@ -462,6 +466,9 @@ class ChainsForm {
 
         const renameButton = this.makeRenameButton(chainSection, menuItem);
         legend.appendChild(renameButton);
+
+        const copyButton = this.makeCopyButton(chainSection, menuItem);
+        legend.appendChild(copyButton);
 
         const leftButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '[⇦', false);
         legend.appendChild(leftButton);
@@ -510,6 +517,20 @@ class ChainsForm {
         deleteButton.classList.add('delete-chain-button');
         deleteButton.title = 'Delete chain';
         return deleteButton;
+    }
+
+    makeCopyButton(chainSection, chainContainer, menuItem) {
+        const copyChain = () => {
+            const name = chainSection.getName();
+            const newName = this.chooseChainName(name);
+            const data = chainSection.read()['name'];
+            const newChainSection = this.addChain(newName, data, chainSection.nextSibling);
+            this.chains.insertAfterValue(chainSection, newName, newChainSection);
+        };
+        const copyButton = createButton('[⧉]', () => copyChain(), 'inline-button');
+        copyButton.classList.add('delete-chain-button');
+        copyButton.title = 'Duplicate chain';
+        return copyButton;
     }
 
     makeMoveButton(chainSection, chainContainer, menuItem, symbol, forward) {
