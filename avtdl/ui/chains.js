@@ -346,15 +346,15 @@ class ChainSection {
         this.container.insertBefore(card.getElement(), neighbour);
     }
 
-    addEmptyCard(referenceCard) {
+    addEmptyCard(anchorCard) {
         const card = this.generateCard();
         card.addItem();
-        if (!referenceCard) {
+        if (!anchorCard) {
             this.container.appendChild(card.getElement());
             this.cards.push(card);
         } else {
-            this.container.insertBefore(card.getElement(), referenceCard.getElement().nextSibling);
-            const position = this.cards.indexOf(referenceCard);
+            this.container.insertBefore(card.getElement(), anchorCard.getElement().nextSibling);
+            const position = this.cards.indexOf(anchorCard);
             this.cards.splice(position + 1, 0, card);
         }
     }
@@ -441,17 +441,22 @@ class ChainsForm {
         return name;
     }
 
+    generateChain(name, data) {
+        const chainSection = new ChainSection(name, data, this.info);
+        if (!data) {
+            chainSection.addEmptyCard();
+        }
+        const sectionContainer = this.wrapChain(chainSection);
+        return [chainSection, sectionContainer];
+    }
+
     addChain(name, data, anchor = null) {
         name = name || this.chooseChainName();
         if (!name) {
             return;
         }
-        const chainSection = new ChainSection(name, data, this.info);
+        const [chainSection, sectionContainer] = this.generateChain(name, data);
         this.chains[name] = chainSection;
-        if (!data) {
-            chainSection.addEmptyCard();
-        }
-        const sectionContainer = this.wrapChain(chainSection);
         this.container.insertBefore(sectionContainer, anchor || this.addButton);
     }
 
@@ -524,8 +529,10 @@ class ChainsForm {
             const name = chainSection.getName();
             const newName = this.chooseChainName(name);
             const data = chainSection.read()['name'];
-            const newChainSection = this.addChain(newName, data, chainSection.nextSibling);
-            this.chains.insertAfterValue(chainSection, newName, newChainSection);
+
+            const [newChainSection, newSectionContainer] = this.generateChain(name, data);
+            this.chains.insertAfter(name, newName, newChainSection);
+            this.container.insertBefore(newSectionContainer, chainContainer.nextSibling);
         };
         const copyButton = createButton('[⧉]', () => copyChain(), 'inline-button');
         copyButton.classList.add('delete-chain-button');

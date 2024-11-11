@@ -98,7 +98,14 @@ function addErrorPlaceholder(container, associatedInput) {
     return errorMessage;
 }
 
-function getUserInput(prompt, initialValue, containerElement, validator = (value) => {returnnull}) {
+function getUserInput(
+    prompt,
+    initialValue,
+    containerElement,
+    validator = (value) => {
+        returnnull;
+    }
+) {
     return new Promise((resolve, reject) => {
         const container = containerElement || document.body;
         const modalBackground = createElement('div', 'modal-background', container);
@@ -324,20 +331,23 @@ class OrderedDict {
         return this.data[key];
     }
 
-    insertAfter(existingName, newName, newValue) {
-        const index = this.order.indexOf(existingName);
+    insertAfter(existingKey, newKey, newValue) {
+        if (this.data.hasOwnProperty(newKey)) {
+            this.order.splice(this.order.indexOf(newKey), 1);
+            delete this.data[newKey];
+        }
+        const index = this.order.indexOf(existingKey);
         if (index !== -1) {
-            this.set(newName, newValue);
-            this.order.splice(index + 1, 0, newName);
+            this.data[newKey] = newValue;
+            this.order.splice(index + 1, 0, newKey);
+        } else {
+            this.set(newKey, newValue);
         }
     }
 
-    insertAfterValue(existingValue, newName, newValue) {
-        const index = this.order.findIndex((key) => this.data[key] === existingValue);
-        if (index !== -1) {
-            this.set(newName, newValue);
-            this.order.splice(index + 1, 0, newName);
-        }
+    insertAfterValue(existingValue, newKey, newValue) {
+        const existingKey = this.order.find((key) => this.data[key] === existingValue);
+        return this.insertAfter(existingKey, newKey, newValue);
     }
 
     move(name, steps = 1) {
