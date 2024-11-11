@@ -517,11 +517,17 @@ class ChainsForm {
             this.moveChain(chainSection, chainContainer, menuItem, forward);
         };
         const moveButton = createButton(symbol, moveChain, 'inline-button');
-        moveButton.title = forward? 'Move forward' : 'Move back';
+        moveButton.title = forward ? 'Move forward' : 'Move back';
         return moveButton;
     }
 
     moveChain(chainSection, chainContainer, menuItem, forward = true) {
+        if (chainContainer === this.container.firstChild && !forward) {
+            return;
+        }
+        if (chainContainer === this.addButton.previousSibling && forward) {
+            return;
+        }
         const step = forward ? 1 : -1;
         this.chains.move(chainSection.name, step);
         moveElement(chainContainer, forward);
