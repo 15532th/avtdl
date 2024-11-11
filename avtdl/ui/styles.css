@@ -366,7 +366,8 @@ summary .tooltip {
     border-radius: 5px;
 }
 
-.delete-entry:hover, .copy-entry:hover {
+.delete-entry:hover,
+.copy-entry:hover {
     background-color: #ccc;
 }
 

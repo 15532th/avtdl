@@ -98,7 +98,7 @@ function addErrorPlaceholder(container, associatedInput) {
     return errorMessage;
 }
 
-function getUserInput(prompt, initialValue, containerElement, validator = (value) => {}) {
+function getUserInput(prompt, initialValue, containerElement, validator = (value) => {returnnull}) {
     return new Promise((resolve, reject) => {
         const container = containerElement || document.body;
         const modalBackground = createElement('div', 'modal-background', container);
@@ -193,7 +193,7 @@ function changeElementVisibility(element, show = true) {
 }
 
 function getTimezonesList() {
-    return document.TIMEZONES || [];
+    return document['TIMEZONES'] || [];
 }
 
 function registerOnClickOutside(element, callback) {

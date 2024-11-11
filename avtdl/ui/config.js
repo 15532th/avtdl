@@ -17,12 +17,12 @@ async function fetchJSON(path, messageArea = null) {
 
 
 async function initializeTimezoneList(){
-    if (document.TIMEZONES) {
+    if (document['TIMEZONES']) {
         return;
     }
     const timezones = await fetchJSON('/timezones');
     if (timezones instanceof Array) {
-        document.TIMEZONES = timezones;
+        document['TIMEZONES'] = timezones;
     }
 }
 
