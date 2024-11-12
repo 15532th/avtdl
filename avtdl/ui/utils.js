@@ -269,28 +269,6 @@ class OrderedDict {
 
     createProxy() {
         return new Proxy(this, {
-            get: (target, prop) => {
-                const ownValue = target[prop];
-                if (ownValue) {
-                    return typeof ownValue === 'function' ? ownValue.bind(target) : ownValue;
-                }
-                // If prop is a string, use it to access data
-                if (typeof prop === 'string') {
-                    return target.get(prop);
-                }
-                // If it's a symbol, get directly from target
-                return target[prop];
-            },
-            set: (target, prop, value) => {
-                // If prop is a string, use it to set data
-                if (typeof prop === 'string') {
-                    target.set(prop, value);
-                    return true;
-                }
-                // Allow setting other properties directly
-                target[prop] = value;
-                return true;
-            },
             has: (target, prop) => {
                 // Check if the prop exists in data
                 return prop in target.data;
