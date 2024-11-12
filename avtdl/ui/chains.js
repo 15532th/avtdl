@@ -456,7 +456,7 @@ class ChainsForm {
             return;
         }
         const [chainSection, sectionContainer] = this.generateChain(name, data);
-        this.chains[name] = chainSection;
+        this.chains.set(name, chainSection);
         this.container.insertBefore(sectionContainer, anchor || this.addButton);
     }
 
@@ -504,7 +504,7 @@ class ChainsForm {
                             return;
                         }
                         delete this.chains[chainSection.name];
-                        this.chains[newName] = chainSection;
+                        this.chains.set(newName, chainSection);
                         chainSection.rename(newName);
                         menuItem.rename(newName);
                     }
@@ -535,7 +535,7 @@ class ChainsForm {
             this.container.insertBefore(newSectionContainer, chainContainer.nextSibling);
         };
         const copyButton = createButton('[⧉]', () => copyChain(), 'inline-button');
-        copyButton.classList.add('delete-chain-button');
+        copyButton.classList.add('copy-chain-button');
         copyButton.title = 'Duplicate chain';
         return copyButton;
     }
@@ -591,7 +591,7 @@ class ChainsForm {
             if (path.length >= 2) {
                 if (path[0] == 'chains') {
                     if (path[1] in this.chains) {
-                        return this.chains[path[1]].showError(path.slice(2), message);
+                        return this.chains.get(path[1]).showError(path.slice(2), message);
                     }
                 }
             }
