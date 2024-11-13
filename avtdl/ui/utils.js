@@ -103,7 +103,7 @@ function getUserInput(
     initialValue,
     containerElement,
     validator = (value) => {
-        returnnull;
+        return null;
     }
 ) {
     return new Promise((resolve, reject) => {
@@ -149,6 +149,15 @@ function getUserInput(
 
         const closeButton = createButton('×', rejectValue, 'close-button');
         modalContent.appendChild(closeButton);
+
+        modalInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === 'NumpadEnter') {
+                acceptValue();
+            }
+            else if (event.key === 'Escape') {
+                rejectValue();
+            }
+        });
 
         modalBackground.onclick = function (event) {
             if (event.target === modalBackground) {
@@ -290,12 +299,12 @@ class OrderedDict {
                     const descriptor = {
                         configurable: true,
                         enumerable: true,
-                        value: target.data[prop]
+                        value: target.data[prop],
                     };
                     console.log(descriptor);
                     return descriptor;
                 }
-                return { configurable: true, enumerable: false};
+                return { configurable: true, enumerable: false };
             },
         });
     }
@@ -316,7 +325,6 @@ class OrderedDict {
             yield [key, this.data[key]];
         }
     }
-
 
     insertAfter(existingKey, newKey, newValue) {
         if (newKey in this.data) {
