@@ -82,7 +82,11 @@ def get_schema(model: BaseModel) -> dict:
 def render_descriptions(schema) -> None:
     if isinstance(schema, dict):
         if 'description' in schema:
-            schema['description'] = info.render_markdown(schema['description'])
+            text = schema['description']
+            if isinstance(text, str) and len(text) > 0:
+                end = '' if text[-1] in '.?!,' else '.'
+                text = text[0].upper() + text[1:] + end
+            schema['description'] = info.render_markdown(text)
         else:
             for subschema in schema.values():
                 render_descriptions(subschema)
