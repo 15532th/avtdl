@@ -163,6 +163,7 @@ class WebUI:
 
     async def settings_schema(self, request: web.Request) -> web.Response:
         schema = self.settings.model_json_schema(mode='serialization')
+        render_descriptions(schema)
         return web.json_response(schema, dumps=json_dumps)
 
     async def show_config(self, request):
