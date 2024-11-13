@@ -225,6 +225,7 @@ class ChainSection {
     constructor(name, data, info) {
         this.name = name;
         this.info = info;
+        this._menu = null;
         this.container = createFieldset(name);
         this.container.classList.add('chain-section');
 
@@ -239,6 +240,14 @@ class ChainSection {
 
     isEmpty() {
         return !this.name || !this.cards;
+    }
+
+    getMenu() {
+        return this._menu;
+    }
+
+    setMenu(menuItem) {
+        this._menu = menuItem;
     }
 
     getName() {
@@ -443,7 +452,7 @@ class ChainsForm {
 
     generateChain(name, data) {
         const chainSection = new ChainSection(name, data, this.info);
-        if (!data) {
+        if (!data || data.length == 0) {
             chainSection.addEmptyCard();
         }
         const sectionContainer = this.wrapChain(chainSection);
@@ -463,6 +472,7 @@ class ChainsForm {
     wrapChain(chainSection) {
         const menuItem = new MenuItem(chainSection.name, this.menu);
         menuItem.registerScrollHandler(chainSection.getElement());
+        chainSection.setMenu(menuItem);
 
         const chainContainer = document.createElement('div');
         chainContainer.className = 'chain';
@@ -533,6 +543,12 @@ class ChainsForm {
             const [newChainSection, newChainContainer] = this.generateChain(newName, data);
             this.chains.insertAfter(name, newName, newChainSection);
             this.container.insertBefore(newChainContainer, chainContainer.nextSibling);
+
+            const existingMenuElement = menuItem.getElement()
+            const menuContainer = existingMenuElement.parentNode;
+            const newMenuElement = newChainSection.getMenu().getElement();
+            menuContainer.removeChild(newMenuElement);
+            menuContainer.insertBefore(newMenuElement, existingMenuElement.nextSibling)
         };
         const copyButton = createButton('[⧉]', () => copyChain(), 'inline-button');
         copyButton.classList.add('copy-chain-button');
@@ -566,10 +582,6 @@ class ChainsForm {
         this.container.removeChild(chainContainer);
         delete this.chains[chainSection.name];
         menuItem.remove();
-    }
-
-    duplicateChain(chainSection) {
-        const data = chainSection.read();
     }
 
     getElement() {
