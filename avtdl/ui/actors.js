@@ -6,6 +6,7 @@ class EntitiesList {
         this.container.classList.add('editable-list');
 
         this.addButton = createButton('[Add]', () => this.addEntry(), 'add-button');
+        this.addButton.title = 'Add new entity';
         this.container.appendChild(this.addButton);
     }
 

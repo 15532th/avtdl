@@ -15,8 +15,7 @@ async function fetchJSON(path, messageArea) {
     }
 }
 
-
-async function initializeTimezoneList(){
+async function initializeTimezoneList() {
     if (document['TIMEZONES']) {
         return;
     }
@@ -236,14 +235,17 @@ class ConfigEditor {
         this.container.appendChild(actionBar);
 
         const checkButton = createButton('Check', this.makeSaveConfigCallback('check'), 'action-button');
+        checkButton.title = 'Validate changes without applying them';
         actionBar.appendChild(checkButton);
         const saveButton = createButton('Save Changes', this.makeSaveConfigCallback('store'), 'action-button');
         actionBar.appendChild(saveButton);
+        saveButton.title = 'Save changes in the configuration file without restarting avtdl';
         const reloadButton = createButton(
             'Save Changes and Reload',
             this.makeSaveConfigCallback('reload'),
             'action-button'
         );
+        reloadButton.title = 'Save changes and restart avtdl';
         actionBar.appendChild(reloadButton);
     }
 

@@ -148,6 +148,7 @@ function getUserInput(
         };
 
         const closeButton = createButton('×', rejectValue, 'close-button');
+        closeButton.title = 'Cancel';
         modalContent.appendChild(closeButton);
 
         modalInput.addEventListener('keydown', function (event) {

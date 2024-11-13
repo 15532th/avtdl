@@ -24,6 +24,7 @@ class ChainCard {
         this.itemsContainer = createElement('div', 'card-items', this.container);
 
         const addItemButton = createButton('[+]', () => this.addItem(), 'add-card-item-button');
+        addItemButton.title = 'Insert empty line';
         this.container.appendChild(addItemButton);
 
         this.parentContainer.appendChild(this.container);
@@ -87,7 +88,7 @@ class ChainCard {
             },
             'inline-button'
         );
-        definitionButton.title = 'go to entity definition';
+        definitionButton.title = 'Go to entity definition';
         itemContainer.appendChild(definitionButton);
 
         if (value !== null) {
@@ -276,7 +277,7 @@ class ChainSection {
             'card-button'
         );
         addButton.classList.add('add-card-button');
-        addButton.title = 'insert new empty card after this one';
+        addButton.title = 'Insert new empty card after this one';
         return addButton;
     }
 
@@ -308,6 +309,7 @@ class ChainSection {
             },
             'card-button'
         );
+        deleteButton.title = 'Delete card';
         cardControls.appendChild(deleteButton);
 
         const backwardsButton = createButton(
@@ -317,7 +319,7 @@ class ChainSection {
             },
             'card-button'
         );
-        backwardsButton.title = 'move up';
+        backwardsButton.title = 'Move up';
         cardControls.appendChild(backwardsButton);
 
         const forwardButton = createButton(
@@ -327,7 +329,7 @@ class ChainSection {
             },
             'card-button'
         );
-        forwardButton.title = 'move down';
+        forwardButton.title = 'Move down';
         cardControls.appendChild(forwardButton);
 
         const addButton = this.makeAddButton(card);
@@ -435,6 +437,7 @@ class ChainsForm {
             'add-chain-button'
         );
         this.addButton.classList.add('add-button');
+        this.addButton.title = 'Add new chain';
         this.container.appendChild(this.addButton);
     }
 
@@ -544,11 +547,11 @@ class ChainsForm {
             this.chains.insertAfter(name, newName, newChainSection);
             this.container.insertBefore(newChainContainer, chainContainer.nextSibling);
 
-            const existingMenuElement = menuItem.getElement()
+            const existingMenuElement = menuItem.getElement();
             const menuContainer = existingMenuElement.parentNode;
             const newMenuElement = newChainSection.getMenu().getElement();
             menuContainer.removeChild(newMenuElement);
-            menuContainer.insertBefore(newMenuElement, existingMenuElement.nextSibling)
+            menuContainer.insertBefore(newMenuElement, existingMenuElement.nextSibling);
         };
         const copyButton = createButton('[⧉]', () => copyChain(), 'inline-button');
         copyButton.classList.add('copy-chain-button');

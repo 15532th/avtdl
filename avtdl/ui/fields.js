@@ -163,6 +163,7 @@ class DictionaryInputField {
 
         addErrorPlaceholder(this.fieldContainer);
         this.addButton = createButton('[+]', () => this.generateKeyValuePair('', '', this.schema), 'add-button');
+        this.addButton.title = 'Add new empty pair';
         this.fieldContainer.appendChild(this.addButton);
 
         if (schema.default) {
@@ -199,6 +200,7 @@ class DictionaryInputField {
         fieldDiv.appendChild(valueInput);
 
         const deleteButton = createButton('[×]', () => this.deleteEntry(fieldDiv), 'delete-field');
+        deleteButton.title = 'Delete';
         fieldDiv.appendChild(deleteButton);
 
         addErrorPlaceholder(fieldDiv, valueInput);
@@ -277,6 +279,7 @@ class ArrayInputField {
 
         addErrorPlaceholder(this.fieldContainer);
         this.addButton = createButton('[+]', () => this.generateArrayItem('', this.schema), 'add-button');
+        this.addButton.title = 'Add new empty item';
         this.fieldContainer.appendChild(this.addButton);
 
         if (schema.default) {
@@ -306,6 +309,7 @@ class ArrayInputField {
         fieldDiv.appendChild(valueInput);
 
         const deleteButton = createButton('[×]', () => this.deleteEntry(fieldDiv), 'delete-field');
+        deleteButton.title = 'Delete';
         fieldDiv.appendChild(deleteButton);
 
         addErrorPlaceholder(fieldDiv, valueInput);
