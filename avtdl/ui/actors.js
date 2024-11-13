@@ -120,7 +120,7 @@ class EntitiesList {
 }
 
 class ActorSection {
-    constructor(name, data, info, type, configSchema, entitiesSchema) {
+    constructor(name, data, info, type, configSchema, entitiesSchema, parentMenu) {
         this.name = name;
         this.info = info;
         this.type = type;
@@ -140,6 +140,9 @@ class ActorSection {
 
         this.config = this.generateConfig(data);
         this.entities = this.generateEntities(data);
+
+        this.menu = new MenuItem(name, parentMenu);
+        this.menu.registerScrollHandler(this.container);
     }
 
     extendName(name, description) {
@@ -235,38 +238,38 @@ class ActorsForm {
         this.menu = menu;
         this.actorSections = {};
         const subcategories = {};
+        this.subcategoriesMenu = {};
 
         for (const [name, actorModel] of Object.entries(actorsModel)) {
             const actorData = data[name] || {};
+            const actorType = actorModel.type;
+            if (!subcategories[actorModel.type]) {
+                subcategories[actorModel.type] = {};
+
+                const header = this.getSubcategoryHeader(actorType);
+                this.container.appendChild(header);
+
+                const submenu = new MenuItem(actorType, this.menu);
+                submenu.getElement().classList.add(getActorTypeBgClass(actorType));
+                submenu.registerScrollHandler(header);
+                this.subcategoriesMenu[actorType] = submenu;
+            }
+
             const actorSection = new ActorSection(
                 name,
                 actorData,
                 actorModel.description,
-                actorModel.type,
+                actorType,
                 flattenSchema(actorModel.config_schema),
-                flattenSchema(actorModel.entity_schema)
+                flattenSchema(actorModel.entity_schema),
+                this.subcategoriesMenu[actorType]
             );
-            if (!subcategories[actorModel.type]) {
-                subcategories[actorModel.type] = {};
-            }
-            subcategories[actorModel.type][name] = actorSection;
+            subcategories[actorType][name] = actorSection;
             this.actorSections[name] = actorSection;
+
+            this.container.appendChild(actorSection.getElement());
         }
-        for (const [type, group] of Object.entries(subcategories)) {
-            const header = this.getSubcategoryHeader(type);
-            this.container.appendChild(header);
 
-            const submenu = new MenuItem(type, this.menu);
-            submenu.getElement().classList.add(getActorTypeBgClass(type));
-            submenu.registerScrollHandler(header);
-
-            for (const [name, section] of Object.entries(group)) {
-                this.container.appendChild(section.getElement());
-
-                const sectionItem = new MenuItem(name, submenu);
-                sectionItem.registerScrollHandler(section.getElement());
-            }
-        }
     }
 
     getSubcategoryHeader(type) {
