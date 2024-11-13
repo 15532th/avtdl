@@ -41,7 +41,7 @@ function generateInput(schema) {
                 }
             } else {
                 inputField = document.createElement('input');
-                inputField.type = 'text'; // Text input for strings
+                inputField.type = 'text';
                 if (schema.default) {
                     inputField.value = schema.default;
                 }
@@ -49,9 +49,9 @@ function generateInput(schema) {
             break;
 
         case 'integer':
-            // Handle integer inputs
+        case 'number':
             inputField = document.createElement('input');
-            inputField.type = 'number'; // Number input for integers
+            inputField.type = 'number';
             if (schema.default) {
                 inputField.value = schema.default;
             }
@@ -60,7 +60,7 @@ function generateInput(schema) {
         case 'boolean':
             // Handle boolean inputs
             inputField = document.createElement('input');
-            inputField.type = 'checkbox'; // Checkbox for booleans
+            inputField.type = 'checkbox';
             if (schema.default) {
                 inputField.checked = Boolean(schema.default);
             }
