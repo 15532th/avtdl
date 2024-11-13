@@ -287,13 +287,15 @@ class OrderedDict {
             },
             getOwnPropertyDescriptor: (target, prop) => {
                 if (prop in target.data) {
-                    return {
+                    const descriptor = {
                         configurable: true,
                         enumerable: true,
-                        value: target.data[prop],
+                        value: target.data[prop]
                     };
+                    console.log(descriptor);
+                    return descriptor;
                 }
-                return { configurable: true, enumerable: false };
+                return { configurable: true, enumerable: false};
             },
         });
     }
@@ -309,8 +311,15 @@ class OrderedDict {
         return this.data[key];
     }
 
+    *[Symbol.iterator]() {
+        for (const key of this.order) {
+            yield [key, this.data[key]];
+        }
+    }
+
+
     insertAfter(existingKey, newKey, newValue) {
-        if (this.data.hasOwnProperty(newKey)) {
+        if (newKey in this.data) {
             this.order.splice(this.order.indexOf(newKey), 1);
             delete this.data[newKey];
         }

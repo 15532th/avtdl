@@ -472,7 +472,7 @@ class ChainsForm {
         const renameButton = this.makeRenameButton(chainSection, menuItem);
         legend.appendChild(renameButton);
 
-        const copyButton = this.makeCopyButton(chainSection, menuItem);
+        const copyButton = this.makeCopyButton(chainSection, chainContainer, menuItem);
         legend.appendChild(copyButton);
 
         const leftButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '[⇦', false);
@@ -528,11 +528,11 @@ class ChainsForm {
         const copyChain = () => {
             const name = chainSection.getName();
             const newName = this.chooseChainName(name);
-            const data = chainSection.read()['name'];
+            const data = chainSection.read()[name];
 
-            const [newChainSection, newSectionContainer] = this.generateChain(name, data);
+            const [newChainSection, newChainContainer] = this.generateChain(newName, data);
             this.chains.insertAfter(name, newName, newChainSection);
-            this.container.insertBefore(newSectionContainer, chainContainer.nextSibling);
+            this.container.insertBefore(newChainContainer, chainContainer.nextSibling);
         };
         const copyButton = createButton('[⧉]', () => copyChain(), 'inline-button');
         copyButton.classList.add('copy-chain-button');
@@ -578,7 +578,7 @@ class ChainsForm {
 
     read() {
         let data = {};
-        for (const [name, chain] of Object.entries(this.chains)) {
+        for (const [name, chain] of this.chains) {
             if (!chain.isEmpty()) {
                 data = { ...data, ...chain.read() };
             }
