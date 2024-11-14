@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from pydantic import Field, field_serializer, field_validator
+from pydantic import Field, field_validator
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, TextRecord
@@ -30,9 +30,9 @@ class FileMonitorEntity(TaskMonitorEntity):
     """how often the monitored file should be checked, in seconds"""
     split_lines: bool = False
     """split text into multiple records according to "record_start" and "record_end" patterns. If disabled, a single record with entire text will be produced"""
-    record_start: str = Field(default='^', validate_default=True)
+    record_start: str = '^'
     """regular expression marking beginning of the record in the text, used when "split_lines" enabled"""
-    record_end: str = Field(default='$', validate_default=True)
+    record_end: str = '$'
     """regular expression marking the end of the record in the text, used when "split_lines" enabled"""
     follow: bool = False
     """remember current position in the file and only read lines below it on consequent update"""
@@ -64,16 +64,13 @@ class FileMonitorEntity(TaskMonitorEntity):
 
     @field_validator('record_start', 'record_end')
     @classmethod
-    def check_regexp(cls, pattern: str) -> re.Pattern:
+    def check_regexp(cls, pattern: str) -> str:
         try:
-            return re.compile(pattern, re.MULTILINE)
+            re.compile(pattern, re.MULTILINE)
+            return pattern
         except re.error as e:
             raise ValueError(f'invalid regular expression "{pattern}": {e}')
 
-    @field_serializer('record_start', 'record_end')
-    @classmethod
-    def serialize_regexp(cls, pattern: re.Pattern) -> str:
-        return pattern.pattern
 
     def __post_init__(self):
         self.base_update_interval = self.update_interval
@@ -190,13 +187,13 @@ class FileMonitor(TaskMonitor):
         while True:
             if position >= len(text):
                 break
-            start_match = re.search(entity.record_start, text[position:])
+            start_match = re.search(entity.record_start, text[position:], re.MULTILINE)
             if start_match is None:
                 # no more records in the rest of text
                 break
             start = position + start_match.start()
             middle = position + start_match.end()
-            end_match = re.search(entity.record_end, text[middle:])
+            end_match = re.search(entity.record_end, text[middle:], re.MULTILINE)
             if end_match is None:
                 # text ended mid-record, store it in the buffer
                 entity.text_buffer = text[start:]
