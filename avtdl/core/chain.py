@@ -7,14 +7,33 @@ from pydantic import RootModel, field_validator
 from avtdl.core.interfaces import MessageBus, Record
 
 
+class CardSection(RootModel):
+    """Single element of Chain"""
+    root: OrderedDict[str, List[str]]
+
+    def get_item(self) -> tuple[str, list[str]]:
+        return self.root.copy().popitem()
+
+    @field_validator('root')
+    @classmethod
+    def check_card(cls, root):
+        if len(root) != 1:
+            raise ValueError(f'card must list exactly 1 actor, got {len(root)}')
+        actor_name = list(root.keys())[0]
+        entities_names = root[actor_name]
+        if len(entities_names) < 1:
+            raise ValueError(f'{actor_name}: should list at least one entity name')
+        return root
+
+
 class ChainConfigSection(RootModel):
 
-    root: List[OrderedDict[str, List[str]]]
+    root: List[CardSection]
 
     def __iter__(self):
-        for item in self.root:
+        for card in self.root:
             try:
-                yield item.copy().popitem()
+                yield card.get_item()
             except KeyError:
                 continue
 
@@ -24,8 +43,8 @@ class ChainConfigSection(RootModel):
     def __getitem__(self, item):
         value = self.root.__getitem__(item)
         if isinstance(value, list):
-            return [x.copy().popitem() for x in value if x]
-        return value.copy().popitem()
+            return [card.get_item() for card in value if card]
+        return value.get_item()
 
     @field_validator('root')
     @classmethod
