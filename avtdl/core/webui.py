@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from avtdl.core import info
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
-from avtdl.core.info import get_plugin_type
+from avtdl.core.info import get_known_plugins, get_plugin_type
 from avtdl.core.interfaces import Actor
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import strip_text
@@ -46,24 +46,6 @@ def json_dumps(obj):
         raise TypeError(f'Object of type {o.__class__.__name__} is not JSON serializable')
 
     return json.dumps(obj, default=default)
-
-
-def get_known_plugins() -> List[str]:
-    plugins_by_type: Dict[str, List[str]] = {
-        'Monitors': [],
-        'Filters': [],
-        'Actions': [],
-        'Other': []
-    }
-    for name, plugin in Plugins.known[Plugins.kind.ACTOR].items():
-        plugin_type = get_plugin_type(name)
-        if plugin_type not in plugins_by_type:
-            plugin_type = 'Other'
-        plugins_by_type[plugin_type].append(name)
-    plugins = []
-    for plugin_list in plugins_by_type.values():
-        plugins.extend(plugin_list)
-    return plugins
 
 
 def get_actor_description(name: str) -> str:

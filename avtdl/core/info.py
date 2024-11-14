@@ -2,7 +2,7 @@ import datetime
 import re
 import textwrap
 from enum import Enum
-from typing import List, Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union
 
 import markdown
 from markdown.extensions.toc import TocExtension
@@ -105,11 +105,6 @@ COLLAPSIBLE_ITEM_TEMPLATE = '''
 
 </details>
 '''
-
-
-def load_plugins():
-    if not Plugins.known[Plugins.kind.ACTOR]:
-        Plugins.load()
 
 
 def get_plugin_info(plugin_name: str) -> str:
@@ -258,7 +253,7 @@ def render_plugins_descriptions() -> str:
     """load available plugins and generate a help file in markdown from docstrings"""
     SEPARATOR = '\n---\n'
 
-    load_plugins()
+    Plugins.load()
     monitors = get_plugins_descriptions(Monitor)
     filters = get_plugins_descriptions(Filter)
     actions = get_plugins_descriptions(Action)
@@ -292,7 +287,7 @@ def generate_version_string() -> str:
         from avtdl._version import __version__
     except ModuleNotFoundError:
         __version__ = '[unknown version]'
-    load_plugins()
+    Plugins.load()
     version = f'avtdl {__version__} with plugins:'
     known_plugins = ', '.join([name for name in Plugins.known[Plugins.kind.ACTOR].keys()])
     known_plugins = textwrap.fill(known_plugins, initial_indent='    ', subsequent_indent='    ')
@@ -350,3 +345,20 @@ class TOC:
        result = target_text.replace(toc_marker, toc)
        return result
 
+
+def get_known_plugins() -> List[str]:
+    plugins_by_type: Dict[str, List[str]] = {
+        'Monitors': [],
+        'Filters': [],
+        'Actions': [],
+        'Other': []
+    }
+    for name, plugin in Plugins.known[Plugins.kind.ACTOR].items():
+        plugin_type = get_plugin_type(name)
+        if plugin_type not in plugins_by_type:
+            plugin_type = 'Other'
+        plugins_by_type[plugin_type].append(name)
+    plugins = []
+    for plugin_list in plugins_by_type.values():
+        plugins.extend(plugin_list)
+    return plugins

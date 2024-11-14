@@ -17,6 +17,7 @@ class Plugins:
 
     known: Dict[kind, Dict[str, Any]] = {k: {} for k in kind}
     logger = logging.getLogger('plugins')
+    _loaded: bool = False
 
     @classmethod
     def _register(cls, name: str, kind: kind, factory: Callable):
@@ -58,6 +59,8 @@ class Plugins:
 
     @classmethod
     def load(cls):
+        if cls._loaded:
+            return
         from avtdl import plugins
         for item in Path(plugins.__file__).parent.glob('*'):
             if item.stem.startswith('__'):
@@ -72,3 +75,4 @@ class Plugins:
                 continue
             else:
                 cls.logger.info('from {} loaded {}'.format(module_name, ', '.join(m.__all__)))
+        cls._loaded = True
