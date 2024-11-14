@@ -18,7 +18,7 @@ class InputField {
     }
 
     read() {
-        return readInput(this.fieldContainer, this.schema.default);
+        return readInput(this.fieldContainer, this.schema);
     }
 
     getElement() {
@@ -237,7 +237,7 @@ class DictionaryInputField {
             const valueInput = fieldDiv.querySelector('.value-field');
 
             const key = readInput(keyInput);
-            const value = readInput(valueInput, this.schema.default);
+            const value = readInput(valueInput, this.schema);
             if (key || data) {
                 data[key] = value;
             }
@@ -346,7 +346,7 @@ class ArrayInputField {
         const data = [];
         for (const fieldDiv of this.entries) {
             const valueInput = fieldDiv.querySelector('.value-field');
-            const value = readInput(valueInput, this.schema.default);
+            const value = readInput(valueInput, this.schema);
             if (value !== null) {
                 data.push(value);
             }

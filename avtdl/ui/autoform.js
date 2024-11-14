@@ -106,15 +106,15 @@ function fillInput(fieldContainer, value) {
     }
 }
 
-function readInput(fieldContainer, defaultValue) {
+function readInput(fieldContainer, schema) {
     let value;
     const inputField = selectInput(fieldContainer) || fieldContainer;
     switch (inputField.type) {
         case 'checkbox':
-            value = inputField.checked; // Return boolean value
+            value = inputField.checked;
             break;
         case 'number':
-            value = Number(inputField.value); // Convert to number
+            value = Number(inputField.value);
             break;
         case 'string':
         case 'select-one':
@@ -125,6 +125,7 @@ function readInput(fieldContainer, defaultValue) {
                 value = inputField.value; // Return string value
             }
     }
+    const defaultValue = schema && schema.default;
     if (value === null && defaultValue !== undefined) {
         return defaultValue;
     } else {
