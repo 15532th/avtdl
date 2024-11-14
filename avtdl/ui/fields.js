@@ -3,24 +3,10 @@ class InputField {
         this.propertyName = propertyName; // Store the property name
         this.schema = schema;
         this.fieldContainer = generateField(this.propertyName, this.schema);
-        this.addRequiredCheck();
     }
 
     isRequired() {
         return this.schema.required;
-    }
-
-    addRequiredCheck() {
-        if (!this.isRequired()) {
-            return;
-        }
-        const input = selectInput(this.fieldContainer);
-        input.addEventListener('focusout', () => {
-            console.log('focusout');
-            if (!input.value) {
-                this.showError([], 'field is required');
-            }
-        });
     }
 
     getDefault() {
