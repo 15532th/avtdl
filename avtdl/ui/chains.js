@@ -78,7 +78,7 @@ class ChainCard {
             },
             'inline-button'
         );
-        deleteButton.title = 'remove line';
+        deleteButton.title = 'Remove line';
         itemContainer.appendChild(deleteButton);
 
         const definitionButton = createButton(
