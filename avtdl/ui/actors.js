@@ -1,9 +1,10 @@
 class EntitiesList {
-    constructor(schema, container = null) {
+    constructor(schema, container = null, parentMenu) {
         this.schema = schema;
         this.entries = [];
         this.container = container || document.createElement('div');
         this.container.classList.add('editable-list');
+        this.menu = parentMenu;
 
         this.addButton = createButton('[Add]', () => this.addEntry(), 'add-button');
         this.addButton.title = 'Add new entity';
@@ -138,11 +139,12 @@ class ActorSection {
         this.container = createDetails(name, info, headline);
         this.container.className = 'actor';
 
-        this.config = this.generateConfig(data);
-        this.entities = this.generateEntities(data);
-
-        this.menu = new MenuItem(name, parentMenu);
+        this.menu = new MenuItem(name, parentMenu)
+        this.menu.showSubmenuCount(true);
         this.menu.registerScrollHandler(this.container);
+
+        this.config = this.generateConfig(data);
+        this.entities = this.generateEntities(data, this.menu);
     }
 
     extendName(name, description) {
@@ -178,10 +180,10 @@ class ActorSection {
         return config;
     }
 
-    generateEntities(data) {
+    generateEntities(data, menu) {
         const entitiesFieldset = createFieldset('entities');
         entitiesFieldset.classList.add('entities');
-        const entitiesList = new EntitiesList(this.entitiesSchema, entitiesFieldset);
+        const entitiesList = new EntitiesList(this.entitiesSchema, entitiesFieldset, menu);
         this.container.appendChild(entitiesFieldset);
 
         if (data.entities) {
@@ -269,7 +271,6 @@ class ActorsForm {
 
             this.container.appendChild(actorSection.getElement());
         }
-
     }
 
     getSubcategoryHeader(type) {
