@@ -446,4 +446,12 @@ class ActorsInfo {
             cb(actorName, oldName, newName);
         }
     };
+
+    addCrossReference(actorName, entityName, card) {
+        console.log('TODO add crossreference', actorName, entityName, card.read());
+    }
+
+    removeCrossReference(actorName, entityName, card) {
+        console.log('TODO remove crossreference', actorName, entityName, card.read());
+    }
 }

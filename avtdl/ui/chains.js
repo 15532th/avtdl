@@ -190,17 +190,18 @@ class ChainCard {
             return;
         }
         const data = this.readItems();
-        const index = data.indexOf(oldName);
-        if (index > -1) {
-            if (newName !== null) {
-                //entity got renamed
-                data.splice(index, 1, newName);
-            } else if (newName === null) {
-                // entity got deleted
-                data.splice(index, 1);
+        const updatedData = [];
+        for (const entityName of data) {
+            if (entityName == oldName) {
+                if (newName !== null) {
+                    //entity got renamed
+                    updatedData.push(newName);
+                }
+            } else {
+                updatedData.push(entityName);
             }
         }
-        this.fill({ header: actorName, items: data });
+        this.fill({ header: actorName, items: updatedData });
     }
 
     readItems() {
