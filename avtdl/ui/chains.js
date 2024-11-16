@@ -19,6 +19,10 @@ class ChainCard {
             this.renderForHeader(this.headerSelect.value);
         };
 
+        info.registerOnEntityChangeChangeHandler((actorName, oldName, NewName) => {
+            this.handleEntityChange(actorName, oldName, NewName);
+        });
+
         this.headerTooltip = null;
 
         this.itemsContainer = createElement('div', 'card-items', this.container);
@@ -31,6 +35,7 @@ class ChainCard {
     }
 
     populateFlatDropdown(selectElement, values) {
+        const selectedValue = selectElement.value;
         selectElement.innerHTML = '';
         values.forEach((value) => {
             const option = document.createElement('option');
@@ -38,6 +43,7 @@ class ChainCard {
             option.textContent = value;
             selectElement.appendChild(option);
         });
+        selectElement.value = selectedValue;
     }
 
     populateNestedDropdown(selectElement, values) {
@@ -179,6 +185,24 @@ class ChainCard {
         }
     }
 
+    handleEntityChange(actorName, oldName, newName) {
+        if (actorName != this.getActorName()) {
+            return;
+        }
+        const data = this.readItems();
+        const index = data.indexOf(oldName);
+        if (index > -1) {
+            if (newName !== null) {
+                //entity got renamed
+                data.splice(index, 1, newName);
+            } else if (newName === null) {
+                // entity got deleted
+                data.splice(index, 1);
+            }
+        }
+        this.fill({ header: actorName, items: data });
+    }
+
     readItems() {
         const items = [];
         const itemsSelectors = this.itemsContainer.querySelectorAll('select');
@@ -204,6 +228,10 @@ class ChainCard {
         data.items.forEach((item) => {
             this.addItem(item);
         });
+    }
+
+    getActorName() {
+        return this.headerSelect.value || null;
     }
 
     isEmpty() {

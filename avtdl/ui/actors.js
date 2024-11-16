@@ -1,10 +1,11 @@
 class EntitiesList {
-    constructor(schema, container = null, parentMenu) {
+    constructor(schema, container = null, parentMenu, onEntityChange = (oldName, newName) => {}) {
         this.schema = schema;
         this.entries = [];
         this.container = container || document.createElement('div');
         this.container.classList.add('editable-list');
         this.menu = parentMenu;
+        this.onEntityChange = onEntityChange;
 
         this.addButton = createButton('[Add]', () => this.addEntry(), 'add-button');
         this.addButton.title = 'Add new entity';
@@ -22,6 +23,7 @@ class EntitiesList {
         const entity = new Fieldset(this.schema);
         if (data) {
             entity.fill(data);
+            this.onEntityChange(null, entity.getName());
         }
         entryDiv.appendChild(entity.getElement());
 
@@ -33,8 +35,8 @@ class EntitiesList {
         deleteButton.title = 'Delete entity';
         entryDiv.appendChild(deleteButton);
 
-        entity.registerNameChangeCallback((newName, nameField) => {
-            this.handleNameUpdate(newName, nameField);
+        entity.registerNameChangeCallback((oldName, newName, nameField) => {
+            this.handleNameUpdate(oldName, newName, nameField);
         });
         return [entity, entryDiv];
     }
@@ -60,6 +62,7 @@ class EntitiesList {
     deleteEntry(entry, entryDiv) {
         this.container.removeChild(entryDiv);
         this.entries = this.entries.filter((x) => x !== entry);
+        this.onEntityChange(entry.getName(), null);
     }
 
     getElement() {
@@ -74,11 +77,11 @@ class EntitiesList {
         return names;
     }
 
-    handleNameUpdate(name, nameField) {
+    handleNameUpdate(oldName, newName, nameField) {
         const sameNameEntries = [];
         for (const entry of this.entries) {
             entry.showError(['name'], ''); // clear error by setting empty error message
-            if (name == entry.getName()) {
+            if (newName == entry.getName()) {
                 sameNameEntries.push(entry);
             }
         }
@@ -87,6 +90,7 @@ class EntitiesList {
                 entry.showError(['name'], 'name used more than once');
             });
         }
+        this.onEntityChange(oldName, newName);
     }
 
     getEntry(entryName) {
@@ -121,7 +125,7 @@ class EntitiesList {
 }
 
 class ActorSection {
-    constructor(name, data, info, type, configSchema, entitiesSchema, parentMenu) {
+    constructor(name, data, info, type, configSchema, entitiesSchema, parentMenu, onEntityChange) {
         this.name = name;
         this.info = info;
         this.type = type;
@@ -139,13 +143,19 @@ class ActorSection {
         this.container = createDetails(name, info, headline);
         this.container.className = 'actor';
 
-        this.menu = new MenuItem(name, parentMenu)
+        this.menu = new MenuItem(name, parentMenu);
         this.menu.showSubmenuCount(true);
         this.menu.registerScrollHandler(this.container);
+
+        this.onAnyEntityChange = onEntityChange || function (actorName, oldName, newName) {};
 
         this.config = this.generateConfig(data);
         this.entities = this.generateEntities(data, this.menu);
     }
+
+    onEntityChange = (oldName, newName) => {
+        this.onAnyEntityChange(this.name, oldName, newName);
+    };
 
     extendName(name, description) {
         let tempDiv = document.createElement('div');
@@ -183,7 +193,7 @@ class ActorSection {
     generateEntities(data, menu) {
         const entitiesFieldset = createFieldset('entities');
         entitiesFieldset.classList.add('entities');
-        const entitiesList = new EntitiesList(this.entitiesSchema, entitiesFieldset, menu);
+        const entitiesList = new EntitiesList(this.entitiesSchema, entitiesFieldset, menu, this.onEntityChange);
         this.container.appendChild(entitiesFieldset);
 
         if (data.entities) {
@@ -241,6 +251,7 @@ class ActorsForm {
         this.actorSections = {};
         const subcategories = {};
         this.subcategoriesMenu = {};
+        this.onEntityChangeCallbacks = [];
 
         for (const [name, actorModel] of Object.entries(actorsModel)) {
             const actorData = data[name] || {};
@@ -264,7 +275,8 @@ class ActorsForm {
                 actorType,
                 flattenSchema(actorModel.config_schema),
                 flattenSchema(actorModel.entity_schema),
-                this.subcategoriesMenu[actorType]
+                this.subcategoriesMenu[actorType],
+                this.onEntityChange
             );
             subcategories[actorType][name] = actorSection;
             this.actorSections[name] = actorSection;
@@ -280,6 +292,16 @@ class ActorsForm {
         header.classList.add(getActorTypeBgClass(type));
         return header;
     }
+
+    registerOnEntityChangeChangeHandler(callback = (actorName, oldName, newName) => {}) {
+        this.onEntityChangeCallbacks.push(callback);
+    }
+
+    onEntityChange = (actorName, oldName, newName) => {
+        for (const cb of this.onEntityChangeCallbacks) {
+            cb(actorName, oldName, newName);
+        }
+    };
 
     listActors() {
         const names = [];
@@ -324,6 +346,9 @@ class ActorsInfo {
         this.form = actorsForm;
         this._names = this.form.listActors();
         this._types = this._generateTypes();
+
+        this._onEntityChangeCallbacks = [];
+        this.form.registerOnEntityChangeChangeHandler(this.onEntityChange);
     }
     listActors() {
         return this._names;
@@ -411,4 +436,14 @@ class ActorsInfo {
     getResetOrigin(actorName, entityName) {
         return this.getEntityProperty(actorName, entityName, 'reset_origin');
     }
+
+    registerOnEntityChangeChangeHandler(callback = (actorName, oldName, newName) => {}) {
+        this._onEntityChangeCallbacks.push(callback);
+    }
+
+    onEntityChange = (actorName, oldName, newName) => {
+        for (const cb of this._onEntityChangeCallbacks) {
+            cb(actorName, oldName, newName);
+        }
+    };
 }

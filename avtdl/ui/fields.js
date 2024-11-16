@@ -386,6 +386,7 @@ class Fieldset {
 
         this.nameField = null;
         this.nameInput = null;
+        this.oldName = null;
         this.separatorToggler = (newState) => {};
         this.generateFieldsInputs(this.fieldset);
     }
@@ -477,15 +478,14 @@ class Fieldset {
     }
 
     registerNameChangeCallback(callback) {
-        if (!this.nameInput) {
-            return;
-        }
         this.nameInput.addEventListener('input', (event) => {
             const value = event.target.value;
             if (!value) {
                 return;
             }
-            callback(value, this.nameField);
+            callback(this.oldName, value, this.nameField);
+
+            this.oldName = value;
         });
     }
 
@@ -500,6 +500,7 @@ class Fieldset {
                 }
             }
         }
+        this.oldName = this.getName();
     }
 
     // Method to read current values of input fields and return them as an object
