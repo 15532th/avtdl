@@ -589,7 +589,7 @@ def increment_postfix(path: Union[str, Path], maxdepth):
         return
     increment_postfix(next_path, maxdepth)
     logging.getLogger('rotate').info(f'moving {path} to {next_path}')
-    path.rename(next_path)
+    path.replace(next_path)
 
 
 def sha1(text: str) -> str:
