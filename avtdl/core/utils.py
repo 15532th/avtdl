@@ -563,6 +563,35 @@ def read_file(path: Union[str, Path], encoding=None) -> str:
         return text
 
 
+def write_file(path: Union[str, Path], content: str, encoding='utf8', backups: int = 0):
+    if backups > 0:
+        rotate_file(path, depth=backups)
+    with open(path, 'wt', encoding=encoding) as fp:
+        fp.write(content)
+
+
+def rotate_file(path: Union[str, Path], depth: int = 10):
+    """Move "path" to "path.1", "path.1" to "path.2" and so on down to depth parameter"""
+    increment_postfix(path, depth)
+
+
+def increment_postfix(path: Union[str, Path], maxdepth):
+    path = Path(path)
+    if not path.exists():
+        return
+    if re.match('\.(\d|[1-9]\d+)$', path.suffix):
+        index = int(path.suffix.strip('.'))
+        next_path = path.with_suffix(f'.{index + 1}')
+    else:
+        index = 0
+        next_path = path.with_suffix(path.suffix + '.0')
+    if index >= maxdepth:
+        return
+    increment_postfix(next_path, maxdepth)
+    logging.getLogger('rotate').info(f'moving {path} to {next_path}')
+    path.rename(next_path)
+
+
 def sha1(text: str) -> str:
     return hashlib.sha1(text.encode()).digest().hex()
 

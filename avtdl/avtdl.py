@@ -70,7 +70,7 @@ async def run(config: Path) -> None:
     for runnable in actors.values():
         task = asyncio.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
         tasks.append(task)
-    ui_task = asyncio.create_task(webui.run(settings, actors, chains), name='webui')
+    ui_task = asyncio.create_task(webui.run(config, settings, actors, chains), name='webui')
     tasks.append(ui_task)
     await monitor_tasks(tasks)
 

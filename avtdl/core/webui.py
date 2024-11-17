@@ -15,7 +15,7 @@ from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.info import get_known_plugins, get_plugin_type
 from avtdl.core.interfaces import Actor
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import strip_text
+from avtdl.core.utils import strip_text, write_file
 
 
 def serialize_config(settings: SettingsSection,
@@ -99,10 +99,11 @@ class ActorModel(BaseModel):
 class WebUI:
     WEBROOT: pathlib.Path = pathlib.Path(__file__).parent.parent.resolve() / 'ui'
 
-    def __init__(self, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
+    def __init__(self, config_path: pathlib.Path, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
         self.logger = logging.getLogger('webui')
         self.host = 'localhost'
         self.port = settings.port
+        self.config_path = config_path
         self.settings = settings
         self.actors = actors
         self.chains = chains
@@ -162,12 +163,17 @@ class WebUI:
             _ = ConfigParser.validate(conf)
             if mode == 'check':
                 return web.Response(text='Config has been validated successfully')
-            if mode == 'store':
-                # would write config file and restart here
-                raw_yaml = json_to_yaml(json.dumps(conf))
+
+            raw_yaml = json_to_yaml(json.dumps(conf))
+            try:
+                write_file(self.config_path, raw_yaml, backups=10)
+            except Exception as e:
+                raise web.HTTPServerError(text=f'failed to store config in "{self.config_path}": {e or type(e)}')
             if mode == 'reload':
                 # would initiate restart here
                 pass
+            else:
+                return web.Response(text=f'Updated config successfully stored in "{self.config_path}". It will be used after next restart.')
         except ConfigurationError as e:
             if e.__cause__ is None:
                 raise web.HTTPBadRequest(text=f'Malformed configuration error {type(e)}: {e}')
@@ -203,6 +209,6 @@ async def run_app(webui: WebUI):
         webui.logger.debug('server stopped')
 
 
-async def run(settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
-    webui = WebUI(settings, actors, chains)
+async def run(config_path: pathlib.Path, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
+    webui = WebUI(config_path, settings, actors, chains)
     await run_app(webui)
