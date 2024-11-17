@@ -16,7 +16,7 @@ from avtdl.core.info import generate_plugins_description, generate_version_strin
 from avtdl.core.interfaces import Actor
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
-from avtdl.core.utils import monitor_tasks, read_file
+from avtdl.core.utils import RestartController, monitor_tasks, read_file
 
 
 def load_config(path: Path) -> Any:
@@ -106,18 +106,23 @@ def main() -> None:
     set_logging_format(log_level)
     silence_library_loggers()
 
-    try:
-        if args.version:
-            print(generate_version_string())
-        elif args.plugins_doc is not None:
-            make_docs(args.plugins_doc)
-        else:
-            asyncio.run(run(args.config), debug=True)
-    except KeyboardInterrupt:
-        if args.debug:
-            logging.exception('Interrupted, exiting... Printing stacktrace for debugging purpose:')
-        else:
-            logging.info('Interrupted, exiting...')
+    while True:
+        try:
+            if args.version:
+                print(generate_version_string())
+            elif args.plugins_doc is not None:
+                make_docs(args.plugins_doc)
+            else:
+                asyncio.run(run(args.config), debug=True)
+            break
+        except RestartController.RestartRequiredError:
+            logging.info('Restarting...')
+        except KeyboardInterrupt:
+            if args.debug:
+                logging.exception('Interrupted, exiting... Printing stacktrace for debugging purpose:')
+            else:
+                logging.info('Interrupted, exiting...')
+            break
 
 
 if __name__ == "__main__":

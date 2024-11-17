@@ -759,3 +759,29 @@ def strip_text(s: str, text: str) -> str:
     if s.startswith(text):
         return s[len(text):]
     return s
+
+
+class RestartController:
+
+    class RestartRequiredError(KeyboardInterrupt):
+        """Raised when application restart is required"""
+
+    logger = logging.getLogger('restart_controller')
+    task = None
+
+    @classmethod
+    async def restart(cls, delay: float = 0):
+        if delay > 0:
+            cls.logger.debug(f'restarting after {delay:.02f}')
+            await asyncio.sleep(delay)
+        task = cls.task  # trying to prevent the task from being garbage-collected before it completes
+        cls.task = None
+        cls.logger.debug(f'restarting now')
+        raise cls.RestartRequiredError()
+
+    @classmethod
+    def restart_after(cls, delay: float):
+        if cls.task is None:
+            cls.task = asyncio.create_task(cls.restart(delay), name=f'restart after {delay}')
+        else:
+            cls.logger.warning(f'active restart request is already present')

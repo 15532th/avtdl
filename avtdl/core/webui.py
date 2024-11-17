@@ -15,7 +15,7 @@ from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.info import get_known_plugins, get_plugin_type
 from avtdl.core.interfaces import Actor
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import strip_text, write_file
+from avtdl.core.utils import RestartController, strip_text, write_file
 
 
 def serialize_config(settings: SettingsSection,
@@ -170,8 +170,9 @@ class WebUI:
             except Exception as e:
                 raise web.HTTPInternalServerError(text=f'failed to store config in "{self.config_path}": {e or type(e)}')
             if mode == 'reload':
-                # would initiate restart here
-                pass
+                restart_delay = 5
+                RestartController.restart_after(restart_delay)
+                return web.Response(text=f'Updated config successfully stored in "{self.config_path}". Restarting in a few seconds.')
             else:
                 return web.Response(text=f'Updated config successfully stored in "{self.config_path}". It will be used after next restart.')
         except ConfigurationError as e:
