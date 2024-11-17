@@ -270,19 +270,19 @@ class ConfigEditor {
                 },
                 body: JSON.stringify(data),
             });
+            const responseText = await response.text();
 
             if (!response.ok) {
-                const errorText = await response.text();
                 if (response.status == 422) {
-                    this.fillValidationError(errorText);
+                    this.fillValidationError(responseText);
                 } else {
-                    throw new Error(errorText);
+                    throw new Error(responseText);
                 }
             } else {
                 if (mode == 'check') {
-                    this.messageArea.showMessage('Config was successfully validated', 'success');
+                    this.messageArea.showMessage(responseText, 'success');
                 } else {
-                    this.messageArea.showMessage('Config successfully submitted', 'success');
+                    this.messageArea.showMessage(responseText, 'success');
                     this.render();
                 }
             }
