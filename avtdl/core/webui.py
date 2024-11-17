@@ -168,7 +168,7 @@ class WebUI:
             try:
                 write_file(self.config_path, raw_yaml, backups=10)
             except Exception as e:
-                raise web.HTTPServerError(text=f'failed to store config in "{self.config_path}": {e or type(e)}')
+                raise web.HTTPInternalServerError(text=f'failed to store config in "{self.config_path}": {e or type(e)}')
             if mode == 'reload':
                 # would initiate restart here
                 pass
@@ -187,6 +187,8 @@ class WebUI:
                     error['msg'] = strip_text(error['msg'], 'Value error, ')
 
             return web.json_response(data=data, dumps=json_dumps, status=422, reason='Bad config')
+        except web.HTTPError:
+            raise
         except Exception as e:
             raise web.HTTPBadRequest(text=f'{type(e)}: {e}')
         raise web.HTTPFound(location=request.path, reason='Config OK')
