@@ -58,7 +58,7 @@ class NameInputField extends InputField {
             getUserInput('New name for entity ' + oldName, oldName, this.fieldContainer, this.nameValidator).then(
                 (newName) => {
                     input.value = newName;
-                    input.dispatchEvent(new Event("input"));
+                    input.dispatchEvent(new Event('input'));
                 }
             );
         });
@@ -526,13 +526,15 @@ class Fieldset {
         this.oldName = this.getName();
     }
 
-    // Method to read current values of input fields and return them as an object
     read() {
         const result = {};
         for (const fieldInput of this.fieldInputs) {
-            result[fieldInput.propertyName] = fieldInput.read(); // Read value from each FieldInput instance
+            const value = fieldInput.read();
+            if (value !== fieldInput.getDefault()) {
+                result[fieldInput.propertyName] = value;
+            }
         }
-        return result; // Return the object containing all field values
+        return result;
     }
 
     getElement() {
