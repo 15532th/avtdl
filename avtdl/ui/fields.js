@@ -39,6 +39,29 @@ class NameInputField extends InputField {
         super(propertyName, schema);
         this.input = selectInput(this.fieldContainer);
         this.input.classList.add('name-input');
+        this.nameValidator = (name) => {
+            return null;
+        };
+        this.addRenameHandler(this.input);
+    }
+
+    registerNameValidator(callback) {
+        this.nameValidator = callback;
+    }
+
+    addRenameHandler(input) {
+        input.addEventListener('focus', () => {
+            if (!input.value) {
+                return;
+            }
+            const oldName = input.value || '';
+            getUserInput('New name for entity ' + oldName, oldName, this.fieldContainer, this.nameValidator).then(
+                (newName) => {
+                    input.value = newName;
+                    input.dispatchEvent(new Event("input"));
+                }
+            );
+        });
     }
 }
 
@@ -405,7 +428,7 @@ class Fieldset {
         for (const [propertyName, propertySchema] of Object.entries(this.schema)) {
             let fieldInput;
             if (propertyName == 'name') {
-                fieldInput = new InputField(propertyName, propertySchema);
+                fieldInput = new NameInputField(propertyName, propertySchema);
                 this.nameField = fieldInput;
                 this.nameInput = selectInput(fieldInput.getElement());
             } else if (propertyName == 'timezone') {
