@@ -97,6 +97,12 @@ nav a.active {
     border: 1px solid #d6e9c6;
 }
 
+.message-container.info {
+    background-color: #d9edf7; /* Light blue background */
+    color: #31708f; /* Darker blue text */
+    border: 1px solid #bce8f1; /* Light blue border */
+}
+
 .message-container.error {
     background-color: #f2dede;
     color: #a94442;

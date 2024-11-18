@@ -79,15 +79,22 @@ class MessageArea {
             this.container.removeChild(messageContainer);
         });
         if (type === 'success') {
-            setTimeout(() => {
-                this.container.removeChild(messageContainer);
-            }, 5000);
+            this.removeAfter(messageContainer, 5000);
+        }
+        if (type === 'info') {
+            this.removeAfter(messageContainer, 15000);
         }
         return messageContainer;
     }
 
     showError(message, onClick = () => {}) {
         return this.showMessage(message, 'error', onClick);
+    }
+
+    removeAfter(node, delay=5000) {
+            setTimeout(() => {
+                this.container.removeChild(node);
+            }, delay);
     }
 
     clear() {
@@ -293,7 +300,7 @@ class ConfigEditor {
                     this.messageArea.showMessage(responseText, 'success');
                     const motd_data = await fetchJSON('/motd', this.messageArea);
                     if (motd_data) {
-                        this.messageArea.showMessage(motd_data['motd'], 'success');
+                        this.messageArea.showMessage(motd_data['motd'], 'info');
                     }
                     this.render();
                 }
