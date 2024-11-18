@@ -93,7 +93,7 @@ class MessageArea {
 
     removeAfter(node, delay = 5000) {
         setTimeout(() => {
-            this.container.removeChild(node);
+            if (node in this.container.childNodes) this.container.removeChild(node);
         }, delay);
     }
 
@@ -299,8 +299,8 @@ class ConfigEditor {
                     const motd_data = await fetchJSON('/motd', this.messageArea);
                     if (motd_data) {
                         this.messageArea.showMessage(motd_data['motd'], 'info');
+                        this.render();
                     }
-                    this.render();
                 } else {
                     this.messageArea.showMessage(responseText, 'success');
                 }
