@@ -98,6 +98,7 @@ class ActorModel(BaseModel):
 
 class WebUI:
     WEBROOT: pathlib.Path = pathlib.Path(__file__).parent.parent.resolve() / 'ui'
+    RESTART_DELAY: int = 3
 
     def __init__(self, config_path: pathlib.Path, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
         self.logger = logging.getLogger('webui')
@@ -107,6 +108,7 @@ class WebUI:
         self.settings = settings
         self.actors = actors
         self.chains = chains
+        self.restart_pending = False
         self.routes: List[web.AbstractRouteDef] = []
 
         self.routes.append(web.get('/favicon.ico', self.favicon))
@@ -116,6 +118,7 @@ class WebUI:
         self.routes.append(web.get('/config', self.show_config))
         self.routes.append(web.post('/config', self.store_config))
         self.routes.append(web.get('/timezones', self.timezones))
+        self.routes.append(web.get('/motd', self.motd))
         self.routes.append(web.get('/', self.index))
         self.routes.append(web.static('/ui', self.WEBROOT))
 
@@ -149,7 +152,7 @@ class WebUI:
         render_descriptions(schema)
         return web.json_response(schema, dumps=json_dumps)
 
-    async def show_config(self, request):
+    async def show_config(self, request: web.Request):
         mode = request.query.get('mode', 'json')
         data = serialize_config(self.settings, self.actors, self.chains, mode=mode)
         return web.Response(text=data)
@@ -170,8 +173,8 @@ class WebUI:
             except Exception as e:
                 raise web.HTTPInternalServerError(text=f'failed to store config in "{self.config_path}": {e or type(e)}')
             if mode == 'reload':
-                restart_delay = 5
-                RestartController.restart_after(restart_delay)
+                self.restart_pending = True
+                RestartController.restart_after(self.RESTART_DELAY)
                 return web.Response(text=f'Updated config successfully stored in "{self.config_path}". Restarting in a few seconds.')
             else:
                 return web.Response(text=f'Updated config successfully stored in "{self.config_path}". It will be used after next restart.')
@@ -193,6 +196,17 @@ class WebUI:
         except Exception as e:
             raise web.HTTPBadRequest(text=f'{type(e)}: {e}')
         raise web.HTTPFound(location=request.path, reason='Config OK')
+
+    async def motd(self, request: web.Request) -> web.Response:
+        if self.restart_pending:
+            raise web.HTTPServiceUnavailable(headers={'Retry-After': str(self.RESTART_DELAY)})
+        motd = f'''
+Server is up and running.
+Configuration loaded from "{self.config_path.resolve()}" contains {len(self.actors)} actors and {len(self.chains)} chains.
+Working directory is set to "{pathlib.Path('.').resolve()}".
+'''
+        data = {'motd': motd}
+        return web.json_response(data, dumps=json_dumps)
 
 
 async def run_app(webui: WebUI):

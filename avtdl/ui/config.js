@@ -2,6 +2,14 @@ async function fetchJSON(path, messageArea) {
     try {
         const response = await fetch(path);
         if (!response.ok) {
+            const retryDelay = getRetryAfter(response);
+            if (retryDelay) {
+                console.log(
+                    `[fetchJson]: while fetching "${path}" got ${response.status}, will retry after ${retryDelay}`
+                );
+                await new Promise((resolve) => setTimeout(resolve, retryDelay * 1000));
+                return await fetchJSON(path, messageArea);
+            }
             throw new Error(`got ${response.status} (${response.statusText}) when requesting ${path}`);
         }
         const data = await response.json();
@@ -72,7 +80,7 @@ class MessageArea {
         });
         if (type === 'success') {
             setTimeout(() => {
-                this.container.innerHTML = ''; // Clear message after 5 seconds
+                this.container.removeChild(messageContainer);
             }, 5000);
         }
         return messageContainer;
@@ -283,6 +291,10 @@ class ConfigEditor {
                     this.messageArea.showMessage(responseText, 'success');
                 } else {
                     this.messageArea.showMessage(responseText, 'success');
+                    const motd_data = await fetchJSON('/motd', this.messageArea);
+                    if (motd_data) {
+                        this.messageArea.showMessage(motd_data['motd'], 'success');
+                    }
                     this.render();
                 }
             }

@@ -380,3 +380,16 @@ function moveElement(element, forward = true) {
     parent.removeChild(element);
     parent.insertBefore(element, sibling);
 }
+
+function getRetryAfter(response) {
+    const retryAfter = response.headers.get('Retry-After');
+    if (retryAfter) {
+        try {
+            const parsedValue = parseInt(retryAfter, 10);
+            return !isNaN(parsedValue) ? parsedValue : null;
+        } catch (error) {
+            return null;
+        }
+    }
+    return null;
+}
