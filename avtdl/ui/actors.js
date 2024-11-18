@@ -220,12 +220,11 @@ class ActorSection {
     }
 
     read() {
-        let config = {};
+        let data = {};
         if (this.config) {
-            config = this.config.read();
+            data['config'] = this.config.read();
         }
-        const entities = this.entities.read();
-        const data = { config: config, entities: entities };
+        data['entities'] = this.entities.read();
         return data;
     }
     showError(path, message) {
