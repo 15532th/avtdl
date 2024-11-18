@@ -177,7 +177,8 @@ class WebUI:
                 RestartController.restart_after(self.RESTART_DELAY)
                 return web.Response(text=f'Updated config successfully stored in "{self.config_path}". Restarting in a few seconds.')
             else:
-                return web.Response(text=f'Updated config successfully stored in "{self.config_path}". It will be used after next restart.')
+                text = f'Updated config successfully stored in "{self.config_path}". It will be used after next restart.'
+                return web.Response(text=text)
         except ConfigurationError as e:
             if e.__cause__ is None:
                 raise web.HTTPBadRequest(text=f'Malformed configuration error {type(e)}: {e}')
@@ -201,9 +202,8 @@ class WebUI:
         if self.restart_pending:
             raise web.HTTPServiceUnavailable(headers={'Retry-After': str(self.RESTART_DELAY)})
         motd = f'''
-Server is up and running.
-Configuration loaded from "{self.config_path.resolve()}" contains {len(self.actors)} actors and {len(self.chains)} chains.
-Working directory is set to "{pathlib.Path('.').resolve()}".
+Server is up and running, working directory is set to "{pathlib.Path('.').resolve()}".
+Configuration loaded from "{self.config_path.resolve()}", it contains {len(self.actors)} actors and {len(self.chains)} chains.
 '''
         data = {'motd': motd}
         return web.json_response(data, dumps=json_dumps)

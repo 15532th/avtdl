@@ -91,10 +91,10 @@ class MessageArea {
         return this.showMessage(message, 'error', onClick);
     }
 
-    removeAfter(node, delay=5000) {
-            setTimeout(() => {
-                this.container.removeChild(node);
-            }, delay);
+    removeAfter(node, delay = 5000) {
+        setTimeout(() => {
+            this.container.removeChild(node);
+        }, delay);
     }
 
     clear() {
@@ -294,15 +294,15 @@ class ConfigEditor {
                     throw new Error(responseText);
                 }
             } else {
-                if (mode == 'check') {
-                    this.messageArea.showMessage(responseText, 'success');
-                } else {
+                if (mode == 'reload') {
                     this.messageArea.showMessage(responseText, 'success');
                     const motd_data = await fetchJSON('/motd', this.messageArea);
                     if (motd_data) {
                         this.messageArea.showMessage(motd_data['motd'], 'info');
                     }
                     this.render();
+                } else {
+                    this.messageArea.showMessage(responseText, 'success');
                 }
             }
         } catch (error) {
