@@ -76,7 +76,7 @@ class MessageArea {
         closeButton.innerHTML = '&times;';
         messageContainer.appendChild(closeButton);
         closeButton.addEventListener('click', () => {
-            this.container.removeChild(messageContainer);
+            this.removeAfter(messageContainer, 0);
         });
         if (type === 'success') {
             this.removeAfter(messageContainer, 5000);
@@ -92,9 +92,20 @@ class MessageArea {
     }
 
     removeAfter(node, delay = 5000) {
-        setTimeout(() => {
-            if (node in this.container.childNodes) this.container.removeChild(node);
-        }, delay);
+        const remove = () => {
+            try {
+                this.container.removeChild(node);
+            } catch (error) {
+                if (!(error instanceof DOMException)) {
+                    throw error;
+                }
+            }
+        };
+        if (delay > 0) {
+            setTimeout(remove, delay);
+        } else {
+            remove();
+        }
     }
 
     clear() {
