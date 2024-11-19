@@ -109,6 +109,7 @@ class WebUI:
         self.actors = actors
         self.chains = chains
         self.restart_pending = False
+        self._actors_models = self.generate_actors_models()
         self.routes: List[web.AbstractRouteDef] = []
 
         self.routes.append(web.get('/favicon.ico', self.favicon))
@@ -136,8 +137,10 @@ class WebUI:
         data = {name: chain.conf.model_dump() for name, chain in self.chains.items()}
         return web.json_response(data)
 
-    async def actors_models(self, request: web.Request) -> web.Response:
+    @staticmethod
+    def generate_actors_models() -> Dict[str, dict]:
         data: Dict[str, dict] = {}
+
         for name in get_known_plugins():
             data[name] = ActorModel(
                 type=get_plugin_type(name),
@@ -145,7 +148,10 @@ class WebUI:
                 config_schema=get_conf_schema(name),
                 entity_schema=get_entity_schema(name)
             ).model_dump()
-        return web.json_response(data, dumps=json_dumps)
+        return data
+
+    async def actors_models(self, request: web.Request) -> web.Response:
+        return web.json_response(self._actors_models, dumps=json_dumps)
 
     async def settings_schema(self, request: web.Request) -> web.Response:
         schema = self.settings.model_json_schema(mode='serialization')
