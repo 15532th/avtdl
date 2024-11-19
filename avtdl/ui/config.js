@@ -355,6 +355,14 @@ class ConfigEditor {
     }
 }
 
+function showMOTD(messageArea) {
+    fetchJSON('/motd', this.messageArea).then((motd_data) => {
+        if (motd_data) {
+            messageArea.showMessage(motd_data['motd'], 'info');
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const outputDiv = document.getElementById('output');
     const messageAreaDiv = document.getElementById('message-area');
@@ -363,4 +371,5 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageArea = new MessageArea(messageAreaDiv);
     const configForm = new ConfigEditor(outputDiv, messageArea, navigationAreaDiv);
     configForm.render();
+    showMOTD(messageArea);
 });
