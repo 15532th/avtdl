@@ -13,7 +13,7 @@ from avtdl.core import webui
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection, config_sancheck
 from avtdl.core.info import generate_plugins_description, generate_version_string
-from avtdl.core.interfaces import Actor
+from avtdl.core.interfaces import Actor, MessageBus
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
 from avtdl.core.utils import RestartController, monitor_tasks, read_file
@@ -61,6 +61,9 @@ async def install_exception_handler() -> None:
 
 
 async def run(config: Path) -> None:
+    # to avoid carrying old subscriptions through restart, duplicating output
+    MessageBus.clear_subscriptions()
+
     conf = load_config(config)
     settings, actors, chains = parse_config(conf)
     config_sancheck(actors, chains)

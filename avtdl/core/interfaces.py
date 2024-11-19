@@ -168,6 +168,10 @@ class MessageBus:
             raise
         return actor, entity, chain
 
+    @classmethod
+    def clear_subscriptions(cls):
+        cls._subscriptions.clear()
+
 
 class ActorConfig(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)

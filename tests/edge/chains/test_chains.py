@@ -60,7 +60,7 @@ async def run(config: str):
 
     # class field value persists between isolated testcases runs, breaking tests
     # clean it before test as a temporary workaround
-    MessageBus._subscriptions.clear()
+    MessageBus.clear_subscriptions()
 
     conf: dict = yaml.load(config, Loader=yaml.FullLoader)
     senders, receivers = _Testcases.load(conf.pop('testcases'))
