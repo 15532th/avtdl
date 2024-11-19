@@ -106,18 +106,22 @@ class Event(Record):
             self.chain = self.record.chain
 
 
+Subscription = Callable[[str, Record], None]
+SubscriptionsMapping = Dict[str, List[Subscription]]
+
+
 class MessageBus:
     PREFIX_IN = 'inputs'
     PREFIX_OUT = 'output'
     SEPARATOR = '/'
 
-    _subscriptions: Dict[str, List[Callable[[str, Record], None]]] = defaultdict(list)
+    _subscriptions: SubscriptionsMapping = defaultdict(list)
 
     def __init__(self):
         self.subscriptions = self._subscriptions
         self.logger = logging.getLogger('bus')
 
-    def sub(self, topic: str, callback: Callable[[str, Record], None]):
+    def sub(self, topic: str, callback: Subscription):
         self.logger.debug(f'subscription on topic {topic} by {callback!r}')
         self.subscriptions[topic].append(callback)
 
@@ -137,7 +141,7 @@ class MessageBus:
                 for callback in callbacks:
                     callback(specific_topic, targeted_message)
 
-    def get_matching_callbacks(self, topic_pattern: str) -> Dict[str, List[Callable[[str, Record], None]]]:
+    def get_matching_callbacks(self, topic_pattern: str) -> SubscriptionsMapping:
         callbacks = defaultdict(list)
         for topic, callback in self.subscriptions.items():
             if topic.startswith(topic_pattern) or topic_pattern.startswith(topic):
