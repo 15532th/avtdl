@@ -12,7 +12,8 @@ from avtdl.core.utils import strip_text
 
 
 class ConfigurationError(Exception):
-    '''Generic exception raised if parsing config failed'''
+    """Generic exception raised if parsing config failed"""
+
 
 def format_validation_error(e: ValidationError) -> str:
     msg = 'Failed to process configuration file, following errors occurred: '
@@ -26,6 +27,7 @@ def format_validation_error(e: ValidationError) -> str:
         errors.append(error.format(user_input, location, error_message))
     return '\n    '.join([msg] + errors)
 
+
 def try_parsing(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -34,7 +36,9 @@ def try_parsing(func):
         except ValidationError as e:
             error = format_validation_error(e)
             raise ConfigurationError(error) from e
+
     return wrapper
+
 
 class SettingsSection(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
@@ -45,19 +49,23 @@ class SettingsSection(BaseModel):
     """size of a single log file in bytes. After reaching this size the file will be replaced by a new one. Only last 10 files are kept inside the log directory"""
     logfile_level: LogLevel = LogLevel.debug
     """how detailed the output to log file is. Can be "DEBUG", "INFO", "WARNING" or "ERROR". It is recommended to keep log file loglevel set to "DEBUG" """
-    loglevel_override: Dict[str, LogLevel] = {'bus': LogLevel.info, 'chain': LogLevel.info, 'actor.request': LogLevel.info}
+    loglevel_override: Dict[str, LogLevel] = {'bus': LogLevel.info, 'chain': LogLevel.info,
+                                              'actor.request': LogLevel.info}
     """allows to overwrite loglevel of a specific logger. Used to prevent a single talkative logger from filling up the log file"""
     port: int = Field(gt=0, le=65535, default=8080)
     """web-interface port"""
+
 
 def configure_loggers(settings: SettingsSection):
     override_loglevel(settings.loglevel_override)
     set_file_logger(path=settings.log_directory, max_size=settings.logfile_size, level=settings.logfile_level)
 
+
 class ActorConfigSection(BaseModel):
     config: dict = {}
     defaults: dict = {}
     entities: List[dict]
+
 
 class Config(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -70,9 +78,11 @@ class Config(BaseModel):
 TConfig = TypeVar('TConfig')
 TEntity = TypeVar('TEntity')
 
+
 class SpecificActorConfigSection(BaseModel, Generic[TConfig, TEntity]):
     config: TConfig
     entities: List[TEntity]
+
 
 class ActorParser:
 
@@ -114,6 +124,7 @@ class ActorParser:
         section = ActorConfigSection(config=actor_config, defaults=defaults, entities=entities)
         return section
 
+
 class ConfigParser:
 
     @staticmethod
@@ -129,9 +140,9 @@ class ConfigParser:
     def load_models(config: Config) -> Type['SpecificConfig']:
         actors_model = ActorParser.load_actors_plugins_model(config.actors)
         SpecificConfigModel = create_model('SpecificConfig',
-                                     actors=(actors_model, ...),
-                                     chains=(Dict[str, ChainConfigSection], ...)
-                                     )
+                                           actors=(actors_model, ...),
+                                           chains=(Dict[str, ChainConfigSection], ...)
+                                           )
         return SpecificConfigModel
 
     @classmethod
