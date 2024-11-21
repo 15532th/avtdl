@@ -246,6 +246,9 @@ class DictionaryInputField {
     }
 
     fill(data) {
+        if (!data) {
+            return;
+        }
         this.entries.forEach((entry) => this.deleteEntry(entry));
 
         for (const [key, value] of Object.entries(data)) {
@@ -265,8 +268,12 @@ class DictionaryInputField {
                 data[key] = value;
             }
         }
-        if (!data && this.schema.default !== undefined) {
-            return this.schema.default;
+        if (isEmpty(data)) {
+            if (this.schema.default !== undefined) {
+                return this.schema.default;
+            } else {
+                return null;
+            }
         }
         return data;
     }
@@ -374,9 +381,14 @@ class ArrayInputField {
                 data.push(value);
             }
         }
-        if (!data && this.schema.default !== undefined) {
-            return this.schema.default;
+        if (data.length == 0) {
+            if (this.schema.default !== undefined) {
+                return this.schema.default;
+            } else {
+                return null;
+            }
         }
+
         return data;
     }
 

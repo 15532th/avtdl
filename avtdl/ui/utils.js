@@ -393,3 +393,10 @@ function getRetryAfter(response) {
     }
     return null;
 }
+
+function isEmpty(obj) {
+    if (obj instanceof Array) {
+        return obj.length === 0;
+    }
+    return Object.keys(obj).length === 0;
+}
