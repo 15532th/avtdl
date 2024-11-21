@@ -1,14 +1,14 @@
-async function fetchJSON(path, messageArea) {
+async function fetchJSON(path, messageArea, retries = 0) {
     try {
         const response = await fetch(path);
         if (!response.ok) {
-            const retryDelay = getRetryAfter(response);
-            if (retryDelay) {
+            const retryDelay = getRetryAfter(response) || 3;
+            if (retries > 0) {
                 console.log(
                     `[fetchJson]: while fetching "${path}" got ${response.status}, will retry after ${retryDelay}`
                 );
                 await new Promise((resolve) => setTimeout(resolve, retryDelay * 1000));
-                return await fetchJSON(path, messageArea);
+                return await fetchJSON(path, messageArea, retries - 1);
             }
             throw new Error(`got ${response.status} (${response.statusText}) when requesting ${path}`);
         }
@@ -307,7 +307,7 @@ class ConfigEditor {
             } else {
                 if (mode == 'reload') {
                     this.messageArea.showMessage(responseText, 'success');
-                    const motd_data = await fetchJSON('/motd', this.messageArea);
+                    const motd_data = await fetchJSON('/motd', this.messageArea, 10);
                     if (motd_data) {
                         this.messageArea.showMessage(motd_data['motd'], 'info');
                         this.render();
@@ -356,7 +356,7 @@ class ConfigEditor {
 }
 
 function showMOTD(messageArea) {
-    fetchJSON('/motd', this.messageArea).then((motd_data) => {
+    fetchJSON('/motd', this.messageArea, 10).then((motd_data) => {
         if (motd_data) {
             messageArea.showMessage(motd_data['motd'], 'info');
         }
@@ -371,5 +371,4 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageArea = new MessageArea(messageAreaDiv);
     const configForm = new ConfigEditor(outputDiv, messageArea, navigationAreaDiv);
     configForm.render();
-    showMOTD(messageArea);
 });
