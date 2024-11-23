@@ -142,10 +142,18 @@ class MessageBus:
                     callback(specific_topic, targeted_message)
 
     def get_matching_callbacks(self, topic_pattern: str) -> SubscriptionsMapping:
+        pattern_direction, pattern_actor, pattern_entity, pattern_chain = self.split_subscription_topic(topic_pattern)
         callbacks = defaultdict(list)
         for topic, callback in self.subscriptions.items():
-            if topic.startswith(topic_pattern) or topic_pattern.startswith(topic):
-                callbacks[topic].extend(self.subscriptions[topic])
+            direction, actor, entity, chain = self.split_subscription_topic(topic)
+            if pattern_direction != direction:
+                continue
+            if actor != pattern_actor:
+                continue
+            if entity != pattern_entity:
+                continue
+            if chain == '' or pattern_chain == '' or chain == pattern_chain:
+                callbacks[topic].extend(callback)
         return callbacks
 
     def make_topic(self, *args: str):
@@ -161,12 +169,16 @@ class MessageBus:
         return self.make_topic(self.PREFIX_OUT, actor, entity, chain)
 
     def split_message_topic(self, topic) -> Tuple[str, str, str]:
+        _, actor, entity, chain = self.split_subscription_topic(topic)
+        return actor, entity, chain
+
+    def split_subscription_topic(self, topic) -> Tuple[str, str, str, str]:
         try:
-            _, actor, entity, chain = self.split_topic(topic)
+            direction, actor, entity, chain = self.split_topic(topic)
         except ValueError:
             self.logger.error(f'failed to split message topic "{topic}"')
             raise
-        return actor, entity, chain
+        return direction, actor, entity, chain
 
     @classmethod
     def clear_subscriptions(cls):

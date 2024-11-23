@@ -1,0 +1,44 @@
+# filter entity in "chain1_a" should not receive records
+# from the same entity in "chain1", because reset_origin
+# is not enabled
+
+actors:
+  utils.producer:
+    entities:
+      - name: producer1
+
+  utils.consumer:
+    entities:
+      - name: consumer1
+      - name: consumer2
+
+  filter.format:
+    entities:
+      - name: formatter
+        template: '[x] {text}'
+        reset_origin: false
+
+chains:
+  chain1:
+    - utils.producer:
+        - producer1
+    - filter.format:
+        - formatter
+    - utils.consumer:
+        - consumer1
+  chain1_a:
+    - filter.format:
+        - formatter
+    - utils.consumer:
+        - consumer2
+
+testcases:
+  senders:
+    - entity: producer1
+      records: ['record1']
+
+  receivers:
+    - entity: consumer1
+      expected_history: ['[x] record1']
+    - entity: consumer2
+      expected_history: []
