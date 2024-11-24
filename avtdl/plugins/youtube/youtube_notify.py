@@ -1,12 +1,11 @@
 import asyncio
 import datetime
-from typing import Sequence, Set, Union
+from typing import Sequence, Union
 
 from pydantic import field_serializer, field_validator
 
 from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import monitor_tasks_set
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 from avtdl.plugins.youtube.youtube_feed import YoutubeVideoRecord
 from avtdl.plugins.youtube.youtube_rss import YoutubeFeedRecord
@@ -52,7 +51,6 @@ class ChannelNotifyFilter(Filter):
     """
 
     def __init__(self, config: ChannelNotifyFilterConfig, entities: Sequence[ChannelNotifyFilterEntity], ctx: RuntimeContext):
-        self.tasks: Set[asyncio.Task] = set()
         super().__init__(config, entities, ctx)
 
     def match(self, entity: ChannelNotifyFilterEntity, record: Record) -> None:
@@ -73,8 +71,7 @@ class ChannelNotifyFilter(Filter):
             return
 
         at = scheduled - entity.prior
-        task = asyncio.create_task(self.notify(at, entity, record))
-        self.tasks.add(task)
+        self.controller.create_task(self.notify(at, entity, record))
 
     async def notify(self, at: datetime.datetime, entity: ChannelNotifyFilterEntity, record: Record):
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -85,6 +82,3 @@ class ChannelNotifyFilter(Filter):
         else:
             self.logger.debug(f'[{entity.name}] deadline was {now - at} ago, emitting record immediately: {record!r}')
         self.on_record(entity, record)
-
-    async def run(self):
-        await monitor_tasks_set(self.tasks, logger=self.logger)

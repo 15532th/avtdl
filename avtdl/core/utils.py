@@ -17,7 +17,7 @@ from math import log2
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter
-from typing import Any, Callable, Dict, Hashable, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Hashable, List, Optional, Tuple, Union
 
 import aiohttp
 import lxml.html
@@ -188,58 +188,6 @@ def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
         if v1 != v2:
             diff.append(f'[{k[:12]:12}]: {repr_v2:60} |->| {repr_v1:60}')
     return '\n'.join(diff)
-
-
-async def monitor_tasks(tasks: Iterable[asyncio.Task], logger: Optional[logging.Logger] = None) -> None:
-    """given list of running tasks, wait for them and report any unhandled exceptions"""
-    logger = logger or logging.getLogger()
-    tasks = set(tasks)
-    while True:
-        if not tasks:
-            break
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-        for task in done:
-            if not task.done():
-                continue
-            if task.exception() is not None:
-                logger.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
-        tasks = pending
-
-
-async def monitor_tasks_set(tasks: Set[asyncio.Task], poll_interval: float = 5, logger: Optional[logging.Logger] = None) -> None:
-    """given link to a set of tasks, check on them and remove completed or failed"""
-    logger = logger or logging.getLogger()
-    while True:
-        if not tasks:
-            await asyncio.sleep(poll_interval)
-            continue
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION, timeout=poll_interval)
-        for task in done:
-            if not task.done():
-                continue
-            if task.exception() is not None:
-                logger.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
-            tasks.discard(task)
-
-
-async def monitor_tasks_dict(tasks: Dict[str, asyncio.Task], poll_interval: float = 5, logger: Optional[logging.Logger] = None) -> None:
-    """given link to a dict with tasks, check on them and remove completed or failed"""
-    logger = logger or logging.getLogger()
-    while True:
-        if not tasks:
-            await asyncio.sleep(poll_interval)
-            continue
-        done, pending = await asyncio.wait(tasks.values(), return_when=asyncio.FIRST_EXCEPTION, timeout=poll_interval)
-        if not done:
-            continue
-        finished_tasks = {name: task for name, task in tasks.items() if task in done}
-
-        for name, task in finished_tasks.items():
-            if not task.done():
-                continue
-            if task.exception() is not None:
-                logger.error(f'task {task.get_name()} has terminated with exception', exc_info=task.exception())
-            tasks.pop(name)
 
 
 async def request_raw(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
@@ -759,29 +707,3 @@ def strip_text(s: str, text: str) -> str:
     if s.startswith(text):
         return s[len(text):]
     return s
-
-
-class RestartController:
-
-    class RestartRequiredError(KeyboardInterrupt):
-        """Raised when application restart is required"""
-
-    logger = logging.getLogger('restart_controller')
-    task = None
-
-    @classmethod
-    async def restart(cls, delay: float = 0):
-        if delay > 0:
-            cls.logger.debug(f'restarting after {delay:.02f}')
-            await asyncio.sleep(delay)
-        task = cls.task  # trying to prevent the task from being garbage-collected before it completes
-        cls.task = None
-        cls.logger.debug(f'restarting now')
-        raise cls.RestartRequiredError()
-
-    @classmethod
-    def restart_after(cls, delay: float):
-        if cls.task is None:
-            cls.task = asyncio.create_task(cls.restart(delay), name=f'restart after {delay}')
-        else:
-            cls.logger.warning(f'active restart request is already present')

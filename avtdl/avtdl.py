@@ -5,7 +5,7 @@ import asyncio
 import logging
 from asyncio import AbstractEventLoop
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import yaml
 
@@ -16,7 +16,7 @@ from avtdl.core.info import generate_plugins_description, generate_version_strin
 from avtdl.core.interfaces import Actor, RuntimeContext
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
-from avtdl.core.utils import RestartController, monitor_tasks, read_file
+from avtdl.core.utils import read_file
 
 
 def load_config(path: Path) -> Any:
@@ -37,8 +37,8 @@ def load_config(path: Path) -> Any:
     return config
 
 
-def parse_config(conf) -> Tuple[SettingsSection, Dict[str, Actor], Dict[str, Chain]]:
-    ctx = RuntimeContext.create()
+def parse_config(conf, ctx: Optional[RuntimeContext] = None) -> Tuple[SettingsSection, Dict[str, Actor], Dict[str, Chain]]:
+    ctx = ctx or RuntimeContext.create()
     try:
         settings, actors, chains = ConfigParser.parse(conf, ctx)
     except (ConfigurationError, UnknownPluginError) as e:
@@ -62,18 +62,20 @@ async def install_exception_handler() -> None:
 
 
 async def run(config: Path) -> None:
-    conf = load_config(config)
-    settings, actors, chains = parse_config(conf)
-    config_sancheck(actors, chains)
-
     await install_exception_handler()
-    tasks = []
-    for runnable in actors.values():
-        task = asyncio.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
-        tasks.append(task)
-    ui_task = asyncio.create_task(webui.run(config, settings, actors, chains), name='webui')
-    tasks.append(ui_task)
-    await monitor_tasks(tasks)
+    while True:
+        conf = load_config(config)
+        ctx = RuntimeContext.create()
+        settings, actors, chains = parse_config(conf, ctx)
+        config_sancheck(actors, chains)
+
+        controller = ctx.controller
+        for runnable in actors.values():
+            _ = controller.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
+        _ = controller.create_task(webui.run(config, ctx, settings, actors, chains), name='webui')
+
+        await controller.run_until_termination()
+        logging.info('Restarting...')
 
 
 def make_docs(output: Path) -> None:
@@ -107,23 +109,18 @@ def main() -> None:
     set_logging_format(log_level)
     silence_library_loggers()
 
-    while True:
-        try:
-            if args.version:
-                print(generate_version_string())
-            elif args.plugins_doc is not None:
-                make_docs(args.plugins_doc)
-            else:
-                asyncio.run(run(args.config), debug=True)
-            break
-        except RestartController.RestartRequiredError:
-            logging.info('Restarting...')
-        except KeyboardInterrupt:
-            if args.debug:
-                logging.exception('Interrupted, exiting... Printing stacktrace for debugging purpose:')
-            else:
-                logging.info('Interrupted, exiting...')
-            break
+    try:
+        if args.version:
+            print(generate_version_string())
+        elif args.plugins_doc is not None:
+            make_docs(args.plugins_doc)
+        else:
+            asyncio.run(run(args.config), debug=True)
+    except KeyboardInterrupt:
+        if args.debug:
+            logging.exception('Interrupted, exiting... Printing stacktrace for debugging purpose:')
+        else:
+            logging.info('Interrupted, exiting...')
 
 
 if __name__ == "__main__":

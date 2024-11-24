@@ -10,7 +10,7 @@ import multidict
 
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import RateLimit, monitor_tasks, request_raw
+from avtdl.core.utils import RateLimit, request_raw
 
 EMBEDS_PER_MESSAGE = 10
 EMBED_TITLE_MAX_LENGTH = 256
@@ -162,12 +162,9 @@ class DiscordHook(Action):
         self.queues[entity.name].put_nowait(record)
 
     async def run(self):
-        tasks = []
         async with aiohttp.ClientSession() as session:
             for entity in self.entities.values():
-                task = asyncio.create_task(self.run_for(entity, session), name=f'{self.conf.name}:{entity.name}')
-                tasks.append(task)
-            await monitor_tasks(tasks, logger=self.logger)
+                _ = self.controller.create_task(self.run_for(entity, session), name=f'{self.conf.name}:{entity.name}')
 
     async def run_for(self, entity: DiscordHookEntity, session: aiohttp.ClientSession):
         send_queue = self.queues[entity.name]

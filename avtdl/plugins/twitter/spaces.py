@@ -12,7 +12,7 @@ from avtdl.core import utils
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import SessionStorage, find_matching_field_value, monitor_tasks_dict
+from avtdl.core.utils import SessionStorage, find_matching_field_value
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
 from avtdl.plugins.twitter.extractors import TwitterSpaceRecord, find_space_id, parse_media_url, parse_space, \
     space_url_by_id
@@ -81,12 +81,12 @@ class TwitterSpace(Action):
         if space_id in self.tasks:
             self.logger.debug(f'[{entity.name}] task for space {space_id} is already running')
             return
-        task = asyncio.create_task(self.handle_space(entity, space_id))
+        task = self.controller.create_task(self.handle_space(entity, space_id))
+        task.add_done_callback(lambda _: self.tasks.pop(space_id))
         self.tasks[space_id] = task
 
     async def run(self) -> None:
-        self.sessions.run()
-        await monitor_tasks_dict(self.tasks, logger=self.logger)
+        await self.sessions.ensure_closed()
 
     async def handle_space(self, entity: TwitterSpaceEntity, space_id: str):
         should_emit_something: bool = entity.emit_immediately

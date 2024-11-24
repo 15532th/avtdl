@@ -13,9 +13,9 @@ from avtdl.core import info
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.info import get_known_plugins, get_plugin_type
-from avtdl.core.interfaces import Actor
+from avtdl.core.interfaces import Actor, RuntimeContext
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import RestartController, strip_text, write_file
+from avtdl.core.utils import strip_text, write_file
 
 
 def serialize_config(settings: SettingsSection,
@@ -100,11 +100,12 @@ class WebUI:
     WEBROOT: pathlib.Path = pathlib.Path(__file__).parent.parent.resolve() / 'ui'
     RESTART_DELAY: int = 3
 
-    def __init__(self, config_path: pathlib.Path, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
+    def __init__(self, config_path: pathlib.Path, ctx: RuntimeContext, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
         self.logger = logging.getLogger('webui')
         self.host = 'localhost'
         self.port = settings.port
         self.config_path = config_path
+        self.ctx = ctx
         self.settings = settings
         self.actors = actors
         self.chains = chains
@@ -180,7 +181,7 @@ class WebUI:
                 raise web.HTTPInternalServerError(text=f'failed to store config in "{self.config_path}": {e or type(e)}')
             if mode == 'reload':
                 self.restart_pending = True
-                RestartController.restart_after(self.RESTART_DELAY)
+                self.ctx.controller.terminate_after(self.RESTART_DELAY)
                 return web.Response(text=f'Updated config successfully stored in "{self.config_path}". Restarting in a few seconds.')
             else:
                 text = f'Updated config successfully stored in "{self.config_path}". It will be used after next restart.'
@@ -232,6 +233,6 @@ async def run_app(webui: WebUI):
         webui.logger.debug('server stopped')
 
 
-async def run(config_path: pathlib.Path, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
-    webui = WebUI(config_path, settings, actors, chains)
+async def run(config_path: pathlib.Path, ctx: RuntimeContext, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
+    webui = WebUI(config_path, ctx, settings, actors, chains)
     await run_app(webui)

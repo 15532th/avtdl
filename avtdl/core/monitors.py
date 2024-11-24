@@ -11,7 +11,7 @@ from pydantic import Field, FilePath, field_validator
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
 from avtdl.core.utils import Delay, SessionStorage, get_cache_ttl, get_retry_after, load_cookies, \
-    monitor_tasks, monitor_tasks_dict, show_diff
+    show_diff
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
@@ -25,30 +25,23 @@ class BaseTaskMonitor(Monitor):
 
     def __init__(self, conf: ActorConfig, entities: Sequence[TaskMonitorEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
-        self.tasks: Dict[str, Optional[asyncio.Task]] = {}
 
     async def run(self):
-        startup_tasks = await self.start_cyclic_tasks()
-        # keep an eye on possible exceptions in startup process
-        self.tasks['startup_tasks_monitor'] = asyncio.create_task(monitor_tasks(startup_tasks, logger=self.logger), name='startup_tasks_monitor')
+        await self.start_cyclic_tasks()
 
-        await monitor_tasks_dict(self.tasks, logger=self.logger)
-
-    async def start_cyclic_tasks(self) -> Sequence[asyncio.Task]:
+    async def start_cyclic_tasks(self):
         by_entity_interval = defaultdict(list)
         for entity in self.entities.values():
             by_entity_interval[entity.update_interval].append(entity)
         by_group_interval = defaultdict(list)
         for interval, entities in by_entity_interval.items():
             by_group_interval[interval / len(entities)].extend(entities)
-        startup_tasks = []
         for interval in sorted(by_group_interval.keys()):
             entities = by_group_interval[interval]
-            task = asyncio.create_task(self.start_tasks_for(entities, interval), name=f'start_cyclic_tasks_{interval}')
-            startup_tasks.append(task)
-        return startup_tasks
+            _ = self.controller.create_task(self.start_tasks_for(entities, interval), name=f'start_cyclic_tasks_{interval}')
 
-    async def start_tasks_for(self, entities, interval):
+    async def start_tasks_for(self, entities: List[TaskMonitorEntity], interval: float) -> None:
+        assert self.logger.parent is not None
         logger = self.logger.parent.getChild('scheduler').getChild(self.conf.name)
         if len(entities) == 0:
             logger.debug(f'called with no entities and {interval} interval')
@@ -57,7 +50,7 @@ class BaseTaskMonitor(Monitor):
         logger.info(f'will start {len(entities)} tasks with {entities[0].update_interval:.1f} update interval and {interval:.1f} offset for {names}')
         for entity in entities:
             logger.debug(f'starting task {entity.name} with {entity.update_interval} update interval')
-            self.tasks[entity.name] = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
+            _ = self.controller.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
             if entity == entities[-1]: # skip sleeping after last
                 continue
             await asyncio.sleep(interval)
@@ -226,7 +219,8 @@ class HttpTaskMonitor(BaseTaskMonitor):
         return session
 
     async def run(self):
-        self.sessions.run()
+        name = f'ensure_closed for {self.logger.name} ({self!r})'
+        _ = self.controller.create_task(self.sessions.ensure_closed(), name=name)
         await super().run()
 
     async def run_for(self, entity: HttpTaskMonitorEntity):

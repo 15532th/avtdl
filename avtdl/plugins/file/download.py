@@ -10,7 +10,7 @@ from pydantic import AnyUrl, Field, FilePath, RootModel, ValidationError, field_
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import Fmt, SessionStorage, check_dir, monitor_tasks, sanitize_filename, sha1
+from avtdl.core.utils import Fmt, SessionStorage, check_dir, sanitize_filename, sha1
 
 
 @Plugins.register('download', Plugins.kind.ACTOR_CONFIG)
@@ -210,12 +210,10 @@ class FileDownload(Action):
         return info
 
     async def run(self) -> None:
-        self.sessions.run()
-        tasks = []
+        name = f'ensure_closed for {self.logger.name} ({self!r})'
+        _ = self.controller.create_task(self.sessions.ensure_closed(), name=name)
         for entity in self.entities.values():
-            task = asyncio.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
-            tasks.append(task)
-        await monitor_tasks(tasks, logger=self.logger)
+            _ = self.controller.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
 
 
 class UrlList(RootModel):

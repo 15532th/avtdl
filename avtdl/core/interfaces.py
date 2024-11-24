@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -6,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from hashlib import sha1
 from textwrap import shorten
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Sequence, Tuple, Union
 
 import dateutil.tz
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer, field_validator
@@ -183,14 +184,95 @@ class MessageBus:
         self.subscriptions.clear()
 
 
+class TasksController:
+    class TerminatedError(KeyboardInterrupt):
+        """Raised when application restart is requested"""
+
+    _tasks: set[asyncio.Task] = set()
+
+    def __init__(self, poll_interval: float = 5, logger: Optional[logging.Logger] = None) -> None:
+        self.logger = logger or logging.getLogger('task_controller')
+        self.poll_interval = poll_interval
+        self.termination_pending = False
+        self.termination_required = False
+        self.tasks = self._tasks
+
+    def create_task(self, coro: Coroutine, *, name: Optional[str] = None) -> asyncio.Task:
+        task = asyncio.create_task(coro, name=name)
+        if task in self.tasks:
+            raise RuntimeError(f'newly created task {task} is already monitored')
+        self.tasks.add(task)
+        return task
+
+    async def check_done_tasks(self, done: set[asyncio.Task]) -> None:
+        for task in done:
+            if not task.done():
+                continue
+            try:
+                task_exception = task.exception()
+                if task_exception is not None:
+                    self.logger.error(f'task "{task.get_name()}" has terminated with exception', exc_info=task_exception)
+            except asyncio.CancelledError:
+                self.logger.debug(f'task "{task.get_name()}" cancelled')
+            self.tasks.discard(task)
+
+    async def monitor_tasks(self) -> None:
+        while not self.termination_required:
+            if not self.tasks:
+                await asyncio.sleep(self.poll_interval)
+                continue
+            done, pending = await asyncio.wait(self.tasks, return_when=asyncio.FIRST_EXCEPTION, timeout=self.poll_interval)
+            await self.check_done_tasks(done)
+        self.termination_required = False
+        raise self.TerminatedError()
+
+    async def cancel_all_tasks(self) -> None:
+        self.logger.debug(f'terminating {len(self.tasks)} tasks')
+        while True:
+            for task in self.tasks:
+                task.cancel('terminating')
+            done, pending = await asyncio.wait(self.tasks, return_when=asyncio.ALL_COMPLETED)
+            await self.check_done_tasks(done)
+            if not pending:
+                break
+            self.logger.debug(f'{len(pending)} more tasks left to terminate')
+        self.logger.debug('all tasks terminated')
+
+    async def terminate(self, delay: float = 0):
+        if self.termination_pending:
+            self.logger.warning(f'active restart request is already pending')
+            return
+        self.termination_pending = True
+        if delay > 0:
+            self.logger.debug(f'restarting after {delay:.02f}')
+            await asyncio.sleep(delay)
+        self.logger.debug(f'restarting now')
+        self.termination_pending = False
+        self.termination_required = True
+
+    def terminate_after(self, delay: float):
+        self.create_task(self.terminate(delay), name=f'terminate after {delay}')
+
+    async def run_until_termination(self) -> None:
+        try:
+            await self.monitor_tasks()
+        except self.TerminatedError:
+            await self.cancel_all_tasks()
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            await self.cancel_all_tasks()
+            raise
+
+
 @dataclass
 class RuntimeContext:
     bus: MessageBus
+    controller: TasksController
 
     @classmethod
     def create(cls) -> 'RuntimeContext':
         bus = MessageBus()
-        return cls(bus=bus)
+        controller = TasksController()
+        return cls(bus=bus, controller=controller)
 
 
 class ActorConfig(BaseModel):
@@ -216,7 +298,9 @@ class Actor(ABC):
     def __init__(self, conf: ActorConfig, entities: Sequence[ActorEntity], ctx: RuntimeContext):
         self.conf = conf
         self.logger = logging.getLogger(f'actor').getChild(conf.name)
+        self.ctx = ctx
         self.bus = ctx.bus
+        self.controller = ctx.controller
         self.entities: Dict[str, ActorEntity] = {entity.name: entity for entity in entities}
 
         for entity_name in self.entities:
