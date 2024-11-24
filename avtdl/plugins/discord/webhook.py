@@ -165,6 +165,7 @@ class DiscordHook(Action):
         async with aiohttp.ClientSession() as session:
             for entity in self.entities.values():
                 _ = self.controller.create_task(self.run_for(entity, session), name=f'{self.conf.name}:{entity.name}')
+            await asyncio.Future()
 
     async def run_for(self, entity: DiscordHookEntity, session: aiohttp.ClientSession):
         send_queue = self.queues[entity.name]
