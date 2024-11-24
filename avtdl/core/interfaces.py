@@ -116,10 +116,8 @@ class MessageBus:
     PREFIX_OUT = 'output'
     SEPARATOR = '/'
 
-    _subscriptions: SubscriptionsMapping = defaultdict(list)
-
-    def __init__(self):
-        self.subscriptions = self._subscriptions
+    def __init__(self) -> None:
+        self.subscriptions: SubscriptionsMapping = defaultdict(list)
         self.logger = logging.getLogger('bus')
 
     def sub(self, topic: str, callback: Subscription):
@@ -181,9 +179,8 @@ class MessageBus:
             raise
         return direction, actor, entity, chain
 
-    @classmethod
-    def clear_subscriptions(cls):
-        cls._subscriptions.clear()
+    def clear_subscriptions(self):
+        self.subscriptions.clear()
 
 
 @dataclass

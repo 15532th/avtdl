@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from avtdl.avtdl import parse_config
 from avtdl.core.config import config_sancheck
-from avtdl.core.interfaces import Actor, MessageBus, Record, TextRecord
+from avtdl.core.interfaces import Actor, Record, TextRecord
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.plugins.utils.utils import Consumer, Producer
 
@@ -57,10 +57,6 @@ class _Testcases(BaseModel):
 async def run(config: str):
     silence_library_loggers()
     set_logging_format('WARNING')
-
-    # class field value persists between isolated testcases runs, breaking tests
-    # clean it before test as a temporary workaround
-    MessageBus.clear_subscriptions()
 
     conf: dict = yaml.load(config, Loader=yaml.FullLoader)
     senders, receivers = _Testcases.load(conf.pop('testcases'))
