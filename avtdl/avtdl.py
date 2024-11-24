@@ -29,7 +29,7 @@ def load_config(path: Path) -> Any:
             else:
                 raise ValueError('Configuration file {} does not exist'.format(path))
         config_text = read_file(path)
-        config = yaml.load(config_text, Loader=yaml.FullLoader)
+        config = yaml.load(config_text, Loader=yaml.SafeLoader)
     except Exception as e:
         print('Failed to parse configuration file:')
         print(e)
