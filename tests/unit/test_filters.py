@@ -3,7 +3,7 @@ from typing import List
 
 import pytest
 
-from avtdl.core.interfaces import Event, EventType, TextRecord
+from avtdl.core.interfaces import Event, EventType, RuntimeContext, TextRecord
 from avtdl.plugins.filters.filters import EmptyFilterConfig, EmptyFilterEntity, EventCauseFilter, FormatEventFilter, FormatEventFilterEntity, MatchFilter, MatchFilterEntity
 from avtdl.plugins.twitch.twitch import TwitchRecord
 
@@ -33,7 +33,8 @@ class TestEventCause:
     @staticmethod
     @pytest.fixture()
     def cause_filter(empty_config, empty_entity):
-        return EventCauseFilter(config=empty_config, entities=[empty_entity])
+        ctx = RuntimeContext.create()
+        return EventCauseFilter(config=empty_config, entities=[empty_entity], ctx=ctx)
 
     @staticmethod
     def test_match(cause_filter, empty_entity, event_record):
@@ -51,7 +52,8 @@ class TestFormatEvent:
     def prepare_filter():
         empty_config = EmptyFilterConfig(name='test')
         entity = FormatEventFilterEntity(name='test', type_template='error', text_template='Event: *{text}*')
-        return FormatEventFilter(config=empty_config, entities=[entity]), entity
+        ctx = RuntimeContext.create()
+        return FormatEventFilter(config=empty_config, entities=[entity], ctx=ctx), entity
 
     def test_match(self, text_record):
         format_event_filter, entity = self.prepare_filter()
@@ -68,7 +70,8 @@ class TestMatchFilter:
     def prepare_filter(patterns: List[str], fields: List[str]):
         config = EmptyFilterConfig(name='test')
         entity = MatchFilterEntity(name='test', patterns=patterns, fields=fields)
-        return MatchFilter(config, [entity]), entity
+        ctx = RuntimeContext.create()
+        return MatchFilter(config, [entity], ctx), entity
 
     def test_empty_field_matches(self):
         record = TwitchRecord(

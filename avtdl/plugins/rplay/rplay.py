@@ -16,7 +16,7 @@ from pydantic import Field, FilePath, model_validator
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import MAX_REPR_LEN, Record
+from avtdl.core.interfaces import MAX_REPR_LEN, Record, RuntimeContext
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.utils import Fmt
 
@@ -120,8 +120,8 @@ class RplayMonitor(BaseFeedMonitor):
     not support providing login credentials.
     """
 
-    def __init__(self, conf: RplayMonitorConfig, entities: Sequence[RplayMonitorEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: RplayMonitorConfig, entities: Sequence[RplayMonitorEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.nickname_cache: Dict[str, str] = {}
         self.consumers: Dict[str, asyncio.Queue] = {}
         for entity in self.entities.values():
@@ -243,8 +243,8 @@ class RplayUserMonitor(BaseFeedMonitor):
     to view the stream.
     """
 
-    def __init__(self, conf: RplayUserMonitorConfig, entities: Sequence[RplayUserMonitorEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: RplayUserMonitorConfig, entities: Sequence[RplayUserMonitorEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.own_user: Optional['User'] = None
 
     async def get_records(self, entity: RplayUserMonitorEntity, session: aiohttp.ClientSession) -> Sequence[RplayRecord]:

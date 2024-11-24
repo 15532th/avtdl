@@ -7,7 +7,7 @@ import aiohttp
 from pydantic import Field, ValidationError
 
 from avtdl.core import utils
-from avtdl.core.interfaces import Filter, FilterEntity, Record
+from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.plugins.filters.filters import EmptyFilterConfig
@@ -241,8 +241,8 @@ class ChannelFilter(Filter):
     entities if picking records with any of multiple properties is required.
     """
 
-    def __init__(self, config: ChannelFilterConfig, entities: Sequence[ChannelFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: ChannelFilterConfig, entities: Sequence[ChannelFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: ChannelFilterEntity, record: YoutubeVideoRecord) -> Optional[YoutubeVideoRecord]:
         if not isinstance(record, YoutubeVideoRecord):

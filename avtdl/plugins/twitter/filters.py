@@ -1,6 +1,6 @@
 from typing import Optional, Sequence
 
-from avtdl.core.interfaces import Filter, FilterEntity, Record
+from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 from avtdl.plugins.twitter.extractors import TwitterRecord
@@ -41,8 +41,8 @@ class TwitterFilter(Filter):
     All records from other sources pass through without filtering.
     """
 
-    def __init__(self, config: TwitterFilterConfig, entities: Sequence[TwitterFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: TwitterFilterConfig, entities: Sequence[TwitterFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: FilterEntity, record: Record) -> Optional[Record]:
         assert isinstance(entity, TwitterFilterEntity)

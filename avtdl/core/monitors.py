@@ -9,7 +9,7 @@ import aiohttp
 from pydantic import Field, FilePath, field_validator
 
 from avtdl.core.db import BaseDbConfig, RecordDB
-from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record
+from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
 from avtdl.core.utils import Delay, SessionStorage, get_cache_ttl, get_retry_after, load_cookies, \
     monitor_tasks, monitor_tasks_dict, show_diff
 
@@ -23,8 +23,8 @@ class TaskMonitorEntity(MonitorEntity):
 
 class BaseTaskMonitor(Monitor):
 
-    def __init__(self, conf: ActorConfig, entities: Sequence[TaskMonitorEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: ActorConfig, entities: Sequence[TaskMonitorEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.tasks: Dict[str, Optional[asyncio.Task]] = {}
 
     async def run(self):
@@ -124,8 +124,8 @@ class HttpTaskMonitor(BaseTaskMonitor):
     grouped by HttpTaskMonitorEntity.cookies_path, which means entities that use
     the same cookies file will share session'''
 
-    def __init__(self, conf: ActorConfig, entities: Sequence[HttpTaskMonitorEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: ActorConfig, entities: Sequence[HttpTaskMonitorEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.sessions: SessionStorage = SessionStorage(self.logger)
 
     async def request_json(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[Any]:
@@ -263,8 +263,8 @@ class BaseFeedMonitorEntity(HttpTaskMonitorEntity):
 
 class BaseFeedMonitor(HttpTaskMonitor):
 
-    def __init__(self, conf: BaseFeedMonitorConfig, entities: Sequence[BaseFeedMonitorEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: BaseFeedMonitorConfig, entities: Sequence[BaseFeedMonitorEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
     @abstractmethod

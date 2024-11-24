@@ -10,7 +10,7 @@ from pydantic import FilePath
 
 from avtdl.core import utils
 from avtdl.core.db import BaseDbConfig, RecordDB
-from avtdl.core.interfaces import Action, ActionEntity, Record
+from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import SessionStorage, find_matching_field_value, monitor_tasks_dict
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
@@ -68,8 +68,8 @@ class TwitterSpace(Action):
     CHECK_ENDED_DELAY = 30.0
     MAX_SEQUENTIAL_CHECKS = 100
 
-    def __init__(self, conf: TwitterSpaceConfig, entities: Sequence[TwitterSpaceEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: TwitterSpaceConfig, entities: Sequence[TwitterSpaceEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.sessions = SessionStorage(self.logger)
         self.tasks: Dict[str, asyncio.Task] = {}
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))

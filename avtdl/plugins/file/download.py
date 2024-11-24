@@ -8,7 +8,7 @@ import aiohttp
 from pydantic import AnyUrl, Field, FilePath, RootModel, ValidationError, field_validator
 
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import Fmt, SessionStorage, check_dir, monitor_tasks, sanitize_filename, sha1
 
@@ -85,8 +85,8 @@ class FileDownload(Action):
     sharing the base name, the new file will be deleted, giving preference to the existing copy.
     """
 
-    def __init__(self, conf: FileDownloadConfig, entities: Sequence[FileDownloadEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: FileDownloadConfig, entities: Sequence[FileDownloadEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.concurrency_limit = asyncio.BoundedSemaphore(value=conf.max_concurrent_downloads)
         self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
         self.sessions = SessionStorage(self.logger)

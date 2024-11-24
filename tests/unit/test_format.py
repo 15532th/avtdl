@@ -3,7 +3,7 @@ from typing import Optional
 
 import pytest
 
-from avtdl.core.interfaces import TextRecord
+from avtdl.core.interfaces import RuntimeContext, TextRecord
 from avtdl.plugins.filters.filters import EmptyFilterConfig, FormatFilter, FormatFilterEntity
 
 
@@ -18,7 +18,8 @@ class TestFormatFilter:
     def prepare_filter(template: str, missing: Optional[str] = None):
         config = EmptyFilterConfig(name='test')
         entity = FormatFilterEntity(name='test', template=template, missing=missing)
-        return FormatFilter(config, [entity]), entity
+        ctx = RuntimeContext.create()
+        return FormatFilter(config, [entity], ctx), entity
 
     def test_single_field(self, text_record):
         fmt, entity = self.prepare_filter('*** {text} ***')

@@ -3,6 +3,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from dataclasses import dataclass
 from hashlib import sha1
 from textwrap import shorten
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
@@ -185,6 +186,16 @@ class MessageBus:
         cls._subscriptions.clear()
 
 
+@dataclass
+class RuntimeContext:
+    bus: MessageBus
+
+    @classmethod
+    def create(cls) -> 'RuntimeContext':
+        bus = MessageBus()
+        return cls(bus=bus)
+
+
 class ActorConfig(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -205,10 +216,10 @@ class ActorEntity(BaseModel):
 class Actor(ABC):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
-    def __init__(self, conf: ActorConfig, entities: Sequence[ActorEntity]):
+    def __init__(self, conf: ActorConfig, entities: Sequence[ActorEntity], ctx: RuntimeContext):
         self.conf = conf
         self.logger = logging.getLogger(f'actor').getChild(conf.name)
-        self.bus = MessageBus()
+        self.bus = ctx.bus
         self.entities: Dict[str, ActorEntity] = {entity.name: entity for entity in entities}
 
         for entity_name in self.entities:
@@ -253,8 +264,8 @@ class MonitorEntity(ActorEntity):
 
 class Monitor(Actor, ABC):
 
-    def __init__(self, conf: ActorConfig, entities: Sequence[MonitorEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: ActorConfig, entities: Sequence[MonitorEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
 
     def handle_record(self, entity: MonitorEntity, record: Record) -> None:
         # For convenience’s sake monitors pass incoming records down the chain.
@@ -278,8 +289,8 @@ class FilterEntity(ActorEntity):
 
 class Filter(Actor):
 
-    def __init__(self, conf: ActorConfig, entities: Sequence[FilterEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: ActorConfig, entities: Sequence[FilterEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.logger = logging.getLogger(f'filters.{self.conf.name}')
 
     def handle_record(self, entity: FilterEntity, record: Record):
@@ -327,8 +338,8 @@ class ActionEntity(ActorEntity):
 
 class Action(Actor, ABC):
 
-    def __init__(self, conf: ActorConfig, entities: Sequence[ActionEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: ActorConfig, entities: Sequence[ActionEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
 
     def handle_record(self, entity: ActionEntity, record: Record) -> None:
         record = record.as_timezone(entity.timezone)

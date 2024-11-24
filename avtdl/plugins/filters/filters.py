@@ -9,7 +9,7 @@ from pydantic import Field, field_serializer, field_validator
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, TextRecord, Timezone
+from avtdl.core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, RuntimeContext, TextRecord, Timezone
 from avtdl.core.utils import Fmt, find_matching_field
 
 
@@ -43,8 +43,8 @@ class NoopFilter(Filter):
     multiple chains and process them in a single place.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: FilterEntity, record: Record) -> Record:
         return record
@@ -59,8 +59,8 @@ class VoidFilter(Filter):
     Can be used to stuff multiple chains in one if the need ever arises.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: FilterEntity, record: Record) -> None:
         return None
@@ -83,8 +83,8 @@ class MatchFilter(Filter):
     defined by `patterns` list found in any (or specified) field of the record.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: MatchFilterEntity, record: Record) -> Optional[Record]:
         for pattern in entity.patterns:
@@ -103,8 +103,8 @@ class ExcludeFilter(Filter):
     defined by `patterns` list found in any (or specified) field of the record.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[MatchFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: MatchFilterEntity, record: Record) -> Optional[Record]:
         for pattern in entity.patterns:
@@ -133,8 +133,8 @@ class EventFilter(Filter):
     them from regular records.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[EventFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[EventFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: EventFilterEntity, record: Record) -> Optional[Record]:
         if isinstance(record, Event):
@@ -160,8 +160,8 @@ class EventCauseFilter(Filter):
     Regular records (not Events) are passed through unchanged.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[EmptyFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: EmptyFilterEntity, record: Record) -> Optional[Record]:
         if isinstance(record, Event):
@@ -184,8 +184,8 @@ class TypeFilter(Filter):
     Only lets through records of specified types, such as `Event` or `YoutubeVideoRecord`.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[TypeFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[TypeFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: TypeFilterEntity, record: Record) -> Optional[Record]:
         if entity.exact_match:
@@ -217,8 +217,8 @@ class JsonFilter(Filter):
     original record in JSON format, with option for pretty-print.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[JsonFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[JsonFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: JsonFilterEntity, record: Record) -> TextRecord:
         indent = 4 if entity.prettify else None
@@ -273,8 +273,8 @@ class FormatFilter(Filter):
     parameter is provided to allow formatting these fields in desired timezone.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[FormatFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[FormatFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: FormatFilterEntity, record: Record) -> TextRecord:
         record = record.as_timezone(entity.timezone)
@@ -324,8 +324,8 @@ class FormatEventFilter(Filter):
     supported, though original record might be retrieved with `filter.event.cause`.
     """
 
-    def __init__(self, config: EmptyFilterConfig, entities: Sequence[FormatEventFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: EmptyFilterConfig, entities: Sequence[FormatEventFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: FormatEventFilterEntity, record: Record) -> Event:
         record = record.as_timezone(entity.timezone)
@@ -383,8 +383,8 @@ class DeduplicateFilter(Filter):
     restarts.
     """
 
-    def __init__(self, config: DeduplicateFilterConfig, entities: Sequence[DeduplicateFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: DeduplicateFilterConfig, entities: Sequence[DeduplicateFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: DeduplicateFilterEntity, record: Record) -> Optional[Record]:
         field = getattr(record, entity.field, None)

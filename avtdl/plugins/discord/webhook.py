@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import aiohttp
 import multidict
 
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import RateLimit, monitor_tasks, request_raw
 
@@ -149,8 +149,8 @@ class DiscordHook(Action):
     will be dropped with a warning.
     """
 
-    def __init__(self, conf: DiscordHookConfig, entities: Sequence[DiscordHookEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: DiscordHookConfig, entities: Sequence[DiscordHookEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
         self.buckets: Dict[Optional[str], DiscordRateLimit] = {}
         self.buckets[None] = NoRateLimit('fallback bucket')

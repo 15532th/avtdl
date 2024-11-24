@@ -5,7 +5,7 @@ from typing import Optional
 
 import pytest
 
-from avtdl.core.interfaces import ActorConfig
+from avtdl.core.interfaces import ActorConfig, RuntimeContext
 from avtdl.plugins.file.text_file import FileMonitor, FileMonitorEntity
 
 
@@ -30,7 +30,8 @@ def entity(tmp_path, params) -> FileMonitorEntity:
 
 @pytest.fixture()
 def monitor(entity) -> FileMonitor:
-    monitor = FileMonitor(ActorConfig(name='text_monitor'), [entity])
+    ctx = RuntimeContext.create()
+    monitor = FileMonitor(ActorConfig(name='text_monitor'), [entity], ctx)
     return monitor
 
 

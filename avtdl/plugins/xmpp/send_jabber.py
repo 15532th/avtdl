@@ -2,7 +2,7 @@ import logging
 from typing import Sequence
 
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 
 try:
     from avtdl.plugins.xmpp.msg2jbr_slixmpp import MSG2JBR
@@ -40,8 +40,8 @@ class SendJabber(Action):
     it to server side.
     """
 
-    def __init__(self, conf: JabberConfig, entities: Sequence[JabberEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: JabberConfig, entities: Sequence[JabberEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.jbr = MSG2JBR(conf.xmpp_username, conf.xmpp_pass, self.logger)
 
     def handle(self, entity: JabberEntity, record: Record):

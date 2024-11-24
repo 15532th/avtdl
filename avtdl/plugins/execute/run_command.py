@@ -10,7 +10,7 @@ from pydantic import field_validator
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, RuntimeContext
 from avtdl.core.utils import Fmt, check_dir, sanitize_filename
 
 Plugins.register('execute', Plugins.kind.ASSOCIATED_RECORD)(Event)
@@ -101,8 +101,8 @@ class Command(Action):
     it happens to fail due to video link not being a livestream.
     """
 
-    def __init__(self, conf: CommandConfig, entities: Sequence[CommandEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: CommandConfig, entities: Sequence[CommandEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.running_commands: Dict[str, asyncio.Task] = {}
         self.done_callbacks: List[Callable[[Process, CommandEntity, Record], None]] = []
 

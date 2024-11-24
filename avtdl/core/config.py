@@ -5,7 +5,7 @@ from typing import Any, Dict, Generic, List, Tuple, Type, TypeVar
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, ValidationError, create_model
 
 from avtdl.core.chain import Chain, ChainConfigSection
-from avtdl.core.interfaces import Actor
+from avtdl.core.interfaces import Actor, RuntimeContext
 from avtdl.core.loggers import LogLevel, override_loglevel, set_file_logger
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import strip_text
@@ -105,11 +105,11 @@ class ActorParser:
         return actors_section_model
 
     @classmethod
-    def create_actors(cls, config_section: 'SpecificActors') -> Dict[str, Type]:
+    def create_actors(cls, config_section: 'SpecificActors', ctx: RuntimeContext) -> Dict[str, Type]:
         actors = {}
         for name, actor_section in config_section:
             ActorFactory, _, _ = Plugins.get_actor_factories(name)
-            actors[name] = ActorFactory(actor_section.config, actor_section.entities)
+            actors[name] = ActorFactory(actor_section.config, actor_section.entities, ctx)
         return actors
 
     @classmethod
@@ -146,15 +146,15 @@ class ConfigParser:
         return SpecificConfigModel
 
     @classmethod
-    def create_chains(cls, chains_section: Dict[str, ChainConfigSection]) -> Dict[str, Chain]:
+    def create_chains(cls, chains_section: Dict[str, ChainConfigSection], ctx: RuntimeContext) -> Dict[str, Chain]:
         chains = {}
         for name, chain_config in chains_section.items():
-            chains[name] = Chain(name, chain_config)
+            chains[name] = Chain(name, chain_config, ctx)
         return chains
 
     @classmethod
     @try_parsing
-    def parse(cls, conf: dict) -> Tuple[SettingsSection, Dict[str, Any], Dict[str, Chain]]:
+    def parse(cls, conf: dict, ctx: RuntimeContext) -> Tuple[SettingsSection, Dict[str, Any], Dict[str, Chain]]:
         # do basic structural validation of config file
         config = Config(**conf)
 
@@ -166,8 +166,8 @@ class ConfigParser:
         SpecificConfig = cls.load_models(config)
         specific_config = SpecificConfig(**flatted_conf.model_dump())
 
-        actors = ActorParser.create_actors(specific_config.actors)
-        chains = ConfigParser.create_chains(specific_config.chains)
+        actors = ActorParser.create_actors(specific_config.actors, ctx)
+        chains = ConfigParser.create_chains(specific_config.chains, ctx)
 
         return config.settings, actors, chains
 

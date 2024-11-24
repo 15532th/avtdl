@@ -5,7 +5,7 @@ from typing import List, Optional
 
 import pytest
 
-from avtdl.core.interfaces import Record, TextRecord
+from avtdl.core.interfaces import Record, RuntimeContext, TextRecord
 from avtdl.plugins.execute.run_command import Command, CommandConfig, CommandEntity
 from avtdl.plugins.rss.generic_rss import GenericRSSRecord
 
@@ -16,8 +16,9 @@ def text_record():
 
 
 async def run_command(entity: CommandEntity, record: Record) -> Process:
+    ctx = RuntimeContext.create()
     config = CommandConfig(name='test')
-    actor = Command(config, [entity])
+    actor = Command(config, [entity], ctx)
 
     flag = asyncio.Event()
     completed_process: Optional[Process] = None
@@ -67,8 +68,9 @@ class TestCommandArgs:
 
     @staticmethod
     def args_for(entity: CommandEntity, record: Record) -> List[str]:
+        ctx = RuntimeContext.create()
         config = CommandConfig(name='test')
-        actor = Command(config, [entity])
+        actor = Command(config, [entity], ctx)
         args = actor.args_for(entity, record)
         return args
 

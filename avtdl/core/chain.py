@@ -4,7 +4,7 @@ from typing import Callable, List, OrderedDict
 
 from pydantic import RootModel, field_validator
 
-from avtdl.core.interfaces import MessageBus, Record
+from avtdl.core.interfaces import Record, RuntimeContext
 
 
 class CardSection(RootModel):
@@ -56,9 +56,9 @@ class ChainConfigSection(RootModel):
 
 class Chain:
 
-    def __init__(self, name: str, actors: ChainConfigSection):
+    def __init__(self, name: str, actors: ChainConfigSection, ctx: RuntimeContext):
         self.name = name
-        self.bus = MessageBus()
+        self.bus = ctx.bus
         self.logger = logging.getLogger('chain')
         self.conf = actors
 

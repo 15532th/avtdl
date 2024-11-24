@@ -11,7 +11,7 @@ from pydantic import ConfigDict
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import Record
+from avtdl.core.interfaces import Record, RuntimeContext
 from avtdl.plugins.rss.generic_rss import GenericRSSMonitor, GenericRSSMonitorConfig, GenericRSSMonitorEntity
 from avtdl.plugins.youtube.common import thumbnail_url
 from avtdl.plugins.youtube.video_info import VideoInfoError, parse_video_page
@@ -152,12 +152,12 @@ class FeedMonitor(GenericRSSMonitor):
     `adjust_update_interval` to disable this behavior.
     """
 
-    def __init__(self, conf: FeedMonitorConfig, entities: Sequence[FeedMonitorEntity]):
+    def __init__(self, conf: FeedMonitorConfig, entities: Sequence[FeedMonitorEntity], ctx: RuntimeContext):
         try:
             Migration(conf.db_path)
         except Exception as e:
             raise Exception('migration failed') from e
-        super().__init__(conf, entities)
+        super().__init__(conf, entities, ctx)
 
     async def get_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeFeedRecord]:
         records = await super().get_records(entity, session)

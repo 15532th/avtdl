@@ -4,7 +4,7 @@ from typing import Sequence, Set, Union
 
 from pydantic import field_serializer, field_validator
 
-from avtdl.core.interfaces import Filter, FilterEntity, Record
+from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import monitor_tasks_set
 from avtdl.plugins.filters.filters import EmptyFilterConfig
@@ -51,9 +51,9 @@ class ChannelNotifyFilter(Filter):
     If the record is not an upcoming Youtube livestream, it gets silently dropped.
     """
 
-    def __init__(self, config: ChannelNotifyFilterConfig, entities: Sequence[ChannelNotifyFilterEntity]):
+    def __init__(self, config: ChannelNotifyFilterConfig, entities: Sequence[ChannelNotifyFilterEntity], ctx: RuntimeContext):
         self.tasks: Set[asyncio.Task] = set()
-        super().__init__(config, entities)
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: ChannelNotifyFilterEntity, record: Record) -> None:
         if isinstance(record, YoutubeVideoRecord):

@@ -10,7 +10,7 @@ from dateutil import parser
 from pydantic import ConfigDict
 
 from avtdl.core import utils
-from avtdl.core.interfaces import Filter, FilterEntity, MAX_REPR_LEN, Record
+from avtdl.core.interfaces import Filter, FilterEntity, MAX_REPR_LEN, Record, RuntimeContext
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.plugins.filters.filters import EmptyFilterConfig
@@ -339,8 +339,8 @@ class NitterFilterPick(Filter):
     All records from other sources pass through without filtering.
     """
 
-    def __init__(self, config: NitterFilterConfig, entities: Sequence[NitterFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: NitterFilterConfig, entities: Sequence[NitterFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: NitterFilterEntity, record: NitterRecord) -> Optional[NitterRecord]:
         if not isinstance(record, NitterRecord):
@@ -370,8 +370,8 @@ class NitterFilterDrop(Filter):
     All records from other sources pass through without filtering.
     """
 
-    def __init__(self, config: NitterFilterConfig, entities: Sequence[NitterFilterEntity]):
-        super().__init__(config, entities)
+    def __init__(self, config: NitterFilterConfig, entities: Sequence[NitterFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
 
     def match(self, entity: NitterFilterEntity, record: NitterRecord) -> Optional[NitterRecord]:
         if not isinstance(record, NitterRecord):

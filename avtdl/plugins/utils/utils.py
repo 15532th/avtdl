@@ -2,7 +2,7 @@ from collections import defaultdict
 from enum import Enum
 from typing import Callable, Dict, List, Optional, Sequence
 
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Monitor, MonitorEntity, Record
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 
 
@@ -31,8 +31,8 @@ class QuitAction(Action):
 
     Triggers avtdl shutdown when specified number of records is received.
     """
-    def __init__(self, conf: QuitActionConfig, entities: Sequence[QuitActionEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: QuitActionConfig, entities: Sequence[QuitActionEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
 
     def handle(self, entity: QuitActionEntity, record: Record):
         if entity.local_counter > 0:
@@ -89,8 +89,8 @@ class Consumer(Action):
     Keeps history of received records, allow registering handlers
     for records received by specific entity.
     """
-    def __init__(self, conf: ActorConfig, entities: Sequence[ActionEntity]):
-        super().__init__(conf, entities)
+    def __init__(self, conf: ActorConfig, entities: Sequence[ActionEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
         self.history: Dict[str, List[Record]] = {entity.name: [] for entity in entities}
         self.callbacks: Dict[Optional[str], List[Callable]] = defaultdict(list)
 
