@@ -38,6 +38,16 @@ class EntitiesList {
         entity.registerNameChangeCallback((oldName, newName, nameField) => {
             this.handleNameUpdate(oldName, newName, nameField);
         });
+
+        entity.registerNameChangeValidator((newName) => {
+            if (newName === entity.getName()) {
+                return null;
+            }
+            if (this.isNameUsed(newName)) {
+                return 'name is already used';
+            }
+            return null;
+        });
         return [entity, entryDiv];
     }
 
@@ -75,6 +85,16 @@ class EntitiesList {
             names.push(entry.getName());
         }
         return names;
+    }
+
+    isNameUsed(name) {
+        const sameNameEntries = [];
+        for (const entry of this.entries) {
+            if (name == entry.getName()) {
+                sameNameEntries.push(entry);
+            }
+        }
+        return sameNameEntries.length > 0;
     }
 
     handleNameUpdate(oldName, newName, nameField) {

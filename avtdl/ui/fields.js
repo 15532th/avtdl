@@ -39,7 +39,7 @@ class NameInputField extends InputField {
         super(propertyName, schema);
         this.input = selectInput(this.fieldContainer);
         this.input.classList.add('name-input');
-        this.nameValidator = (name) => {
+        this.nameValidator = (newName) => {
             return null;
         };
         this.addRenameHandler(this.input);
@@ -522,6 +522,12 @@ class Fieldset {
 
             this.oldName = value;
         });
+    }
+
+    registerNameChangeValidator(callback) {
+        if (this.nameField) {
+            this.nameField.registerNameValidator(callback);
+        }
     }
 
     fill(data) {
