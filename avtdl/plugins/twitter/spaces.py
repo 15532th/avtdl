@@ -81,14 +81,14 @@ class TwitterSpace(Action):
         if space_id in self.tasks:
             self.logger.debug(f'[{entity.name}] task for space {space_id} is already running')
             return
-        task = self.controller.create_task(self.handle_space(entity, space_id))
+        task = self.controller.create_task(self.handle_space(entity, space_id, record))
         task.add_done_callback(lambda _: self.tasks.pop(space_id))
         self.tasks[space_id] = task
 
     async def run(self) -> None:
         await self.sessions.ensure_closed()
 
-    async def handle_space(self, entity: TwitterSpaceEntity, space_id: str):
+    async def handle_space(self, entity: TwitterSpaceEntity, space_id: str, source_record: Record):
         should_emit_something: bool = entity.emit_immediately
         should_emit_live_url: bool = entity.emit_on_live
         should_emit_replay_url: bool = entity.emit_on_archive
@@ -99,6 +99,12 @@ class TwitterSpace(Action):
             nonlocal should_emit_live_url
             nonlocal should_emit_replay_url
             nonlocal should_emit_on_end
+
+            if space.chain is None:
+                space.chain = source_record.chain
+            if space.origin is None:
+                space.origin = source_record.origin
+
             if should_emit_replay_url:
                 if space.media_url is not None and StreamUrlType.is_replay(space.media_url):
                     self.on_record(entity, space)
