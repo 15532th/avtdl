@@ -289,7 +289,7 @@ class ConfigEditor {
     async submitConfig(data, mode) {
         this.messageArea.clear();
         try {
-            const response = await fetch('/config?mode=' + mode, {
+            const response = await fetch('/config', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

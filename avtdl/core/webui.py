@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import pathlib
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Optional
 
 import dateutil.zoneinfo
 import yaml
@@ -20,16 +20,10 @@ from avtdl.core.utils import strip_text, write_file
 
 def serialize_config(settings: SettingsSection,
                      actors: Dict[str, Actor],
-                     chains: Dict[str, Chain],
-                     mode: Literal['json', 'yaml'] = 'json') -> str:
+                     chains: Dict[str, Chain]) -> str:
     config = ConfigParser.serialize(settings, actors, chains)
     conf = config.model_dump_json()
-    if mode == 'json':
-        return conf
-    elif mode == 'yaml':
-        return json_to_yaml(conf)
-    else:
-        assert False, 'serialize config got unexpected mode'
+    return conf
 
 
 def json_to_yaml(conf: str) -> str:
@@ -160,8 +154,7 @@ class WebUI:
         return web.json_response(schema, dumps=json_dumps)
 
     async def show_config(self, request: web.Request):
-        mode = request.query.get('mode', 'json')
-        data = serialize_config(self.settings, self.actors, self.chains, mode=mode)
+        data = serialize_config(self.settings, self.actors, self.chains)
         return web.Response(text=data)
 
     async def store_config(self, request: web.Request) -> web.Response:
