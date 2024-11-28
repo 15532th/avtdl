@@ -260,12 +260,9 @@ class ConfigEditor {
         actionBar.classList.add('action-bar');
         this.container.appendChild(actionBar);
 
-        const checkButton = createButton('Check', this.makeSaveConfigCallback('check'), 'action-button');
+        const checkButton = createButton('Check Config', this.makeSaveConfigCallback('check'), 'action-button');
         checkButton.title = 'Validate changes without applying them';
         actionBar.appendChild(checkButton);
-        const saveButton = createButton('Save Changes', this.makeSaveConfigCallback('store'), 'action-button');
-        actionBar.appendChild(saveButton);
-        saveButton.title = 'Save changes in the configuration file without restarting avtdl';
         const reloadButton = createButton(
             'Save Changes and Reload',
             this.makeSaveConfigCallback('reload'),
