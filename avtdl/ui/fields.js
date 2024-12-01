@@ -1,6 +1,6 @@
 class InputField {
     constructor(propertyName, schema) {
-        this.propertyName = propertyName; // Store the property name
+        this.propertyName = propertyName;
         this.schema = schema;
         this.fieldContainer = generateField(this.propertyName, this.schema);
     }
@@ -22,7 +22,7 @@ class InputField {
     }
 
     getElement() {
-        return this.fieldContainer; // Return the container element with the input
+        return this.fieldContainer;
     }
 
     showError(path, message) {
@@ -73,7 +73,6 @@ class SuggestionsInputField {
         this.container.classList.add('optsearch-container');
         this.possibleValues = possibleValues || [];
 
-        // Create the input element
         this.inputField = selectInput(this.container);
         if (!this.inputField) {
             this.inputField = document.createElement('input');
@@ -82,20 +81,17 @@ class SuggestionsInputField {
         }
         this.inputField.classList.add('optsearch-input');
 
-        // Create the suggestions list
         this.suggestionsList = document.createElement('div');
         this.suggestionsList.className = 'optsearch-suggestions';
         this.container.appendChild(this.suggestionsList);
         this.showSuggestions(false);
 
-        // Event listeners
         registerOnClickOutside(this.container, () => {
             this.showSuggestions(false);
         });
         this.inputField.addEventListener('focus', () => this.updateSuggestions());
         this.inputField.addEventListener('input', () => this.handleInput());
 
-        // Debounce control variables
         this.debounceTimeout = null;
     }
 
@@ -105,9 +101,8 @@ class SuggestionsInputField {
 
     updateSuggestions() {
         const inputValue = this.inputField.value.toLowerCase();
-        this.suggestionsList.innerHTML = ''; // Clear previous suggestions
+        this.suggestionsList.innerHTML = '';
 
-        // Filter possible values based on input
         const filteredValues = this.possibleValues.filter((value) => value.toLowerCase().includes(inputValue));
 
         if (filteredValues.length < 1) {
@@ -119,7 +114,6 @@ class SuggestionsInputField {
             return;
         }
 
-        // Display suggestions
         filteredValues.forEach((value) => {
             const suggestionItem = document.createElement('div');
             suggestionItem.className = 'optsearch-suggestion';
@@ -132,20 +126,17 @@ class SuggestionsInputField {
     }
 
     handleInput() {
-        // Clear previous timeout if still running
         if (this.debounceTimeout) {
             clearTimeout(this.debounceTimeout);
         }
-
-        // Set a new timeout for updating suggestions
         this.debounceTimeout = setTimeout(() => {
             this.updateSuggestions();
         }, 300);
     }
 
     selectSuggestion(value) {
-        this.inputField.value = value; // Set input field value
-        this.suggestionsList.innerHTML = ''; // Clear suggestions
+        this.inputField.value = value;
+        this.suggestionsList.innerHTML = '';
     }
 
     isRequired() {
@@ -179,7 +170,7 @@ class SuggestionsInputField {
 
 class DictionaryInputField {
     constructor(propertyName, schema) {
-        this.propertyName = propertyName; // Store the property name
+        this.propertyName = propertyName;
         this.schema = schema;
         this.fieldContainer = createFieldset(propertyName, schema.description || null);
         this.entries = [];
@@ -302,7 +293,7 @@ class DictionaryInputField {
 
 class ArrayInputField {
     constructor(propertyName, schema) {
-        this.propertyName = propertyName; // Store the property name
+        this.propertyName = propertyName;
         this.schema = schema;
         this.fieldContainer = createFieldset(propertyName, schema.description || null);
         this.entries = [];

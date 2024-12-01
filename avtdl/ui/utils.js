@@ -237,7 +237,7 @@ function observeChildMutations(element, callback) {
     const config = { childList: true, subtree: true };
     observer.observe(element, config);
 
-    // Return a function to stop observing
+    // return a function to stop observing
     return () => observer.disconnect();
 }
 
@@ -273,14 +273,13 @@ class OrderedDict {
     constructor() {
         this.data = {};
         this.order = [];
-        this.proxy = this.createProxy(); // Call the method to create the Proxy
-        return this.proxy; // Return the proxy instance
+        this.proxy = this.createProxy();
+        return this.proxy;
     }
 
     createProxy() {
         return new Proxy(this, {
             has: (target, prop) => {
-                // Check if the prop exists in data
                 return prop in target.data;
             },
             deleteProperty: (target, prop) => {

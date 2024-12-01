@@ -14,7 +14,7 @@ function flattenSchemas(schemas) {
 function resolveRefs(schema, defs) {
     const resolve = (currentSchema) => {
         if (typeof currentSchema !== 'object' || currentSchema === null) {
-            return currentSchema; // Base case: return primitive values
+            return currentSchema;
         }
 
         let resolvedSchema = {};

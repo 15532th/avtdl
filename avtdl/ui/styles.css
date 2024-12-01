@@ -34,41 +34,41 @@ nav a.active {
 
 #main {
     display: flex;
-    position: relative; /* Position relative for child elements */
+    position: relative;
 }
 
 #sidebar {
     position: sticky;
     top: 0;
     height: 100vh;
-    width: 20%; /* Takes 20% of the page width */
+    width: 20%;
     min-width: 200px;
-    background-color: #f4f4f4; /* Light gray background */
-    padding: 20px; /* Adds some padding */
-    border-right: 1px solid #ddd; /* Adds a border on the right */
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); /* Adds a subtle shadow */
-    overflow-y: auto; /* Allows vertical scrolling */
+    background-color: #f4f4f4;
+    padding: 20px;
+    border-right: 1px solid #ddd;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
     scrollbar-width: thin;
 }
 
 #sidebar p {
-    padding: 10px; /* Adds padding to menu items */
-    margin: 5px 0; /* Adds margin between menu items */
-    border-radius: 4px; /* Rounds the corners */
-    transition: background-color 0.3s; /* Smooth transition for hover effect */
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 4px;
+    transition: background-color 0.3s;
 }
 
 #sidebar p:hover {
-    background-color: #e2e2e2; /* Darker gray on hover */
-    cursor: pointer; /* Changes cursor to pointer on hover */
+    background-color: #e2e2e2;
+    cursor: pointer;
 }
 
 #output {
     max-width: 900px;
-    padding: 20px; /* Adds some padding */
+    padding: 20px;
     padding-left: 40px;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); /* Adds a subtle shadow */
-    flex-grow: 1; /* Takes remaining space */
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    flex-grow: 1;
 }
 
 #message-area {
@@ -83,9 +83,9 @@ nav a.active {
 }
 
 .message-container {
-    display: flex; /* Use flexbox for alignment */
-    justify-content: space-between; /* Space between text and close button */
-    align-items: center; /* Center items vertically */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     padding: 10px;
     margin: 5px;
     border-radius: 5px;
@@ -98,9 +98,9 @@ nav a.active {
 }
 
 .message-container.info {
-    background-color: #d9edf7; /* Light blue background */
-    color: #31708f; /* Darker blue text */
-    border: 1px solid #bce8f1; /* Light blue border */
+    background-color: #d9edf7;
+    color: #31708f;
+    border: 1px solid #bce8f1;
 }
 
 .message-container.error {
@@ -114,7 +114,7 @@ nav a.active {
     display: block;
     max-height: 400px;
     overflow: auto;
-    margin-right: 10px; /* Add some space between the message text and close button */
+    margin-right: 10px;
 }
 
 .message-container.error p {
@@ -133,7 +133,7 @@ nav a.active {
 details {
     margin: 10px 0;
     margin-bottom: 20px;
-    border: 0px solid #ccc; /* Outline border around the details */
+    border: 0px solid #ccc;
 }
 
 .actor {
@@ -144,34 +144,33 @@ details {
 summary {
     cursor: pointer;
     font-weight: bold;
-    padding: 5px; /* Add padding for vertical space */
-    background-color: #ddd; /* Optional: change color when open */
-    border: 0px solid #ccc; /* Optional: adds a border */
-    border-radius: 0px; /* Optional: rounded corners */
-
-    position: relative; /* Positioning context for the absolute child */
+    padding: 5px;
+    background-color: #ddd;
+    border: 0px solid #ccc;
+    border-radius: 0px;
+    position: relative;
 }
 
 .summary-headline {
     font-weight: normal;
-    margin: 0 auto; /* Center the first span */
-    text-align: center; /* Make sure the text inside is centered */
-    position: absolute; /* Remove from normal flow */
-    left: 50%; /* Move it to the middle */
-    transform: translateX(-50%); /* Center it horizontally */
+    margin: 0 auto;
+    text-align: center;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 details.top-level-section {
-    background-color: #f9f9f9; /* Light gray background for visibility */
-    border: 1px solid #ddd; /* Light gray border for separation */
-    border-radius: 5px; /* Rounded corners for a softer appearance */
-    padding: 10px; /* Padding for spacing */
-    margin: 10px 0; /* Margin to separate from other elements */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 10px 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .top-level-section > summary {
-    outline: none; /* Remove default outline */
+    outline: none;
 }
 
 details.top-level-section[open] > summary {
@@ -185,24 +184,22 @@ details[open] > summary {
 
 .section-content {
     padding: 10px;
-    border-left: 2px solid #007bff; /* Optional left border for emphasis */
+    border-left: 2px solid #007bff;
 }
 
 textarea {
     width: 100%;
-    padding: 10px; /* Optional: add padding inside the textarea */
-    box-sizing: border-box; /* Ensure padding is included in total width */
+    padding: 10px;
+    box-sizing: border-box;
 }
 
-/* General form styling */
 form {
     padding: 2px;
 }
 
-/* Fieldset styling */
 fieldset {
-    border: 1px solid #e0e0e0; /* Light border for fieldsets */
-    margin-bottom: 10px; /* Space between fieldsets */
+    border: 1px solid #e0e0e0;
+    margin-bottom: 10px;
     padding: 10px;
     border-radius: 5px;
 }
@@ -244,44 +241,40 @@ legend {
     padding-left: 4px;
 }
 
-/* Label styling */
 .form-label {
-    margin-right: 10px; /* Space between label and input */
-    flex: 0 0 200px; /* Fixed width for labels */
-    color: #333; /* Dark text color */
-    padding: 6px 10px; /* Adjust padding for better alignment */
-    border: 1px solid #ddd; /* Light border for label background */
-    border-radius: 4px; /* Match the roundness of input fields */
-    background-color: #f9f9f9; /* Light background color for labels */
-    display: inline-block; /* Ensure the background wraps around the label */
-    vertical-align: middle; /* Align vertically with input fields */
+    margin-right: 10px;
+    flex: 0 0 200px;
+    color: #333;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    display: inline-block;
+    vertical-align: middle;
     block-size: fit-content;
 }
 
-/* Input styling */
 .form-input {
-    padding: 5px; /* Padding inside inputs */
-    border: 1px solid #ddd; /* Light border around inputs */
-    border-radius: 4px; /* Slightly rounded corners */
-    font-size: 1em; /* Font size for inputs */
-    transition: border 0.3s; /* Transition for border */
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1em;
+    transition: border 0.3s;
 }
 
 input[type='text'] {
     flex: auto;
 }
 
-/* Focus effect for inputs */
 .form-input:focus {
-    border-color: #007bff; /* Blue border on focus */
-    outline: none; /* Remove default outline */
+    border-color: #007bff;
+    outline: none;
 }
 
-/* Form field styling */
 .form-field {
-    display: flex; /* Use flexbox for alignment */
-    align-items: center; /* Vertically center align items */
-    margin-bottom: 4px; /* Space below each form field */
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
 }
 
 .form-error {
@@ -339,7 +332,7 @@ summary .tooltip {
 }
 
 .entry-container > fieldset {
-    background-color: #f9f9f9; /* Light background color */
+    background-color: #f9f9f9;
     border: 2px solid #cccccc;
     padding-right: 50px;
 }
@@ -408,8 +401,8 @@ summary .tooltip {
 }
 
 .actor-type {
-    text-align: center; /* Center text alignment */
-    color: #000000; /* Example text color */
+    text-align: center;
+    color: #000000;
 }
 
 .top-level-menu-item {
@@ -456,7 +449,7 @@ summary .tooltip {
     padding: 8px;
     margin: 16px;
     border-radius: 3px;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); /* Adds a subtle shadow */
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
     position: fixed;
     right: 0;
     bottom: 0;
@@ -689,13 +682,13 @@ summary .tooltip {
 .optsearch-suggestions {
     border: 1px solid #ccc;
     border-radius: 4px;
-    max-height: 150px; /* 6 lines if line height is ~25px */
+    max-height: 150px;
     overflow-y: auto;
     background-color: white;
-    position: absolute; /* Positioning may be adjusted to your needs */
-    width: calc(100% - 2px); /* Adjust for border */
+    position: absolute;
+    width: calc(100% - 2px);
     top: 100%;
-    z-index: 900; /* Ensure it's on top */
+    z-index: 900;
 }
 
 .optsearch-suggestion {
@@ -704,5 +697,5 @@ summary .tooltip {
 }
 
 .optsearch-suggestion:hover {
-    background-color: #f0f0f0; /* Highlight on hover */
+    background-color: #f0f0f0;
 }

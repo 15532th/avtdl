@@ -1,12 +1,10 @@
 function generateField(propertyName, schema) {
-    // Create a div to hold the field
     const fieldDiv = document.createElement('div');
     fieldDiv.className = 'form-field';
 
-    // Create a label for the input field
     const label = document.createElement('label');
     label.className = 'form-label';
-    label.textContent = propertyName; // Use title from schema or the property name
+    label.textContent = propertyName;
     label.setAttribute('for', propertyName);
 
     if (schema.description) {
@@ -26,16 +24,14 @@ function generateInput(schema) {
 
     switch (schema.type) {
         case 'string':
-            // Handle string inputs
             if (schema.enum) {
-                // If there's an enum, create a dropdown
                 inputField = document.createElement('select');
                 for (const [index, option] of Object.entries(schema.enum)) {
                     const opt = document.createElement('option');
                     opt.value = option;
                     opt.textContent = option;
                     if (option === schema.default) {
-                        opt.selected = true; // Set this option as selected
+                        opt.selected = true;
                     }
                     inputField.appendChild(opt);
                 }
@@ -58,7 +54,6 @@ function generateInput(schema) {
             break;
 
         case 'boolean':
-            // Handle boolean inputs
             inputField = document.createElement('input');
             inputField.type = 'checkbox';
             if (schema.default) {
@@ -67,7 +62,7 @@ function generateInput(schema) {
             break;
 
         default:
-            // Handle unknown types by using a basic text input
+            // handle unknown types by using a basic text input
             inputField = document.createElement('input');
             inputField.type = 'text';
             if (schema.default) {
@@ -122,7 +117,7 @@ function readInput(fieldContainer, schema) {
             if (inputField.value === '') {
                 value = null;
             } else {
-                value = inputField.value; // Return string value
+                value = inputField.value;
             }
     }
     const defaultValue = schema && schema.default;
