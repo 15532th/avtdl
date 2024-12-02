@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import logging
+import shutil
 from asyncio import AbstractEventLoop
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -17,14 +18,20 @@ from avtdl.core.plugins import UnknownPluginError
 from avtdl.core.utils import read_file
 from avtdl.core.yaml import yaml_load
 
+DEFAULT_CONFIG_PATH = Path('config.yml')
+EXAMPLE_CONFIG_PATH = Path('example.config.yml')
+
 
 def load_config(path: Path) -> Any:
     try:
         if not path.exists():
             alt_path = path.with_suffix(path.suffix + '.txt')
             if alt_path.exists():
-                print(f'Configuration file {path} not found, trying {alt_path} instead')
+                print(f'Configuration file {path} not found, trying {alt_path} instead.')
                 path = alt_path
+            elif path == DEFAULT_CONFIG_PATH and EXAMPLE_CONFIG_PATH.exists():
+                print(f'Configuration file {path} not found, using {EXAMPLE_CONFIG_PATH} as template.')
+                shutil.copy(EXAMPLE_CONFIG_PATH, path)
             else:
                 raise ValueError('Configuration file {} does not exist'.format(path))
         config_text = read_file(path)
@@ -95,7 +102,7 @@ def main() -> None:
     help_v = 'print version and exit'
     parser.add_argument('-v', '--version', action='store_true', default=False, help=help_v)
     help_c = 'specify path to configuration file to use instead of default'
-    parser.add_argument('-c', '--config', type=Path, default='config.yml', help=help_c)
+    parser.add_argument('-c', '--config', type=Path, default=DEFAULT_CONFIG_PATH, help=help_c)
     help_h = 'write plugins documentation in given file and exit. Documentation format is deduced by file extension: html document for ".html", markdown otherwise'
     parser.add_argument('-p', '--plugins-doc', type=Path, required=False, help=help_h)
     args = parser.parse_args()
