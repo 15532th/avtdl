@@ -5,7 +5,6 @@ import pathlib
 from typing import Dict, List, Optional
 
 import dateutil.zoneinfo
-import yaml
 from aiohttp import web
 from pydantic import BaseModel
 
@@ -16,6 +15,7 @@ from avtdl.core.info import get_known_plugins, get_plugin_type
 from avtdl.core.interfaces import Actor, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import strip_text, write_file
+from avtdl.core.yaml import merge_data, yaml_dump
 
 
 def serialize_config(settings: SettingsSection,
@@ -25,12 +25,6 @@ def serialize_config(settings: SettingsSection,
     conf = config.model_dump_json()
     return conf
 
-
-def json_to_yaml(conf: str) -> str:
-    """convert json string to yaml string"""
-    conf = json.loads(conf)
-    data = yaml.safe_dump(conf, sort_keys=False, allow_unicode=True)
-    return data
 
 
 def json_dumps(obj):
@@ -94,11 +88,12 @@ class WebUI:
     WEBROOT: pathlib.Path = pathlib.Path(__file__).parent.parent.resolve() / 'ui'
     RESTART_DELAY: int = 3
 
-    def __init__(self, config_path: pathlib.Path, ctx: RuntimeContext, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
+    def __init__(self, config_path: pathlib.Path, config, ctx: RuntimeContext, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
         self.logger = logging.getLogger('webui')
         self.host = 'localhost'
         self.port = settings.port
         self.config_path = config_path
+        self.config_base = config
         self.ctx = ctx
         self.settings = settings
         self.actors = actors
@@ -164,10 +159,13 @@ class WebUI:
         try:
             conf = await request.json()
             _ = ConfigParser.validate(conf)
+            updated_config = merge_data(self.config_base, conf)
+            raw_yaml = yaml_dump(updated_config)
             if mode == 'check':
                 return web.Response(text='Config has been validated successfully')
 
-            raw_yaml = json_to_yaml(json.dumps(conf))
+            self.config_base = updated_config
+
             try:
                 write_file(self.config_path, raw_yaml, backups=10)
             except Exception as e:
@@ -226,6 +224,6 @@ async def run_app(webui: WebUI):
         webui.logger.debug('server stopped')
 
 
-async def run(config_path: pathlib.Path, ctx: RuntimeContext, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
-    webui = WebUI(config_path, ctx, settings, actors, chains)
+async def run(config_path: pathlib.Path, config, ctx: RuntimeContext, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
+    webui = WebUI(config_path, config, ctx, settings, actors, chains)
     await run_app(webui)

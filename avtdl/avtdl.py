@@ -7,8 +7,6 @@ from asyncio import AbstractEventLoop
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-import yaml
-
 from avtdl.core import webui
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection, config_sancheck
@@ -17,6 +15,7 @@ from avtdl.core.interfaces import Actor, RuntimeContext
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
 from avtdl.core.utils import read_file
+from avtdl.core.yaml import yaml_load
 
 
 def load_config(path: Path) -> Any:
@@ -29,7 +28,7 @@ def load_config(path: Path) -> Any:
             else:
                 raise ValueError('Configuration file {} does not exist'.format(path))
         config_text = read_file(path)
-        config = yaml.load(config_text, Loader=yaml.SafeLoader)
+        config = yaml_load(config_text)
     except Exception as e:
         print('Failed to parse configuration file:')
         print(e)
@@ -61,18 +60,18 @@ async def install_exception_handler() -> None:
     loop.slow_callback_duration = 100
 
 
-async def run(config: Path) -> None:
+async def run(config_path: Path) -> None:
     await install_exception_handler()
     while True:
-        conf = load_config(config)
+        config = load_config(config_path)
         ctx = RuntimeContext.create()
-        settings, actors, chains = parse_config(conf, ctx)
+        settings, actors, chains = parse_config(config, ctx)
         config_sancheck(actors, chains)
 
         controller = ctx.controller
         for runnable in actors.values():
             _ = controller.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
-        _ = controller.create_task(webui.run(config, ctx, settings, actors, chains), name='webui')
+        _ = controller.create_task(webui.run(config_path, config, ctx, settings, actors, chains), name='webui')
 
         await controller.run_until_termination()
         logging.info('Restarting...')

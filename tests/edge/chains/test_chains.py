@@ -2,13 +2,13 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
 import pytest
-import yaml
 from pydantic import BaseModel
 
 from avtdl.avtdl import parse_config
 from avtdl.core.config import config_sancheck
 from avtdl.core.interfaces import Actor, Record, TextRecord
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
+from avtdl.core.yaml import yaml_load
 from avtdl.plugins.utils.utils import Consumer, Producer
 
 
@@ -58,7 +58,7 @@ async def run(config: str):
     silence_library_loggers()
     set_logging_format('WARNING')
 
-    conf: dict = yaml.load(config, Loader=yaml.FullLoader)
+    conf: dict = yaml_load(config)
     senders, receivers = _Testcases.load(conf.pop('testcases'))
     _, actors, chains = parse_config(conf)
     config_sancheck(actors, chains)

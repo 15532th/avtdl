@@ -6,6 +6,6 @@ feedparser
 python-dateutil
 slixmpp
 lxml
-PyYAML
+ruamel.yaml>=0.15
 Markdown
 jsonpath-python==1.0.6
