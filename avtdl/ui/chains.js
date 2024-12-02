@@ -256,8 +256,11 @@ class ChainSection {
         this.name = name;
         this.info = info;
         this._menu = null;
-        this.container = createFieldset(name);
+        this.container = createElement('div');
         this.container.classList.add('chain-section');
+        this.header = createElement('div', 'chain-header', this.container);
+        this.nameContainer = createElement('div', 'chain-name', this.header);
+        this.nameContainer.innerText = name;
 
         addErrorPlaceholder(this.container);
         this.container.addEventListener('click', () => {
@@ -286,15 +289,11 @@ class ChainSection {
 
     rename(newName) {
         this.name = newName;
-        const legend = this.container.firstChild;
-        if (!legend) {
-            throw new Error(`error when renaming chain ${this.name}: container has no legend: ${this.container}`);
-        }
-        const legendText = legend.firstChild;
-        if (!legendText) {
-            throw new Error(`error when renaming chain ${this.name}: container has no legend text: ${this.container}`);
-        }
-        legendText.textContent = newName;
+        this.nameContainer.textContent = newName;
+    }
+
+    getHeader() {
+        return this.header;
     }
 
     makeAddButton(referenceCard) {
@@ -509,21 +508,21 @@ class ChainsForm {
         const chainContainer = document.createElement('div');
         chainContainer.className = 'chain';
 
-        const legend = chainSection.getElement().firstChild;
+        const buttonsContainer = createElement('div', 'chain-buttons', chainSection.getHeader());
 
         const renameButton = this.makeRenameButton(chainSection, menuItem);
-        legend.appendChild(renameButton);
+        buttonsContainer.appendChild(renameButton);
 
         const copyButton = this.makeCopyButton(chainSection, chainContainer, menuItem);
-        legend.appendChild(copyButton);
+        buttonsContainer.appendChild(copyButton);
 
         const leftButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '[⇦', false);
-        legend.appendChild(leftButton);
+        buttonsContainer.appendChild(leftButton);
         const rightButton = this.makeMoveButton(chainSection, chainContainer, menuItem, '⇨]', true);
-        legend.appendChild(rightButton);
+        buttonsContainer.appendChild(rightButton);
 
         const deleteButton = this.makeDeleteButton(chainSection, chainContainer, menuItem);
-        legend.appendChild(deleteButton);
+        buttonsContainer.appendChild(deleteButton);
 
         chainContainer.appendChild(chainSection.getElement());
 

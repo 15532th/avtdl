@@ -534,8 +534,9 @@ summary .tooltip {
 }
 
 .chain {
-    margin: 3px 0;
+    margin: 4px;
     border-radius: 3px;
+    border: 1px solid #cccccc;
 }
 
 .chain-section {
@@ -543,15 +544,24 @@ summary .tooltip {
     flex-direction: column;
     box-sizing: border-box;
     height: 100%;
-    padding-left: 5px;
     padding-bottom: 5px;
+    max-width: 320px;
 }
 
-.chain-section > legend {
-    display: flex;
-    width: 100%;
+.chain-header {
+    padding: 4px;
     border-radius: 3px;
     background-color: #eee;
+}
+
+.chain-name {
+    background-color: #e0e0e0;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.chain-buttons {
+    display: flex;
 }
 
 .chain-card {
@@ -562,7 +572,7 @@ summary .tooltip {
     padding: 12px;
     margin: 4px 0;
     margin-left: 10px;
-    width: 190px;
+    width: 100%;
 }
 
 .chain-card select {
