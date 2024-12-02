@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import aiohttp
-from pydantic import Field, FilePath, field_validator
+from pydantic import Field, FilePath, field_serializer, field_validator
 
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
@@ -107,6 +107,10 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
         except Exception as e:
             raise ValueError(f'{e}') from e
         return path
+
+    @field_serializer('update_interval')
+    def restore_update_interval(self, _: float) -> float:
+        return self.base_update_interval
 
     def model_post_init(self, __context: Any) -> None:
         self.base_update_interval = self.update_interval
