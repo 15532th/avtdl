@@ -241,7 +241,7 @@ class ActorSection {
 
     read() {
         let data = {};
-        if (this.config) {
+        if (this.config && !this.config.isEmpty()) {
             data['config'] = this.config.read();
         }
         data['entities'] = this.entities.read();
