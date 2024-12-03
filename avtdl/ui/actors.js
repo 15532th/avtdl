@@ -433,9 +433,9 @@ class ActorsInfo {
         const actor = this.form.actorSections[actorName];
         const entity = this.getEntity(actorName, entityName);
         if (entity) {
-            entity.getElement().scrollIntoView();
+            scrollIntoView(entity.getElement());
         } else if (actor) {
-            actor.getElement().scrollIntoView();
+            scrollIntoView(actor.getElement());
         }
     }
 
