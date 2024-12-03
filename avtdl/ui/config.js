@@ -179,7 +179,6 @@ class ConfigEditor {
         for (const [name, sectionData] of Object.entries(data)) {
             const sectionContainer = createDetails(name);
             sectionContainer.classList.add('top-level-section');
-            sectionContainer.open = true;
             switch (name) {
                 case 'settings':
                     const settingsForm = await this.createSettings(sectionData, sectionContainer);
@@ -193,6 +192,7 @@ class ConfigEditor {
                     const actors = this.sections['actors'];
                     const info = new ActorsInfo(actors);
                     const chainsForm = await this.createChains(sectionData, sectionContainer, info);
+                    sectionContainer.open = true;
                     this.sections[name] = chainsForm;
                     break;
                 default:
