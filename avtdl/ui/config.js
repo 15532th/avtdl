@@ -217,9 +217,10 @@ class ConfigEditor {
 
         menu.registerScrollHandler(form.getElement());
 
-        const settingsInput = new RawSection(sectionData);
-        sectionContainer.appendChild(settingsInput.getElement());
-        registerFormContentMonitor(settingsInput, form);
+        const rawInput = new RawSection(sectionData);
+        sectionContainer.appendChild(rawInput.getElement());
+        rawInput.getElement().style.display = 'none';
+        registerFormContentMonitor(rawInput, form);
 
         return form;
     }
@@ -233,9 +234,10 @@ class ConfigEditor {
 
         menu.registerScrollHandler(sectionContainer);
 
-        const settingsInput = new RawSection(sectionData);
-        sectionContainer.appendChild(settingsInput.getElement());
-        registerFormContentMonitor(settingsInput, form);
+        const rawInput = new RawSection(sectionData);
+        sectionContainer.appendChild(rawInput.getElement());
+        rawInput.getElement().style.display = 'none';
+        registerFormContentMonitor(rawInput, form);
 
         return form;
     }
@@ -248,9 +250,10 @@ class ConfigEditor {
 
         menu.registerScrollHandler(sectionContainer);
 
-        const settingsInput = new RawSection(sectionData);
-        sectionContainer.appendChild(settingsInput.getElement());
-        registerFormContentMonitor(settingsInput, form);
+        const rawInput = new RawSection(sectionData);
+        sectionContainer.appendChild(rawInput.getElement());
+        rawInput.getElement().style.display = 'none';
+        registerFormContentMonitor(rawInput, form);
 
         return form;
     }
