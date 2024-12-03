@@ -117,7 +117,7 @@ class WebUI:
         return web.Response()
 
     async def index(self, request):
-        raise web.HTTPFound('/ui/config.html')
+        raise web.HTTPFound('/ui/conf/config.html')
 
     async def timezones(self, request: web.Request) -> web.Response:
         zones = list(dateutil.zoneinfo.get_zonefile_instance().zones.keys())
