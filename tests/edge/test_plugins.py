@@ -14,6 +14,6 @@ def test_config_loading(caplog):
     silence_library_loggers()
     caplog.set_level(logging.WARNING)
 
-    _ = generate_plugins_description(as_html=False)
+    _ = generate_plugins_description()
 
     assert not caplog.records

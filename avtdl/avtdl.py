@@ -85,7 +85,7 @@ async def run(config_path: Path) -> None:
 
 
 def make_docs(output: Path) -> None:
-    doc = generate_plugins_description(output.suffix == '.html')
+    doc = generate_plugins_description()
     try:
         with open(output, 'wt', encoding='utf8') as fp:
             fp.write(doc)
@@ -103,7 +103,7 @@ def main() -> None:
     parser.add_argument('-v', '--version', action='store_true', default=False, help=help_v)
     help_c = 'specify path to configuration file to use instead of default'
     parser.add_argument('-c', '--config', type=Path, default=DEFAULT_CONFIG_PATH, help=help_c)
-    help_h = 'write plugins documentation in given file and exit. Documentation format is deduced by file extension: html document for ".html", markdown otherwise'
+    help_h = 'write plugins documentation in markdown format into a given file and exit'
     parser.add_argument('-p', '--plugins-doc', type=Path, required=False, help=help_h)
     args = parser.parse_args()
 

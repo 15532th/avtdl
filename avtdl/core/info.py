@@ -79,20 +79,6 @@ ENTITY_OPTIONS_TEMPLATE = '''
 
 LIST_ITEM_TEMPLATE = '* `{name}`: {description}'
 
-HTML_PAGE_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>...</title>
-    <link rel="stylesheet" href="modest.css">
-  </head>
-  <body>
-    {body}
-  </body>
-</html>
-'''
-
 ASSOCIATED_RECORDS_TEMPLATE = '''
 #### Produced records types:
 '''
@@ -271,15 +257,11 @@ def render_markdown(text: str) -> str:
     return html
 
 
-def generate_plugins_description(as_html: bool = False):
+def generate_plugins_description():
     text = render_plugins_descriptions()
     full_text = HELP_FILE_STATIC_PART + text
     full_text = TOC.insert_toc(text, full_text)
-    if not as_html:
-        return full_text
-    html = render_markdown(full_text)
-    html = HTML_PAGE_TEMPLATE.format(body=html)
-    return html
+    return full_text
 
 
 def generate_version_string() -> str:
