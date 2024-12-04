@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from avtdl.core import info
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
-from avtdl.core.info import get_known_plugins, get_plugin_type
+from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
 from avtdl.core.interfaces import Actor, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import strip_text, write_file
@@ -110,6 +110,9 @@ class WebUI:
         self.routes.append(web.post('/config', self.store_config))
         self.routes.append(web.get('/timezones', self.timezones))
         self.routes.append(web.get('/motd', self.motd))
+
+        self.routes.append(web.get('/ui/info/info.html', self.info_webui))
+
         self.routes.append(web.get('/', self.index))
         self.routes.append(web.static('/ui', self.WEBROOT))
 
@@ -205,6 +208,20 @@ Configuration loaded from "{self.config_path.resolve()}", it contains {len(self.
 '''
         data = {'motd': motd}
         return web.json_response(data, dumps=json_dumps)
+
+
+    async def info_webui(self, request: web.Request) -> web.Response:
+
+        template_path = self.WEBROOT / 'info/info.html'
+        template = template_path.read_text(encoding='utf8')
+
+        document_path = self.WEBROOT / 'info/info.md'
+        document = document_path.read_text(encoding='utf8')
+        body = render_markdown(document)
+
+        html = template.replace('{{body}}', body)
+        return web.Response(text=html, content_type='text/html')
+
 
 
 async def run_app(webui: WebUI):

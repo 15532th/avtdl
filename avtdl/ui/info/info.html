@@ -1,25 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>avtdl</title>
-        <link rel="stylesheet" href="styles.css" />
-    </head>
-    <body>
-        <header>
-            <nav>
-                <a href="/ui/conf/config.html">Config</a>
-                <a href="/ui/info/info.html" class="active">Info</a>
-            </nav>
-        </header>
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>avtdl</title>
+    <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<header>
+    <nav>
+        <a href="/ui/conf/config.html">Config</a>
+        <a href="/ui/info/info.html" class="active">Info</a>
+    </nav>
+</header>
 
-        <h2>Information</h2>
-        <div id="main">
-            <div id="message-area"></div>
-            <div id="sidebar"></div>
-            <div id="output">Loading data...</div>
-        </div>
-        <script src="utils.js"></script>
-    </body>
+<div id="main">
+    <div id="output">{{body}}</div>
+</div>
+</body>
 </html>
