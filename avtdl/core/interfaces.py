@@ -3,11 +3,11 @@ import datetime
 import json
 import logging
 from abc import ABC, abstractmethod
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass
 from hashlib import sha1
 from textwrap import shorten
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Coroutine, Deque, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import dateutil.tz
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer, field_validator
@@ -117,9 +117,12 @@ class MessageBus:
     PREFIX_OUT = 'output'
     SEPARATOR = '/'
 
+    HISTORY_SIZE = 10
+
     def __init__(self) -> None:
         self.subscriptions: SubscriptionsMapping = defaultdict(list)
         self.logger = logging.getLogger('bus')
+        self.history: Dict[str, Deque[Record]] = defaultdict(lambda: deque(maxlen=self.HISTORY_SIZE))
 
     def sub(self, topic: str, callback: Subscription):
         self.logger.debug(f'subscription on topic {topic} by {callback!r}')
@@ -140,6 +143,25 @@ class MessageBus:
                 targeted_message.chain = chain
                 for callback in callbacks:
                     callback(specific_topic, targeted_message)
+        self.add_to_history(topic, message)
+
+    def add_to_history(self, topic: str, message: Record):
+        self.history[topic].append(message)
+
+    def get_history(self, actor: str, entity: str, chain: str = '', direction: Literal['in', 'out'] = 'in') -> List[Record]:
+        if direction == 'in':
+            topic = self.incoming_topic_for(actor, entity, chain)
+        elif direction == 'out':
+            topic = self.outgoing_topic_for(actor, entity, chain)
+        else:
+            assert False, f'unexpected direction "{direction}"'
+        records: List[Record] = []
+        direction, actor, entity, chain = self.split_subscription_topic(topic)
+        if chain:
+            generic_topic = self.make_topic(direction, actor, entity, '')
+            records.extend(self.history[generic_topic])
+        records.extend(self.history[topic])
+        return records
 
     def get_matching_callbacks(self, topic_pattern: str) -> SubscriptionsMapping:
         pattern_direction, pattern_actor, pattern_entity, pattern_chain = self.split_subscription_topic(topic_pattern)

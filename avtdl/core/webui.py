@@ -12,7 +12,7 @@ from avtdl.core import info
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
-from avtdl.core.interfaces import Actor, RuntimeContext
+from avtdl.core.interfaces import Actor, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import strip_text, write_file
 from avtdl.core.yaml import merge_data, yaml_dump
@@ -77,6 +77,17 @@ def get_entity_schema(actor_name: str) -> dict:
     return get_schema(entity)
 
 
+def record_preview(record: Record, representation: str = 'text') -> str:
+    if representation == 'text':
+        return str(record)
+    elif representation == 'json':
+        return record.as_json(indent=4)
+    elif representation == 'short':
+        return repr(record)
+    else:
+        return str(record)
+
+
 class ActorModel(BaseModel):
     type: Optional[str]
     description: str
@@ -110,6 +121,7 @@ class WebUI:
         self.routes.append(web.post('/config', self.store_config))
         self.routes.append(web.get('/timezones', self.timezones))
         self.routes.append(web.get('/motd', self.motd))
+        self.routes.append(web.get('/history', self.history))
 
         self.routes.append(web.get('/ui/info/info.html', self.info_webui))
 
@@ -222,6 +234,20 @@ Configuration loaded from "{self.config_path.resolve()}", it contains {len(self.
         html = template.replace('{{body}}', body)
         return web.Response(text=html, content_type='text/html')
 
+    async def history(self, request: web.Request) -> web.Response:
+        actor = request.query.get('actor')
+        entity = request.query.get('entity')
+        chain = request.query.get('chain', '')
+        representation = request.query.get('repr', 'text')
+        if actor is None or entity is None:
+            raise web.HTTPBadRequest(text=f'not enough arguments. Got actor="{actor}", entity="{entity}", chain="{chain}"')
+        incoming = self.ctx.bus.get_history(actor, entity, chain, 'in')
+        outgoing = self.ctx.bus.get_history(actor, entity, chain, 'out')
+        data = {
+            'in': [record_preview(record, representation) for record in incoming],
+            'out': [record_preview(record, representation) for record in outgoing]
+        }
+        return web.json_response(data, dumps=json_dumps)
 
 
 async def run_app(webui: WebUI):
