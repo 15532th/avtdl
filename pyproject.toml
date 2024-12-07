@@ -7,7 +7,7 @@ readme = "DESCRIPTION.md"
 
 classifiers = [
     "Environment :: Console",
-    "License :: OSI Approved :: Apache Software License"
+    "License :: OSI Approved :: MIT License"
 ]
 
 dynamic = ["version"]
