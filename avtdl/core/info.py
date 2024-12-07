@@ -248,7 +248,7 @@ def render_plugins_descriptions() -> str:
     return text
 
 
-md = markdown.Markdown(extensions=[TocExtension(toc_depth=3), 'md_in_html'])
+md = markdown.Markdown(extensions=[TocExtension(toc_depth=3), 'md_in_html', 'fenced_code'])
 
 
 def render_markdown(text: str) -> str:

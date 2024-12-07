@@ -47,30 +47,20 @@ nav a.active {
     flex-grow: 1;
 }
 
-pre,
 blockquote {
-    border: 1px solid #999;
-    page-break-inside: avoid;
+  border-left: 8px solid #fafafa;
+  padding: 1rem;
+  border: 1px solid #999;
+  page-break-inside: avoid;
 }
 
-pre,
-code {
-  font-family: Menlo, Monaco, "Courier New", monospace;
-}
 
 pre {
-  padding: .5rem;
+  background-color: #fafafa;
+  border-radius: 6px;
+  padding: 8px;
   line-height: 1.25;
-  overflow-x: scroll;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: Arimo, Helvetica, sans-serif;
+  overflow-x: auto;
 }
 
 h1,
@@ -82,12 +72,21 @@ h3 {
   text-align: center;
 }
 
-blockquote {
-  border-left: 8px solid #fafafa;
-  padding: 1rem;
+figure {
+    margin: 1.5em 0; /* Space above and below the figure */
+    text-align: center; /* Center the content */
 }
 
-pre,
-code {
-  background-color: #fafafa;
+figure img {
+    max-width: 100%; /* Responsive image */
+    height: auto; /* Maintain aspect ratio */
+    border: 1px solid #ddd; /* Optional: border around the image */
+    border-radius: 4px; /* Optional: rounded corners */
+}
+
+figcaption {
+    font-size: 0.9em; /* Slightly smaller text */
+    color: #555; /* Gray color for the caption */
+    margin-top: 0.5em; /* Space above the caption */
+    line-height: 1.4; /* Improved readability */
 }
