@@ -1,8 +1,9 @@
 import logging
 from functools import wraps
+from pathlib import Path
 from typing import Any, Dict, Generic, List, Tuple, Type, TypeVar
 
-from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, ValidationError, create_model
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 
 from avtdl.core.chain import Chain, ChainConfigSection
 from avtdl.core.interfaces import Actor, RuntimeContext
@@ -43,7 +44,7 @@ def try_parsing(func):
 class SettingsSection(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
-    log_directory: DirectoryPath = Field(default='logs', validate_default=True)
+    log_directory: Path = Field(default='logs', validate_default=True)
     """path to a directory where application will write log file"""
     logfile_size: int = Field(gt=0, default=1000000)
     """size of a single log file in bytes. After reaching this size the file will be replaced by a new one. Only last 10 files are kept inside the log directory"""
