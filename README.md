@@ -142,6 +142,7 @@ These options mostly regulate logging to a file. To set a log level for console 
 - `logfile_size` - size of a single log file in bytes. After reaching this size the file will be replaced by a new one. Only last 10 files are kept inside the log directory
 - `logfile_level` - how detailed the output to log file is. Can be "DEBUG", "INFO", "WARNING" or "ERROR". It is recommended to keep log file loglevel set to "DEBUG" and only set console output to higher level.
 - `loglevel_override` - allows to overwrite loglevel of a specific logger. Used to prevent a single talkative logger from filling up the log file. Each log line is preceded by log level and logger name. For example, line `[DEBUG  ] [actor.channel.db] successfully connected to sqlite database at ":memory:"` is produced by logger `actor.channel.db` on `DEBUG` level
+- `port` - web-interface port
 
 Example of `settings` section with all default values:
 
@@ -154,6 +155,7 @@ settings:
     bus: "INFO"
     chain: "INFO"
     actor.request: "INFO"
+  port: 8080
 ```
 
 ##### actors
