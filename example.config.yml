@@ -76,7 +76,7 @@ chains:
   # of its entities, as defined in "actors" section.
 
   # from subscription feed pick ongoing and future livestreams and send to Discord
-  "subs notify":
+  "subscribtions":
     - channel:
         - "subscriptions"
     - filter.channel:
@@ -86,14 +86,14 @@ chains:
         - "my-server#announcements"
 
   # store new community posts on Youtube channel to text file
-  "community posts on ChannelName":
+  "community posts":
     - community:
         - "ChannelName"
     - to_file:
         - "ChannelName"
 
   # run "ytarchive ..." with url of every new upload of Youtube channel
-  "archive ChannelName":
+  "archive":
     - rss:
         - "ChannelName"
         - "AnotherChannelName"
