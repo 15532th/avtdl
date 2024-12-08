@@ -90,7 +90,7 @@ To specify a different config file, use `avtdl --config path/to/config.yml` opti
 
 ### Web UI
 
-After avtdl startup web interface is available on <http://localhost:8080>, unless different port is specified in the [settings](#settings) section. It includes configuration editor, meant to provide alternative to manual editing of configuration file. See [info.md](avtdl/ui/info/info.md) for more detailed description.
+After avtdl startup, the web interface is available on <http://localhost:8080>, unless a different port is specified in the [settings](#settings) section. It includes a configuration editor, meant to provide an alternative to manual editing of the configuration file. See [info.md](avtdl/ui/info/info.md) for more detailed description.
 
 ### Configuration
 
