@@ -9,12 +9,11 @@ Web interface follows [configuration file structure](https://github.com/15532th/
 application-wide options in `Settings`, producers and consumers entities defined in `Actors` and then combined together
 in `Chains` sections.
 
+<p align="center" width="100%">  
 <figure>
 <img src="main_view.png" width="800" alt="Interface of the configuration editor"/>
-<figcaption>
-Interface of the configuration editor
-</figcaption>
 </figure>
+</p>
 
 Configuration file is saved under the same name it was loaded on the application startup. Backups of a few most recent
 versions are made by appending a number to the name (`config.yml` would be moved to `config.yml.0` and so on).
@@ -27,13 +26,12 @@ Individual plugins that produce, filter or process, and consume records are grou
 
 Entities are represented as a set of input fields grouped together:
 
+<p align="center" width="100%">  
 <figure>
 <img src="monitor_rss.png" width="800"/>
-<figcaption>
-Entities "ChannelName" and "AnotherChannelName" of the Youtube RSS monitor
-
-</figcaption>
 </figure>
+</p>
+
 
 Each option has a tooltip with option description, however, it does not include details, described in the [common options](https://github.com/15532th/avtdl#common-options) section of the README.
 
@@ -43,12 +41,11 @@ Single chain is represented by a vertical stack of `cards`, each defining one or
 
 The following picture shows a chain named "archive". It references two entities of the [rss](https://github.com/15532th/avtdl/blob/master/PLUGINS.md#rss---youtube-channel-rss-feed-monitor) montitor, "ChannelName" and "AnotherChannelName". Records, produced by these entities, are passed into the "ytachive" entity of the [execute](https://github.com/15532th/avtdl/blob/master/PLUGINS.md#execute---run-pre-defined-shell-command) action.
 
+<p align="center" width="100%">
 <figure>
 <img alt="Chain example" src="chain_archive.png" width="250"/>
-<figcaption>
-Chain "archive"
-</figcaption>
 </figure>
+</p>
 
 Corresponding fragment of the YAML config:
 

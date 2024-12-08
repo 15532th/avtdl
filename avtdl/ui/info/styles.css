@@ -83,10 +83,3 @@ figure img {
     border: 1px solid #ddd;
     border-radius: 4px;
 }
-
-figcaption {
-    font-size: 0.9em;
-    color: #555;
-    margin-top: 0.5em; 
-    line-height: 1.4;
-}
