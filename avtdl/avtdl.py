@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import logging
-import shutil
 from asyncio import AbstractEventLoop
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -15,11 +14,32 @@ from avtdl.core.info import generate_plugins_description, generate_version_strin
 from avtdl.core.interfaces import Actor, RuntimeContext
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
-from avtdl.core.utils import read_file
+from avtdl.core.utils import read_file, write_file
 from avtdl.core.yaml import yaml_load
 
 DEFAULT_CONFIG_PATH = Path('config.yml')
-EXAMPLE_CONFIG_PATH = Path('example.config.yml')
+CONFIG_TEMPLATE = '''
+actors:
+  rss:
+    entities:
+      - name: "ChannelName"
+        url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCK0V3b23uJyU4N8eR_BR0QA"
+      - name: "AnotherChannelName"
+        url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC3In1x9H3jC4JzsIaocebWg"
+  execute:
+    entities:
+      - name: "archive"
+        command: "ytarchive --threads 3 --wait {url} best"
+        working_dir: "archive/livestreams/{author}/"
+
+chains:
+  "archive":
+    - rss:
+        - "ChannelName"
+        - "AnotherChannelName"
+    - execute:
+        - "archive"
+'''
 
 
 def load_config(path: Path) -> Any:
@@ -29,9 +49,9 @@ def load_config(path: Path) -> Any:
             if alt_path.exists():
                 print(f'Configuration file {path} not found, trying {alt_path} instead.')
                 path = alt_path
-            elif path == DEFAULT_CONFIG_PATH and EXAMPLE_CONFIG_PATH.exists():
-                print(f'Configuration file {path} not found, using {EXAMPLE_CONFIG_PATH} as template.')
-                shutil.copy(EXAMPLE_CONFIG_PATH, path)
+            elif path == DEFAULT_CONFIG_PATH:
+                print(f'Configuration file {path} not found, using example template.')
+                write_file(path, CONFIG_TEMPLATE)
             else:
                 raise ValueError('Configuration file {} does not exist'.format(path))
         config_text = read_file(path)
