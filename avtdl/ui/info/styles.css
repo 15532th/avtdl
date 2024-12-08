@@ -48,28 +48,27 @@ nav a.active {
 }
 
 blockquote {
-  border-left: 8px solid #fafafa;
-  padding: 1rem;
-  border: 1px solid #999;
-  page-break-inside: avoid;
+    border-left: 8px solid #fafafa;
+    padding: 1rem;
+    border: 1px solid #999;
+    page-break-inside: avoid;
 }
 
-
 pre {
-  background-color: #fafafa;
-  border-radius: 6px;
-  padding: 8px;
-  line-height: 1.25;
-  overflow-x: auto;
+    background-color: #fafafa;
+    border-radius: 6px;
+    padding: 8px;
+    line-height: 1.25;
+    overflow-x: auto;
 }
 
 h1,
 h2,
 h3 {
-  border-bottom: 2px solid #fafafa;
-  margin-bottom: 1.15rem;
-  padding-bottom: .5rem;
-  text-align: center;
+    border-bottom: 2px solid #fafafa;
+    margin-bottom: 1.15rem;
+    padding-bottom: 0.5rem;
+    text-align: center;
 }
 
 figure {
