@@ -63,3 +63,5 @@ chains:
 ```
 
 Drop-down selectors with entities names are populated with entities names that are currently present in the `Actors` section. When entity is renamed, the change is reflected in all chains referencing it, and when entity is deleted, it gets removed from all chains.
+
+For convenience, it is possible to reorder cards within a chain by using arrow buttons (⇧ and ⇩). Chains themselves can also be repositioned (with ⇦ and ⇨), though their order is purely cosmetic. "Go to entity definition" button (`⤴`) allows jumping from a chain using entity to the entity configuration in `Actors` section.
