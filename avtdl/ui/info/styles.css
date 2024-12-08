@@ -73,20 +73,20 @@ h3 {
 }
 
 figure {
-    margin: 1.5em 0; /* Space above and below the figure */
-    text-align: center; /* Center the content */
+    margin: 1.5em 0;
+    text-align: center;
 }
 
 figure img {
-    max-width: 100%; /* Responsive image */
-    height: auto; /* Maintain aspect ratio */
-    border: 1px solid #ddd; /* Optional: border around the image */
-    border-radius: 4px; /* Optional: rounded corners */
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
 }
 
 figcaption {
-    font-size: 0.9em; /* Slightly smaller text */
-    color: #555; /* Gray color for the caption */
-    margin-top: 0.5em; /* Space above the caption */
-    line-height: 1.4; /* Improved readability */
+    font-size: 0.9em;
+    color: #555;
+    margin-top: 0.5em; 
+    line-height: 1.4;
 }
