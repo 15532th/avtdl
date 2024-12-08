@@ -537,6 +537,7 @@ summary .tooltip {
     margin: 4px;
     border-radius: 3px;
     border: 1px solid #cccccc;
+    flex: 1 1 30%;
 }
 
 .chain-section {
@@ -617,7 +618,7 @@ summary .tooltip {
 }
 
 .card-item-select {
-    flex: 1;
+    width: 80%;
     margin-right: 5px;
 }
 
