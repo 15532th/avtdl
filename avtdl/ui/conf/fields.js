@@ -526,7 +526,14 @@ class Fieldset {
             const value = data[fieldInput.propertyName];
             if (value !== undefined) {
                 fieldInput.fill(value);
-                if (!fieldInput.isRequired() && value !== fieldInput.getDefault()) {
+                if (!fieldInput.isRequired()) {
+                    // workaround for update_interval scheme missing "default"
+                    if (fieldInput.getDefault() === undefined) {
+                        continue;
+                    }
+                    if (JSON.stringify(value) === JSON.stringify(fieldInput.getDefault())) {
+                        continue;
+                    }
                     // show additional fields if at least one of them is filled
                     this.separatorToggler(true);
                 }
