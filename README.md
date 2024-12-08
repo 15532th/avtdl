@@ -84,9 +84,11 @@ Depending on the installation method and OS, application might be invoked as `av
 
 After installing, proceed with writing configuration file, as described in [Configuration](#configuration) section. [example.config.yml](example.config.yml) can be used as a starting point.
 
-By default, configuration file is named `config.yml` and located in current working directory. Current directory is also used as default location to create folders for persistent storage and logs, unless redefined in configuration file.
+By default, configuration file is named `config.yml` and located in current working directory.Current directory is also used as default location to create folders for persistent storage and logs, unless redefined in configuration file.
 
 To specify a different config file, use `avtdl --config path/to/config.yml` option. Run `avtdl --help` for full list of options.
+
+When started without explicitly specified configuration file (for example, by double-clicking on executable), avtdl will look for default name, and automatically create one using build-in template if it does not exist.
 
 ### Web UI
 
@@ -96,7 +98,7 @@ After avtdl startup, the web interface is available on <http://localhost:8080>, 
 
 #### Configuration file syntax
 
-Currently, configuration is performed with a configuration file that uses [YAML](https://yaml.org) format. It only uses basic features, but anything PyYAML can parse should work.
+Currently, configuration is performed with a configuration file that uses [YAML](https://yaml.org) format. 
 
 Just like JSON, YAML provides means to define a structure of nested sequences and `key: value` mappings, but is easier to read and requires less effort writing (especially if your text editor adds indentation automatically). It provides some complicated features, but basic syntax is simple enough to pick up just by reading examples. See section 2.1 of chapter 2 of [YAML specification](https://yaml.org/spec/1.2.0/#Preview) for introduction and basic examples.
 
