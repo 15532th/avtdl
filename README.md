@@ -9,6 +9,7 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
     * [Features overview](#features-overview)
     * [Installation](#installation)
     * [Running](#running)
+    * [Web UI](#web-ui)
     * [Configuration](#configuration)
       * [Configuration file syntax](#configuration-file-syntax)
       * [Configuration file terminology](#configuration-file-terminology)
@@ -86,6 +87,10 @@ After installing, proceed with writing configuration file, as described in [Conf
 By default, configuration file is named `config.yml` and located in current working directory. Current directory is also used as default location to create folders for persistent storage and logs, unless redefined in configuration file.
 
 To specify a different config file, use `avtdl --config path/to/config.yml` option. Run `avtdl --help` for full list of options.
+
+### Web UI
+
+After avtdl startup web interface is available on <http://localhost:8080>, unless different port is specified in the [settings](#settings) section. It includes configuration editor, meant to provide alternative to manual editing of configuration file. See [info.md](avtdl/ui/info/info.md) for more detailed description.
 
 ### Configuration
 
