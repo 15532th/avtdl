@@ -84,7 +84,7 @@ Depending on the installation method and OS, application might be invoked as `av
 
 After installing, proceed with writing configuration file, as described in [Configuration](#configuration) section. [example.config.yml](example.config.yml) can be used as a starting point.
 
-By default, configuration file is named `config.yml` and located in current working directory.Current directory is also used as default location to create folders for persistent storage and logs, unless redefined in configuration file.
+By default, configuration file is named `config.yml` and located in current working directory. Current directory is also used as default location to create folders for persistent storage and logs, unless redefined in configuration file.
 
 To specify a different config file, use `avtdl --config path/to/config.yml` option. Run `avtdl --help` for full list of options.
 
@@ -524,7 +524,7 @@ The `quiet_start` option does the same on every startup, discarding entities tha
 
 ##### `reset_origin`
 
-Normally, once produced, record is bound to its chain, meaning that any filter or action entity listed in multiple chains will only pass each processed record to the chain it has come from. However it might sometimes be useful to remove this limitation in order to merge output of multiple chains in one. See the [chains](#chains) sections above for detailed explanation and usage example.
+Normally, once produced, record is bound to its chain, meaning that any filter or action entity listed in multiple chains will only pass each processed record to the chain it has come from. However, it might sometimes be useful to remove this limitation in order to merge output of multiple chains in one. See the [chains](#chains) sections above for detailed explanation and usage example.
 
 ##### Formatting templates
 
@@ -553,7 +553,7 @@ When a template is used as a file name or as a path to a directory, field values
 
 Both absolute and relative paths can be used, with relative being resolved in the current working directory `avtdl` is run from. It is possible to use either `/` and `\\` as directory separator regardless of OS, but note that latter must be used twice. Shell variables and aliases, such as `~`, are not expanded, so full path must be provided instead.
 
-Shell commands used in `execute` plugin entities are also run from the current working directory. Therefore executables, such as yt-dlp, must be either referenced by absolute path or present in `PATH` environment variable. Alternatively, they might be placed in the working directory itself.
+Shell commands used in `execute` plugin entities are also run from the current working directory. Therefore, executables, such as yt-dlp, must be either referenced by absolute path or present in `PATH` environment variable. Alternatively, they might be placed in the working directory itself.
 
 
 
