@@ -257,7 +257,11 @@ async def run_app(webui: WebUI):
     await runner.setup()
     site = web.TCPSite(runner, webui.host, webui.port)
     webui.logger.debug('starting server...')
-    await site.start()
+    try:
+        await site.start()
+    except Exception as e:
+        webui.logger.exception(f'failed to start server: {e}')
+        return
     webui.logger.info(f'server is running on http://{webui.host}:{webui.port}')
     try:
         await asyncio.Future()
