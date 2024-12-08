@@ -215,8 +215,8 @@ class WebUI:
         if self.restart_pending:
             raise web.HTTPServiceUnavailable(headers={'Retry-After': str(self.RESTART_DELAY)})
         motd = f'''
-Server is up and running, working directory is set to "{pathlib.Path('.').resolve()}".
-Configuration loaded from "{self.config_path.resolve()}", it contains {len(self.actors)} actors and {len(self.chains)} chains.
+Server is up and running, working directory is "{pathlib.Path('.').resolve()}".
+Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, loaded from "{self.config_path.resolve()}".
 '''
         data = {'motd': motd}
         return web.json_response(data, dumps=json_dumps)
