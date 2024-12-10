@@ -16,17 +16,21 @@ def merge_yaml(base: str, data_json: str) -> CommentedData:
 
 testcases: Dict[str, Tuple[str, str, str]] = {
     'comments preserved': (
-        """top:
+        """
         # top comment
-          - 0
-          - 1 # nested comment
+        key:
+        # mapping comment
+          - "0"
+          - "1" # list comment
           - 2""",
-        '{"top": [0, 1, 3]}',
+        '{"key": ["0", "1", 3]}',
 
-        """top:
+        """
         # top comment
-          - 0
-          - 1 # nested comment
+        key:
+        # mapping comment
+          - "0"
+          - "1"
           - 3""",
     ),
     'parenthesses preserved': (

@@ -25,7 +25,9 @@ def make_yaml_parser() -> YAML:
 
 
 def merge_data(base: CommentedData, data: PlainData) -> CommentedData:
-    if isinstance(base, CommentedSeq) and isinstance(data, list):
+    if str(base) == str(data):
+        return base
+    elif isinstance(base, CommentedSeq) and isinstance(data, list):
         merge_seq(base, data)
         return base
     elif isinstance(base, CommentedMap) and isinstance(data, dict):
@@ -47,13 +49,12 @@ def merge_map(base: CommentedMap, data: dict) -> None:
 
 
 def merge_seq(base: CommentedSeq, data: list) -> None:
-    to_delete = [v for v in base if v not in data]
-    for v in to_delete:
+    old_base = {str(v): v for v in base}
+    for v in old_base.values():
         base.remove(v)
-    idx = 0
     for v in data:
-        if v in base:
-            idx = base.index(v)
-            base[idx] = merge_data(base[idx], v)
+        if str(v) in old_base:
+            value = old_base[str(v)]
         else:
-            base.insert(idx+1, v)
+            value = v
+        base.append(value)
