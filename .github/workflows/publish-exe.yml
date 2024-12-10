@@ -32,7 +32,7 @@ jobs:
       - name: Uninstall aiodns, installed by slixmpp
         run: python -m pip uninstall aiodns --yes
       - name: Build executable as a single file
-        run: pyinstaller avtdl.py --icon NONE --collect-all avtdl --onefile --collect-submodules slixmpp.features
+        run: pyinstaller avtdl.py --icon NONE --collect-all avtdl --onefile --collect-submodules slixmpp.features --collect-all dateutil.zoneinfo
       - name: Build executable as a folder
         run: pyinstaller avtdl.py --icon NONE --collect-all avtdl
       - name: Compress the folder
