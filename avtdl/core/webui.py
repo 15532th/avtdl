@@ -26,7 +26,6 @@ def serialize_config(settings: SettingsSection,
     return conf
 
 
-
 def json_dumps(obj):
     def default(o):
         if isinstance(o, pathlib.Path):
@@ -79,7 +78,7 @@ def get_entity_schema(actor_name: str) -> dict:
 
 def record_preview(record: Record, representation: str = 'text') -> str:
     if representation == 'text':
-        return str(record)
+        return str(record).replace('\n', '<br>\n')
     elif representation == 'json':
         return record.as_json(indent=4)
     elif representation == 'short':
@@ -221,7 +220,6 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         data = {'motd': motd}
         return web.json_response(data, dumps=json_dumps)
 
-
     async def info_webui(self, request: web.Request) -> web.Response:
 
         template_path = self.WEBROOT / 'info/info.html'
@@ -243,10 +241,15 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             raise web.HTTPBadRequest(text=f'not enough arguments. Got actor="{actor}", entity="{entity}", chain="{chain}"')
         incoming = self.ctx.bus.get_history(actor, entity, chain, 'in')
         outgoing = self.ctx.bus.get_history(actor, entity, chain, 'out')
-        data = {
-            'in': [record_preview(record, representation) for record in incoming],
-            'out': [record_preview(record, representation) for record in outgoing]
-        }
+        data_structure = [
+            (f'Incoming records (most recent)', incoming),
+            (f'Outgoing records (most recent)', outgoing)
+        ]
+        data = {}
+
+        for title, content in data_structure:
+            records = [[record.origin, record.chain, record_preview(record, representation)] for record in content]
+            data[title] = records
         return web.json_response(data, dumps=json_dumps)
 
 

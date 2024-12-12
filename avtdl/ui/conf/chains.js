@@ -1,8 +1,9 @@
 class ChainCard {
-    constructor(info, container) {
+    constructor(info, getOwnName) {
         this.info = info;
+        this.getName = getOwnName;
 
-        this.parentContainer = container || createElement('div', 'card-container');
+        this.parentContainer = createElement('div', 'card-container');
         this.container = createElement('div', 'chain-card');
 
         this.errorPlaceholder = addErrorPlaceholder(this.container);
@@ -96,6 +97,16 @@ class ChainCard {
         );
         definitionButton.title = 'Go to entity definition';
         itemContainer.appendChild(definitionButton);
+
+        const historyButton = createButton(
+            'ⓘ',
+            () => {
+                this.info.historyView.showHistory(this.headerSelect.value, itemSelect.value, this.getName());
+            },
+            'inline-button'
+        );
+        itemContainer.appendChild(historyButton);
+        historyButton.title = 'Show most recent records';
 
         if (value !== null) {
             itemSelect.value = value;
@@ -324,7 +335,9 @@ class ChainSection {
     }
 
     generateCard(actorName, entities, referenceNode = null) {
-        const card = new ChainCard(this.info);
+        const card = new ChainCard(this.info, () => {
+            return this.getName();
+        });
         if (actorName && entities) {
             card.fill({ header: actorName, items: entities });
         }

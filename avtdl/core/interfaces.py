@@ -25,7 +25,8 @@ class Record(BaseModel):
     chain: str = Field(default='', exclude=True)
     """name of the Chain this record is going through.
     Empty string means it was just produced and should go to every subscriber"""
-
+    created_at: datetime.datetime = Field(default_factory=datetime.datetime.now, exclude=True)
+    """record creating date"""
     @abstractmethod
     def __str__(self) -> str:
         '''Text representation of the record to be sent in a message, written to a file etc.'''
@@ -135,6 +136,8 @@ class MessageBus:
             for generic_topic, callbacks in matching_callbacks.items():
                 for callback in callbacks:
                     callback(topic, message)
+                    self.add_to_history(topic, message)
+                self.add_to_history(generic_topic, message)
         else:
             matching_callbacks = self.get_matching_callbacks(topic)
             for specific_topic, callbacks in matching_callbacks.items():
@@ -143,7 +146,8 @@ class MessageBus:
                 targeted_message.chain = chain
                 for callback in callbacks:
                     callback(specific_topic, targeted_message)
-        self.add_to_history(topic, message)
+                    self.add_to_history(specific_topic, targeted_message)
+                self.add_to_history(topic, message)
 
     def add_to_history(self, topic: str, message: Record):
         self.history[topic].append(message)
@@ -156,11 +160,8 @@ class MessageBus:
         else:
             assert False, f'unexpected direction "{direction}"'
         records: List[Record] = []
-        direction, actor, entity, chain = self.split_subscription_topic(topic)
-        if chain:
-            generic_topic = self.make_topic(direction, actor, entity, '')
-            records.extend(self.history[generic_topic])
         records.extend(self.history[topic])
+        records.sort(key = lambda r: r.created_at)
         return records
 
     def get_matching_callbacks(self, topic_pattern: str) -> SubscriptionsMapping:

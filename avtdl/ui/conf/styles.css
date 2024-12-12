@@ -326,47 +326,37 @@ summary .tooltip {
 
 .entry-container {
     position: relative;
+    display: flex;
+    flex-direction: row;
     margin: 0px 0;
     padding: 0px;
     border: 0px solid #cccccc;
 }
 
 .entry-container > fieldset {
-    background-color: #f9f9f9;
+    width: 100%;
     border: 2px solid #cccccc;
-    padding-right: 50px;
+    background-color: #f9f9f9;
 }
 
-.delete-entry {
-    position: absolute;
-    background-color: #cccccccc;
-    top: 10px;
-    right: 10px;
-    color: black;
+.entry-buttons {
+    display: flex;
+    flex-direction: column;
+}
+
+.entry-button {
     font-family: monospace;
     font-weight: bold;
+    font-size: large;
     border: none;
-    padding: 5px 5px;
+    margin: 2px 5px;
+    padding: 4px;
+    border-radius: 4px;
     cursor: pointer;
-    border-radius: 5px;
+    background-color: #e0e0e0;
 }
 
-.copy-entry {
-    position: absolute;
-    background-color: #cccccccc;
-    top: 40px;
-    right: 10px;
-    color: black;
-    font-family: monospace;
-    font-weight: bold;
-    border: none;
-    padding: 5px 5px;
-    cursor: pointer;
-    border-radius: 5px;
-}
-
-.delete-entry:hover,
-.copy-entry:hover {
+.entry-button:hover {
     background-color: #ccc;
 }
 
@@ -480,6 +470,11 @@ summary .tooltip {
     font-family: monospace;
     font-size: 16px;
     cursor: pointer;
+}
+
+.inline-button:hover {
+    background-color: #c9c9c9;
+    border-radius: 2px;
 }
 
 .modal-background {
@@ -710,4 +705,91 @@ summary .tooltip {
 
 .optsearch-suggestion:hover {
     background-color: #f0f0f0;
+}
+
+.history-view {
+    background-color: #eeeeee;
+    padding: 20px;
+    border-radius: 5px;
+    max-width: 80%;
+    max-height: 80%;
+    flex: 0 0 80%;
+    overflow: auto;
+}
+
+.history-view .summary-headline {
+    font-style: italic;
+}
+
+.history-view details[open] > summary {
+    background-color: #dadada;
+}
+
+.history-title {
+    background-color: #ddd;
+    border-radius: 5px;
+}
+.history-row {
+    margin: 4px 0;
+    margin-left: 5px;
+    padding-left: 5px;
+    border-radius: 5px;
+    background-color: #ddd;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+}
+
+.history-content {
+    border-radius: 5px;
+    margin-left: 8px;
+    display: flex;
+
+}
+
+.history-content p {
+    margin: 2px 0;
+}
+
+.history-blank {
+    color: #888;
+    font-size: 0.8em;
+    font-style: italic;
+    text-align: center;
+    width: 100%;
+    margin: 5px 0;
+}
+
+
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    border: 1px solid #dddddd;
+    text-align: left;
+    padding: 8px;
+}
+
+tr th {
+    text-align: center;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+td:hover {
+    background-color: #ddd;
+}
+
+.minified {
+    max-height: 6em;
+    overflow-y: auto;
 }

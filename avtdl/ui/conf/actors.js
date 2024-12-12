@@ -1,11 +1,13 @@
 class EntitiesList {
-    constructor(schema, container = null, parentMenu, onEntityChange = (oldName, newName) => {}) {
+    constructor(name, schema, container = null, parentMenu, onEntityChange = (oldName, newName) => {}, historyView) {
+        this.actorName = name;
         this.schema = schema;
         this.entries = [];
         this.container = container || document.createElement('div');
         this.container.classList.add('editable-list');
         this.menu = parentMenu;
         this.onEntityChange = onEntityChange;
+        this.historyView = historyView;
 
         this.addButton = createButton('[Add]', () => this.addEntry(), 'add-button');
         this.addButton.title = 'Add new entity';
@@ -27,13 +29,21 @@ class EntitiesList {
         }
         entryDiv.appendChild(entity.getElement());
 
-        const copyButton = createButton('[⧉]', () => this.copyEntry(entity, entryDiv), 'copy-entry');
-        copyButton.title = 'Duplicate entity';
-        entryDiv.appendChild(copyButton);
+        const buttonsContainer = createElement('div', 'entry-buttons', entryDiv);
 
-        const deleteButton = createButton('[×]', () => this.deleteEntry(entity, entryDiv), 'delete-entry');
+        const deleteButton = createButton('×', () => this.deleteEntry(entity, entryDiv), 'entry-button');
         deleteButton.title = 'Delete entity';
-        entryDiv.appendChild(deleteButton);
+        buttonsContainer.appendChild(deleteButton);
+
+        const copyButton = createButton('⧉', () => this.copyEntry(entity, entryDiv), 'entry-button');
+        copyButton.title = 'Duplicate entity';
+        buttonsContainer.appendChild(copyButton);
+
+        const historyButton = createButton('ⓘ', () => {
+            this.historyView.showHistory(this.actorName, entity.getName());
+        }, 'entry-button');
+        historyButton.title = 'Show recent records';
+        buttonsContainer.appendChild(historyButton);
 
         entity.registerNameChangeCallback((oldName, newName, nameField) => {
             this.handleNameUpdate(oldName, newName, nameField);
@@ -145,7 +155,7 @@ class EntitiesList {
 }
 
 class ActorSection {
-    constructor(name, data, info, type, configSchema, entitiesSchema, parentMenu, onEntityChange) {
+    constructor(name, data, info, type, configSchema, entitiesSchema, parentMenu, onEntityChange, historyView) {
         this.name = name;
         this.info = info;
         this.type = type;
@@ -170,7 +180,7 @@ class ActorSection {
         this.onAnyEntityChange = onEntityChange || function (actorName, oldName, newName) {};
 
         this.config = this.generateConfig(data);
-        this.entities = this.generateEntities(data, this.menu);
+        this.entities = this.generateEntities(data, this.menu, historyView);
     }
 
     onEntityChange = (oldName, newName) => {
@@ -210,10 +220,10 @@ class ActorSection {
         return config;
     }
 
-    generateEntities(data, menu) {
+    generateEntities(data, menu, historyView) {
         const entitiesFieldset = createFieldset('entities');
         entitiesFieldset.classList.add('entities');
-        const entitiesList = new EntitiesList(this.entitiesSchema, entitiesFieldset, menu, this.onEntityChange);
+        const entitiesList = new EntitiesList(this.name, this.entitiesSchema, entitiesFieldset, menu, this.onEntityChange, historyView);
         this.container.appendChild(entitiesFieldset);
 
         if (data.entities) {
@@ -271,6 +281,7 @@ class ActorsForm {
         const subcategories = {};
         this.subcategoriesMenu = {};
         this.onEntityChangeCallbacks = [];
+        this.historyView = new HistoryView(this.container);
 
         for (const [name, actorModel] of Object.entries(actorsModel)) {
             const actorData = data[name] || {};
@@ -295,7 +306,8 @@ class ActorsForm {
                 flattenSchema(actorModel.config_schema),
                 flattenSchema(actorModel.entity_schema),
                 this.subcategoriesMenu[actorType],
-                this.onEntityChange
+                this.onEntityChange,
+                this.historyView
             );
             subcategories[actorType][name] = actorSection;
             this.actorSections[name] = actorSection;
@@ -363,6 +375,7 @@ class ActorsForm {
 class ActorsInfo {
     constructor(actorsForm) {
         this.form = actorsForm;
+        this.historyView = new HistoryView(document.body);
         this._names = this.form.listActors();
         this._types = this._generateTypes();
 
