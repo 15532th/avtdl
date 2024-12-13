@@ -26,7 +26,7 @@ class Record(BaseModel):
     """name of the Chain this record is going through.
     Empty string means it was just produced and should go to every subscriber"""
     created_at: datetime.datetime = Field(default_factory=datetime.datetime.now, exclude=True)
-    """record creating date"""
+    """record creation timestamp"""
     @abstractmethod
     def __str__(self) -> str:
         '''Text representation of the record to be sent in a message, written to a file etc.'''
@@ -129,6 +129,11 @@ class MessageBus:
         self.logger.debug(f'subscription on topic {topic} by {callback!r}')
         self.subscriptions[topic].append(callback)
 
+    def _generic_topic(self, specific_topic: str) -> str:
+        direction, actor, entity, chain = self.split_subscription_topic(specific_topic)
+        generic_topic = self.make_topic(direction, actor, entity, '')
+        return generic_topic
+
     def pub(self, topic: str, message: Record):
         self.logger.debug(f'on topic {topic} message "{message!r}"')
         if message.chain:
@@ -136,8 +141,9 @@ class MessageBus:
             for generic_topic, callbacks in matching_callbacks.items():
                 for callback in callbacks:
                     callback(topic, message)
-                    self.add_to_history(topic, message)
+            for generic_topic in set(self._generic_topic(t) for t in matching_callbacks.keys()):
                 self.add_to_history(generic_topic, message)
+            self.add_to_history(topic, message)
         else:
             matching_callbacks = self.get_matching_callbacks(topic)
             for specific_topic, callbacks in matching_callbacks.items():
@@ -146,8 +152,8 @@ class MessageBus:
                 targeted_message.chain = chain
                 for callback in callbacks:
                     callback(specific_topic, targeted_message)
-                    self.add_to_history(specific_topic, targeted_message)
-                self.add_to_history(topic, message)
+                self.add_to_history(specific_topic, targeted_message)
+            self.add_to_history(topic, message)
 
     def add_to_history(self, topic: str, message: Record):
         self.history[topic].append(message)
