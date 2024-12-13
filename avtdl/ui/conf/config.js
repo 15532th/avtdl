@@ -1,21 +1,20 @@
 async function fetchJSON(path, messageArea, retries = 0) {
+    let retryDelay = 3;
     try {
         const response = await fetch(path);
         if (!response.ok) {
-            const retryDelay = getRetryAfter(response) || 3;
-            if (retries > 0) {
-                console.log(
-                    `[fetchJson]: while fetching "${path}" got ${response.status}, will retry after ${retryDelay}`
-                );
-                await new Promise((resolve) => setTimeout(resolve, retryDelay * 1000));
-                return await fetchJSON(path, messageArea, retries - 1);
-            }
+            retryDelay = getRetryAfter(response) || 3;
             throw new Error(`got ${response.status} (${response.statusText}) when requesting ${path}`);
         }
         const data = await response.json();
         return data;
     } catch (error) {
-        console.error('Error fetching config data:', error);
+        console.error(`[fetchJson]: error fetching "${path}": ${error}`);
+        if (retries > 0) {
+            console.log(`[fetchJson]: retrying after ${retryDelay}`);
+            await new Promise((resolve) => setTimeout(resolve, retryDelay * 1000));
+            return await fetchJSON(path, messageArea, retries - 1);
+        }
         if (messageArea) {
             messageArea.showMessage('Error fetching data. Check if avtdl is running on correct port.', 'error');
         }
