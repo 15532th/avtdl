@@ -11,7 +11,7 @@ in `Chains` sections.
 
 <figure>
 <p align="center" width="100%">  
-<img src="main_view.png" width="800" alt="Interface of the configuration editor"/>
+<img src="main_view.png" width="90%" alt="Interface of the configuration editor"/>
 </p>
 </figure>
 
@@ -28,7 +28,7 @@ Entities are represented as a set of input fields grouped together:
 
 <figure>
 <p align="center" width="100%">  
-<img src="monitor_rss.png" width="800"/>
+<img src="monitor_rss.png" width="80%"/>
 </p>
 </figure>
 
@@ -43,7 +43,7 @@ The following picture shows a chain named "archive". It references two entities 
 
 <figure>
 <p align="center" width="100%">
-<img alt="Chain example" src="chain_archive.png" width="250"/>
+<img alt="Chain example" src="chain_archive.png" width="30%"/>
 </p>
 </figure>
 
