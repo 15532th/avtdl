@@ -149,6 +149,9 @@ class MessageBus:
 
             generic_topic = self._generic_topic(specific_topic)
             self.add_to_history(generic_topic, targeted_message)
+        if not matching_callbacks:
+            # topic has no subscribers, meaning entity is not referenced in chains
+            self.add_to_history(self._generic_topic(topic), message)
 
     def add_to_history(self, topic: str, message: Record):
         self.history[topic].append(message)
