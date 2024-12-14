@@ -2,7 +2,7 @@ from textwrap import shorten
 from typing import Optional, Sequence
 
 import aiohttp
-from pydantic import Field
+from pydantic import Field, PositiveFloat
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
@@ -49,7 +49,7 @@ class TwitcastRecord(Record):
 class TwitcastMonitorEntity(HttpTaskMonitorEntity):
     user_id: str
     """user id that should be monitored"""
-    update_interval: float = 60
+    update_interval: PositiveFloat = 60
     """how often the user will be checked for being live, in seconds"""
     adjust_update_interval: bool = Field(exclude=True, default=True)
     """does nothing since Twitcasting does not use caching headers on endpoint used to check live status"""

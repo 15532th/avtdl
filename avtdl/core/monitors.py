@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import aiohttp
-from pydantic import Field, FilePath, field_serializer, field_validator
+from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_validator
 
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
@@ -17,7 +17,7 @@ HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
 
 class TaskMonitorEntity(MonitorEntity):
-    update_interval: float
+    update_interval: PositiveFloat
     """how often the monitored source should be checked for new content, in seconds"""
 
 

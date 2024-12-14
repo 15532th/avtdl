@@ -4,7 +4,7 @@ from json import JSONDecodeError
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import aiohttp
-from pydantic import Field, ValidationError
+from pydantic import Field, PositiveFloat, ValidationError
 
 from avtdl.core import utils
 from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
@@ -111,7 +111,7 @@ class VideosMonitorConfig(PagedFeedMonitorConfig):
 
 @Plugins.register('channel', Plugins.kind.ACTOR_ENTITY)
 class VideosMonitorEntity(PagedFeedMonitorEntity):
-    update_interval: float = 1800
+    update_interval: PositiveFloat = 1800
 
 
 class FeedPageContext(NextPageContext):

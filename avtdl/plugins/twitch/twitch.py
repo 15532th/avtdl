@@ -5,7 +5,7 @@ from typing import Optional, Sequence
 
 import aiohttp
 from dateutil import parser as dateutil_parser
-from pydantic import Field
+from pydantic import Field, PositiveFloat
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
@@ -54,7 +54,7 @@ class TwitchRecord(Record):
 class TwitchMonitorEntity(HttpTaskMonitorEntity):
     username: str
     """Twitch username of a monitored channel"""
-    update_interval: int = 300
+    update_interval: PositiveFloat = 300
     """how often the user will be checked for being live, in seconds"""
     most_recent_stream: Optional[str] = Field(exclude=True, default=None)
     """internal variable to persist state between updates. Used to keep last id to detect if the current livestream is the same as from the previous update"""

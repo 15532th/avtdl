@@ -5,7 +5,7 @@ from textwrap import shorten
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import aiohttp
-from pydantic import Field
+from pydantic import Field, PositiveFloat
 
 from avtdl.core import utils
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
@@ -125,7 +125,7 @@ class ChatPageContext(NextPageContext):
 class YoutubeChatMonitorEntity(BaseFeedMonitorEntity):
     url: str
     """url of a video frame with a chat"""
-    update_interval: float = Field(exclude=True, default=20)
+    update_interval: PositiveFloat = Field(exclude=True, default=20)
     """unavailable for configuration since update interval is determined dynamically based on chat speed"""
     adjust_update_interval: bool = Field(exclude=True, default=False)
     """unavailable for configuration since update interval is determined dynamically based on chat speed"""

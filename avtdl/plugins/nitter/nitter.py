@@ -7,7 +7,7 @@ from urllib import parse as urllibparse
 import aiohttp
 import lxml.html
 from dateutil import parser
-from pydantic import ConfigDict
+from pydantic import ConfigDict, PositiveFloat
 
 from avtdl.core import utils
 from avtdl.core.interfaces import Filter, FilterEntity, MAX_REPR_LEN, Record, RuntimeContext
@@ -123,7 +123,7 @@ class NitterMonitorConfig(PagedFeedMonitorConfig):
 
 @Plugins.register('nitter', Plugins.kind.ACTOR_ENTITY)
 class NitterMonitorEntity(PagedFeedMonitorEntity):
-    update_interval: float = 1800
+    update_interval: PositiveFloat = 1800
     """How often the monitored url will be checked, in seconds"""
 
 

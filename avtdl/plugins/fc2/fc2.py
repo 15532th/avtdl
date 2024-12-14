@@ -6,7 +6,7 @@ from typing import Optional, Sequence
 
 import aiohttp
 import pydantic
-from pydantic import Field
+from pydantic import Field, PositiveFloat
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
@@ -65,7 +65,7 @@ class FC2MonitorConfig(ActorConfig):
 class FC2MonitorEntity(HttpTaskMonitorEntity):
     user_id: str
     """user id, numeric part at the end of livestream url"""
-    update_interval: int = 120
+    update_interval: PositiveFloat = 120
     """how often the monitored channel will be checked, in seconds"""
     adjust_update_interval: bool = Field(exclude=True, default=True)
     """does nothing since fc2 does not use caching headers on the endpoint used to check live status"""

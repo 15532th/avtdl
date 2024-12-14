@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Union
 
 import aiohttp
 import feedparser
-from pydantic import ConfigDict
+from pydantic import ConfigDict, PositiveFloat
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
@@ -111,7 +111,7 @@ class YoutubeFeedRecord(Record):
 
 @Plugins.register('rss', Plugins.kind.ACTOR_ENTITY)
 class FeedMonitorEntity(GenericRSSMonitorEntity):
-    update_interval: float = 900
+    update_interval: PositiveFloat = 900
     """How often the feed should be updated, in seconds"""
     track_reschedule: bool = False
     """keep track of scheduled time of upcoming streams, emit record again if it is changed to an earlier date"""

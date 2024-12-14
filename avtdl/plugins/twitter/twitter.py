@@ -6,7 +6,7 @@ from abc import abstractmethod
 from typing import Any, List, Optional, Sequence, Tuple
 
 import aiohttp
-from pydantic import Field, FilePath
+from pydantic import Field, FilePath, PositiveFloat
 
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
@@ -28,7 +28,7 @@ class TwitterMonitorConfig(PagedFeedMonitorConfig):
 class TwitterMonitorEntity(PagedFeedMonitorEntity):
     cookies_file: FilePath
     """path to a text file containing cookies in Netscape format"""
-    update_interval: float = 1800
+    update_interval: PositiveFloat = 1800
     """how often the monitored url will be checked, in seconds"""
     url: str = 'https://twitter.com'
     """Twitter domain name"""

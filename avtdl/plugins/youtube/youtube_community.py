@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import aiohttp
+from pydantic import PositiveFloat
 
 from avtdl.core import utils
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
@@ -151,7 +152,7 @@ class CommunityPostsMonitorConfig(PagedFeedMonitorConfig):
 class CommunityPostsMonitorEntity(PagedFeedMonitorEntity):
     url: str
     """url of the community page of the channel"""
-    update_interval: float = 1800
+    update_interval: PositiveFloat = 1800
     """how often the community page will be checked for new posts"""
 
 @Plugins.register('community', Plugins.kind.ACTOR)

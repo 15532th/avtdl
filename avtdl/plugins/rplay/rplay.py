@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import aiohttp
 import dateutil.parser
-from pydantic import Field, FilePath, model_validator
+from pydantic import Field, FilePath, PositiveFloat, model_validator
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
@@ -87,7 +87,7 @@ class RplayMonitorConfig(BaseFeedMonitorConfig):
 class RplayMonitorEntity(BaseFeedMonitorEntity):
     creators: Optional[List[str]] = None
     """list of IDs of the users to monitor. Entity with no IDs will report on every user going live"""
-    update_interval: int = 300
+    update_interval: PositiveFloat = 300
     """how often the monitored channel will be checked, in seconds"""
     selected_for_update: bool = Field(exclude=True, default=False)
     """internal variable, used to mark one entity that actually makes network request to update queues"""
