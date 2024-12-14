@@ -109,7 +109,11 @@ function readInput(fieldContainer, schema) {
             value = inputField.checked;
             break;
         case 'number':
-            value = Number(inputField.value);
+            if (inputField.value === '') {
+                value = null;
+            } else {
+                value = Number(inputField.value);
+            }
             break;
         case 'string':
         case 'select-one':
