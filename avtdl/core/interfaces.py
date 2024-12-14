@@ -118,7 +118,7 @@ class MessageBus:
     PREFIX_OUT = 'output'
     SEPARATOR = '/'
 
-    HISTORY_SIZE = 10
+    HISTORY_SIZE = 20
 
     def __init__(self) -> None:
         self.subscriptions: SubscriptionsMapping = defaultdict(list)
