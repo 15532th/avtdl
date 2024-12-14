@@ -3,7 +3,7 @@
 import os
 import re
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 from pydantic import Field, field_validator
 
@@ -71,8 +71,7 @@ class FileMonitorEntity(TaskMonitorEntity):
         except re.error as e:
             raise ValueError(f'invalid regular expression "{pattern}": {e}')
 
-
-    def __post_init__(self):
+    def model_post_init(self, __context: Any) -> None:
         self.base_update_interval = self.update_interval
 
 
