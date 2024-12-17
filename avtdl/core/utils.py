@@ -135,7 +135,7 @@ def check_dir(path: Path, create=True) -> bool:
     if path.is_dir() and os.access(path, mode=os.W_OK):
         return True
     elif create:
-        logging.info(f'directory {path} does not exists, creating')
+        logging.info(f'directory {path} does not exist, creating')
         try:
             path.mkdir(parents=True, exist_ok=True)
             return True
