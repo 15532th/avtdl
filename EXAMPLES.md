@@ -23,6 +23,7 @@ Every example is meant to be a valid configuration file, that can be used standa
       * [Monitor Twitter timeline for tweets by specific users, send the tweets to Discord](#monitor-twitter-timeline-for-tweets-by-specific-users-send-the-tweets-to-discord)
       * [Send notifications and download Twitter Spaces](#send-notifications-and-download-twitter-spaces)
       * [Monitor and download RPLAY livestreams](#monitor-and-download-rplay-livestreams)
+        * [Using yt-dlp fork with RPLAY support](#using-yt-dlp-fork-with-rplay-support)
 <!-- TOC -->
 
 ---
@@ -707,5 +708,55 @@ chains:
       - "rplay restream"
     - execute:
       - "rplay"
+
+```
+
+##### Using yt-dlp fork with RPLAY support
+
+The [rplay](PLUGINS.md#rplay---monitor-livestreams-on-rplay) monitor works by loading the main page, which makes it a better choice when handling more than a few creators at once. However, since it does not generate direct links, a specialized external downloader should be used. 
+
+While yt-dlp does not support RPLAY yet, there is a [fork](https://github.com/c-basalt/yt-dlp/tree/rplay-native), that implements this functionality ([pull request](https://github.com/c-basalt/yt-dlp/tree/rplay-native) pending).
+
+One way to get a specific version of yt-dlp running would be to clone or download and unpack the repo, and use one of `yt-dlp.sh`/`yt-dlp.cmd` scripts in the project directory in place of yt-dlp executable.
+
+Note, that in order for it to work, Python and the yt-dlp dependencies must be installed (perhaps, by installing yt-dlp itself from PyPI). 
+
+
+```yaml
+actors:
+
+  rplay:
+    entities:
+      - name: live
+        update_interval: 180
+        creators:
+          - "665afa669da3d5cd36c18401"
+          - "665afa669da3d5cd36c18402"
+          - "665afa669da3d5cd36c18403"
+
+  filter.exclude:
+    entities:
+      - name: "rplay restream"
+        fields:
+          - "restream_platform"
+        patterns:
+          - "twitch"
+          - "youtube"
+
+  execute:
+    entities:
+      - name: "rplay-native"
+        command: "/path/to/yt-dlp/yt-dlp.sh --username 'username@example.com' --password 'the password' {url}"
+        working_dir: "archive/rplay/{name} [{creator_id}]/"
+
+chains:
+
+  "rplay-dl":
+    - rplay:
+        - "live"
+    - filter.exclude:
+        - "rplay restream"
+    - execute:
+        - "rplay-native"
 
 ```
