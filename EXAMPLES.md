@@ -623,11 +623,6 @@ actors:
     entities:
       - name: "tslazer"
         command: "tslazer --dyn_url {media_url} --filename '[{username}] {title} [{uid}]'"
-        placeholders:
-          "{media_url}": "media_url"
-          "{username}": "username"
-          "{title}": "title"
-          "{uid}": "uid"
         working_dir: "archive/spaces/{username}/"
 
 
@@ -697,11 +692,6 @@ actors:
     entities:
       - name: "rplay"
         command: "yt-dlp --windows-filenames --add-header Referer:'https://rplay.live' --add-header Origin:'https://rplay.live'  {playlist_url} --output '{start} [{name}] {title}.%(ext)s'"
-        placeholders:
-          "{playlist_url}": "playlist_url"
-          "{name}": "name"
-          "{title}": "title"
-          "{start}": "start"
         working_dir: "archive/rplay/{name} [{creator_id}]/"
         log_dir: "archive/rplay/logs/"
         log_filename: "{start} {name} [{creator_id}].log"
