@@ -4,10 +4,11 @@ FROM python:3.11-slim as build
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends --no-install-suggests git
 
+RUN pip install --user yt-dlp
+
 WORKDIR /build/
 COPY ./ ./
 RUN pip install --user .
-RUN pip install --user yt-dlp
 
 # Stage 2
 FROM python:3.11-slim as app
