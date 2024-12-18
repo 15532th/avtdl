@@ -100,7 +100,7 @@ class WebUI:
 
     def __init__(self, config_path: pathlib.Path, config, ctx: RuntimeContext, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
         self.logger = logging.getLogger('webui')
-        self.host = 'localhost'
+        self.host = settings.host
         self.port = settings.port
         self.config_path = config_path
         self.config_base = config

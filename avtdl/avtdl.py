@@ -87,13 +87,18 @@ async def install_exception_handler() -> None:
     loop.slow_callback_duration = 100
 
 
-async def run(config_path: Path) -> None:
+async def run(config_path: Path, host: Optional[str], port: Optional[int]) -> None:
     await install_exception_handler()
     while True:
         config = load_config(config_path)
         ctx = RuntimeContext.create()
         settings, actors, chains = parse_config(config, ctx)
         config_sancheck(actors, chains)
+
+        if host is not None:
+            settings.host = host
+        if port is not None:
+            settings.port = port
 
         controller = ctx.controller
         for runnable in actors.values():
@@ -117,14 +122,18 @@ def make_docs(output: Path) -> None:
 def main() -> None:
     description = '''Tool for monitoring rss feeds and other sources and running commands for new entries'''
     parser = argparse.ArgumentParser(description=description)
-    help_v = 'set loglevel to DEBUG'
-    parser.add_argument('-d', '--debug', action='store_true', default=False, help=help_v)
+    help_d = 'set loglevel to DEBUG'
+    parser.add_argument('-d', '--debug', action='store_true', default=False, help=help_d)
     help_v = 'print version and exit'
     parser.add_argument('-v', '--version', action='store_true', default=False, help=help_v)
     help_c = 'specify path to configuration file to use instead of default'
     parser.add_argument('-c', '--config', type=Path, default=DEFAULT_CONFIG_PATH, help=help_c)
     help_h = 'write plugins documentation in markdown format into a given file and exit'
     parser.add_argument('-p', '--plugins-doc', type=Path, required=False, help=help_h)
+    help_dp = 'web-interface port (takes priority over configuration file)'
+    parser.add_argument('-P', '--port', type=int, required=False, help=help_dp)
+    help_dh = 'web-interface bind address (takes priority over configuration file)'
+    parser.add_argument('-H', '--host', required=False, help=help_dh)
     args = parser.parse_args()
 
     if args.debug:
@@ -141,7 +150,7 @@ def main() -> None:
         elif args.plugins_doc is not None:
             make_docs(args.plugins_doc)
         else:
-            asyncio.run(run(args.config), debug=True)
+            asyncio.run(run(args.config, args.host, args.port), debug=True)
     except KeyboardInterrupt:
         if args.debug:
             logging.exception('Interrupted, exiting... Printing stacktrace for debugging purpose:')

@@ -55,6 +55,8 @@ class SettingsSection(BaseModel):
     """allows to overwrite loglevel of a specific logger. Used to prevent a single talkative logger from filling up the log file"""
     port: int = Field(gt=0, le=65535, default=8080)
     """web-interface port"""
+    host: str = 'localhost'
+    """web-interface host, typically "127.0.0.1", "0.0.0.0" or the machine external IP"""
 
 
 def configure_loggers(settings: SettingsSection):
