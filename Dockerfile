@@ -1,7 +1,3 @@
-LABEL org.opencontainers.image.source=https://github.com/15532th/avtdl
-LABEL org.opencontainers.image.description="Monitoring and automation tool for Youtube and other streaming platforms"
-LABEL org.opencontainers.image.licenses=MIT
-
 # Stage 1
 FROM python:3.11-slim as build
 
@@ -28,4 +24,8 @@ ENV PATH=/home/avtdl/.local/bin:$PATH
 EXPOSE 8080
 
 CMD ["avtdl"]
+
+LABEL org.opencontainers.image.source=https://github.com/15532th/avtdl
+LABEL org.opencontainers.image.description="Monitoring and automation tool for Youtube and other streaming platforms"
+LABEL org.opencontainers.image.licenses=MIT
 
