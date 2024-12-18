@@ -719,7 +719,7 @@ While yt-dlp does not support RPLAY yet, there is a [fork](https://github.com/c-
 
 One way to get a specific version of yt-dlp running would be to clone or download and unpack the repo, and use one of `yt-dlp.sh`/`yt-dlp.cmd` scripts in the project directory in place of yt-dlp executable.
 
-Note, that in order for it to work, Python and the yt-dlp dependencies must be installed (perhaps, by installing yt-dlp itself from PyPI). 
+Note that, in order for it to work, Python and the yt-dlp dependencies must be installed (perhaps, by installing yt-dlp itself from PyPI).
 
 
 ```yaml
