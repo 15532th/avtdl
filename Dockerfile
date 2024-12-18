@@ -23,7 +23,7 @@ ENV PATH=/home/avtdl/.local/bin:$PATH
 
 EXPOSE 8080
 
-CMD ["avtdl", "--host 0.0.0.0"]
+CMD ["avtdl", "--host", "0.0.0.0"]
 
 LABEL org.opencontainers.image.source=https://github.com/15532th/avtdl
 LABEL org.opencontainers.image.description="Monitoring and automation tool for Youtube and other streaming platforms"
