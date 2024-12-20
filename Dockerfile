@@ -1,32 +1,42 @@
-# Stage 1
-FROM python:3.11-slim as build
+FROM jrottenberg/ffmpeg:7.1-ubuntu as base
 
+RUN useradd -m -U avtdl
 RUN apt-get update
-RUN apt-get install -y --no-install-recommends --no-install-suggests git
+RUN apt-get install -y --no-install-recommends --no-install-suggests python3 ca-certificates
+ENV PATH=/home/avtdl/.local/bin:$PATH
 
-RUN pip install --user yt-dlp
+# Stage 1
+FROM base as build
 
-WORKDIR /build/
+RUN apt-get install -y --no-install-recommends --no-install-suggests git pipx wget unzip
+
+WORKDIR /home/avtdl/build
 COPY ./ ./
-RUN pip install --user .
-
-# Stage 2
-FROM python:3.11-slim as app
-RUN adduser avtdl
-
-COPY --from=build  /root/.local /home/avtdl/.local
-WORKDIR /home/avtdl/app
-RUN chown avtdl -R /home/avtdl/
+RUN chown avtdl:avtdl -R /home/avtdl
 
 USER avtdl
+RUN pipx install .
+RUN pipx install yt-dlp
 
-ENV PATH=/home/avtdl/.local/bin:$PATH
+RUN wget "https://github.com/Kethsar/ytarchive/releases/download/latest/ytarchive_linux_amd64.zip" -O ytarchive.zip
+RUN unzip ytarchive.zip -d /home/avtdl/.local/bin/
+
+# Stage 2
+FROM base as app
+
+WORKDIR /home/avtdl/app
+
+COPY --from=build  /home/avtdl/.local /home/avtdl/.local
+RUN chown avtdl:avtdl -R /home/avtdl
+
+USER avtdl
 
 EXPOSE 8080
 
 CMD ["avtdl", "--host", "0.0.0.0"]
 
 LABEL org.opencontainers.image.source=https://github.com/15532th/avtdl
-LABEL org.opencontainers.image.description="Monitoring and automation tool for Youtube and other streaming platforms"
-LABEL org.opencontainers.image.licenses=MIT
+LABEL org.opencontainers.image.description="Monitoring and automation tool for Youtube and other streaming platforms \
 
+Includes additional tools commonly used with avtdl: ffmpeg, yt-dlp and ytarchive."
+LABEL org.opencontainers.image.licenses=MIT
