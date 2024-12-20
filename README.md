@@ -90,6 +90,24 @@ To specify a different config file, use `avtdl --config path/to/config.yml` opti
 
 When started without explicitly specified configuration file (for example, by double-clicking on executable), avtdl will look for default name, and automatically create one using build-in template if it does not exist.
 
+Docker container is [published](https://github.com/15532th/avtdl/pkgs/container/avtdl) in the Github Container registry. It comes in two flavours: `avtdl:<version>-basic` is a Debian-based version of the image containing only avtdl itself, `avtdl:<version>` is based on [ffmpeg](https://github.com/jrottenberg/ffmpeg#ffmpeg-docker-image) image and includes two more additional tools, commonly used with avtdl: yt-dlp and ytarchive.
+
+<details markdown="block">
+  <summary>Example docker-compose.yml file</summary>
+
+```yaml
+version: '3'
+services:
+  avtdl:
+    image: ghcr.io/15532th/avtdl:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/home/avtdl/app/
+```
+
+</details>
+
 ### Web UI
 
 After avtdl startup, the web interface is available on <http://localhost:8080>, unless a different port is specified in the [settings](#settings) section. It includes a configuration editor, meant to provide an alternative to manual editing of the configuration file. See [info.md](avtdl/ui/info/info.md) for more detailed description.
