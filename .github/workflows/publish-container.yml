@@ -12,6 +12,14 @@ env:
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - dockerfile: Dockerfile-basic
+            suffix: basic
+          - dockerfile: Dockerfile
+            suffix:
     permissions:
       contents: read
       packages: write
@@ -38,11 +46,12 @@ jobs:
             type=sha
           flavor: |
             latest=auto
-            suffix=
+            suffix=${{ matrix.suffix }}
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
+          file: ${{ matrix.dockerfile }}
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
