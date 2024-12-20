@@ -36,7 +36,7 @@ EXPOSE 8080
 CMD ["avtdl", "--host", "0.0.0.0"]
 
 LABEL org.opencontainers.image.source=https://github.com/15532th/avtdl
-LABEL org.opencontainers.image.description="Monitoring and automation tool for Youtube and other streaming platforms \
+LABEL org.opencontainers.image.description "Monitoring and automation tool for Youtube and other streaming platforms \
 
 Includes additional tools commonly used with avtdl: ffmpeg, yt-dlp and ytarchive."
 LABEL org.opencontainers.image.licenses=MIT
