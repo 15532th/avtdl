@@ -17,9 +17,9 @@ jobs:
       matrix:
         include:
           - dockerfile: Dockerfile-basic
-            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-basic
+            suffix: -basic
           - dockerfile: Dockerfile
-            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+            suffix:
     permissions:
       contents: read
       packages: write
@@ -38,7 +38,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
-          images: ${{ matrix.images }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -46,6 +46,7 @@ jobs:
             type=sha
           flavor: |
             latest=auto
+            suffix=${{ matrix.suffix }}
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
