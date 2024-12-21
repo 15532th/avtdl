@@ -2,9 +2,9 @@ import asyncio
 import datetime
 import json
 import logging
+import signal
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
-from dataclasses import dataclass
 from enum import Enum
 from hashlib import sha1
 from textwrap import shorten
@@ -301,10 +301,27 @@ class TasksController:
         return self.terminated_action
 
 
-@dataclass
 class RuntimeContext:
-    bus: MessageBus
-    controller: TasksController
+    def __init__(self, bus: MessageBus, controller: TasksController):
+        self.bus: MessageBus = bus
+        self.controller: TasksController = controller
+        self._sigint_handler = signal.getsignal(signal.SIGINT)
+        self._sigterm_handler = signal.getsignal(signal.SIGINT)
+
+    def _get_handler(self) -> Callable:
+        controller = self.controller
+        def handler(sig, frame):
+            controller.terminate_after(0, TerminatedAction.EXIT)
+        return handler
+
+    def __enter__(self):
+        signal.signal(signal.SIGINT, self._get_handler())
+        signal.signal(signal.SIGTERM, self._get_handler())
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        signal.signal(signal.SIGINT, self._sigint_handler)
+        signal.signal(signal.SIGTERM, self._sigterm_handler)
+
 
     @classmethod
     def create(cls) -> 'RuntimeContext':
