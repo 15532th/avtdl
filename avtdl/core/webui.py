@@ -12,7 +12,7 @@ from avtdl.core import info
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
-from avtdl.core.interfaces import Actor, Record, RuntimeContext
+from avtdl.core.interfaces import Actor, Record, RuntimeContext, TerminatedAction
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import strip_text, write_file
 from avtdl.core.yaml import merge_data, yaml_dump
@@ -186,7 +186,7 @@ class WebUI:
                 raise web.HTTPInternalServerError(text=f'failed to store config in "{self.config_path}": {e or type(e)}')
             if mode == 'reload':
                 self.restart_pending = True
-                self.ctx.controller.terminate_after(self.RESTART_DELAY)
+                self.ctx.controller.terminate_after(self.RESTART_DELAY, TerminatedAction.RESTART)
                 return web.Response(text=f'Updated config successfully stored in "{self.config_path}". Restarting in a few seconds.')
             else:
                 text = f'Updated config successfully stored in "{self.config_path}". It will be used after next restart.'

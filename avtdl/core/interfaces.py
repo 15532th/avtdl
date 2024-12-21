@@ -5,6 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from dataclasses import dataclass
+from enum import Enum
 from hashlib import sha1
 from textwrap import shorten
 from typing import Any, Callable, Coroutine, Deque, Dict, List, Literal, Optional, Sequence, Tuple, Union
@@ -213,6 +214,11 @@ class MessageBus:
         self.subscriptions.clear()
 
 
+class TerminatedAction(int, Enum):
+    EXIT = 0
+    RESTART = 2
+
+
 class TasksController:
     class TerminatedError(KeyboardInterrupt):
         """Raised when application restart is requested"""
@@ -224,6 +230,7 @@ class TasksController:
         self.poll_interval = poll_interval
         self.termination_pending = False
         self.termination_required = False
+        self.terminated_action = TerminatedAction.EXIT
         self.tasks = self._tasks
 
     def create_task(self, coro: Coroutine, *, name: Optional[str] = None) -> asyncio.Task:
@@ -267,22 +274,23 @@ class TasksController:
             self.logger.debug(f'{len(pending)} more tasks left to terminate')
         self.logger.debug('all tasks terminated')
 
-    async def terminate(self, delay: float = 0):
+    async def terminate(self, delay: float, action: TerminatedAction):
         if self.termination_pending:
-            self.logger.warning(f'active restart request is already pending')
+            self.logger.warning(f'active termination request is already pending')
             return
         self.termination_pending = True
         if delay > 0:
-            self.logger.debug(f'restarting after {delay:.02f}')
+            self.logger.debug(f'terminating after {delay:.02f}')
             await asyncio.sleep(delay)
-        self.logger.debug(f'restarting now')
+        self.logger.debug(f'terminating now')
         self.termination_pending = False
+        self.terminated_action = action
         self.termination_required = True
 
-    def terminate_after(self, delay: float):
-        self.create_task(self.terminate(delay), name=f'terminate after {delay}')
+    def terminate_after(self, delay: float, action: TerminatedAction):
+        self.create_task(self.terminate(delay, action), name=f'terminate after {delay}')
 
-    async def run_until_termination(self) -> None:
+    async def run_until_termination(self) -> TerminatedAction:
         try:
             await self.monitor_tasks()
         except self.TerminatedError:
@@ -290,6 +298,7 @@ class TasksController:
         except (asyncio.CancelledError, KeyboardInterrupt):
             await self.cancel_all_tasks()
             raise
+        return self.terminated_action
 
 
 @dataclass

@@ -3,15 +3,16 @@
 import argparse
 import asyncio
 import logging
+import signal
 from asyncio import AbstractEventLoop
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from avtdl.core import webui
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection, config_sancheck
 from avtdl.core.info import generate_plugins_description, generate_version_string
-from avtdl.core.interfaces import Actor, RuntimeContext
+from avtdl.core.interfaces import Actor, RuntimeContext, TerminatedAction
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
 from avtdl.core.utils import read_file, write_file
@@ -87,11 +88,20 @@ async def install_exception_handler() -> None:
     loop.slow_callback_duration = 100
 
 
+def get_sigterm_handler(ctx: RuntimeContext) -> Callable:
+    def handler(sig, frame):
+        logging.debug(f'signal {sig} received, initiating termination')
+        ctx.controller.terminate_after(0, TerminatedAction.EXIT)
+    return handler
+
+
 async def run(config_path: Path, host: Optional[str], port: Optional[int]) -> None:
     await install_exception_handler()
     while True:
         config = load_config(config_path)
         ctx = RuntimeContext.create()
+        signal.signal(signal.SIGINT, get_sigterm_handler(ctx))
+        signal.signal(signal.SIGTERM, get_sigterm_handler(ctx))
         settings, actors, chains = parse_config(config, ctx)
         config_sancheck(actors, chains)
 
@@ -105,8 +115,15 @@ async def run(config_path: Path, host: Optional[str], port: Optional[int]) -> No
             _ = controller.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
         _ = controller.create_task(webui.run(config_path, config, ctx, settings, actors, chains), name='webui')
 
-        await controller.run_until_termination()
-        logging.info('Restarting...')
+        action = await controller.run_until_termination()
+        if action == TerminatedAction.EXIT:
+            logging.info('terminating...')
+            break
+        elif action == TerminatedAction.RESTART:
+            logging.info('restarting...')
+            continue
+        else:
+            assert False, f'Unknown action: {action}'
 
 
 def make_docs(output: Path) -> None:
