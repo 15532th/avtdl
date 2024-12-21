@@ -1,6 +1,8 @@
 FROM jrottenberg/ffmpeg:7.1-ubuntu as base
 
-RUN useradd -m -U avtdl
+RUN userdel -f ubuntu
+RUN groupadd -f -g 1000 avtdl
+RUN useradd -m -u 1000 -g 1000 -o avtdl
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends --no-install-suggests python3 ca-certificates
 ENV PATH=/home/avtdl/.local/bin:$PATH
@@ -12,7 +14,7 @@ RUN apt-get install -y --no-install-recommends --no-install-suggests git pipx wg
 
 WORKDIR /home/avtdl/build
 COPY ./ ./
-RUN chown avtdl:avtdl -R /home/avtdl
+RUN chown 1000:1000 -R /home/avtdl
 
 USER avtdl
 RUN pipx install .
@@ -27,7 +29,7 @@ FROM base as app
 WORKDIR /home/avtdl/app
 
 COPY --from=build  /home/avtdl/.local /home/avtdl/.local
-RUN chown avtdl:avtdl -R /home/avtdl
+RUN chown 1000:1000 -R /home/avtdl
 
 USER avtdl
 
