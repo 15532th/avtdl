@@ -13,6 +13,10 @@ class InputField {
         return this.schema.default;
     }
 
+    isDefault() {
+        return this.read() == this.getDefault();
+    }
+
     fill(value) {
         fillInput(this.fieldContainer, value);
     }
@@ -147,6 +151,10 @@ class SuggestionsInputField {
         return this.schema.default;
     }
 
+    isDefault() {
+        return this.read() == this.getDefault();
+    }
+
     fill(value) {
         this.inputField.value = value;
     }
@@ -234,6 +242,12 @@ class DictionaryInputField {
 
     getDefault() {
         return this.schema.default;
+    }
+
+    isDefault() {
+        const currentValue = JSON.stringify(this.read());
+        const defaultValue = JSON.stringify(this.getDefault());
+        return currentValue == defaultValue;
     }
 
     fill(data) {
@@ -350,6 +364,12 @@ class ArrayInputField {
 
     getDefault() {
         return this.schema.default;
+    }
+
+    isDefault() {
+        const currentValue = JSON.stringify(this.read());
+        const defaultValue = JSON.stringify(this.getDefault());
+        return currentValue == defaultValue;
     }
 
     fill(data) {
@@ -546,7 +566,7 @@ class Fieldset {
         const result = {};
         for (const fieldInput of this.fieldInputs) {
             const value = fieldInput.read();
-            if (value !== fieldInput.getDefault()) {
+            if (!fieldInput.isDefault()) {
                 result[fieldInput.propertyName] = value;
             }
         }
