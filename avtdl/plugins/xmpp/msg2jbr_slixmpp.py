@@ -47,6 +47,11 @@ class MSG2JBR:
                     await asyncio.wait_for(self.jabber.disconnected, DISCONNECT_AFTER_DONE_DELAY * 10)
                 except asyncio.TimeoutError:
                     self.logger.warning(f'sending messages takes too long, aborting to retry later')
+                    await self.jabber.disconnect(wait=2.0, reason='send duration exceeded', ignore_send_queue=True)
+                except (KeyboardInterrupt, asyncio.CancelledError):
+                    self.logger.debug(f'interrupted while sending messages, terminating')
+                    await self.jabber.disconnect(wait=2.0, reason='terminating', ignore_send_queue=True)
+                    raise
                 else:
                     self.logger.debug(f'done sending messages, disconnected')
             if self.jabber.fatal_error is not None:
