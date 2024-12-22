@@ -717,7 +717,7 @@ The [rplay](PLUGINS.md#rplay---monitor-livestreams-on-rplay) monitor works by lo
 
 While yt-dlp does not support RPLAY yet, there is a [fork](https://github.com/c-basalt/yt-dlp/tree/rplay-native), that implements this functionality ([pull request](https://github.com/c-basalt/yt-dlp/tree/rplay-native) pending).
 
-One way to get a specific version of yt-dlp running would be to clone or download and unpack the repo, and use one of `yt-dlp.sh`/`yt-dlp.cmd` scripts in the project directory in place of yt-dlp executable.
+One way to get a specific version of yt-dlp running would be to clone or download and unpack the [repo](https://github.com/c-basalt/yt-dlp/archive/refs/heads/rplay-native.zip), install requirements by running `pip3 install -r requirements.txt` in the project directory and use one of the `yt-dlp.sh`/`yt-dlp.cmd` scripts in place of yt-dlp executable.
 
 Note that, in order for it to work, Python and the yt-dlp dependencies must be installed (perhaps, by installing yt-dlp itself from PyPI).
 
