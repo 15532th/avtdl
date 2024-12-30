@@ -317,14 +317,17 @@ class BaseFeedMonitor(HttpTaskMonitor):
 
     def filter_new_records(self, records: Sequence[Record], entity: BaseFeedMonitorEntity) -> Sequence[Record]:
         new_records = []
+        records_to_store = []
         for record in records:
             if self.record_is_new(record, entity):
                 new_records.append(record)
+                records_to_store.append(record)
                 self.logger.debug(f'[{entity.name}] fetched record is new: "{record.get_uid()}" (hash: {record.hash()[:5]})')
-            if self.record_got_updated(record, entity):
+            elif self.record_got_updated(record, entity):
+                records_to_store.append(record)
                 self._log_changes(record, entity)
                 self.logger.debug(f'[{entity.name}] storing new version of record "{record.get_uid()}" (hash: {record.hash()[:5]})')
-        self.store_records(records, entity)
+        self.store_records(records_to_store, entity)
         return new_records
 
     async def get_new_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
