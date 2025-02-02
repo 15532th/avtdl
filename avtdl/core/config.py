@@ -1,7 +1,7 @@
 import logging
 from functools import wraps
 from pathlib import Path
-from typing import Any, Dict, Generic, List, Tuple, Type, TypeVar
+from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 
@@ -57,6 +57,8 @@ class SettingsSection(BaseModel):
     """web-interface port"""
     host: str = 'localhost'
     """web-interface host, typically "127.0.0.1", "0.0.0.0" or the machine external IP"""
+    encoding: Optional[str] = None
+    """configuration file encoding. Leave empty to use system-wide default. Note, that webui will forcibly overwrite empty value with "utf8" when saving new configuration"""
 
 
 def configure_loggers(settings: SettingsSection):

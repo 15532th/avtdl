@@ -42,7 +42,7 @@ chains:
 '''
 
 
-def load_config(path: Path) -> Any:
+def load_config(path: Path, encoding: Optional[str] = None) -> Any:
     try:
         if not path.exists():
             alt_path = path.with_suffix(path.suffix + '.txt')
@@ -54,7 +54,7 @@ def load_config(path: Path) -> Any:
                 write_file(path, CONFIG_TEMPLATE)
             else:
                 raise ValueError('Configuration file {} does not exist'.format(path))
-        config_text = read_file(path)
+        config_text = read_file(path, encoding=encoding)
         config = yaml_load(config_text)
     except Exception as e:
         print('Failed to parse configuration file:')
@@ -90,11 +90,20 @@ async def install_exception_handler() -> None:
 
 async def run(config_path: Path, host: Optional[str], port: Optional[int]) -> None:
     await install_exception_handler()
+    config_encoding: Optional[str] = None
     while True:
-        config = load_config(config_path)
+        config = load_config(config_path, config_encoding)
         ctx = RuntimeContext.create()
         with ctx:
             settings, actors, chains = parse_config(config, ctx)
+            if config_encoding != settings.encoding:
+                config_encoding = settings.encoding
+                logging.debug(f'configuration file encoding is explicitly set to "{settings.encoding}", reloading the file')
+                continue
+            if settings.encoding is None:
+                logging.info(f'configuration file will be written on disk in UTF8 encoding. This can be changed by explicitly setting "encoding" option in the "Settings" section')
+                settings.encoding = 'utf8'
+
             config_sancheck(actors, chains)
 
             if host is not None:

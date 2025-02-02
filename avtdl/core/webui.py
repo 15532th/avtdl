@@ -172,7 +172,9 @@ class WebUI:
             raise web.HTTPBadRequest(text=f'unexpected "mode" parameter {mode}')
         try:
             conf = await request.json()
-            _ = ConfigParser.validate(conf)
+            parsed_config = ConfigParser.validate(conf)
+            config_encoding = parsed_config.settings.encoding
+
             updated_config = merge_data(self.config_base, conf)
             raw_yaml = yaml_dump(updated_config)
             if mode == 'check':
@@ -181,7 +183,7 @@ class WebUI:
             self.config_base = updated_config
 
             try:
-                write_file(self.config_path, raw_yaml, backups=10)
+                write_file(self.config_path, raw_yaml, encoding=config_encoding, backups=10)
             except Exception as e:
                 raise web.HTTPInternalServerError(text=f'failed to store config in "{self.config_path}": {e or type(e)}')
             if mode == 'reload':
