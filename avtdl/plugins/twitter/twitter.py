@@ -11,7 +11,8 @@ from pydantic import Field, FilePath, PositiveFloat
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, SearchQueryType, SearchTimelineEndpoint, TimelineEndpoint, TwitterEndpoint, \
+from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, SearchQueryType, SearchTimelineEndpoint, \
+    TimelineEndpoint, TwitterEndpoint, \
     UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint
 from avtdl.plugins.twitter.extractors import TwitterRecord, extract_contents, parse_tweet
 
@@ -173,7 +174,7 @@ class TwitterSearchEntity(TwitterMonitorEntity):
     query: str
     """hashtag or a search query"""
     query_type: SearchQueryType = SearchQueryType.LATEST
-    """search results tab"""
+    """search results tab. One of "Latest", "Top" and "Media" """
 
 
 @Plugins.register('twitter.search', Plugins.kind.ACTOR)
