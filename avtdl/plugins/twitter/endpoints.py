@@ -8,6 +8,7 @@
 # - user id by screen name
 import abc
 import datetime
+import enum
 import json
 import logging
 import urllib.parse
@@ -24,7 +25,7 @@ from avtdl.core.utils import RateLimit, find_all, find_one, get_retry_after
 USER_FEATURES = '{"hidden_profile_likes_enabled":true,"hidden_profile_subscriptions_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true}'
 TWEETS_FEATURES = '{"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"tweetypie_unmention_optimization_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_enhance_cards_enabled":false}'
 SPACE_FEATURES = '{"spaces_2022_h2_spaces_communities":true,"spaces_2022_h2_clipping":true,"creator_subscriptions_tweet_preview_api_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"articles_preview_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"tweetypie_unmention_optimization_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_enhance_cards_enabled":false}'
-
+SEARCH_FEATURES = '{"profile_label_improvements_pcf_label_in_post_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"premium_content_api_read_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"responsive_web_grok_analyze_button_fetch_trends_enabled":false,"responsive_web_grok_analyze_post_followups_enabled":true,"responsive_web_jetfuel_frame":false,"responsive_web_grok_share_attachment_enabled":true,"articles_preview_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"responsive_web_grok_analysis_button_from_backend":true,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_grok_image_annotation_enabled":true,"responsive_web_enhance_cards_enabled":false}'
 
 class EndpointUrl:
     TIMELINE = 'https://twitter.com/i/api/graphql/uPv755D929tshj6KsxkSZg/HomeTimeline'
@@ -35,6 +36,7 @@ class EndpointUrl:
     TWEET_DETAIL = 'https://twitter.com/i/api/graphql/F45teiuFI9MDxaS9UYKv-g/TweetDetail'
     USER_BY_SCREEN_NAME = 'https://twitter.com/i/api/graphql/qW5u-DAuXpMEG0zA1F7UGQ/UserByScreenName'
     AUDIOSPACE_BY_ID = 'https://twitter.com/i/api/graphql/d03OdorPdZ_sH9V3D1_yWQ/AudioSpaceById'
+    SEARCH_TIMELINE = 'https://twitter.com/i/api/graphql/U3QTLwGF8sZCHDuWIMSAmg/SearchTimeline'
 
 
 @dataclass
@@ -285,6 +287,25 @@ class UserLikesEndpoint(UserTweetsEndpoint):
     @staticmethod
     def get_base_variables(is_continuation: bool = False):
         return {'includePromotedContent': False, 'withClientEventToken': False, 'withBirdwatchNotes': False, 'withVoice': True, 'withV2Timeline': True}
+
+
+class SearchQueryType(str, enum.Enum):
+    LATEST = 'Latest'
+    TOP = 'Top'
+    MEDIA = 'Media'
+
+
+class SearchTimelineEndpoint(TwitterEndpoint):
+    URL = EndpointUrl.SEARCH_TIMELINE
+    FEATURES = SEARCH_FEATURES
+
+    @classmethod
+    def prepare(cls, host: str, cookies, raw_query: str, query_type: SearchQueryType, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
+        variables = {'rawQuery': raw_query, 'count': count, 'querySource': 'typed_query', 'product': query_type.value}
+        if continuation:
+            variables.update({'cursor': continuation})
+        variables_text = json.dumps(variables)
+        return cls.prepare_for(host, cookies, variables_text)
 
 
 def get_rate_limit_delay(headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: Optional[logging.Logger] = None) -> int:

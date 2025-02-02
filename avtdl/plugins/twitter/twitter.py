@@ -11,16 +11,18 @@ from pydantic import Field, FilePath, PositiveFloat
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, TimelineEndpoint, TwitterEndpoint, \
+from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, SearchQueryType, SearchTimelineEndpoint, TimelineEndpoint, TwitterEndpoint, \
     UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint
 from avtdl.plugins.twitter.extractors import TwitterRecord, extract_contents, parse_tweet
 
 Plugins.register('twitter.user', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
 Plugins.register('twitter.home', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
+Plugins.register('twitter.search', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
 
 
 @Plugins.register('twitter.user', Plugins.kind.ACTOR_CONFIG)
 @Plugins.register('twitter.home', Plugins.kind.ACTOR_CONFIG)
+@Plugins.register('twitter.search', Plugins.kind.ACTOR_CONFIG)
 class TwitterMonitorConfig(PagedFeedMonitorConfig):
     pass
 
@@ -163,4 +165,31 @@ class TwitterUserMonitor(TwitterMonitor):
             return None
         endpoint = self._pick_endpoint(entity)
         data = await endpoint.request(self.logger, session, entity.url, session.cookie_jar, user_id, continuation)
+        return data
+
+
+@Plugins.register('twitter.search', Plugins.kind.ACTOR_ENTITY)
+class TwitterSearchEntity(TwitterMonitorEntity):
+    query: str
+    """hashtag or a search query"""
+    query_type: SearchQueryType = SearchQueryType.LATEST
+    """search results tab"""
+
+
+@Plugins.register('twitter.search', Plugins.kind.ACTOR)
+class TwitterSearchMonitor(TwitterMonitor):
+    """
+    Monitor Twitter hashtag or search query
+
+    Monitors tweets for given hashtag or results of a search query.
+    Queries constructed with the "Advanced search" menu should work as well.
+    Note that only default value for `query_type` option produces
+    chronologically ordered results, and selecting other values might
+    result to new but unpopular tweets never getting picked.
+
+    Requires login cookies from a logged in Twitter account to work.
+    """
+
+    async def _get_page(self, entity: TwitterSearchEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
+        data = await SearchTimelineEndpoint.request(self.logger, session, entity.url, session.cookie_jar, entity.query, entity.query_type, continuation)
         return data
