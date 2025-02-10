@@ -29,7 +29,9 @@ class WithnyRecord(Record):
     thumbnail_url: Optional[str]
     """url of the stream thumbnail"""
     start: Optional[datetime.datetime]
-    """time of the stream start"""
+    """time of the stream start, if started"""
+    end: Optional[datetime.datetime] = None
+    """time of the stream end, if ended"""
     scheduled: Optional[datetime.datetime] = None
     """scheduled date for upcoming stream"""
     user_id: str
@@ -230,6 +232,7 @@ class Cast:
 def parse_live_record(data: dict, cast: Optional[Cast] = None) -> WithnyRecord:
     cast = cast or Cast.from_data(data['cast'])
     started_at = dateutil.parser.parse(data['startedAt']) if data['startedAt'] else None
+    ended_at = dateutil.parser.parse(data['closedAt']) if data['closedAt'] else None
     return WithnyRecord(
         url=f'https://www.withny.fun/channels/{cast.username}',
         stream_id=data['uuid'],
@@ -237,13 +240,14 @@ def parse_live_record(data: dict, cast: Optional[Cast] = None) -> WithnyRecord:
         description=data['about'],
         thumbnail_url=data['thumbnailUrl'],
         start=started_at,
+        end=ended_at,
         scheduled=None,
         user_id=cast.user_id,
         cast_id=cast.cast_id,
         username=cast.username,
         name=cast.name,
         avatar_url=cast.avatar_url,
-        is_live=data['closedAt'] is None,
+        is_live= started_at is not None and ended_at is None,
         price=data['price']
     )
 
