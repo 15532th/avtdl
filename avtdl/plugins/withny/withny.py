@@ -133,7 +133,8 @@ class WithnyMonitor(BaseFeedMonitor):
         else:
             entity.current_update_ratio = 1
             upcoming_records, _ = await self._get_schedules(entity, session)
-            records = [*upcoming_records, *records] # TODO: deduplicate records by stream_id
+            # deduplicate records, giving the upcoming ones priority
+            records = list({record.stream_id: record for record in [*records, *upcoming_records]}.values())
         return records
 
     async def _parse_data(self, data, parser: Callable) -> Sequence[WithnyRecord]:
