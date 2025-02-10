@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 import aiohttp
 import dateutil.parser
-from pydantic import Field, PositiveFloat
+from pydantic import Field, PositiveFloat, PositiveInt
 
 from avtdl.core import utils
 from avtdl.core.interfaces import Record
@@ -101,14 +101,16 @@ class WithnyMonitorMode(str, Enum):
 
 @Plugins.register('withny', Plugins.kind.ACTOR_ENTITY)
 class WithnyMonitorEntity(BaseFeedMonitorEntity):
-    mode: WithnyMonitorMode = WithnyMonitorMode.SCHEDULES
-    """mode of operation. Use "streams" to check streams that are currently live, and "schedules" for streams, that were scheduled for future date"""
-    update_interval: PositiveFloat = 600
+    update_interval: PositiveFloat = 300
     """how often the monitored channel will be checked, in seconds"""
+    update_ratio: PositiveInt = 12
+    """ratio of live to scheduled streams updates"""
     url: str = Field(exclude=True, default='')
     """url is not used, all streams are checked through the same api endpoint"""
     since: Optional[datetime.datetime] = Field(exclude=True, default=None)
     """internal variable, used to store "since" parameter of the last successful update"""
+    current_update_ratio: PositiveInt = Field(exclude=True, default=1)
+    """internal variable, used to store number of updates of livestreams endpoint since last update of schedules"""
 
 
 @dataclasses.dataclass
@@ -124,13 +126,14 @@ class WithnyMonitor(BaseFeedMonitor):
     Monitor livestreams on Withny
     """
 
-    async def get_records(self, entity: WithnyMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
-        if entity.mode == WithnyMonitorMode.STREAMS:
-            records = await self._get_streams(entity, session)
-        elif entity.mode == WithnyMonitorMode.SCHEDULES:
-            records, _ = await self._get_schedules(entity, session)
+    async def get_records(self, entity: WithnyMonitorEntity, session: aiohttp.ClientSession) -> Sequence[WithnyRecord]:
+        records = await self._get_streams(entity, session)
+        if entity.current_update_ratio < entity.update_ratio:
+            entity.current_update_ratio += 1
         else:
-            assert False, f'unknown mode "{entity.mode}"'
+            entity.current_update_ratio = 1
+            upcoming_records, _ = await self._get_schedules(entity, session)
+            records = [*upcoming_records, *records] # TODO: deduplicate records by stream_id
         return records
 
     async def _parse_data(self, data, parser: Callable) -> Sequence[WithnyRecord]:
