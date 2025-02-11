@@ -194,9 +194,9 @@ class WithnyMonitor(BaseFeedMonitor):
 
         schedules_data = data['schedules']
         records = await self._parse_data(schedules_data, parse_schedule_record)
-        self.logger.debug(f'got {len(records)} on page {context.page}')
 
         context.count = data['count']
+        self.logger.debug(f'[{entity.name}] schedules: {len(records)}/{context.count} records on page {context.page}')
         if context.page * context.take > context.count:  # this page is the last one
             return records, context
 
@@ -247,7 +247,7 @@ def parse_live_record(data: dict, cast: Optional[Cast] = None) -> WithnyRecord:
         username=cast.username,
         name=cast.name,
         avatar_url=cast.avatar_url,
-        is_live= started_at is not None and ended_at is None,
+        is_live=started_at is not None and ended_at is None,
         price=data['price']
     )
 
