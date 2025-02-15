@@ -145,8 +145,8 @@ class WithnyMonitor(BaseFeedMonitor):
             try:
                 record = parser(item)
                 records.append(record)
-            except ValueError as e:
-                self.logger.warning(f'failed to parse stream record: {e}')
+            except Exception as e:
+                self.logger.exception(f'failed to parse stream record: {e}')
                 self.logger.debug(f'raw record data: {item}')
         return records
 
