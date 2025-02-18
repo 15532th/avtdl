@@ -1,18 +1,22 @@
 import abc
 import asyncio
+import base64
 import datetime
 import hashlib
+import http.cookiejar
 import http.cookies
 import json
 import logging
 import os
 import re
 import time
+import urllib.parse
 from collections import OrderedDict
 from contextlib import ContextDecorator
 from email.utils import mktime_tz, parsedate_to_datetime
 from enum import Enum
 from http import cookiejar
+from http.cookiejar import CookieJar
 from math import log2
 from pathlib import Path
 from textwrap import shorten
@@ -22,6 +26,7 @@ from typing import Any, Callable, Dict, Hashable, List, Optional, Tuple, Union
 import aiohttp
 import lxml.html
 import multidict
+from aiohttp.abc import AbstractCookieJar
 from jsonpath import JSONPath
 from multidict import CIMultiDictProxy
 
@@ -544,11 +549,23 @@ def sha1(text: str) -> str:
     return hashlib.sha1(text.encode()).digest().hex()
 
 
-def get_cookie_value(jar: aiohttp.CookieJar, key: str) -> Optional[str]:
-    for morsel in jar:
-        if morsel.key == key:
-            return morsel.value
-    return None
+def get_cookie_value(jar: Union[CookieJar, AbstractCookieJar], name: str) -> Optional[str]:
+    found: List[Union[http.cookiejar.Cookie, http.cookies.Morsel]]
+    if isinstance(jar, CookieJar):
+        found = [x for x in jar if x.name == name]
+    else:
+        found = [x for x in jar if x.key == name]
+    if not found:
+        return None
+    return found[0].value
+
+
+def set_cookie_value(jar: AbstractCookieJar, key: str, value: str, url: str):
+    morsel: http.cookies.Morsel = http.cookies.Morsel()
+    morsel.set(key, value, value)
+    morsel['domain'] = urllib.parse.urlparse(url).netloc
+    morsel['path'] = urllib.parse.urlparse(url).path
+    jar.update_cookies(morsel)
 
 
 def find_all(data: Union[dict, list], jsonpath: str, cache={}) -> list:
@@ -707,3 +724,11 @@ def strip_text(s: str, text: str) -> str:
     if s.startswith(text):
         return s[len(text):]
     return s
+
+
+def jwt_decode(token: str) -> dict:
+    """Decode JWT token and return payload. Signature is not validated"""
+    header, payload, signature = token.split('.')
+    payload_json = base64.b64decode(payload.encode('utf-8'))
+    payload_dict = json.loads(payload_json)
+    return payload_dict
