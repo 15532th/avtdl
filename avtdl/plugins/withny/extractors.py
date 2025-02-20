@@ -31,8 +31,8 @@ class WithnyRecord(Record):
     """scheduled date for upcoming stream"""
     user_id: str
     """unique id of the user hosting this stream"""
-    cast_id: str
-    """another unique id of the stream host"""
+    cast_id: Optional[str]
+    """another unique id of the stream host. Might be absent"""
     username: str
     """channel name"""
     name: str
@@ -92,10 +92,10 @@ class Cast:
     name: str
     avatar_url: str
     user_id: str
-    cast_id: str
+    cast_id: Optional[str]
 
     @classmethod
-    def from_data(cls, data: dict) -> 'Cast':
+    def from_cast_data(cls, data: dict) -> 'Cast':
         try:
             info = data['agencySecret']
             return cls(
@@ -108,9 +108,27 @@ class Cast:
         except (TypeError, KeyError, ValueError) as e:
             raise ValueError(f'failed to parse cast info: {type(e)} {e}') from e
 
+    @classmethod
+    def from_owner_data(cls, data: dict) -> 'Cast':
+        try:
+            return cls(
+                username=data['username'],
+                name=data['name'],
+                avatar_url=data['profileImageUrl'],
+                user_id=data['uuid'],
+                cast_id=None
+            )
+        except (TypeError, KeyError, ValueError) as e:
+            raise ValueError(f'failed to parse owner info: {type(e)} {e}') from e
 
 def parse_live_record(data: dict, cast: Optional[Cast] = None) -> WithnyRecord:
-    cast = cast or Cast.from_data(data['cast'])
+    if cast is None:
+        if 'cast' in data:
+            cast = Cast.from_cast_data(data['cast'])
+        elif 'owner' in data:
+            cast = Cast.from_owner_data(data['owner'])
+        else:
+            raise ValueError(f'no user info in data')
     started_at = dateutil.parser.parse(data['startedAt']) if data['startedAt'] else None
     ended_at = dateutil.parser.parse(data['closedAt']) if data['closedAt'] else None
     return WithnyRecord(
@@ -133,7 +151,7 @@ def parse_live_record(data: dict, cast: Optional[Cast] = None) -> WithnyRecord:
 
 
 def parse_schedule_record(data: dict) -> WithnyRecord:
-    cast = Cast.from_data(data['cast'])
+    cast = Cast.from_cast_data(data['cast'])
     scheduled = dateutil.parser.parse(data['startAt'])
 
     stream_record = parse_live_record(data['stream'], cast)
