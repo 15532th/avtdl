@@ -1,6 +1,6 @@
 import dataclasses
 import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import dateutil.parser
 
@@ -129,8 +129,8 @@ def parse_live_record(data: dict, cast: Optional[Cast] = None) -> WithnyRecord:
             cast = Cast.from_owner_data(data['owner'])
         else:
             raise ValueError(f'no user info in data')
-    started_at = dateutil.parser.parse(data['startedAt']) if data['startedAt'] else None
-    ended_at = dateutil.parser.parse(data['closedAt']) if data['closedAt'] else None
+    started_at = parse_date_fields(data, ['startedAt', 'actualStartedAt'])
+    ended_at = parse_date_fields(data, ['closedAt', 'actualClosedAt'])
     return WithnyRecord(
         url=f'https://www.withny.fun/channels/{cast.username}',
         stream_id=data['uuid'],
@@ -152,7 +152,7 @@ def parse_live_record(data: dict, cast: Optional[Cast] = None) -> WithnyRecord:
 
 def parse_schedule_record(data: dict) -> WithnyRecord:
     cast = Cast.from_cast_data(data['cast'])
-    scheduled = dateutil.parser.parse(data['startAt'])
+    scheduled = parse_date_fields(data, ['startAt', 'scheduledStartedAt'])
 
     stream_record = parse_live_record(data['stream'], cast)
     stream_record.scheduled = scheduled
@@ -166,3 +166,12 @@ def format_timestamp(ts: datetime.datetime) -> str:
 
 def utcnow_with_offset(days: int = 0, hours: int = 0) -> datetime.datetime:
     return datetime.datetime.now() + datetime.timedelta(days=days, hours=hours)
+
+
+def parse_date_fields(data: Dict[str, Any], fields: List[str]) -> Optional[datetime.datetime]:
+    """try parsing given fields of the data as datetime, return first successfully parsed or None"""
+    for field in fields:
+        field_text = data.get(field)
+        if field_text is not None:
+            return dateutil.parser.parse(field_text)
+    return None
