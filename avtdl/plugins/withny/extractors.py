@@ -39,6 +39,8 @@ class WithnyRecord(Record):
     """visible name of the user"""
     avatar_url: str
     """link to the user's avatar"""
+    playlist_url: Optional[str] = None
+    """link to the underlying hls playlist of the livestream"""
 
     is_live: bool
     """indicates that livestream is currently live"""
