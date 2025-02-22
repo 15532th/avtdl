@@ -729,6 +729,6 @@ def strip_text(s: str, text: str) -> str:
 def jwt_decode(token: str) -> dict:
     """Decode JWT token and return payload. Signature is not validated"""
     header, payload, signature = token.split('.')
-    payload_json = base64.b64decode(payload.encode('utf-8'))
+    payload_json = base64.b64decode(payload.encode('utf-8') + b'====')
     payload_dict = json.loads(payload_json)
     return payload_dict
