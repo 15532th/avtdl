@@ -21,7 +21,7 @@ from math import log2
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter
-from typing import Any, Callable, Dict, Hashable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Hashable, List, MutableMapping, Optional, Tuple, Union
 
 import aiohttp
 import lxml.html
@@ -246,33 +246,6 @@ async def request(url: str, session: Optional[aiohttp.ClientSession] = None, log
         return None
     return await response.text()
 
-
-def create_cached_request(url: str, logger: logging.Logger, method: str = 'GET') -> Callable:
-    last_modified: Optional[str] = None
-    etag: Optional[str] = None
-    async def cached_request(session: aiohttp.ClientSession, params: Optional[Any] = None, data: Optional[Any] = None,
-                             headers: Optional[Dict[str, Any]] = None) -> Optional[aiohttp.ClientResponse]:
-        nonlocal last_modified
-        nonlocal etag
-        request_headers: Dict[str, Any] = headers or {}
-        if session.headers is not None:
-            request_headers.update(session.headers)
-        if last_modified is not None and method in ['GET', 'HEAD']:
-            request_headers['If-Modified-Since'] = last_modified
-        if etag is not None:
-            request_headers['If-None-Match'] = etag
-        response = await request_raw(url, session, logger, method, params, data, headers, raise_errors=True)
-
-        assert response is not None, 'response is None despite raise_errors=True'
-        if response.status == 304:
-            logger.debug(f'got {response.status} ({response.reason}) from {url}')
-            return None
-        # some servers do not have cache headers in 304 response, only update on 200
-        last_modified = response.headers.get('Last-Modified', None)
-        etag = response.headers.get('Etag', None)
-
-        return response
-    return cached_request
 
 async def request_json(url: str, session: Optional[aiohttp.ClientSession], logger: Optional[logging.Logger] = None,
                        method: str = 'GET', params: Optional[Any] = None, data: Optional[Any] = None,
@@ -763,3 +736,12 @@ def jwt_decode(token: str) -> dict:
 
 def utcnow() -> datetime.datetime:
     return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def with_prefix(logger: logging.Logger, prefix: str) -> logging.Logger:
+    class Adapter(logging.LoggerAdapter):
+        def process(self, msg: Any, kwargs: MutableMapping[str, Any]) -> tuple[Any, MutableMapping[str, Any]]:
+            message = f'{prefix} {msg}' if prefix else msg
+            return message, kwargs
+
+    return Adapter(logger)  # type: ignore
