@@ -91,7 +91,7 @@ class RplayMonitorEntity(BaseFeedMonitorEntity):
     """how often the monitored channel will be checked, in seconds"""
     selected_for_update: bool = Field(exclude=True, default=False)
     """internal variable, used to mark one entity that actually makes network request to update queues"""
-    url: str = Field(exclude=True, default=None)
+    url: str = Field(exclude=True, default='')
     """url is not used, all streams are checked through the same api endpoing"""
     cookies_file: Optional[FilePath] = Field(exclude=True, default=None)
     """cookies are not used to log in"""
@@ -245,6 +245,7 @@ class RplayUserMonitor(BaseFeedMonitor):
 
     def __init__(self, conf: RplayUserMonitorConfig, entities: Sequence[RplayUserMonitorEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
+        self.conf: RplayUserMonitorConfig
         self.own_user: Optional['User'] = None
 
     async def get_records(self, entity: RplayUserMonitorEntity, session: aiohttp.ClientSession) -> Sequence[RplayRecord]:
@@ -285,7 +286,7 @@ class RplayUserMonitor(BaseFeedMonitor):
         return key2
 
     async def get_own_user(self, session: aiohttp.ClientSession) -> Optional['User']:
-        if self.conf.login is None:
+        if self.conf.login is None or self.conf.password is None:
             return None
         if self.own_user is None:
             token = User.token_for(self.conf.login, self.conf.password)
@@ -418,9 +419,10 @@ class JWTAuth:
         dat = dat.astimezone()
         dat_text = dat.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
         iat = int(dat.timestamp())
-        if dat.utcoffset() is not None:
+        utcoffset = dat.utcoffset()
+        if utcoffset is not None:
             # timestamp is calculated from local time as if it was UTC
-            iat += int(dat.utcoffset().total_seconds())
+            iat += int(utcoffset.total_seconds())
 
         payload = {'eml': eml, 'dat': dat_text, 'iat': iat}
         payload_encoded = cls._dict_to_b64url(payload)

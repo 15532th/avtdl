@@ -3,7 +3,7 @@ import datetime
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Mapping, Optional, Sequence
 
 from pydantic import Field, field_serializer, field_validator
 
@@ -241,12 +241,16 @@ class FormatFilterEntity(FilterEntity):
     """template string with placeholders that will be filled with corresponding values from current record"""
     missing: Optional[str] = None
     """if specified, will be used to fill template placeholders that do not have corresponding fields in current record"""
-    timezone: Optional[str] = None
+    timezone: Optional[datetime.tzinfo] = None
     """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or local time if omitted), converts record fields containing date and time to this timezone"""
 
-    @field_validator('timezone')
+    @field_validator('timezone', mode='plain')
     @classmethod
     def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.tzinfo]:
+        if timezone is None:
+            return None
+        if not isinstance(timezone, str):
+            raise ValueError('Input should be a valid string')
         return Timezone.get_tz(timezone)
 
     @field_serializer('timezone')
@@ -293,12 +297,16 @@ class FormatEventFilterEntity(FilterEntity):
     """template string with placeholders that will be filled with corresponding values from current record"""
     missing: Optional[str] = None
     """if specified, will be used to fill template placeholders that do not have corresponding fields in current record"""
-    timezone: Optional[str] = None
+    timezone: Optional[datetime.tzinfo] = None
     """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or local time if omitted), converts record fields containing date and time to this timezone"""
 
-    @field_validator('timezone')
+    @field_validator('timezone', mode='plain')
     @classmethod
     def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.tzinfo]:
+        if timezone is None:
+            return None
+        if not isinstance(timezone, str):
+            raise ValueError('Input should be a valid string')
         return Timezone.get_tz(timezone)
 
     @field_serializer('timezone')
@@ -383,8 +391,10 @@ class DeduplicateFilter(Filter):
     restarts.
     """
 
-    def __init__(self, config: DeduplicateFilterConfig, entities: Sequence[DeduplicateFilterEntity], ctx: RuntimeContext):
-        super().__init__(config, entities, ctx)
+    def __init__(self, conf: DeduplicateFilterConfig, entities: Sequence[DeduplicateFilterEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
+        self.conf: DeduplicateFilterConfig
+        self.entities: Mapping[str, DeduplicateFilterEntity]  # type: ignore
 
     def match(self, entity: DeduplicateFilterEntity, record: Record) -> Optional[Record]:
         field = getattr(record, entity.field, None)

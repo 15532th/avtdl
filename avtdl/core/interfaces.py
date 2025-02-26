@@ -45,7 +45,7 @@ class Record(BaseModel):
         '''A string that is the same for different versions of the same record'''
         return self.hash()
 
-    def as_timezone(self, timezone: Optional[datetime.timezone] = None) -> 'Record':
+    def as_timezone(self, timezone: Optional[datetime.tzinfo] = None) -> 'Record':
         fields = dict(self)
         for k, v in fields.items():
             if isinstance(v, Record):
@@ -356,7 +356,7 @@ class Actor(ABC):
         self.ctx = ctx
         self.bus = ctx.bus
         self.controller = ctx.controller
-        self.entities: Dict[str, ActorEntity] = {entity.name: entity for entity in entities}
+        self.entities = {entity.name: entity for entity in entities}
 
         for entity_name in self.entities:
             topic = self.bus.incoming_topic_for(self.conf.name, entity_name)
@@ -459,12 +459,16 @@ class Filter(Actor):
 class ActionEntity(ActorEntity):
     consume_record: bool = True
     """whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions"""
-    timezone: Optional[str] = None
+    timezone: Optional[datetime.tzinfo] = None
     """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or local time if omitted), converts record fields containing date and time to this timezone"""
 
-    @field_validator('timezone')
+    @field_validator('timezone', mode='plain')
     @classmethod
     def check_timezone(cls, timezone: Optional[str]) -> Optional[datetime.tzinfo]:
+        if timezone is None:
+            return None
+        if not isinstance(timezone, str):
+            raise ValueError('Input should be a valid string')
         return Timezone.get_tz(timezone)
 
     @field_serializer('timezone')

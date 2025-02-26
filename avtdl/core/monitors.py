@@ -263,6 +263,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
 
     def __init__(self, conf: BaseFeedMonitorConfig, entities: Sequence[BaseFeedMonitorEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
+        self.conf: BaseFeedMonitorConfig = conf
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
     @abstractmethod

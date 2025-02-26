@@ -78,7 +78,8 @@ class Chain:
                     self.bus.sub(producer_topic, handler)
             producer_name, producer = consumer_name, consumer
 
-    def check_for_duplicated_entities(self, chain_name, actors: ChainConfigSection) -> None:
+    @staticmethod
+    def check_for_duplicated_entities(chain_name, actors: ChainConfigSection) -> None:
         flattened_actors = defaultdict(list)
         for name, entities in actors:
             flattened_actors[name].extend(entities)

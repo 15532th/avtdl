@@ -205,6 +205,7 @@ class WithnyLive(Action):
 
     def __init__(self, conf: WithnyLiveConfig, entities: Sequence[WithnyLiveEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
+        self.conf: WithnyLiveConfig
         self.sessions = SessionStorage(self.logger)
         self.tasks: Dict[str, asyncio.Task] = {}
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))

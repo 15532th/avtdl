@@ -2,7 +2,7 @@ import asyncio
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence
 
 import aiohttp
 from pydantic import AnyUrl, Field, FilePath, RootModel, ValidationError, field_validator
@@ -87,6 +87,8 @@ class FileDownload(Action):
 
     def __init__(self, conf: FileDownloadConfig, entities: Sequence[FileDownloadEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
+        self.conf: FileDownloadConfig
+        self.entities: Mapping[str, FileDownloadEntity]  # type: ignore
         self.concurrency_limit = asyncio.BoundedSemaphore(value=conf.max_concurrent_downloads)
         self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
         self.sessions = SessionStorage(self.logger)
