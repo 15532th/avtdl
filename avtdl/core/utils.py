@@ -182,7 +182,7 @@ def parse_timestamp(timestamp: Union[str, int, None], fraction: int) -> Optional
 
 
 def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
-    """pretty-print keys which values in dict1 and dict2 are different"""
+    """pretty-print keys that has different values in dict1 and dict2"""
     keys = {*dict1.keys(), *dict2.keys()}
     diff = []
     for k in keys:
@@ -190,7 +190,7 @@ def show_diff(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> str:
         repr_v1 = shorten(v1, 60)
         v2 = str(dict2.get(k, ''))
         repr_v2 = shorten(v2, 60)
-        if v1 != v2:
+        if v1 != v2 and json.dumps(v1, sort_keys=True) != json.dumps(v2, sort_keys=True):
             diff.append(f'[{k[:12]:12}]: {repr_v2:60} |->| {repr_v1:60}')
     return '\n'.join(diff)
 
