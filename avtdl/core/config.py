@@ -3,7 +3,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
+from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, create_model
 
 from avtdl.core.chain import Chain, ChainConfigSection
 from avtdl.core.interfaces import Actor, RuntimeContext
@@ -89,6 +89,10 @@ class SpecificActorConfigSection(BaseModel, Generic[TConfig, TEntity]):
     entities: List[TEntity]
 
 
+class SpecificActors(RootModel):
+    root: Dict[str, SpecificActorConfigSection]
+
+
 class ActorParser:
 
     @staticmethod
@@ -100,7 +104,7 @@ class ActorParser:
         return ActorConfigSection(**data)
 
     @staticmethod
-    def load_actors_plugins_model(actor_section: dict) -> Dict[str, SpecificActorConfigSection]:
+    def load_actors_plugins_model(actor_section: dict) -> SpecificActors:
         actors_models: Dict[str, Any] = {}
         for name, section in actor_section.items():
             _, ConfigFactory, EntityFactory = Plugins.get_actor_factories(name)
@@ -110,7 +114,7 @@ class ActorParser:
         return actors_section_model
 
     @classmethod
-    def create_actors(cls, config_section: 'SpecificActors', ctx: RuntimeContext) -> Dict[str, Type]:
+    def create_actors(cls, config_section: SpecificActors, ctx: RuntimeContext) -> Dict[str, Actor]:
         actors = {}
         for name, actor_section in config_section:
             ActorFactory, _, _ = Plugins.get_actor_factories(name)
@@ -130,6 +134,14 @@ class ActorParser:
         return section
 
 
+class SpecificConfig(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    settings: SettingsSection
+    actors: SpecificActors
+    chains: Dict[str, ChainConfigSection]
+
+
 class ConfigParser:
 
     @staticmethod
@@ -142,12 +154,14 @@ class ConfigParser:
         return Config(**conf)
 
     @staticmethod
-    def load_models(config: Config) -> Type['SpecificConfig']:
-        actors_model = ActorParser.load_actors_plugins_model(config.actors)
-        SpecificConfigModel = create_model('SpecificConfig',
-                                           actors=(actors_model, ...),
-                                           chains=(Dict[str, ChainConfigSection], ...)
-                                           )
+    def load_models(config: Config) -> Type[SpecificConfig]:
+        actors_model: SpecificActors = ActorParser.load_actors_plugins_model(config.actors)
+        SpecificConfigModel: type[SpecificConfig] = create_model('SpecificConfig',
+                                                                __base__= SpecificConfig,
+                                                                 settings=(SettingsSection, ...),
+                                                                 actors=(actors_model, ...),
+                                                                 chains=(Dict[str, ChainConfigSection], ...)
+                                                                 )
         return SpecificConfigModel
 
     @classmethod
