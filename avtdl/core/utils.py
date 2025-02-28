@@ -485,4 +485,4 @@ def with_prefix(logger: logging.Logger, prefix: str) -> logging.Logger:
             message = f'{prefix} {msg}' if prefix else msg
             return message, kwargs
 
-    return Adapter(logger)  # type: ignore
+    return Adapter(logger, extra=dict())  # type: ignore
