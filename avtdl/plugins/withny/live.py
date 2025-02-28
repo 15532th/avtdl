@@ -6,14 +6,13 @@ import urllib.parse
 from http.cookies import SimpleCookie
 from typing import Dict, Optional, Sequence
 
-import aiohttp
 from aiohttp.abc import AbstractCookieJar
 from pydantic import PositiveInt
 
-from avtdl.core import utils
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
+from avtdl.core.request import HttpClient, RetrySettings, StateStorage
 from avtdl.core.utils import SessionStorage, find_one, get_cookie_value, jwt_decode
 from avtdl.plugins.withny.extractors import WithnyRecord
 
@@ -83,55 +82,55 @@ def has_expired(expiration_timestamp: str) -> bool:
     return expiration_date > now + datetime.timedelta(minutes=1)
 
 
-async def ensure_login(session: aiohttp.ClientSession, logger: logging.Logger, username: str, password: str) -> bool:
+async def ensure_login(client: HttpClient, logger: logging.Logger, username: str, password: str) -> bool:
     try:
-        auth = AuthToken.from_cookies(session.cookie_jar)
+        auth = AuthToken.from_cookies(client.cookie_jar)
     except ValueError:
         auth = None
     if auth is None:
-        success = await perform_login(session, logger, username, password)
+        success = await perform_login(client, logger, username, password)
         return success
     elif has_expired(auth.refresh_token_expiration):
         # no point checking auth token here, since it does not outlive refresh token
-        success = await perform_login(session, logger, username, password)
+        success = await perform_login(client, logger, username, password)
         return success
     elif has_expired(auth.token_expiration):
-        success = await refresh_auth(session, logger)
+        success = await refresh_auth(client, logger)
         return success
     else:
         # valid auth token is already present in cookies
         return True
 
 
-async def perform_login(session: aiohttp.ClientSession, logger: logging.Logger, username: str, password: str) -> bool:
+async def perform_login(client: HttpClient, logger: logging.Logger, username: str, password: str) -> bool:
     """Make request to log in, update session's cookie jar"""
     url = 'https://www.withny.fun/api/auth/login'
     data = json.dumps({'email': username, 'password': password})
     headers = {'Referer': 'https://www.withny.fun/login', 'Content-Type': 'application/json'}
-    return await make_auth_request(session, logger, url, data, headers)
+    return await make_auth_request(client, logger, url, data, headers)
 
 
-async def refresh_auth(session: aiohttp.ClientSession, logger: logging.Logger) -> bool:
-    """Make request to refresh auth token, update session's cookie jar"""
+async def refresh_auth(client: HttpClient, logger: logging.Logger) -> bool:
+    """Make request to refresh auth token, update client's cookie jar"""
     try:
-        auth = AuthToken.from_cookies(session.cookie_jar)
+        auth = AuthToken.from_cookies(client.cookie_jar)
     except Exception as e:
         logger.debug(f'[login] failed to refresh token: error when parsing cookies: {type(e)}, {e}')
         return False
     url = 'https://www.withny.fun/api/auth/token'
     data = json.dumps({'refreshToken': auth.refresh_token})
     headers = {'Referer': 'https://www.withny.fun/', 'Content-Type': 'application/json'}
-    return await make_auth_request(session, logger, url, data, headers)
+    return await make_auth_request(client, logger, url, data, headers)
 
 
-async def make_auth_request(session: aiohttp.ClientSession, logger: logging.Logger, url: str, data,
+async def make_auth_request(client: HttpClient, logger: logging.Logger, url: str, data,
                             headers: Optional[dict] = None):
-    result = await utils.request_json(url, session, logger, method='POST', data=data, headers=headers, retry_times=2)
+    result = await client.request_json(url, method='POST', data=data, headers=headers, settings=RetrySettings(retry_times=2))
     if result is None:
         return False
     try:
         new_auth = AuthToken.from_login_data(result)
-        new_auth.set_cookies(session.cookie_jar)
+        new_auth.set_cookies(client.cookie_jar)
         return True
     except Exception as e:
         logger.exception(
@@ -139,11 +138,11 @@ async def make_auth_request(session: aiohttp.ClientSession, logger: logging.Logg
         return False
 
 
-async def fetch_stream_url(session: aiohttp.ClientSession, logger: logging.Logger, stream_id: str, auth: AuthToken) -> \
+async def fetch_stream_url(client: HttpClient, logger: logging.Logger, stream_id: str, auth: AuthToken) -> \
         Optional[str]:
     url = f'https://www.withny.fun/api/streams/{stream_id}/playback-url'
     headers = {'Referer': url, 'Authorization': auth.plain_token}
-    result = await utils.request_json(url, session, logger, headers=headers, retry_times=2)
+    result = await client.request_json(url, headers=headers, settings=RetrySettings(retry_times=2))
     if result is None:
         return None
     if not isinstance(result, str):
@@ -152,9 +151,9 @@ async def fetch_stream_url(session: aiohttp.ClientSession, logger: logging.Logge
     return result
 
 
-async def fetch_cast_info(session: aiohttp.ClientSession, logger: logging.Logger, username: str) -> Optional[dict]:
+async def fetch_cast_info(client: HttpClient, username: str) -> Optional[dict]:
     url = f'https://www.withny.fun/api/casts/{username}'
-    result = await utils.request_json(url, session, logger, retry_times=2)
+    result = await client.request_json(url, settings=RetrySettings(retry_times=2))
     if result is None:
         return None
     return result
@@ -177,9 +176,9 @@ Plugins.register('withny.live', Plugins.kind.ASSOCIATED_RECORD)(WithnyRecord)
 
 @Plugins.register('withny.live', Plugins.kind.ACTOR_CONFIG)
 class WithnyLiveConfig(BaseDbConfig):
-    login: Optional[str] = None
+    login: str
     """login of the account used for monitoring"""
-    password: Optional[str] = None
+    password: str
     """password of the account used for monitoring"""
     poll_interval: PositiveInt = 30
     """how often live status of the stream that should have started by now is updated, in seconds"""
@@ -207,6 +206,7 @@ class WithnyLive(Action):
         super().__init__(conf, entities, ctx)
         self.conf: WithnyLiveConfig
         self.sessions = SessionStorage(self.logger)
+        self.state_storage = StateStorage()
         self.tasks: Dict[str, asyncio.Task] = {}
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
@@ -241,17 +241,18 @@ class WithnyLive(Action):
                 self.logger.debug(
                     f'stream {record.stream_id} is scheduled to {record.scheduled}, waiting for {time_left}: {record!r}')
                 # await asyncio.sleep(delay)
-                await asyncio.sleep(0)
+                await asyncio.sleep(delay)
         session = self.sessions.get_session(name='withny.live')  # all tasks use the same session to reuse login cookies
+        client = HttpClient(self.logger, session)
 
         # stream should be live already or go live soon, wait for it
         for attempt in range(self.conf.poll_attempts):
-            self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: fetching live status of "{record.username}"')
-            cast_info = await fetch_cast_info(session, self.logger, record.username)
+            self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: fetching live status of {record.username}')
+            cast_info = await fetch_cast_info(client, record.username)
             if cast_info is not None:
                 is_live = cast_is_live(cast_info)
                 if is_live:
-                    self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: "{record.username}" is live')
+                    self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: {record.username} is live')
                     break
             await asyncio.sleep(self.conf.poll_interval)
         else:
@@ -259,12 +260,12 @@ class WithnyLive(Action):
             return
 
         # stream is now live for sure, try fetching stream_url
-        logged_in = await ensure_login(session, self.logger, self.conf.login, self.conf.password)
+        logged_in = await ensure_login(client, self.logger, self.conf.login, self.conf.password)
         if not logged_in:
             self.logger.warning(f'login failed, aborting processing')
             return
         auth = AuthToken.from_cookies(session.cookie_jar)
-        stream_url = await fetch_stream_url(session, self.logger, record.stream_id, auth)
+        stream_url = await fetch_stream_url(client, self.logger, record.stream_id, auth)
         if stream_url is None:
             self.logger.warning(f'failed to fetch stream_url for stream {record.stream_id}')
             return

@@ -11,11 +11,12 @@ from json import JSONDecodeError
 from typing import Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qs, unquote, urlparse
 
-import aiohttp
 import lxml.html
+from aiohttp import CookieJar
 from pydantic import BaseModel
 
-from avtdl.core.utils import find_one, get_cookie_value, request
+from avtdl.core.request import HttpClient
+from avtdl.core.utils import find_one, get_cookie_value
 
 
 def get_initial_data(page: str) -> dict:
@@ -43,20 +44,19 @@ def get_initial_data_slow(page: str) -> dict:
     pos_start += len(anchor) - 1
     position = pos_start
 
-    re_parenthesses = re.compile('[{}]')
-    parenthesses_values = defaultdict(int, {'{': 1, '}': -1})
+    re_parentheses = re.compile('[{}]')
+    parentheses_values = defaultdict(int, {'{': 1, '}': -1})
     parentheses = 0
     while True:
-        parentheses += parenthesses_values[page[position]]
+        parentheses += parentheses_values[page[position]]
         if parentheses == 0:
             raw_data = page[pos_start:position + 1]
             response = json.loads(raw_data)
             return response
-        position_match = re_parenthesses.search(page, position + 1)
-        try:
-            position = position_match.start()
-        except AttributeError:
+        position_match = re_parentheses.search(page, position + 1)
+        if position_match is None:
             raise ValueError(f'Failed to find matching set of parentheses after initial data')
+        position = position_match.start()
 
 
 def thumbnail_url(video_id: str) -> str:
@@ -129,7 +129,7 @@ CLIENT_VERSION = '2.20231023.04.02'
 
 def prepare_next_page_request(innertube_context: Optional[dict], continuation_token, cookies=None, session_index: str = '') -> Tuple[str, dict, dict]:
     BROWSE_ENDPOINT = 'https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
-    cookies = cookies or {}
+    cookies = cookies or CookieJar()
     innertube_context = innertube_context or {}
 
     visitor_data = find_one(innertube_context, '$..visitorData') or ''
@@ -185,8 +185,8 @@ def parse_navigation_endpoint(run: dict) -> str:
     return url
 
 
-async def submit_consent(url: str, session: aiohttp.ClientSession, logger: logging.Logger) -> Optional[str]:
-    consent_page = await request(url, session)
+async def submit_consent(url: str, client: HttpClient, logger: logging.Logger) -> Optional[str]:
+    consent_page = await client.request_text(url)
     if consent_page is None:
         logger.debug(f'requesting personalization settings url {url} failed')
         return None
@@ -214,9 +214,10 @@ async def submit_consent(url: str, session: aiohttp.ClientSession, logger: loggi
             value = i.value
         data[i.name] = value
     data[submit_name] = submit_value
-    response = await request(form.action, session, method='POST', data=data)
+    response = await client.request_text(form.action, method='POST', data=data)
     if response is None:
-        logger.debug(f'submitting confirmation to "{url}" failed. Raw data that was submitted: {data}')
+        logger.debug(f'submitting cookies consent confirmation to "{url}" failed. Raw data that was submitted: {data}')
+        return None
     return response
 
 
@@ -237,7 +238,7 @@ def find_consent_url(page: str) -> Optional[str]:
         return url
 
 
-async def handle_consent(page: str, url: str, session: aiohttp.ClientSession, logger: Optional[logging.Logger] = None) -> str:
+async def handle_consent(page: str, url: str, client: HttpClient, logger: Optional[logging.Logger] = None) -> str:
     """
     Take Youtube page that might contain popup asking to accept cookies,
     if the popup is present try to submit it and return response,
@@ -251,16 +252,16 @@ async def handle_consent(page: str, url: str, session: aiohttp.ClientSession, lo
     if consent_url is None:
         logger.debug(f'page is not asking to accept cookies')
         return page
-    redirect_page_text = await submit_consent(consent_url, session, logger)
+    redirect_page_text = await submit_consent(consent_url, client, logger)
     if redirect_page_text is None:
         logger.debug(f'failed to submit cookies consent')
         return page
-    for morsel in session.cookie_jar:
+    for morsel in client.cookie_jar:
         if isinstance(morsel, cookies.Morsel):
             if morsel.key == 'SOCS':
                 logger.debug(f'cookie indicating cookies usage consent was set successfully')
                 break
-    reloaded_page = await request(url, session, logger)
+    reloaded_page = await client.request_text(url)
     if reloaded_page is None:
         logger.debug(f'reloading original page failed, page content might be invalid this time')
         return redirect_page_text

@@ -1,15 +1,13 @@
 import datetime
-import json
 from json import JSONDecodeError
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-import aiohttp
 from pydantic import Field, PositiveFloat, ValidationError
 
-from avtdl.core import utils
 from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
+from avtdl.core.request import HttpClient, RetrySettings
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 from avtdl.plugins.youtube.common import NextPageContext, get_innertube_context, get_session_index, handle_consent, \
     prepare_next_page_request
@@ -157,11 +155,11 @@ class VideosMonitor(PagedFeedMonitor):
     tabs instead.
     """
 
-    async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[FeedPageContext]]:
-        raw_page_text = await self.request(entity.url, entity, session)
+    async def handle_first_page(self, entity: PagedFeedMonitorEntity, client: HttpClient) -> Tuple[Optional[Sequence[Record]], Optional[FeedPageContext]]:
+        raw_page_text = await self.request(entity.url, entity, client)
         if raw_page_text is None:
             return None, None
-        raw_page_text = await handle_consent(raw_page_text, entity.url, session, self.logger)
+        raw_page_text = await handle_consent(raw_page_text, entity.url, client, self.logger)
         video_renderers, continuation_token, page = get_video_renderers(raw_page_text)
         if not video_renderers:
             self.logger.debug(f'[{entity.name}] found no videos on first page of {entity.url}')
@@ -172,19 +170,19 @@ class VideosMonitor(PagedFeedMonitor):
         context = FeedPageContext(innertube_context=innertube_context, session_index=session_index, continuation_token=continuation_token, owner_info=owner_info)
         return current_page_records, context
 
-    async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[FeedPageContext]) -> Tuple[Optional[Sequence[Record]], Optional[FeedPageContext]]:
+    async def handle_next_page(self, entity: PagedFeedMonitorEntity, client: HttpClient,
+                               context: Optional[FeedPageContext]) -> Tuple[Optional[Sequence[Record]], Optional[FeedPageContext]]:
         if context is None or context.continuation_token is None:
             self.logger.debug(f'[{entity.name}] no continuation for next page, done loading')
             return [], None
 
-        url, headers, post_body = prepare_next_page_request(context.innertube_context, context.continuation_token, cookies=session.cookie_jar)
-        raw_page = await utils.request(url, session, self.logger, method='POST', headers=headers,
-                                       data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
-                                       retry_delay=5)
+        url, headers, post_body = prepare_next_page_request(context.innertube_context, context.continuation_token, cookies=client.cookie_jar)
+        raw_page = await client.request(url, method='POST', data_json=post_body, headers=headers,
+                                        settings=RetrySettings(retry_times=3, retry_delay=5, retry_multiplier=2))
         if raw_page is None:
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
-        video_renderers, continuation_token, page = get_video_renderers(raw_page, anchor='')
+        video_renderers, continuation_token, page = get_video_renderers(raw_page.text, anchor='')
 
         if not video_renderers:
             self.logger.debug(f'[{entity.name}] found no videos when parsing continuation of {entity.url}')

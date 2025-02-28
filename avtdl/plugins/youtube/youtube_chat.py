@@ -1,17 +1,15 @@
 import datetime
-import json
 import logging
 from textwrap import shorten
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-import aiohttp
 from pydantic import Field, PositiveFloat
 
-from avtdl.core import utils
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import Delay, Fmt, find_all, find_one, parse_timestamp_us
+from avtdl.core.request import Delay, HttpClient, RetrySettings
+from avtdl.core.utils import Fmt, find_all, find_one, parse_timestamp_us
 from avtdl.plugins.youtube import video_info
 from avtdl.plugins.youtube.common import NextPageContext, extract_keys, get_innertube_context, \
     get_session_index, handle_consent, \
@@ -121,6 +119,7 @@ class ChatPageContext(NextPageContext):
     video_title: str = ''
     video_id: str = ''
 
+
 @Plugins.register('prechat', Plugins.kind.ACTOR_ENTITY)
 class YoutubeChatMonitorEntity(BaseFeedMonitorEntity):
     url: str
@@ -151,18 +150,19 @@ class YoutubeChatMonitor(BaseFeedMonitor):
     Some features, such as polls, are not supported.
     """
 
-    async def get_records(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeChatRecord]:
+    async def get_records(self, entity: YoutubeChatMonitorEntity, client: HttpClient) -> Sequence[YoutubeChatRecord]:
         if entity.context.done:
             return []
         if entity.context.continuation_token is None:
-            actions = await self._get_first(entity, session)
+            actions = await self._get_first(entity, client)
             if actions:
-                self.logger.warning(f'[{entity.name}] got chat messages on the first update, this is not supposed to happen. Raw data: {actions}')
+                self.logger.warning(
+                    f'[{entity.name}] got chat messages on the first update, this is not supposed to happen. Raw data: {actions}')
         # _get_first(...) sets value of entity.context.continuation_token unless error happened
         if entity.context.continuation_token is None:
             return []
 
-        new_actions = await self._get_next(entity, session)
+        new_actions = await self._get_next(entity, client)
         if new_actions is None:
             records = []
             new_update_interval = Delay.get_next(entity.update_interval)
@@ -181,11 +181,11 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         entity.base_update_interval = entity.update_interval = new_update_interval
         return records
 
-    async def _get_first(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Dict[str, list]:
-        raw_page_text = await self.request(entity.url, entity, session)
+    async def _get_first(self, entity: YoutubeChatMonitorEntity, client: HttpClient) -> Dict[str, list]:
+        raw_page_text = await self.request(entity.url, entity, client)
         if raw_page_text is None:
             return {}
-        raw_page_text = await handle_consent(raw_page_text, entity.url, session, self.logger)
+        raw_page_text = await handle_consent(raw_page_text, entity.url, client, self.logger)
         try:
             info = video_info.parse_video_page(raw_page_text, entity.url)
         except Exception as e:
@@ -195,7 +195,8 @@ class YoutubeChatMonitor(BaseFeedMonitor):
 
         innertube_context = get_innertube_context(raw_page_text)
         session_index = get_session_index(initial_page)
-        entity.context = ChatPageContext(innertube_context=innertube_context, session_index=session_index, continuation_token=continuation)
+        entity.context = ChatPageContext(innertube_context=innertube_context, session_index=session_index,
+                                         continuation_token=continuation)
         entity.context.is_replay = not (info.is_upcoming or (info.live_start is not None and info.live_end is None))
         entity.context.continuation_url = self._get_continuation_url(entity.context.is_replay)
 
@@ -203,27 +204,32 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         entity.context.video_title = info.title
         entity.context.video_author = info.author
 
-        message = find_one(initial_page, '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
+        message = find_one(initial_page,
+                           '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
         if message is not None:
             text = Parser.runs_to_text(message)
             self.logger.info(f'[{entity.name}] {text}')
 
         if continuation is None:
-            self.logger.warning(f'[{entity.name}] first page has no continuation token. Video has no chat or an error occured while loading it')
+            self.logger.warning(
+                f'[{entity.name}] first page has no continuation token. Video has no chat or an error occurred while loading it')
             entity.context.done = True
         return actions
 
-    async def _get_next(self, entity: YoutubeChatMonitorEntity, session: aiohttp.ClientSession) -> Optional[Dict[str, list]]:
+    async def _get_next(self, entity: YoutubeChatMonitorEntity, client: HttpClient) -> Optional[Dict[str, list]]:
         if entity.context.innertube_context is None:
-            self.logger.warning(f'[{entity}] continuation token is present in an absence of initial data. This is a bug')
+            self.logger.warning(
+                f'[{entity}] continuation token is present in an absence of initial data. This is a bug')
             return None
         if entity.context.continuation_url is None:
-            self.logger.warning(f'[{entity}] continuation token is present in an absence of continuation url. This is a bug')
+            self.logger.warning(
+                f'[{entity}] continuation token is present in an absence of continuation url. This is a bug')
             return None
-        _, headers, post_body = prepare_next_page_request(entity.context.innertube_context, entity.context.continuation_token)
-        page = await utils.request(entity.context.continuation_url, session, self.logger, method='POST', headers=headers,
-                                   data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
-                                   retry_delay=5)
+        _, headers, post_body = prepare_next_page_request(entity.context.innertube_context,
+                                                          entity.context.continuation_token)
+        page = await client.request(entity.context.continuation_url, method='POST',
+                                    data_json=post_body, headers=headers,
+                                    settings=RetrySettings(retry_times=3, retry_delay=5, retry_multiplier=2))
         if page is None:
             entity.context.continuation_token = None
             self.logger.warning(f'[{entity.name}] downloading chat continuation for {entity.url} failed')
@@ -231,7 +237,7 @@ class YoutubeChatMonitor(BaseFeedMonitor):
                 entity.context.done = True
                 self.logger.info(f'[{entity.name}] giving up on downloading chat replay for {entity.url}')
             return None
-        actions, continuation, _ = self._get_actions(page)
+        actions, continuation, _ = self._get_actions(page.text)
         entity.context.continuation_token = continuation
         if continuation is None and entity.context.is_replay:
             self.logger.info(f'[{entity.name}] finished downloading chat replay')
@@ -245,7 +251,8 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         if new_records > 0:
             speed = new_records / entity.update_interval
             new_update_interval = int(10 / speed)
-            self.logger.debug(f'[{entity.name}] speed: {new_records}/{entity.update_interval:.2f}={speed:.2f}, from {entity.update_interval:.2f} to {new_update_interval:.2f}')
+            self.logger.debug(
+                f'[{entity.name}] speed: {new_records}/{entity.update_interval:.2f}={speed:.2f}, from {entity.update_interval:.2f} to {new_update_interval:.2f}')
             if new_update_interval < 60:
                 return new_update_interval
         return min(entity.update_interval * 1.2, entity.context.base_update_interval)
@@ -256,11 +263,13 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         else:
             return 'https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false'
 
-    def _get_actions(self, page: str, first_page=False) -> Tuple[Dict[str, list], Optional[str], dict]:
+    @staticmethod
+    def _get_actions(page: str, first_page=False) -> Tuple[Dict[str, list], Optional[str], dict]:
         keys = list(Parser.known_actions)
         anchor = 'var ytInitialData = ' if first_page else ''
         actions, data = extract_keys(page, keys, anchor=anchor)
-        continuation = find_one(data, '$..invalidationContinuationData,timedContinuationData,liveChatReplayContinuationData,reloadContinuationData..continuation')
+        continuation = find_one(data,
+                                '$..invalidationContinuationData,timedContinuationData,liveChatReplayContinuationData,reloadContinuationData..continuation')
         return actions, continuation, data
 
 
@@ -286,7 +295,7 @@ class Parser:
                     logging.debug(f'failed to parse navigationEndpoint in chat message: {run}: {e}')
                 else:
                     parts.append(url)
-                continue # "navigationEndpoint" comes with "text", so skipping parsing "text" is necessarily
+                continue  # "navigationEndpoint" comes with "text", so skipping parsing "text" is necessarily
 
             emoji = run.get('emoji')
             if emoji is not None:
@@ -327,27 +336,28 @@ class Parser:
         author = renderer.get('authorName', {}).get('simpleText', '[no author]')
         channel_id = renderer.get('authorExternalChannelId') or find_one(renderer, '$..authorExternalChannelId')
         channel = f'https://www.youtube.com/channel/{channel_id}'
-        timestamp = renderer.get('timestampUsec') 
+        timestamp = renderer.get('timestampUsec')
         timestamp = parse_timestamp_us(timestamp)
         badges = renderer.get('authorBadges', []) and find_all(renderer['authorBadges'], '$..label')
         amount = renderer.get('purchaseAmountText', {}).get('simpleText')
         header = renderer.get('headerSubtext')
         header_text = self.runs_to_text(header) if header else None
         sticker = find_one(renderer, '$.sticker.accessibility..label')
-        color = self.parse_color(find_one(renderer, '$.headerBackgroundColor,backgroundColor'))
+        color_text = find_one(renderer, '$.headerBackgroundColor,backgroundColor') or 0
+        color = self.parse_color(color_text)
         record = YoutubeChatRecord(uid=uid,
-                                    action=action_type,
-                                    renderer=renderer_type,
-                                    author=author,
-                                    channel=channel,
-                                    timestamp=timestamp,
-                                    badges=badges,
-                                    text=text,
-                                    amount=amount,
-                                    message_header=header_text,
-                                    sticker=sticker,
-                                    color=color
-                    )
+                                   action=action_type,
+                                   renderer=renderer_type,
+                                   author=author,
+                                   channel=channel,
+                                   timestamp=timestamp,
+                                   badges=badges,
+                                   text=text,
+                                   amount=amount,
+                                   message_header=header_text,
+                                   sticker=sticker,
+                                   color=color
+                                   )
         return record
 
     def parse_banner(self, action_type: str, renderer_type: str, renderer: dict) -> YoutubeChatRecord:
@@ -355,7 +365,8 @@ class Parser:
         header_text = self.runs_to_text(header)
         message = find_one(renderer, '$..liveChatTextMessageRenderer')
         if message is None:
-            self.logger.debug(f'[{action_type}.{renderer_type}] encounted banner with renderer other than liveChatTextMessageRenderer: {renderer}')
+            self.logger.debug(
+                f'[{action_type}.{renderer_type}] failed to parse banner message, unsupported renderer: {renderer}')
         record = self.parse_chat_renderer(action_type, renderer_type, message)
         record.banner_header = header_text
         return record
@@ -381,7 +392,6 @@ class Parser:
                                    message_header=header_text,
                                    )
         return record
-
 
     # most of actions and renderers names comes from chat-downloader:
     # https://github.com/xenova/chat-downloader/blob/master/chat_downloader/sites/youtube.py
@@ -438,7 +448,8 @@ class Parser:
                         continue
                     for renderer_type, renderer in renderers.items():
                         if not renderer_type in self.known_renderers:
-                            self.logger.debug(f'action "{action_type}" has no renderer "{renderer_type}" registered, skipping')
+                            self.logger.debug(
+                                f'action "{action_type}" has no renderer "{renderer_type}" registered, skipping')
                             continue
                         try:
                             parser = self.parsers[action_type][renderer_type]
@@ -456,7 +467,9 @@ class Parser:
 
 
 def get_actions(page: str, first_page=False) -> Tuple[Dict[str, list], dict]:
-    keys = ['addChatItemAction', 'replaceChatItemAction', 'removeChatItemAction', 'removeChatItemByAuthorAction', 'markChatItemsByAuthorAsDeletedAction', 'markChatItemAsDeletedAction', 'addBannerToLiveChatCommand', 'removeBannerForLiveChatCommand']
+    keys = ['addChatItemAction', 'replaceChatItemAction', 'removeChatItemAction', 'removeChatItemByAuthorAction',
+            'markChatItemsByAuthorAsDeletedAction', 'markChatItemAsDeletedAction', 'addBannerToLiveChatCommand',
+            'removeBannerForLiveChatCommand']
     anchor = 'var ytInitialData = ' if first_page else ''
     try:
         actions, data = extract_keys(page, keys, anchor=anchor)

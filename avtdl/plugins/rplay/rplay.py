@@ -8,16 +8,15 @@ import json
 import urllib.parse
 from dataclasses import dataclass
 from textwrap import shorten
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
-import aiohttp
 import dateutil.parser
 from pydantic import Field, FilePath, PositiveFloat, model_validator
 
-from avtdl.core import utils
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import MAX_REPR_LEN, Record, RuntimeContext
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
+from avtdl.core.request import HttpClient, RetrySettings
 from avtdl.core.utils import Fmt
 
 
@@ -92,7 +91,7 @@ class RplayMonitorEntity(BaseFeedMonitorEntity):
     selected_for_update: bool = Field(exclude=True, default=False)
     """internal variable, used to mark one entity that actually makes network request to update queues"""
     url: str = Field(exclude=True, default='')
-    """url is not used, all streams are checked through the same api endpoing"""
+    """url is not used, all streams are checked through the same api endpoint"""
     cookies_file: Optional[FilePath] = Field(exclude=True, default=None)
     """cookies are not used to log in"""
     adjust_update_interval: bool = Field(exclude=True, default=True)
@@ -122,6 +121,7 @@ class RplayMonitor(BaseFeedMonitor):
 
     def __init__(self, conf: RplayMonitorConfig, entities: Sequence[RplayMonitorEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
+        self.entities: Mapping[str, RplayMonitorEntity]  # type: ignore
         self.nickname_cache: Dict[str, str] = {}
         self.consumers: Dict[str, asyncio.Queue] = {}
         for entity in self.entities.values():
@@ -132,9 +132,9 @@ class RplayMonitor(BaseFeedMonitor):
         entity_for_update = min(entities, key=lambda entity: entity.update_interval)
         entity_for_update.selected_for_update = True
 
-    async def get_records(self, entity: RplayMonitorEntity, session: aiohttp.ClientSession) -> Sequence[RplayRecord]:
+    async def get_records(self, entity: RplayMonitorEntity, client: HttpClient) -> Sequence[RplayRecord]:
         if entity.selected_for_update:
-            await self.update_records(entity, session)
+            await self.update_records(entity, client)
 
         records = []
         queue = self.consumers[entity.name]
@@ -142,16 +142,16 @@ class RplayMonitor(BaseFeedMonitor):
             records.append(queue.get_nowait())
         return records
 
-    async def update_records(self, entity: RplayMonitorEntity, session: aiohttp.ClientSession) -> None:
+    async def update_records(self, entity: RplayMonitorEntity, client: HttpClient) -> None:
         r = RplayUrl.livestreams()
-        data = await self.request_json(r.url, entity, session, headers=r.headers, params=r.params)
+        data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
         if data is None:
             return
         records = self.parse_livestreams(data)
 
         # nickname field in data from /livestreams endpoint is empty,
         # get them from /bulkgetusers instead
-        await self.update_nicknames_cache(session, entity, records)
+        await self.update_nicknames_cache(client, entity, records)
         self.update_nicknames(records)
 
         for record in records:
@@ -174,13 +174,13 @@ class RplayMonitor(BaseFeedMonitor):
                 self.logger.warning(f'failed to parse record: {type(e)} {e}. Raw data: "{data}"')
         return records
 
-    async def update_nicknames_cache(self, session: aiohttp.ClientSession, entity: RplayMonitorEntity,
+    async def update_nicknames_cache(self, client: HttpClient, entity: RplayMonitorEntity,
                                      records: List[RplayRecord]):
         creator_oids = [r.creator_id for r in records if r.creator_id not in self.nickname_cache]
         if not creator_oids:
             return
         r = RplayUrl.bulkgetusers(creator_oids)
-        data = await utils.request_json(r.url, session, self.logger, headers=r.headers, params=r.params)
+        data = await client.request_json(r.url, headers=r.headers, params=r.params)
         if data is None:
             self.logger.warning(f'[{entity.name}] failed to update nickname cache: failed to get users info')
             return
@@ -248,9 +248,9 @@ class RplayUserMonitor(BaseFeedMonitor):
         self.conf: RplayUserMonitorConfig
         self.own_user: Optional['User'] = None
 
-    async def get_records(self, entity: RplayUserMonitorEntity, session: aiohttp.ClientSession) -> Sequence[RplayRecord]:
+    async def get_records(self, entity: RplayUserMonitorEntity, client: HttpClient) -> Sequence[RplayRecord]:
         r = RplayUrl.play(entity.creator_oid)
-        data = await self.request_json(r.url, entity, session, headers=r.headers, params=r.params)
+        data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
         if data is None:
             return []
         try:
@@ -260,24 +260,27 @@ class RplayUserMonitor(BaseFeedMonitor):
             return []
         if record is None:
             return []
-        record.playlist_url = await self.get_playlist_url(session, record)
+        record.playlist_url = await self.get_playlist_url(client, record)
         return [record]
 
-    async def get_playlist_url(self, session: aiohttp.ClientSession, record: RplayRecord) -> Optional[str]:
+    async def get_playlist_url(self, client: HttpClient, record: RplayRecord) -> Optional[str]:
         if record.restream_url is not None:
             return None
-        key2 = await self.get_key2(session) or ''
+        key2 = await self.get_key2(client) or ''
         r = RplayUrl.playlist(record.creator_id, key2=key2)
         return r.url_with_query
 
-    async def get_key2(self, session: aiohttp.ClientSession) -> Optional[str]:
-        own_user = await self.get_own_user(session)
+    async def get_key2(self, client: HttpClient) -> Optional[str]:
+        own_user = await self.get_own_user(client)
         if own_user is None:
             return None
         r = RplayUrl.key2(own_user)
-        raw_key2 = await utils.request(r.url, session, self.logger, r.method, r.params, r.data, r.headers, retry_times=3, retry_multiplier=3)
-        if raw_key2 is None:
+        retry_settings = RetrySettings(retry_times=3, retry_multiplier=3)
+        response = await client.request(r.url, method=r.method, params=r.params, data=r.data, headers=r.headers,
+                                        settings=retry_settings)
+        if response is None:
             return None
+        raw_key2 = response.text
         try:
             key2 = json.loads(raw_key2)['authKey']
         except (TypeError, KeyError, json.JSONDecodeError) as e:
@@ -285,7 +288,7 @@ class RplayUserMonitor(BaseFeedMonitor):
             return None
         return key2
 
-    async def get_own_user(self, session: aiohttp.ClientSession) -> Optional['User']:
+    async def get_own_user(self, client: HttpClient) -> Optional['User']:
         if self.conf.login is None or self.conf.password is None:
             return None
         if self.own_user is None:
@@ -295,7 +298,8 @@ class RplayUserMonitor(BaseFeedMonitor):
                 user_oid = self.conf.user_id
             else:
                 r = RplayUrl.login(token)
-                user_info = await utils.request_json(r.url, session, self.logger, r.method, r.params, r.data, r.headers)
+                user_info = await client.request_json(r.url, method=r.method, params=r.params, data=r.data,
+                                                      headers=r.headers)
                 if user_info is None:
                     self.logger.debug(f'failed to log in')
                     return None
@@ -531,7 +535,11 @@ class RplayUrl:
     @staticmethod
     def content(content_oid, user: Optional[User] = None) -> RequestDetails:
         url = f'https://api.rplay-cdn.com/content'
-        params = {'contentOid': content_oid, 'status': 'published', 'withContentMetadata': True, 'requestCanView': True, 'lang': 'en'}
+        params = {'contentOid': content_oid,
+                  'status': 'published',
+                  'withContentMetadata': True,
+                  'requestCanView': True,
+                  'lang': 'en'}
         headers = {}
         if user is not None:
             params.update({'requestorOid': user.user_oid, 'loginType': 'plax'})

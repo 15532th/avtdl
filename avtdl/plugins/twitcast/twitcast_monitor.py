@@ -1,12 +1,12 @@
 from textwrap import shorten
 from typing import Optional, Sequence
 
-import aiohttp
 from pydantic import Field, PositiveFloat
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
+from avtdl.core.request import HttpClient
 
 
 @Plugins.register('twitcast', Plugins.kind.ASSOCIATED_RECORD)
@@ -80,15 +80,15 @@ class TwitcastMonitor(HttpTaskMonitor):
     """
 
 
-    async def get_new_records(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> Sequence[TwitcastRecord]:
-        record = await self.check_channel(entity, session)
+    async def get_new_records(self, entity: TwitcastMonitorEntity, client: HttpClient) -> Sequence[TwitcastRecord]:
+        record = await self.check_channel(entity, client)
         return [record] if record else []
 
-    async def check_channel(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> Optional[TwitcastRecord]:
-        if not await self.is_live(entity, session):
+    async def check_channel(self, entity: TwitcastMonitorEntity, client: HttpClient) -> Optional[TwitcastRecord]:
+        if not await self.is_live(entity, client):
             return None
 
-        movie_id = await self.get_movie_id(entity, session)
+        movie_id = await self.get_movie_id(entity, client)
         if movie_id is None:
             self.logger.warning(f'[{entity.name}] failed to get movie id, will report this record again if it was a temporary error, will never report new records if it is permanent')
             movie_id = 'movie id is unknown'
@@ -105,24 +105,18 @@ class TwitcastMonitor(HttpTaskMonitor):
         record = TwitcastRecord(url=channel_url, user_id=entity.user_id, movie_id=movie_id, movie_url=movie_url, title=title, thumbnail_url=thumbnail_url)
         return record
 
-    async def is_live(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> bool:
+    async def is_live(self, entity: TwitcastMonitorEntity, client: HttpClient) -> bool:
         url = f"https://twitcasting.tv/userajax.php?c=islive&u={entity.user_id}"
-        text = await self.request(url, entity, session)
+        text = await self.request(url, entity, client)
         if text is None:
             self.logger.warning(f'[{entity.name}] failed to check if channel {entity.user_id} is live')
             return False
         return text != '0'
 
-    async def get_movie_id(self, entity: TwitcastMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
+    async def get_movie_id(self, entity: TwitcastMonitorEntity, client: HttpClient) -> Optional[str]:
         url = f'https://en.twitcasting.tv/streamserver.php?target={entity.user_id}&mode=client'
-        response = await self.request_raw(url, entity, session)
-        if response is None:
-            return None
-        try:
-            latest_movie_info = await response.json()
-        except Exception as e:
-            msg = f'[{entity.name}] failed to get current movie for {entity.user_id}: {e}'
-            self.logger.warning(msg)
+        latest_movie_info = await self.request_json(url, entity, client)
+        if latest_movie_info is None:
             return None
         try:
             movie_id = str(latest_movie_info['movie']['id'])

@@ -5,13 +5,13 @@ import urllib.parse
 from enum import Enum
 from typing import Callable, Dict, Optional, Sequence
 
-import aiohttp
 from pydantic import FilePath
 
-from avtdl.core import utils
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
+from avtdl.core.request import Delay
+from avtdl.core.request import HttpClient
 from avtdl.core.utils import SessionStorage, find_matching_field_value
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
 from avtdl.plugins.twitter.extractors import TwitterSpaceRecord, find_space_id, parse_media_url, parse_space, \
@@ -142,13 +142,14 @@ class TwitterSpace(Action):
             return done
 
         session = self.sessions.get_session(entity.cookies_file)
-        space = await self.fetch_space(session, entity, space_id)
+        client = HttpClient(self.logger, session)
+        space = await self.fetch_space(client, entity, space_id)
         if space is None:
             return
         if self.db.record_exists(space, entity.name):
             self.logger.debug(f'[{entity.name}] space {space_id} has already been processed')
             return
-        space.media_url = await self.wait_for_any_url(session, entity, space) or None
+        space.media_url = await self.wait_for_any_url(client, entity, space) or None
         self.db.store_records([space], entity.name)
 
         done = handle_update_result(space)
@@ -157,13 +158,13 @@ class TwitterSpace(Action):
 
         while True:
             if SpaceState.is_upcoming(space):
-                media_url = await self.wait_for_live(session, entity, space)
+                media_url = await self.wait_for_live(client, entity, space)
             elif SpaceState.is_ongoing(space):
-                media_url = await self.wait_for_replay(session, entity, space)
+                media_url = await self.wait_for_replay(client, entity, space)
                 if media_url == '':
                     self.logger.debug(f'[{entity.name}] media url unavailable for running space {space.url}, updating space metadata to see if it ended')
             elif SpaceState.has_ended(space):
-                media_url = await self.wait_for_any_url(session, entity, space)
+                media_url = await self.wait_for_any_url(client, entity, space)
                 if media_url == '':
                     self.logger.debug(f'[{entity.name}] space {space.url} has ended at {space.ended} and media url is unavailable. The space likely does not have archive at this point')
                     break
@@ -172,7 +173,7 @@ class TwitterSpace(Action):
                 break
 
             old_media_url = space.media_url
-            space = await self.fetch_space(session, entity, space_id) or space
+            space = await self.fetch_space(client, entity, space_id) or space
 
             if media_url:
                 space.media_url = media_url
@@ -184,7 +185,7 @@ class TwitterSpace(Action):
             if done:
                 break
 
-    async def wait_for_live(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
+    async def wait_for_live(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
         assert space.scheduled is not None, f'upcoming space has no scheduled: {space.model_dump()}'
         while True:  # waiting until start
             delay = (space.scheduled - datetime.datetime.now(tz=datetime.timezone.utc))
@@ -200,9 +201,9 @@ class TwitterSpace(Action):
         def is_done(media_url: str) -> bool:
             return media_url != ''
 
-        return await self.wait_for_media_url(session, entity, space, self.CHECK_UPCOMING_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
+        return await self.wait_for_media_url(client, entity, space, self.CHECK_UPCOMING_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
 
-    async def wait_for_replay(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
+    async def wait_for_replay(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
         self.logger.debug(f'[{entity.name}] space {space.url} is ongoing since {space.started}, fetching live media_url')
 
         def is_done(media_url: str) -> bool:
@@ -216,18 +217,18 @@ class TwitterSpace(Action):
                 self.logger.debug(f'[{entity.name}] space {space.url} got media_url with unknown type: {media_url}')
                 return True
 
-        return await self.wait_for_media_url(session, entity, space, self.CHECK_LIVE_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
+        return await self.wait_for_media_url(client, entity, space, self.CHECK_LIVE_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
 
-    async def wait_for_any_url(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
-        return await self.wait_for_media_url(session, entity, space, self.CHECK_ENDED_DELAY, self.MAX_SEQUENTIAL_CHECKS, lambda _: True)
+    async def wait_for_any_url(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
+        return await self.wait_for_media_url(client, entity, space, self.CHECK_ENDED_DELAY, self.MAX_SEQUENTIAL_CHECKS, lambda _: True)
 
-    async def wait_for_media_url(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord,
+    async def wait_for_media_url(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord,
                                  retry_delay: float, max_attempts: int, is_done: Callable[[str], bool]) -> Optional[str]:
         base_retry_delay = retry_delay
         for attempt in range(max_attempts):
-            media_url = await self.fetch_media_url(session, entity, space)
+            media_url = await self.fetch_media_url(client, entity, space)
             if media_url is None:
-                retry_delay = utils.Delay.get_next(retry_delay)
+                retry_delay = Delay.get_next(retry_delay)
                 self.logger.debug(f'[{entity.name}] {space.url} got no media_url on {attempt} attempt, retry after {retry_delay}')
             elif is_done(media_url):
                 return media_url
@@ -239,9 +240,9 @@ class TwitterSpace(Action):
         self.logger.debug(f'[{entity.name}] failed to fetch media_url of expected type after {max_attempts} attempts for {space.url}')
         return None
 
-    async def fetch_space(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
+    async def fetch_space(self, client: HttpClient, entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
         self.logger.debug(f'[{entity.name}] fetching metadata for space {space_url_by_id(space_id)}')
-        text = await AudioSpaceEndpoint.request(self.logger, session, entity.url, session.cookie_jar, space_id)
+        text = await AudioSpaceEndpoint.request(self.logger, client, entity.url, client.cookie_jar, space_id)
         if text is None:
             self.logger.warning(f'[{entity.name}] failed to retrieve metadata for {space_url_by_id(space_id)}')
             return None
@@ -257,27 +258,27 @@ class TwitterSpace(Action):
             return None
         return space
 
-    async def fetch_media_url(self, session: aiohttp.ClientSession, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
+    async def fetch_media_url(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
         """
         fetch and parse data from media_url endpoint for given space.media_key
         return the url on success, empty string on 404 response, None on any other error
         """
         self.logger.debug(f'[{entity.name}] fetch media url for space {space.url}')
-        r = LiveStreamEndpoint.prepare(entity.url, session.cookie_jar, space.media_key)
-        try:
-            response = await utils.request_raw(r.url, session, self.logger, params=r.params, headers=r.headers, retry_times=0, raise_errors=True)
-            assert response is not None, 'request_raw() returned None despite raise_errors=True'
-            text = await response.text()
-        except Exception as e:
-            if isinstance(e, aiohttp.ClientResponseError):
-                if e.status == 404:
-                    self.logger.debug(f'[{entity.name}] no media url for {space.url}: {e}')
-                    return ''
-                else:
-                    self.logger.debug(f'[{entity.name}]  got code {e.status} ({e.message}) while fetching media_url for {space.url}: {e}')
-            else:
-                self.logger.debug(f'[{entity.name}] failed to retrieve media url for {space.url}: {e}')
+        r = LiveStreamEndpoint.prepare(entity.url, client.cookie_jar, space.media_key)
+        response = await client.request(r.url, params=r.params, headers=r.headers)
+        if response is None:
+            self.logger.debug(f'[{entity.name}] failed to retrieve media url for {space.url}')
             return None
+        elif not response.ok or response.no_content:
+            if response.status == 404:
+                self.logger.debug(f'[{entity.name}] no media url for {space.url}: {response.status} ({response.reason})')
+                return ''
+            else:
+                self.logger.debug(
+                    f'[{entity.name}]  got code {response.status} ({response.reason}) while fetching media_url for {response.url}')
+                return None
+        else:
+            text = response.text
         try:
             data = json.loads(text)
         except json.JSONDecodeError as e:

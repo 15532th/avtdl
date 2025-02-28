@@ -1,17 +1,16 @@
 import asyncio
-import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import aiohttp
 from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_validator
 
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
-from avtdl.core.utils import Delay, SessionStorage, get_cache_ttl, get_retry_after, load_cookies, \
-    show_diff
+from avtdl.core.request import HttpClient, HttpResponse, StateStorage, decide_on_update_interval
+from avtdl.core.utils import SessionStorage, load_cookies, show_diff, with_prefix
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
@@ -124,93 +123,28 @@ class HttpTaskMonitor(BaseTaskMonitor):
     def __init__(self, conf: ActorConfig, entities: Sequence[HttpTaskMonitorEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
         self.sessions: SessionStorage = SessionStorage(self.logger)
+        self.state_storage = StateStorage()
 
-    async def request_json(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[Any]:
-        text = await self.request(url, entity, session, method, headers, params, data, data_json)
-        if text is None:
+    async def request_json(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[Any]:
+        response = await self.request_raw(url, entity, client, method, headers, params, data, data_json)
+        if response is None or response.no_content:
             return None
-        try:
-            parsed = json.loads(text)
-            return parsed
-        except json.JSONDecodeError as e:
-            self.logger.debug(f'error parsing response from {url}: {e}. Raw response data: "{text}"')
-            return None
+        return response.json()
 
-    async def request(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[str]:
-        response = await self.request_raw(url, entity, session, method, headers, params, data, data_json)
-        if response is None:
+    async def request(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[str]:
+        response = await self.request_raw(url, entity, client, method, headers, params, data, data_json)
+        if response is None or response.no_content:
             return None
-        return await response.text()
+        return response.text
 
-    async def request_raw(self, url: str, entity: HttpTaskMonitorEntity, session: aiohttp.ClientSession, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Mapping] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[aiohttp.ClientResponse]:
+    async def request_raw(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[HttpResponse]:
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
-        if self.logger.parent is None:
-            # should never happen since Actor().logger is constructed with getChild()
-            logger = self.logger.getChild('request').getChild(self.conf.name)
+        state = self.state_storage.get(url, method, params)
+        response = await client.request(url, params, data, data_json, headers, method, state)
+        if response is None:
+            entity.update_interval = decide_on_update_interval(client.logger, url, None, None, entity.update_interval, entity.base_update_interval, entity.adjust_update_interval)
         else:
-            logger = self.logger.parent.getChild('request').getChild(self.conf.name)
-        request_headers: Dict[str, Any] = headers or {}
-        if session.headers is not None:
-            request_headers.update(session.headers)
-        if entity.last_modified is not None and method in ['GET', 'HEAD']:
-            request_headers['If-Modified-Since'] = entity.last_modified
-        if entity.etag is not None:
-            request_headers['If-None-Match'] = entity.etag
-        try:
-            text = ''
-            async with session.request(method, url, headers=request_headers, params=params, data=data, json=data_json) as response:
-                # fully read http response to get it cached inside ClientResponse object
-                # client code can then use it by awaiting .text() again without causing
-                # network activity and potentially triggering associated errors
-                text = await response.text()
-                response.raise_for_status()
-        except Exception as e:
-            if isinstance(e, aiohttp.ClientResponseError):
-                logger.warning(f'[{entity.name}] got code {e.status} ({e.message}) while fetching {url}')
-                if text:
-                    logger.debug(f'[{entity.name}] response body: "{text}"')
-                retry_after = get_retry_after(response.headers)
-                if retry_after is not None:
-                    raw_header = response.headers.get("Retry-After")
-                    logger.debug(f'[{entity.name}] got Retry-After header with value {raw_header}')
-                    entity.update_interval = max(float(retry_after), HIGHEST_UPDATE_INTERVAL)
-                    logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url} as requested by response headers')
-                    return None
-            else:
-                logger.warning(f'[{entity.name}] error while fetching {url}: {e.__class__.__name__} {e}')
-
-            update_interval = int(max(Delay.get_next(entity.update_interval), entity.update_interval))
-            if entity.update_interval != update_interval:
-                entity.update_interval = update_interval
-                logger.warning(f'[{entity.name}] update interval set to {entity.update_interval} seconds for {url}')
-            return None
-
-        if response.status == 304:
-            logger.debug(f'[{entity.name}] got {response.status} ({response.reason}) from {url}')
-            if entity.update_interval != entity.base_update_interval:
-                logger.info(f'[{entity.name}] restoring update interval {entity.base_update_interval} seconds for {url} after getting 304 response')
-                entity.update_interval = entity.base_update_interval
-            return None
-        # some servers do not have cache headers in 304 response, so only updating on 200
-        entity.last_modified = response.headers.get('Last-Modified', None)
-        entity.etag = response.headers.get('Etag', None)
-
-        cache_control = response.headers.get('Cache-control')
-        logger.debug(f'[{entity.name}] Last-Modified={entity.last_modified or "absent"}, ETAG={entity.etag or "absent"}, Cache-control="{cache_control or "absent"}"')
-
-        if entity.adjust_update_interval:
-            new_update_interval = get_cache_ttl(response.headers) or entity.base_update_interval
-            new_update_interval = min(new_update_interval, 10 * entity.base_update_interval, HIGHEST_UPDATE_INTERVAL) # in case ttl is overly long
-            new_update_interval = max(new_update_interval, entity.base_update_interval)
-            if entity.update_interval != new_update_interval:
-                entity.update_interval = new_update_interval
-                logger.info(f'[{entity.name}] next update in {entity.update_interval}')
-        else:
-            # restore update interval after backoff on failure
-            if entity.update_interval != entity.base_update_interval:
-                logger.info(f'[{entity.name}] restoring update interval {entity.base_update_interval} seconds for {url}')
-                entity.update_interval = entity.base_update_interval
-
+            entity.update_interval = response.next_update_interval(entity.base_update_interval, entity.update_interval, entity.adjust_update_interval)
         return response
 
     def _get_session(self, entity: HttpTaskMonitorEntity) -> aiohttp.ClientSession:
@@ -230,19 +164,25 @@ class HttpTaskMonitor(BaseTaskMonitor):
     async def run_for(self, entity: HttpTaskMonitorEntity):
         try:
             session = self._get_session(entity)
+            if self.logger.parent is not None:
+                logger = self.logger.parent.getChild('request').getChild(self.conf.name)
+            else:
+                logger = self.logger.getChild('request') # should never happen
+            logger = with_prefix(logger, f'[{entity.name}]')
+            client = HttpClient(logger, session)
             while True:
-                await self.run_once(entity, session)
+                await self.run_once(entity, client)
                 await asyncio.sleep(entity.update_interval)
         except Exception:
             self.logger.exception(f'unexpected error in task for entity {entity.name}, task terminated')
 
-    async def run_once(self, entity: TaskMonitorEntity, session: aiohttp.ClientSession):
-        records = await self.get_new_records(entity, session)
+    async def run_once(self, entity: TaskMonitorEntity, client: HttpClient):
+        records = await self.get_new_records(entity, client)
         for record in records:
             self.on_record(entity, record)
 
     @abstractmethod
-    async def get_new_records(self, entity: TaskMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
+    async def get_new_records(self, entity: TaskMonitorEntity, client: HttpClient) -> Sequence[Record]:
         '''Produce new records, optionally adjust update_interval'''
 
 
@@ -267,16 +207,22 @@ class BaseFeedMonitor(HttpTaskMonitor):
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
     @abstractmethod
-    async def get_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
+    async def get_records(self, entity: BaseFeedMonitorEntity, client: HttpClient) -> Sequence[Record]:
         '''Fetch and parse resource, return parsed records, both old and new'''
 
     async def run(self):
         for entity in self.entities.values():
             session = self._get_session(entity)
-            await self.prime_db(entity, session)
+            if self.logger.parent is not None:
+                logger = self.logger.parent.getChild('request').getChild(self.conf.name)
+            else:
+                logger = self.logger.getChild('request') # should never happen
+            logger = with_prefix(logger, f'[{entity.name}]')
+            client = HttpClient(logger, session)
+            await self.prime_db(entity, client)
         await super().run()
 
-    async def prime_db(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> None:
+    async def prime_db(self, entity: BaseFeedMonitorEntity, client: HttpClient) -> None:
         '''if a feed has no prior records, fetch it once and mark all entries as old
         in order to not produce ten messages at once when the feed is first added'''
         size = self.db.get_size(entity.name)
@@ -290,7 +236,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
                 self.logger.debug(f'[{entity.name}] option "quiet_first_time" enabled, all records until this moment will be marked as already seen')
                 priming_required = True
         if priming_required:
-            n = len(await self.get_new_records(entity, session))
+            n = len(await self.get_new_records(entity, client))
             self.logger.debug(f'[{entity.name}] number of records that was marked as already seen on first update: {n}')
         else:
             self.logger.info(f'[{entity.name}] {size} records stored in database')
@@ -331,8 +277,8 @@ class BaseFeedMonitor(HttpTaskMonitor):
         self.store_records(records_to_store, entity)
         return new_records
 
-    async def get_new_records(self, entity: BaseFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
-        records = await self.get_records(entity, session)
+    async def get_new_records(self, entity: BaseFeedMonitorEntity, client: HttpClient) -> Sequence[Record]:
+        records = await self.get_records(entity, client)
         new_records = self.filter_new_records(records, entity)
         return new_records
 
@@ -362,7 +308,7 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
     '''Provide support for loading and parsing feeds with pagination or lazy loading'''
 
     @abstractmethod
-    async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+    async def handle_first_page(self, entity: PagedFeedMonitorEntity, client: HttpClient) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         '''Download and parse first page of the feed
 
         Returns two-elements tuple with processed records as first element and
@@ -376,18 +322,18 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
         then first element is an empty list and the second element is None'''
 
     @abstractmethod
-    async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+    async def handle_next_page(self, entity: PagedFeedMonitorEntity, client: HttpClient, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         '''Download and parse continuation  page
 
         Parameters:
             entity (PagedFeedMonitorEntity): working entity
-            session (aiohttp.ClientSession): session object to make requests with
+            client (HttpClient): request.HttpClient to make requests with
             context (Optional[Any]): any data required to load next page, such as continuation token
         Returns same values as handle_first_page'''
 
-    async def get_records(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[Record]:
+    async def get_records(self, entity: PagedFeedMonitorEntity, client: HttpClient) -> Sequence[Record]:
         records: List[Record] = []
-        current_page_records, continuation_context = await self.handle_first_page(entity, session)
+        current_page_records, continuation_context = await self.handle_first_page(entity, client)
         if current_page_records is None:
             return []
         records.extend(current_page_records)
@@ -414,7 +360,8 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
                     break
             self.logger.debug(f'[{entity.name}] all records on page {current_page - 1} are new, loading next one')
 
-            current_page_records, continuation_context = await self.handle_next_page(entity, session, continuation_context)
+            current_page_records, continuation_context = await self.handle_next_page(entity, client,
+                                                                                     continuation_context)
             if current_page_records is None:
                 if entity.allow_discontinuity or entity.fetch_until_the_end_of_feed_mode:
                     # when unable to load _all_ new records, return at least current progress

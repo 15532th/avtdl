@@ -5,13 +5,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Union
 
-import aiohttp
 import feedparser
 from pydantic import ConfigDict, PositiveFloat
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import Record, RuntimeContext
+from avtdl.core.request import HttpClient
 from avtdl.plugins.rss.generic_rss import GenericRSSMonitor, GenericRSSMonitorConfig, GenericRSSMonitorEntity
 from avtdl.plugins.youtube.common import thumbnail_url
 from avtdl.plugins.youtube.video_info import VideoInfoError, parse_video_page
@@ -45,12 +45,12 @@ class YoutubeFeedRecord(Record):
     scheduled: Optional[datetime] = None
     """scheduled time for an upcoming livestream to start at, otherwise absent"""
 
-    async def check_scheduled(self, session: Optional[aiohttp.ClientSession] = None, logger: Optional[logging.Logger] = None):
+    async def check_scheduled(self, client: HttpClient, logger: Optional[logging.Logger] = None):
         scheduled = None
         if self.views == 0:
             logger = logger or logging.getLogger().getChild('check_scheduled')
             try:
-                page = await utils.request(self.url, session, logger)
+                page = await client.request_text(self.url)
                 if page is None:
                     raise VideoInfoError('failed to fetch video page')
                 info = parse_video_page(page, self.url)
@@ -159,12 +159,12 @@ class FeedMonitor(GenericRSSMonitor):
             raise Exception('migration failed') from e
         super().__init__(conf, entities, ctx)
 
-    async def get_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeFeedRecord]:
-        records = await super().get_records(entity, session)
+    async def get_records(self, entity: FeedMonitorEntity, client: HttpClient) -> Sequence[YoutubeFeedRecord]:
+        records = await super().get_records(entity, client)
         return records
 
-    async def get_new_records(self, entity: FeedMonitorEntity, session: aiohttp.ClientSession) -> Sequence[YoutubeFeedRecord]:
-        records = await self.get_records(entity, session)
+    async def get_new_records(self, entity: FeedMonitorEntity, client: HttpClient) -> Sequence[YoutubeFeedRecord]:
+        records = await self.get_records(entity, client)
         rescheduled_records: List[YoutubeFeedRecord] = []
 
         # record.check_scheduled() involves loading video page, so it should only be done when necessarily
@@ -172,7 +172,7 @@ class FeedMonitor(GenericRSSMonitor):
         for record in records:
             previous = self.load_record(record, entity)
             if previous is None:
-                await record.check_scheduled(session, self.logger)
+                await record.check_scheduled(client, self.logger)
                 continue
             if not entity.track_reschedule:
                 continue
@@ -181,7 +181,7 @@ class FeedMonitor(GenericRSSMonitor):
                 continue
             if previous is not None and previous.scheduled is not None:
                 self.logger.debug(f'{record.video_id=} has last {previous.scheduled=}, updating')
-                await record.check_scheduled(session, self.logger)
+                await record.check_scheduled(client, self.logger)
                 if record.scheduled is None:
                     continue
                 if record.scheduled < previous.scheduled:
@@ -235,7 +235,7 @@ class Migration:
     target_table_structure = 'parsed_at datetime, feed_name text, uid text, hashsum text, class_name text, as_json text, PRIMARY KEY(uid, hashsum)'
     target_row_structure = ':parsed_at, :feed_name, :uid, :hashsum, :class_name, :as_json'
 
-    migrated_table_schema = '''CREATE TABLE "records" ( "parsed_at" datetime, "feed_name" text, "author" text, "video_id" text, "link" text, "title" text, "summary" text, "published" datetime, "updated" datetime, "scheduled" datetime DEFAULT NULL, "views" intefer, PRIMARY KEY("video_id","updated"))'''
+    migrated_table_schema = '''CREATE TABLE "records" ( "parsed_at" datetime, "feed_name" text, "author" text, "video_id" text, "link" text, "title" text, "summary" text, "published" datetime, "updated" datetime, "scheduled" datetime DEFAULT NULL, "views" integer, PRIMARY KEY("video_id","updated"))'''
 
     def __init__(self, db_path: Union[str, Path]):
         self.logger = logging.getLogger('migration').getChild(self.name)

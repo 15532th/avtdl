@@ -5,12 +5,12 @@ import logging
 from textwrap import shorten
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
-import aiohttp
 import multidict
 
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import RateLimit, request_raw
+from avtdl.core.request import HttpClient, HttpResponse, RateLimit
+from avtdl.core.utils import SessionStorage
 
 EMBEDS_PER_MESSAGE = 10
 EMBED_TITLE_MAX_LENGTH = 256
@@ -151,6 +151,7 @@ class DiscordHook(Action):
 
     def __init__(self, conf: DiscordHookConfig, entities: Sequence[DiscordHookEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
+        self.sessions: SessionStorage = SessionStorage(self.logger)
         self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
         self.buckets: Dict[Optional[str], DiscordRateLimit] = {}
         self.buckets[None] = NoRateLimit('fallback bucket')
@@ -162,12 +163,13 @@ class DiscordHook(Action):
         self.queues[entity.name].put_nowait(record)
 
     async def run(self):
-        async with aiohttp.ClientSession() as session:
-            for entity in self.entities.values():
-                _ = self.controller.create_task(self.run_for(entity, session), name=f'{self.conf.name}:{entity.name}')
-            await asyncio.Future()
+        session = self.sessions.get_session(name=self.conf.name)
+        client = HttpClient(self.logger, session)
+        for entity in self.entities.values():
+            _ = self.controller.create_task(self.run_for(entity, client), name=f'{self.conf.name}:{entity.name}')
+        await self.sessions.ensure_closed()
 
-    async def run_for(self, entity: DiscordHookEntity, session: aiohttp.ClientSession):
+    async def run_for(self, entity: DiscordHookEntity, client: HttpClient):
         send_queue = self.queues[entity.name]
 
         bucket: Optional[str] = None
@@ -183,33 +185,25 @@ class DiscordHook(Action):
                 continue
 
             async with self.buckets[bucket] as _:
-                headers = {'Content-Type': 'application/json'}
-                try:
-                    response = await request_raw(entity.url, session, self.logger,
-                                                 method='POST',
-                                                 data=json.dumps(message),
-                                                 headers=headers,
-                                                 raise_errors=True,
-                                                 raise_for_status=False)
-                    assert response is not None, 'request_json() returned None despite raise_errors=True'
-                except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError) as e:
-                    self.logger.warning(f'[{entity.name}] error while sending message with Discord webhook: {e or type(e)}, saving for the next try')
-                    until_next_try = 60
-                    continue  # implicitly saving messages in to_be_sent until the next try
-                except Exception as e:
-                    self.logger.exception(f'[{entity.name}] error while sending message with Discord webhook: {e or type(e)}')
-                    self.logger.debug(f'raw message text:\n{message}')
-                    to_be_sent = pending_records # discard unsent messages as they might have been the cause of error
-                    until_next_try = 60
-                    continue
+                response = await client.request(entity.url, data_json=message, method='POST')
+
+            if response is None:
+                self.logger.warning(f'[{entity.name}] network error while sending message with Discord webhook, saving for the next try')
+                until_next_try = 60
+                continue  # implicitly saving messages in to_be_sent until the next try
+            elif not response.ok:
+                self.logger.warning(f'[{entity.name}] error while sending message with Discord webhook: got {response.status} ({response.reason or "No reason"}) {response.text}')
+                self.logger.debug(f'raw message text:\n{message}')
+                to_be_sent = pending_records # discard unsent messages as they might have been the cause of error
+                until_next_try = 60
+                continue
+            if self._has_fatal_error(response, entity, message):
+                break
 
             bucket = DiscordRateLimit.get_bucket(response.headers)
             if not bucket in self.buckets:
                 self.buckets[bucket] = DiscordRateLimit(f'{bucket}', self.logger)
             self.buckets[bucket].submit_headers(response.headers, self.logger)
-
-            if self._has_fatal_error(response, entity, message):
-                break
 
             # if message got send successfully discard records except these that didn't fit into message
             if pending_records:
@@ -248,20 +242,18 @@ class DiscordHook(Action):
 
         return message, pending_records
 
-    def _has_fatal_error(self, response: aiohttp.ClientResponse, entity: DiscordHookEntity, message: dict) -> bool:
-        try:
-            response.raise_for_status()
+    def _has_fatal_error(self, response: HttpResponse, entity: DiscordHookEntity, message: dict) -> bool:
+        if response.ok:
             return False
-        except aiohttp.ClientResponseError as e:
-            self.logger.warning(f'[{entity.name}] failed to send message: got {response.status} ({response.reason}) from {entity.url}')
-            if e.status == 400:
-                self.logger.warning(f'[{entity.name}] message got rejected with {response.status} ({response.reason}), dropping it')
-                self.logger.debug(f'[{entity.name}] request headers: {response.request_info.headers}')
-                self.logger.debug(f'[{entity.name}] response headers: {response.headers}')
-                self.logger.debug(f'[{entity.name}] raw request body: {json.dumps(message)}')
-                return False
-            elif e.status in [404, 401]:
-                self.logger.warning(f'[{entity.name}] got {e.status} from webhook, interrupting operations. Check if webhook url is still valid: {entity.url}')
-                return True
-            else:
-                return False
+        self.logger.warning(f'[{entity.name}] failed to send message: got {response.status} ({response.reason}) from {response.url}')
+        if response.status == 400:
+            self.logger.warning(f'[{entity.name}] message got rejected with {response.status} ({response.reason}), dropping it')
+            self.logger.debug(f'[{entity.name}] request headers: {response.request_headers}')
+            self.logger.debug(f'[{entity.name}] response headers: {response.headers}')
+            self.logger.debug(f'[{entity.name}] raw request body: {json.dumps(message)}')
+            return False
+        elif response.status in [404, 401]:
+            self.logger.warning(f'[{entity.name}] got {response.status} from webhook, interrupting operations. Check if webhook url is still valid: {response.url}')
+            return True
+        else:
+            return False

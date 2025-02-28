@@ -1,16 +1,16 @@
-import json
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import aiohttp
 from pydantic import PositiveFloat
 
-from avtdl.core import utils
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.plugins.youtube.common import NextPageContext, get_continuation_token, get_initial_data, get_innertube_context, get_session_index, handle_consent, prepare_next_page_request, thumbnail_url, \
+from avtdl.core.request import HttpClient, RetrySettings
+from avtdl.plugins.youtube.common import NextPageContext, get_continuation_token, get_initial_data, \
+    get_innertube_context, get_session_index, handle_consent, prepare_next_page_request, thumbnail_url, \
     video_url
-from avtdl.plugins.youtube.community_info import CommunityPostInfo, SharedCommunityPostInfo, get_posts_renderers, get_renderers, get_shared_posts_renderers
+from avtdl.plugins.youtube.community_info import CommunityPostInfo, SharedCommunityPostInfo, get_posts_renderers, \
+    get_renderers, get_shared_posts_renderers
 
 
 @Plugins.register('community', Plugins.kind.ASSOCIATED_RECORD)
@@ -170,11 +170,11 @@ class CommunityPostsMonitor(PagedFeedMonitor):
     - `https://www.youtube.com/channel/UCK0V3b23uJyU4N8eR_BR0QA/community`
     """
 
-    async def handle_first_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[NextPageContext]]:
-        raw_page_text = await self.request(entity.url, entity, session)
+    async def handle_first_page(self, entity: PagedFeedMonitorEntity, client: HttpClient) -> Tuple[Optional[Sequence[Record]], Optional[NextPageContext]]:
+        raw_page_text = await self.request(entity.url, entity, client)
         if raw_page_text is None:
             return None, None
-        raw_page_text = await handle_consent(raw_page_text, entity.url, session, self.logger)
+        raw_page_text = await handle_consent(raw_page_text, entity.url, client, self.logger)
         try:
             initial_page = get_initial_data(raw_page_text)
         except Exception as e:
@@ -189,15 +189,15 @@ class CommunityPostsMonitor(PagedFeedMonitor):
 
         return records, ctx
 
-    async def handle_next_page(self, entity: PagedFeedMonitorEntity, session: aiohttp.ClientSession, context: Optional[NextPageContext]) -> Tuple[Optional[Sequence[Record]], Optional[NextPageContext]]:
+    async def handle_next_page(self, entity: PagedFeedMonitorEntity, client: HttpClient,
+                               context: Optional[NextPageContext]) -> Tuple[Optional[Sequence[Record]], Optional[NextPageContext]]:
         if context is None or context.continuation_token is None:
             self.logger.debug(f'[{entity.name}] no continuation for next page, done loading')
             return [], None
 
-        url, headers, post_body = prepare_next_page_request(context.innertube_context, context.continuation_token, session.cookie_jar, context.session_index)
-        current_page = await utils.request_json(url, session, self.logger, method='POST', headers=headers,
-                                                data=json.dumps(post_body), retry_times=3, retry_multiplier=2,
-                                                retry_delay=5)
+        url, headers, post_body = prepare_next_page_request(context.innertube_context, context.continuation_token, client.cookie_jar, context.session_index)
+        current_page = await client.request_json(url, method='POST', headers=headers, data_json=post_body,
+                                                 settings=RetrySettings(retry_times=3, retry_multiplier=2, retry_delay=5))
         if current_page is None:
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
@@ -211,6 +211,10 @@ class CommunityPostsMonitor(PagedFeedMonitor):
         renderers = get_renderers(page)
         records: List[Union[CommunityPostRecord, SharedCommunityPostRecord]] = []
         post_renderers = get_posts_renderers(renderers)
+
+        info: Union[CommunityPostInfo, SharedCommunityPostInfo]
+        record: Union[CommunityPostRecord, SharedCommunityPostRecord]
+
         for item in post_renderers:
             try:
                 info = CommunityPostInfo.from_post_renderer(item)

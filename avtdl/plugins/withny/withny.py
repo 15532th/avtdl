@@ -3,12 +3,11 @@ import datetime
 from enum import Enum
 from typing import Callable, Optional, Sequence, Tuple
 
-import aiohttp
 from pydantic import Field, PositiveFloat, PositiveInt
 
-from avtdl.core import utils
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
+from avtdl.core.request import HttpClient
 from avtdl.plugins.withny.extractors import WithnyRecord, format_timestamp, parse_live_record, parse_schedule_record, \
     utcnow_with_offset
 
@@ -50,13 +49,13 @@ class WithnyMonitor(BaseFeedMonitor):
     Monitor livestreams on Withny
     """
 
-    async def get_records(self, entity: WithnyMonitorEntity, session: aiohttp.ClientSession) -> Sequence[WithnyRecord]:
-        records = await self._get_streams(entity, session)
+    async def get_records(self, entity: WithnyMonitorEntity, client: HttpClient) -> Sequence[WithnyRecord]:
+        records = await self._get_streams(entity, client)
         if entity.current_update_ratio < entity.update_ratio:
             entity.current_update_ratio += 1
         else:
             entity.current_update_ratio = 1
-            upcoming_records, _ = await self._get_schedules(entity, session)
+            upcoming_records, _ = await self._get_schedules(entity, client)
             # deduplicate records, giving the upcoming ones priority
             records = list({record.stream_id: record for record in [*records, *upcoming_records]}.values())
         return records
@@ -72,9 +71,9 @@ class WithnyMonitor(BaseFeedMonitor):
                 self.logger.debug(f'raw record data: {item}')
         return records
 
-    async def _get_streams(self, entity: WithnyMonitorEntity, session: aiohttp.ClientSession) -> Sequence[WithnyRecord]:
+    async def _get_streams(self, entity: WithnyMonitorEntity, client: HttpClient) -> Sequence[WithnyRecord]:
         url = 'https://www.withny.fun/api/streams/with-rooms'
-        data = await self.request_json(url, entity, session)
+        data = await self.request_json(url, entity, client)
         if data is None:
             return []
         if not isinstance(data, list):
@@ -84,7 +83,7 @@ class WithnyMonitor(BaseFeedMonitor):
         records = await self._parse_data(data, parse_live_record)
         return records
 
-    async def _get_schedules(self, entity: WithnyMonitorEntity, session: aiohttp.ClientSession,
+    async def _get_schedules(self, entity: WithnyMonitorEntity, client: HttpClient,
                              context: Optional[Context] = None) -> Tuple[Sequence[
         WithnyRecord], Context]:
         url = 'https://www.withny.fun/api/schedules'
@@ -98,11 +97,7 @@ class WithnyMonitor(BaseFeedMonitor):
             'excludeClosedStream': 'true',
             'later': format_timestamp(since)
         }
-        if context.page == 1:
-            # utilize 304 handling capabilities and update_interval adjustment
-            data = await self.request_json(url, entity, session, params=params)
-        else:
-            data = await utils.request_json(url, session=session, logger=self.logger, params=params, retry_times=3)
+        data = await self.request_json(url, entity, client, params=params)
         if data is None:
             return [], context
 
@@ -123,6 +118,6 @@ class WithnyMonitor(BaseFeedMonitor):
             return records, context
 
         context.page += 1
-        next_page_records, _ = await self._get_schedules(entity, session, context)
+        next_page_records, _ = await self._get_schedules(entity, client, context)
         records = [*records, *next_page_records]
         return records, context

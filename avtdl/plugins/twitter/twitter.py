@@ -5,12 +5,12 @@ import traceback
 from abc import abstractmethod
 from typing import Any, List, Optional, Sequence, Tuple
 
-import aiohttp
 from pydantic import Field, FilePath, PositiveFloat
 
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
+from avtdl.core.request import HttpClient
 from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, SearchQueryType, SearchTimelineEndpoint, \
     TimelineEndpoint, TwitterEndpoint, \
     UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint
@@ -46,8 +46,8 @@ class TwitterMonitor(PagedFeedMonitor):
 
     MIN_CONTINUATION_DELAY: int = 1
 
-    async def handle_first_page(self, entity: TwitterMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
-        raw_page = await self._get_page(entity, session, continuation=None)
+    async def handle_first_page(self, entity: TwitterMonitorEntity, client: HttpClient) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+        raw_page = await self._get_page(entity, client, continuation=None)
         if raw_page is None:
             return None, None
         records, continuation = await self._parse_entries(raw_page)
@@ -55,11 +55,12 @@ class TwitterMonitor(PagedFeedMonitor):
             continuation = None
         return records, continuation
 
-    async def handle_next_page(self, entity: TwitterMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+    async def handle_next_page(self, entity: TwitterMonitorEntity, client: HttpClient,
+                               context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         continuation: Optional[str] = context
         if continuation is None:
             return None, None
-        raw_page = await self._get_page(entity, session, continuation)
+        raw_page = await self._get_page(entity, client, continuation)
         if raw_page is None:
             return None, None
         records, continuation = await self._parse_entries(raw_page)
@@ -69,7 +70,7 @@ class TwitterMonitor(PagedFeedMonitor):
         return records, continuation
 
     @abstractmethod
-    async def _get_page(self, entity: TwitterMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
+    async def _get_page(self, entity: TwitterMonitorEntity, client: HttpClient, continuation: Optional[str]) -> Optional[str]:
         """Retrieve raw response string from endpoint"""
 
     async def _parse_entries(self, page: str) -> Tuple[List[TwitterRecord], Optional[str]]:
@@ -105,9 +106,9 @@ class TwitterHomeMonitor(TwitterMonitor):
     Requires login cookies from a logged in Twitter account to work.
     """
 
-    async def _get_page(self, entity: TwitterHomeMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
+    async def _get_page(self, entity: TwitterHomeMonitorEntity, client: HttpClient, continuation: Optional[str]) -> Optional[str]:
         endpoint = LatestTimelineEndpoint if entity.following else TimelineEndpoint
-        data = await endpoint.request(self.logger, session, entity.url, session.cookie_jar, continuation)
+        data = await endpoint.request(self.logger, client, entity.url, client.cookie_jar, continuation)
         return data
 
 @Plugins.register('twitter.user', Plugins.kind.ACTOR_ENTITY)
@@ -145,9 +146,9 @@ class TwitterUserMonitor(TwitterMonitor):
         else:
             return UserTweetsEndpoint
 
-    async def _get_user_id(self, entity: TwitterUserMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
+    async def _get_user_id(self, entity: TwitterUserMonitorEntity, client: HttpClient) -> Optional[str]:
         if entity.user_id is None:
-            text = await UserIDEndpoint.request(self.logger, session, entity.url, session.cookie_jar, entity.user)
+            text = await UserIDEndpoint.request(self.logger, client, entity.url, client.cookie_jar, entity.user)
             if text is None:
                 return None
             try:
@@ -159,13 +160,13 @@ class TwitterUserMonitor(TwitterMonitor):
             entity.user_id = user_id
         return entity.user_id
 
-    async def _get_page(self, entity: TwitterUserMonitorEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
-        user_id = await self._get_user_id(entity, session)
+    async def _get_page(self, entity: TwitterUserMonitorEntity, client: HttpClient, continuation: Optional[str]) -> Optional[str]:
+        user_id = await self._get_user_id(entity, client)
         if user_id is None:
             self.logger.warning(f'failed to get user id from user handle for "{entity.user}", aborting update')
             return None
         endpoint = self._pick_endpoint(entity)
-        data = await endpoint.request(self.logger, session, entity.url, session.cookie_jar, user_id, continuation)
+        data = await endpoint.request(self.logger, client, entity.url, client.cookie_jar, user_id, continuation)
         return data
 
 
@@ -191,6 +192,6 @@ class TwitterSearchMonitor(TwitterMonitor):
     Requires login cookies from a logged in Twitter account to work.
     """
 
-    async def _get_page(self, entity: TwitterSearchEntity, session: aiohttp.ClientSession, continuation: Optional[str]) -> Optional[str]:
-        data = await SearchTimelineEndpoint.request(self.logger, session, entity.url, session.cookie_jar, entity.query, entity.query_type, continuation)
+    async def _get_page(self, entity: TwitterSearchEntity, client: HttpClient, continuation: Optional[str]) -> Optional[str]:
+        data = await SearchTimelineEndpoint.request(self.logger, client, entity.url, client.cookie_jar, entity.query, entity.query_type, continuation)
         return data

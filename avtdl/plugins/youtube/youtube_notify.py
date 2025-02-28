@@ -70,7 +70,8 @@ class ChannelNotifyFilter(Filter):
             self.logger.debug(f'[{entity.name}] "scheduled" field of the record has unexpected value, dropping: {record!r}')
             return
 
-        at = scheduled - entity.prior
+        prior = datetime.timedelta(seconds=entity.prior) if isinstance(entity.prior, int) else entity.prior
+        at = scheduled - prior
         self.controller.create_task(self.notify(at, entity, record))
 
     async def notify(self, at: datetime.datetime, entity: ChannelNotifyFilterEntity, record: Record):

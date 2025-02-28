@@ -16,11 +16,10 @@ from dataclasses import dataclass
 from http.cookiejar import CookieJar
 from typing import Any, Dict, Optional, Union
 
-import aiohttp
 from multidict import CIMultiDictProxy
 
-from avtdl.core import utils
-from avtdl.core.utils import RateLimit, find_all, find_one, get_cookie_value, get_retry_after
+from avtdl.core.request import HttpClient, HttpResponse, RateLimit, get_retry_after
+from avtdl.core.utils import find_all, find_one, get_cookie_value
 
 USER_FEATURES = '{"hidden_profile_likes_enabled":true,"hidden_profile_subscriptions_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true}'
 TWEETS_FEATURES = '{"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"tweetypie_unmention_optimization_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_enhance_cards_enabled":false}'
@@ -141,30 +140,31 @@ class TwitterEndpoint(abc.ABC):
         """Prepare a RequestDetails object based on passed arguments"""
 
     @classmethod
-    async def request_raw(cls, logger: logging.Logger, session: aiohttp.ClientSession, *args, **kwargs) -> Optional[aiohttp.ClientResponse]:
+    async def request_raw(cls, logger: logging.Logger, client: HttpClient, *args, **kwargs) -> Optional[HttpResponse]:
         r = cls.prepare(*args, **kwargs)
         if r is None:
             return None
         async with cls.rate_limit() as rate_limit:
-            try:
-                response = await utils.request_raw(r.url, session, logger, params=r.params, headers=r.headers, retry_times=0, raise_errors=True)
-            except Exception as e:
-                if isinstance(e, aiohttp.ClientResponseError):
-                    rate_limit.submit_headers(e.headers, logger)
-                    logger.debug(f' got code {e.status} ({e.message}) while fetching {r.url}: {e}')
-                else:
-                    logger.debug(f'error while fetching {r.url}: {e}')
+            response = await client.request(r.url, params=r.params, headers=r.headers)
+            if response is None:
+                logger.debug(f'network error while fetching {r.url}')
                 return None
-            assert response is not None, 'request_raw() returned None despite raise_errors=True'
-            rate_limit.submit_headers(response.headers, logger)
-            return response
+            elif not response.ok:
+                rate_limit.submit_headers(response.headers, logger)
+                logger.debug(f' got code {response.status} ({response.reason}) while fetching {r.url}')
+                return None
+            else:
+                rate_limit.submit_headers(response.headers, logger)
+                return response
 
     @classmethod
-    async def request(cls, logger: logging.Logger, session: aiohttp.ClientSession, *args, **kwargs) -> Optional[str]:
-        response = await cls.request_raw(logger, session, *args, **kwargs)
+    async def request(cls, logger: logging.Logger, client: HttpClient, *args, **kwargs) -> Optional[str]:
+        response = await cls.request_raw(logger, client, *args, **kwargs)
         if response is None:
             return None
-        return await response.text()
+        if response.no_content:
+            return None
+        return response.text
 
 
 class UserIDEndpoint(TwitterEndpoint):

@@ -4,13 +4,13 @@ from json import JSONDecodeError
 from textwrap import shorten
 from typing import Optional, Sequence
 
-import aiohttp
 import pydantic
 from pydantic import Field, PositiveFloat
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
+from avtdl.core.request import HttpClient
 from avtdl.core.utils import Fmt, parse_timestamp_ms
 
 
@@ -86,12 +86,12 @@ class FC2Monitor(HttpTaskMonitor):
     """
 
 
-    async def get_new_records(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession) -> Sequence[FC2Record]:
-        record = await self.check_channel(entity, session)
+    async def get_new_records(self, entity: FC2MonitorEntity, client: HttpClient) -> Sequence[FC2Record]:
+        record = await self.check_channel(entity, client)
         return [record] if record else []
 
-    async def check_channel(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession) -> Optional[FC2Record]:
-        data = await self.get_metadata(entity, session)
+    async def check_channel(self, entity: FC2MonitorEntity, client: HttpClient) -> Optional[FC2Record]:
+        data = await self.get_metadata(entity, client)
         if data is None:
             return None
         try:
@@ -109,10 +109,10 @@ class FC2Monitor(HttpTaskMonitor):
         record.name = entity.name
         return record
 
-    async def get_metadata(self, entity: FC2MonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
+    async def get_metadata(self, entity: FC2MonitorEntity, client: HttpClient) -> Optional[str]:
         url = 'https://live.fc2.com/api/memberApi.php'
         data = {'channel': 1, 'streamid': entity.user_id}
-        text = await self.request(url, entity, session, method='POST', data=data)
+        text = await self.request(url, entity, client, method='POST', data=data)
         return text
 
     @staticmethod

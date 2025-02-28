@@ -4,12 +4,12 @@ import re
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Sequence
 
-import aiohttp
 from pydantic import AnyUrl, Field, FilePath, RootModel, ValidationError, field_validator
 
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
+from avtdl.core.request import HttpClient
 from avtdl.core.utils import Fmt, SessionStorage, check_dir, sanitize_filename, sha1
 
 
@@ -119,6 +119,7 @@ class FileDownload(Action):
     async def run_for(self, entity: FileDownloadEntity):
         try:
             session = self.sessions.get_session(entity.cookies_file, entity.headers)
+            client = HttpClient(self.logger, session)
             queue = self.queues[entity.name]
             while True:
                 record = await queue.get()
@@ -130,11 +131,11 @@ class FileDownload(Action):
                     continue
                 for url in urls:
                     self.logger.debug(f'[{entity.name}] processing url {url}')
-                    await self.handle_download(session, entity, record, url)
+                    await self.handle_download(client, entity, record, url)
         except Exception:
             self.logger.exception(f'[{entity.name}] unexpected error in background task, terminating')
 
-    async def handle_download(self, session: aiohttp.ClientSession, entity: FileDownloadEntity, record: Record, url: str):
+    async def handle_download(self, client: HttpClient, entity: FileDownloadEntity, record: Record, url: str):
         """
         Handle download-related stuff: generating filenames, moving files, error reporting
 
@@ -156,7 +157,7 @@ class FileDownload(Action):
             return
 
         self.logger.debug(f'[{entity.name}] downloading "{url}" to "{temp_file}"')
-        info = await self.download(session, url, temp_file)
+        info = await self.download(client, url, temp_file)
         if info is None:
             return None
 
@@ -198,13 +199,13 @@ class FileDownload(Action):
             message = f'[{entity}]: when downloading "{url}" failed to move file "{temp_file}" to desired location "{path}": {e}'
             self.logger.warning(message)
 
-    async def download(self, session: aiohttp.ClientSession, url: str, output_file: Path) -> Optional[RemoteFileInfo]:
+    async def download(self, client: HttpClient, url: str, output_file: Path) -> Optional[RemoteFileInfo]:
         """Perform the actual download"""
         try:
             self.logger.debug(f'waiting for semaphore({self.concurrency_limit._value}) to download "{url}"')
             async with self.concurrency_limit:
                 self.logger.debug(f'acquired semaphore({self.concurrency_limit._value}), downloading "{url}" to "{output_file}"')
-                info = await download_file(url, output_file, session)
+                info = await download_file(url, output_file, client.session)
         except Exception as e:
             self.logger.exception(f'unexpected error when downloading "{url}" to "{output_file}": {e}')
             return None

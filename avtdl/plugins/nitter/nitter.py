@@ -4,15 +4,14 @@ from textwrap import shorten
 from typing import Any, List, Optional, Sequence, Tuple
 from urllib import parse as urllibparse
 
-import aiohttp
 import lxml.html
 from dateutil import parser
 from pydantic import ConfigDict, PositiveFloat
 
-from avtdl.core import utils
 from avtdl.core.interfaces import Filter, FilterEntity, MAX_REPR_LEN, Record, RuntimeContext
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
+from avtdl.core.request import HttpClient, RetrySettings
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 
 
@@ -140,7 +139,6 @@ def get_text_content(element: lxml.html.HtmlElement) -> str:
 
     strings = [handle_element(child) for child in element.xpath("node()")]
     text = ''.join(strings)
-    test = element.text_content()
     return text
 
 def get_html_content(element: lxml.html.HtmlElement) -> str:
@@ -177,8 +175,8 @@ class NitterMonitor(PagedFeedMonitor):
     HEADERS = {'Accept-Language': 'en-US', 'Accept-Encoding': 'gzip, deflate',
                'Cookie': 'Cookie: hideBanner=on; hidePins=on; replaceTwitter=; replaceYouTube=; replaceReddit='}
 
-    async def handle_first_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
-        raw_page = await self._get_user_page(entity, session)
+    async def handle_first_page(self, entity: NitterMonitorEntity, client: HttpClient) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+        raw_page = await self._get_user_page(entity, client)
         if raw_page is None:
             return None, None
         page = self._parse_html(raw_page, entity.url)
@@ -186,20 +184,22 @@ class NitterMonitor(PagedFeedMonitor):
         next_page_url = self._get_continuation_url(page)
         return records, next_page_url
 
-    async def handle_next_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+    async def handle_next_page(self, entity: NitterMonitorEntity, client: HttpClient,
+                               context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         next_page_url: Optional[str] = context
         if next_page_url is None:
             return None, None
-        raw_page = await utils.request(next_page_url, session, self.logger, headers=self.HEADERS, retry_times=3, retry_multiplier=2, retry_delay=5)
-        if raw_page is None:
+        retry_settings = RetrySettings(retry_times=3, retry_delay=5, retry_multiplier=2)
+        response = await client.request(next_page_url, headers=self.HEADERS, settings=retry_settings)
+        if response is None or response.no_content:
             return None, None
-        page = self._parse_html(raw_page, entity.url)
+        page = self._parse_html(response.text, entity.url)
         records = self._parse_entries(page)
         next_page_url = self._get_continuation_url(page)
         return records, next_page_url
 
-    async def _get_user_page(self, entity: NitterMonitorEntity, session: aiohttp.ClientSession) -> Optional[str]:
-        text = await self.request(entity.url, entity, session, headers=self.HEADERS)
+    async def _get_user_page(self, entity: NitterMonitorEntity, client: HttpClient) -> Optional[str]:
+        text = await self.request(entity.url, entity, client, headers=self.HEADERS)
         return text
 
     def _parse_entries(self, page: lxml.html.HtmlElement) -> List[NitterRecord]:
@@ -219,20 +219,24 @@ class NitterMonitor(PagedFeedMonitor):
                 records.append(record)
         return records
 
-    def _parse_html(self, raw_page: str, base_url: str) -> lxml.html.HtmlElement:
+    @staticmethod
+    def _parse_html(raw_page: str, base_url: str) -> lxml.html.HtmlElement:
         root = lxml.html.fromstring(raw_page, base_url=base_url)
         root.make_links_absolute(base_url)
         return root
 
-    def _parse_timeline(self, page: lxml.html.HtmlElement) -> Sequence[lxml.html.HtmlElement]:
+    @staticmethod
+    def _parse_timeline(page: lxml.html.HtmlElement) -> Sequence[lxml.html.HtmlElement]:
         posts = page.xpath(".//*[@class='timeline-item ']") # note trailing space in class name
         return posts
 
-    def _get_continuation_url(self, page: lxml.html.HtmlElement) -> Optional[str]:
+    @staticmethod
+    def _get_continuation_url(page: lxml.html.HtmlElement) -> Optional[str]:
         [continuation] = page.xpath(".//*[@class='show-more']/a/@href") or [None]
         return continuation
 
-    def _parse_attachments(self, raw_attachments: lxml.html.HtmlElement) -> List[str]:
+    @staticmethod
+    def _parse_attachments(raw_attachments: lxml.html.HtmlElement) -> List[str]:
         links = raw_attachments.xpath(".//a/@href")
         return links
 

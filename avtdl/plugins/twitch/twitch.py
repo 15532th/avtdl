@@ -3,13 +3,13 @@ import json
 from textwrap import shorten
 from typing import Optional, Sequence
 
-import aiohttp
 from dateutil import parser as dateutil_parser
 from pydantic import Field, PositiveFloat
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
+from avtdl.core.request import HttpClient
 
 
 @Plugins.register('twitch', Plugins.kind.ASSOCIATED_RECORD)
@@ -73,12 +73,13 @@ class TwitchMonitor(HttpTaskMonitor):
     Monitors twitch.tv user with given username, produces a record when it goes live.
     For user `https://www.twitch.tv/username` username would be `username`.
     """
-    async def get_new_records(self, entity: TwitchMonitorEntity, session: aiohttp.ClientSession) -> Sequence[TwitchRecord]:
-        record = await self.check_channel(entity, session)
+    async def get_new_records(self, entity: TwitchMonitorEntity,
+                              client: HttpClient) -> Sequence[TwitchRecord]:
+        record = await self.check_channel(entity, client)
         return [record] if record else []
 
-    async def check_channel(self, entity: TwitchMonitorEntity, session: aiohttp.ClientSession) -> Optional[TwitchRecord]:
-        response = await self._get_channel_status(entity, session)
+    async def check_channel(self, entity: TwitchMonitorEntity, client: HttpClient) -> Optional[TwitchRecord]:
+        response = await self._get_channel_status(entity, client)
         if response is None:
             return None
         try:
@@ -121,16 +122,9 @@ class TwitchMonitor(HttpTaskMonitor):
         }]
         return json.dumps(body)
 
-    async def _get_channel_status(self, entity: TwitchMonitorEntity, session: aiohttp.ClientSession) -> Optional[dict]:
+    async def _get_channel_status(self, entity: TwitchMonitorEntity, client: HttpClient) -> Optional[dict]:
         api_url = 'https://gql.twitch.tv/gql'
         headers = {'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko', 'Content-Type': 'application/json'}
         body = self._prepare_body(entity.username)
-        response = await self.request_raw(api_url, entity, session, method='POST', headers=headers, data=body)
-        if response is None:
-            return None
-        try:
-            data = await response.json()
-            return data
-        except Exception as e:
-            self.logger.debug(f'failed to decode response: {e}')
-            return None
+        data = await self.request_json(api_url, entity, client, method='POST', headers=headers, data=body)
+        return data

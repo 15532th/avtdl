@@ -2,12 +2,12 @@
 
 from typing import Optional, Sequence
 
-import aiohttp
 from pydantic import Field
 
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, TextRecord
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
+from avtdl.core.request import HttpClient
 
 Plugins.register('get_url', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
 
@@ -32,8 +32,8 @@ class UrlMonitor(HttpTaskMonitor):
     text endpoints.
     """
 
-    async def get_new_records(self, entity: UrlMonitorEntity, session: aiohttp.ClientSession) -> Sequence[TextRecord]:
-        text = await self.request(entity.url, entity, session)
+    async def get_new_records(self, entity: UrlMonitorEntity, client: HttpClient) -> Sequence[TextRecord]:
+        text = await self.request(entity.url, entity, client)
         if text is None:
             return []
         record = TextRecord(text=text)
