@@ -181,7 +181,8 @@ def find_matching_field_value(record: Record, pattern: str, fields: Optional[Lis
     return value
 
 
-def find_matching_field_name_and_value(record: Record, pattern: str, fields: Optional[List[str]] = None) -> Tuple[Optional[str], Optional[Any]]:
+def find_matching_field_name_and_value(record: Record, pattern: str, fields: Optional[List[str]] = None) -> Tuple[
+    Optional[str], Optional[Any]]:
     """
     Return name of the first field of the record that contains pattern,
     return None if nothing found. If fields value specified only check
@@ -221,7 +222,8 @@ class Fmt:
     """Helper class to interpolate format string from config using data from Record"""
 
     @classmethod
-    def format(cls, fmt: str, record: Record, missing: Optional[str] = None, tz: Optional[datetime.tzinfo] = None, sanitize: bool = False, extra: Optional[Dict[str, Any]] = None) -> str:
+    def format(cls, fmt: str, record: Record, missing: Optional[str] = None, tz: Optional[datetime.tzinfo] = None,
+               sanitize: bool = False, extra: Optional[Dict[str, Any]] = None) -> str:
         """Take string with placeholders like {field} and replace them with record fields"""
         logger = logging.getLogger().getChild('format')
         result = cls.strftime(fmt, datetime.datetime.now(tz))
@@ -239,7 +241,8 @@ class Fmt:
                 if missing is not None:
                     result = result.replace(placeholder, missing)
                 else:
-                    logger.warning(f'placeholder "{placeholder}" used by format string "{fmt}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
+                    logger.warning(
+                        f'placeholder "{placeholder}" used by format string "{fmt}" is not a field of {record.__class__.__name__} ({record!r}), resulting command is unlikely to be valid')
         result = result.replace(r'\{', '{')
         result = result.replace(r'\}', '}')
         return result
@@ -257,7 +260,8 @@ class Fmt:
         return value
 
     @classmethod
-    def format_path(cls, path: Union[str, Path], record: Record, missing: Optional[str] = None, tz: Optional[datetime.tzinfo] = None, extra: Optional[Dict[str, Any]] = None) -> Path:
+    def format_path(cls, path: Union[str, Path], record: Record, missing: Optional[str] = None,
+                    tz: Optional[datetime.tzinfo] = None, extra: Optional[Dict[str, Any]] = None) -> Path:
         """Take string with placeholders and replace them with record fields, but strip them from bad symbols"""
         fmt = str(path)
         formatted_path = cls.format(fmt, record, missing, tz=tz, sanitize=True, extra=extra)
@@ -325,7 +329,7 @@ def read_file(path: Union[str, Path], encoding=None) -> str:
     Read and return file content in provided encoding
 
     If decoding file content in provided encoding fails, try again using utf8.
-    If it also fails, let the exception to propagate. Handling OSError is also
+    If it also fails, let the exception propagate. Handling OSError is also
     left to caller.
     """
     with open(path, 'rt', encoding=encoding) as fp:
@@ -355,7 +359,7 @@ def increment_postfix(path: Union[str, Path], maxdepth):
     path = Path(path)
     if not path.exists():
         return
-    if re.match('\.(\d|[1-9]\d+)$', path.suffix):
+    if re.match(r'\.(\d|[1-9]\d+)$', path.suffix):
         index = int(path.suffix.strip('.'))
         next_path = path.with_suffix(f'.{index + 1}')
     else:
@@ -424,7 +428,7 @@ class SessionStorage:
 
     @staticmethod
     def get_session_id(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]], name: str = '') -> str:
-       return name +  str((cookies_file, headers))
+        return name + str((cookies_file, headers))
 
     def get_session_by_id(self, session_id: str) -> Optional[aiohttp.ClientSession]:
         return self.sessions.get(session_id)
@@ -434,7 +438,8 @@ class SessionStorage:
         session = self.get_session_by_id(session_id)
         return session is not None
 
-    def get_session(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None, name: str = '') -> aiohttp.ClientSession:
+    def get_session(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None,
+                    name: str = '') -> aiohttp.ClientSession:
         session_id = self.get_session_id(cookies_file, headers, name)
         session = self.get_session_by_id(session_id)
         if session is None:
@@ -456,9 +461,9 @@ class SessionStorage:
             self.logger.debug('done')
 
     def run(self) -> None:
-       if self.task is None:
-           name = f'ensure_closed for {self.logger.name} ({self!r})'
-           self.task = asyncio.create_task(self.ensure_closed(), name=name)
+        if self.task is None:
+            name = f'ensure_closed for {self.logger.name} ({self!r})'
+            self.task = asyncio.create_task(self.ensure_closed(), name=name)
 
 
 def strip_text(s: str, text: str) -> str:
