@@ -18,7 +18,7 @@ from http.cookiejar import CookieJar
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter
-from typing import Any, Dict, Hashable, List, MutableMapping, Optional, Tuple, Union
+from typing import Any, Dict, Hashable, List, Mapping, MutableMapping, Optional, Tuple, Union
 
 import aiohttp
 import lxml.html
@@ -26,6 +26,8 @@ from aiohttp.abc import AbstractCookieJar
 from jsonpath import JSONPath
 
 from avtdl.core.interfaces import Record
+
+JSONType = Union[str, int, float, bool, None, Mapping[str, 'JSONType'], List['JSONType']]
 
 
 def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional[cookiejar.CookieJar]:
@@ -395,14 +397,14 @@ def set_cookie_value(jar: AbstractCookieJar, key: str, value: str, url: str):
     jar.update_cookies(morsel)
 
 
-def find_all(data: Union[dict, list], jsonpath: str, cache={}) -> list:
+def find_all(data: JSONType, jsonpath: str, cache={}) -> List[JSONType]:
     if jsonpath not in cache:
         cache[jsonpath] = JSONPath(jsonpath)
     parser = cache[jsonpath]
     return parser.parse(data)
 
 
-def find_one(data: Union[dict, list], jsonpath: str) -> Optional[Any]:
+def find_one(data: JSONType, jsonpath: str) -> Optional[JSONType]:
     result = find_all(data, jsonpath)
     return result[0] if result else None
 

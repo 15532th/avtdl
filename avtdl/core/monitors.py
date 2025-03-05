@@ -10,7 +10,7 @@ from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_val
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
 from avtdl.core.request import HttpClient, HttpResponse, StateStorage, decide_on_update_interval
-from avtdl.core.utils import SessionStorage, load_cookies, show_diff, with_prefix
+from avtdl.core.utils import JSONType, SessionStorage, load_cookies, show_diff, with_prefix
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
 
@@ -125,7 +125,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
         self.sessions: SessionStorage = SessionStorage(self.logger)
         self.state_storage = StateStorage()
 
-    async def request_json(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[Any]:
+    async def request_json(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[JSONType]:
         response = await self.request_raw(url, entity, client, method, headers, params, data, data_json)
         if response is None or response.no_content:
             return None

@@ -18,7 +18,7 @@ import multidict
 from aiohttp.abc import AbstractCookieJar
 from multidict import CIMultiDictProxy
 
-from avtdl.core.utils import timeit
+from avtdl.core.utils import JSONType, timeit
 
 HIGHEST_UPDATE_INTERVAL: float = 4000
 
@@ -185,7 +185,7 @@ class HttpClient:
                            headers: Optional[Dict[str, Any]] = None,
                            method: str = 'GET',
                            state: EndpointState = EndpointState(),
-                           settings: RetrySettings = RetrySettings()) -> Optional[Any]:
+                           settings: RetrySettings = RetrySettings()) -> Optional[JSONType]:
         response = await self.request(url, params, data, data_json, headers, method, state, settings)
         if response is None:
             return None
@@ -227,7 +227,7 @@ class HttpResponse:
         )
         return response
 
-    def json(self, raise_errors: bool = False) -> Optional[Any]:
+    def json(self, raise_errors: bool = False) -> Optional[JSONType]:
         try:
             parsed = json.loads(self.text)
             return parsed
