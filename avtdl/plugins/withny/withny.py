@@ -40,7 +40,7 @@ class WithnyMonitorEntity(BaseFeedMonitorEntity):
 class Context:
     count: int
     page: int
-    take: int = 40
+    take: int = 60
 
 
 @Plugins.register('withny', Plugins.kind.ACTOR)
