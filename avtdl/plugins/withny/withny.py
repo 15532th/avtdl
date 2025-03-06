@@ -83,9 +83,10 @@ class WithnyMonitor(BaseFeedMonitor):
         records = await self._parse_data(data, parse_live_record)
         return records
 
-    async def _get_schedules(self, entity: WithnyMonitorEntity, client: HttpClient,
-                             context: Optional[Context] = None) -> Tuple[Sequence[
-        WithnyRecord], Context]:
+    async def _get_schedules(self,
+                             entity: WithnyMonitorEntity,
+                             client: HttpClient,
+                             context: Optional[Context] = None) -> Tuple[Sequence[WithnyRecord], Context]:
         url = 'https://www.withny.fun/api/schedules'
         context = context or Context(count=0, page=1)
 
@@ -98,7 +99,7 @@ class WithnyMonitor(BaseFeedMonitor):
             'later': format_timestamp(since)
         }
         data = await self.request_json(url, entity, client, params=params)
-        if data is None:
+        if data is None or not isinstance(data, dict):
             return [], context
 
         entity.since = since

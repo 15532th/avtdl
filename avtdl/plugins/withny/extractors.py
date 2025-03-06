@@ -30,10 +30,12 @@ class WithnyRecord(Record):
     """time of the stream end, if ended"""
     scheduled: Optional[datetime.datetime] = None
     """scheduled date for upcoming stream"""
+    schedule_id: Optional[str] = None
+    """unique id of the stream schedule. Might be absent for live streams"""
     user_id: str
     """unique id of the user hosting this stream"""
     cast_id: Optional[str]
-    """another unique id of the stream host. Might be absent"""
+    """unique id of the stream cast. Might be absent"""
     username: str
     """channel name"""
     name: str
@@ -156,9 +158,11 @@ def parse_live_record(data: dict, cast: Optional[Cast] = None) -> WithnyRecord:
 def parse_schedule_record(data: dict) -> WithnyRecord:
     cast = Cast.from_cast_data(data['cast'])
     scheduled = parse_date_fields(data, ['startAt', 'scheduledStartedAt'])
+    schedule_id = data['uuid']
 
     stream_record = parse_live_record(data['stream'], cast)
     stream_record.scheduled = scheduled
+    stream_record.schedule_id = schedule_id
 
     return stream_record
 

@@ -4,7 +4,7 @@ import json
 import logging
 import urllib.parse
 from http.cookies import SimpleCookie
-from typing import Dict, Optional, Sequence
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 from aiohttp.abc import AbstractCookieJar
 from pydantic import PositiveInt
@@ -12,9 +12,9 @@ from pydantic import PositiveInt
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import HttpClient, RetrySettings, StateStorage
-from avtdl.core.utils import SessionStorage, find_one, get_cookie_value, jwt_decode
-from avtdl.plugins.withny.extractors import WithnyRecord
+from avtdl.core.request import Delay, HttpClient, RetrySettings, StateStorage
+from avtdl.core.utils import JSONType, SessionStorage, get_cookie_value, jwt_decode
+from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
 
 
 class AuthToken:
@@ -53,7 +53,7 @@ class AuthToken:
         jar.update_cookies(cookies)
 
     @classmethod
-    def from_login_data(cls, data: dict) -> 'AuthToken':
+    def from_login_data(cls, data: Dict[str, Any]) -> 'AuthToken':
         token = urllib.parse.quote(f'{data["tokenType"]} {data["token"]}')
         token_content = jwt_decode(data['token'])
         token_expiration = str(token_content['exp'] * 1000)
@@ -125,10 +125,13 @@ async def refresh_auth(client: HttpClient, logger: logging.Logger) -> bool:
 
 async def make_auth_request(client: HttpClient, logger: logging.Logger, url: str, data,
                             headers: Optional[dict] = None):
-    result = await client.request_json(url, method='POST', data=data, headers=headers, settings=RetrySettings(retry_times=2))
+    result = await client.request_json(url, method='POST', data=data, headers=headers,
+                                       settings=RetrySettings(retry_times=2))
     if result is None:
         return False
     try:
+        if not isinstance(result, dict):
+            raise ValueError('unexpected response format')
         new_auth = AuthToken.from_login_data(result)
         new_auth.set_cookies(client.cookie_jar)
         return True
@@ -138,8 +141,10 @@ async def make_auth_request(client: HttpClient, logger: logging.Logger, url: str
         return False
 
 
-async def fetch_stream_url(client: HttpClient, logger: logging.Logger, stream_id: str, auth: AuthToken) -> \
-        Optional[str]:
+async def fetch_stream_url(client: HttpClient,
+                           logger: logging.Logger,
+                           stream_id: str,
+                           auth: AuthToken) -> Optional[str]:
     url = f'https://www.withny.fun/api/streams/{stream_id}/playback-url'
     headers = {'Referer': url, 'Authorization': auth.plain_token}
     result = await client.request_json(url, headers=headers, settings=RetrySettings(retry_times=2))
@@ -151,24 +156,19 @@ async def fetch_stream_url(client: HttpClient, logger: logging.Logger, stream_id
     return result
 
 
-async def fetch_cast_info(client: HttpClient, username: str) -> Optional[dict]:
-    url = f'https://www.withny.fun/api/casts/{username}'
-    result = await client.request_json(url, settings=RetrySettings(retry_times=2))
-    if result is None:
+def find_stream_data(data: Optional[JSONType], stream_id: str) -> Optional[dict]:
+    if data is None:
         return None
-    return result
-
-
-def cast_is_live(cast_info: dict) -> Optional[bool]:
-    state = find_one(cast_info, '$.ivsChannel.state')
-    if state == 'live':
-        return True
-    elif state == 'offline':
-        return False
-    if state is None:
+    if not isinstance(data, list):
         return None
-    else:
-        return None
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        item_id = item.get('uuid')
+        if stream_id != item_id:
+            continue
+        return item
+    return None
 
 
 Plugins.register('withny.live', Plugins.kind.ASSOCIATED_RECORD)(WithnyRecord)
@@ -220,43 +220,102 @@ class WithnyLive(Action):
             task.add_done_callback(lambda _: self.tasks.pop(stream_id))
             self.tasks[stream_id] = task
 
+    async def request_json(self, url: str,
+                           current_update_interval: float,
+                           client: HttpClient, method='GET',
+                           headers: Optional[Dict[str, str]] = None,
+                           params: Optional[Any] = None,
+                           data: Optional[Any] = None,
+                           data_json: Optional[Any] = None) -> Tuple[Optional[JSONType], float]:
+        '''Helper method to make http request to a json endpoint'''
+        state = self.state_storage.get(url, method, params)
+        response = await client.request(url, params, data, data_json, headers, method, state)
+        if response is None:
+            update_interval = Delay.get_next(current_update_interval)
+            data = None
+        else:
+            update_interval = response.next_update_interval(self.conf.poll_interval, current_update_interval, True)
+            if response.no_content:
+                data = None
+            else:
+                data = response.json()
+        return data, update_interval
+
+    def parse_record(self, data: Optional[JSONType], parser: Callable) -> Optional[WithnyRecord]:
+        if data is None or not isinstance(data, dict):
+            return None
+        try:
+            record = parser(data)
+            return record
+        except Exception as e:
+            self.logger.exception(f'failed to parse stream record: {e}')
+            self.logger.debug(f'raw record data: {data}')
+            return None
+
+    async def fetch_updated_record(self,
+                                   client: HttpClient,
+                                   record: WithnyRecord,
+                                   update_interval: float) -> Tuple[Optional[WithnyRecord], float]:
+        updated_record = None
+        if record.schedule_id is not None:
+            url = f'https://www.withny.fun/api/schedules/{record.schedule_id}'
+            record_data, update_interval = await self.request_json(url, update_interval, client)
+            updated_record = self.parse_record(record_data, parse_schedule_record)
+        if record.schedule_id is None or updated_record is None:
+            url = f'https://www.withny.fun/api/streams/with-rooms?username={record.username}'
+            data, update_interval = await self.request_json(url, update_interval, client)
+            record_data = find_stream_data(data, record.stream_id)
+            updated_record = self.parse_record(record_data, parse_live_record)
+
+        return updated_record, update_interval
+
     async def handle_stream(self, entity: WithnyLiveEntity, record: WithnyRecord):
-        if record.end is not None:
-            self.logger.debug(f'stream {record.stream_id} has ended at {record.end}: {record!r}')
+        if not record.is_live and not entity.wait_for_live:
+            self.logger.debug(
+                f'stream {record.stream_id} has not started and "wait_for_live" is enabled, dropping record {record!r}')
             return
-        if record.start is None:
-            if not entity.wait_for_live:
-                self.logger.debug(
-                    f'stream {record.stream_id} has not started and "wait_for_live" is enabled, dropping record {record!r}')
+
+        session = self.sessions.get_session(name='withny.live')  # all tasks use the same session to reuse login cookies
+        client = HttpClient(self.logger, session)
+
+        # wait for the stream to go live, return if there is no point waiting anymore
+        update_interval = float(self.conf.poll_interval)
+        for attempt in range(self.conf.poll_attempts):
+            await asyncio.sleep(update_interval)
+            self.logger.debug(
+                f'stream {record.stream_id} by {record.username}, attempt {attempt}: fetching live status')
+            updated_record, update_interval = await self.fetch_updated_record(client, record, update_interval)
+            if updated_record is None:
+                continue
+
+            updated_record.origin = record.origin
+            updated_record.chain = record.chain
+            record = updated_record
+
+            if record.end is not None:
+                self.logger.debug(f'stream {record.stream_id} has ended at {record.end}: {record!r}')
                 return
+            elif record.start is not None:
+                self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: {record.username} is live')
+                break
             elif record.scheduled is None:
                 self.logger.debug(
                     f'stream {record.stream_id} has neither start nor scheduled date, dropping record {record!r}')
                 return
             else:
-                time_left = record.scheduled - datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
-                    seconds=30)
-                time_left = max(time_left, datetime.timedelta())
+                self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: scheduled {record.scheduled}')
+                time_left = record.scheduled - datetime.datetime.now(datetime.timezone.utc)
                 delay = time_left.total_seconds()
-                self.logger.debug(
-                    f'stream {record.stream_id} is scheduled to {record.scheduled}, waiting for {time_left}: {record!r}')
-                # await asyncio.sleep(delay)
-                await asyncio.sleep(delay)
-        session = self.sessions.get_session(name='withny.live')  # all tasks use the same session to reuse login cookies
-        client = HttpClient(self.logger, session)
+                if delay > 0:
+                    self.logger.debug(
+                        f'stream {record.stream_id} is scheduled to {record.scheduled}, waiting for {time_left}: {record!r}')
+                else:
+                    delay = self.conf.poll_interval
+                update_interval = delay
 
-        # stream should be live already or go live soon, wait for it
-        for attempt in range(self.conf.poll_attempts):
-            self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: fetching live status of {record.username}')
-            cast_info = await fetch_cast_info(client, record.username)
-            if cast_info is not None:
-                is_live = cast_is_live(cast_info)
-                if is_live:
-                    self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: {record.username} is live')
-                    break
-            await asyncio.sleep(self.conf.poll_interval)
         else:
-            self.logger.debug(f'stream {record.stream_id} is not live after {self.conf.poll_attempts} checks, dropping record {record!r}')
+            self.logger.debug(
+                f'stream {record.stream_id} is not live after {self.conf.poll_attempts} checks, dropping record {record!r}')
             return
 
         # stream is now live for sure, try fetching stream_url
