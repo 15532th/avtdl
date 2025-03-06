@@ -47,6 +47,11 @@ class Context:
 class WithnyMonitor(BaseFeedMonitor):
     """
     Monitor livestreams on Withny
+
+    Livestreams are checked every update, scheduled streams once every `update_ratio` times.
+    Checks all channels at once, so it's recommended to only use a single entity and select
+    channels for further processing by using "filter.match" or other filters.
+    Does not retrieve playlist_url and therefore does not require authentication.
     """
 
     async def get_records(self, entity: WithnyMonitorEntity, client: HttpClient) -> Sequence[WithnyRecord]:
