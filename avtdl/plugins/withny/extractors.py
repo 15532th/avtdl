@@ -6,6 +6,7 @@ import dateutil.parser
 
 from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
+from avtdl.core.utils import utcnow
 
 
 @Plugins.register('withny', Plugins.kind.ASSOCIATED_RECORD)
@@ -163,11 +164,13 @@ def parse_schedule_record(data: dict) -> WithnyRecord:
 
 
 def format_timestamp(ts: datetime.datetime) -> str:
-    return ts.isoformat(timespec='milliseconds') + 'Z'
+    ts = ts.astimezone(datetime.timezone.utc)
+    text = ts.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+    return text
 
 
 def utcnow_with_offset(days: int = 0, hours: int = 0) -> datetime.datetime:
-    return datetime.datetime.now() + datetime.timedelta(days=days, hours=hours)
+    return utcnow() + datetime.timedelta(days=days, hours=hours)
 
 
 def parse_date_fields(data: Dict[str, Any], fields: List[str]) -> Optional[datetime.datetime]:
