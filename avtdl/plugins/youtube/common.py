@@ -230,7 +230,7 @@ def find_consent_url(page: str) -> Optional[str]:
         url = find_one(initial_data, '$..feedNudgeRenderer..primaryButton..url')
         return url
     except ValueError:
-        CONSENT_URL_PATTERN = r'"(https://consent.youtube.com/dl\?continue[^"]+)"'
+        CONSENT_URL_PATTERN = r'"(https://consent\.youtube\.com/dl\?continue[^"]+)"'
         consent_match = re.findall(CONSENT_URL_PATTERN, page)
         if not consent_match:
             return None
