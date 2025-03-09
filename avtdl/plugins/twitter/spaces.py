@@ -81,7 +81,8 @@ class TwitterSpace(Action):
         if space_id in self.tasks:
             self.logger.debug(f'[{entity.name}] task for space {space_id} is already running')
             return
-        task = self.controller.create_task(self.handle_space(entity, space_id, record))
+        name = f'{self.conf.name}:{entity.name} {space_id}'
+        task = self.controller.create_task(self.handle_space(entity, space_id, record), name=name)
         task.add_done_callback(lambda _: self.tasks.pop(space_id))
         self.tasks[space_id] = task
 

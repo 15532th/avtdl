@@ -239,7 +239,8 @@ class WithnyLive(Action):
             if record.stream_id in self.tasks:
                 self.logger.debug(f'[{entity.name}] task for stream {stream_id} is already running')
                 return
-            task = self.controller.create_task(self.handle_stream(entity, record))
+            name = f'{self.conf.name}:{entity.name} {stream_id}'
+            task = self.controller.create_task(self.handle_stream(entity, record), name=name)
             task.add_done_callback(lambda _: self.tasks.pop(stream_id))
             self.tasks[stream_id] = task
 
