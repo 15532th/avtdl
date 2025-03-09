@@ -18,6 +18,7 @@ from avtdl.core.utils import JSONType, SessionStorage, get_cookie_value, jwt_dec
 from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
 
 
+@Plugins.register('withny.live', Plugins.kind.ASSOCIATED_RECORD)
 class WithnyLiveErrorEvent(Event):
     """Produced on failure to process a livestream"""
     event_type: str = EventType.error
