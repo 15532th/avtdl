@@ -100,7 +100,7 @@ class WithnyMonitor(BaseFeedMonitor):
             'page': context.page,
             'take': context.take,
             'isFavorite': 'false',
-            'excludeClosedStream': 'true',
+            'excludeClosedStream': 'false',
             'later': format_timestamp(since)
         }
         data = await self.request_json(url, entity, client, params=params)

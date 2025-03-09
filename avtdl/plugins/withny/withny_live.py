@@ -317,6 +317,8 @@ class WithnyLive(Action):
 
             if record.end is not None:
                 self.logger.debug(f'stream {record.stream_id} has ended at {record.end}: {record!r}')
+                msg = 'stream has already ended'
+                self.on_record(entity, WithnyLiveErrorEvent(text=msg))
                 return
             elif record.start is not None:
                 self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: {record.username} is live')
