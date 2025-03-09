@@ -29,7 +29,7 @@ class WithnyRecord(Record):
     end: Optional[datetime.datetime] = None
     """time of the stream end, if ended"""
     scheduled: Optional[datetime.datetime] = None
-    """scheduled date for upcoming stream"""
+    """scheduled date for the upcoming stream"""
     schedule_id: Optional[str] = None
     """unique id of the stream schedule. Might be absent for live streams"""
     user_id: str

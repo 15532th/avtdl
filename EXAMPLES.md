@@ -765,11 +765,11 @@ chains:
 
 #### Monitor and download Withny livestreams
 
-Since `withny` monitor does not provide a way to select channels to monitor, the `filter.match` filter is used to perform this task. The username field is the unique part of the user profile and channel urls. For example, it would be `channel1` for `https://www.withny.fun/channels/channel1`.
+Since `withny` monitor does not provide a way to select channels to monitor, the `filter.match` filter is used to perform this task. The username field is a unique part of the user profile and channel urls. For example, it would be `channel1` for `https://www.withny.fun/channels/channel1`.
 
-Records that match the filter gets passed to the `withny.live` action, that waits for upcoming livestreams to go live and attempts to fetch HLS playlist url. If the url was retrieved successfully, record is then fed into the `execute` plugin entity to preform download. This example uses yt-dlp as downloader, so it must be available.
+Records that match the filter get passed to the `withny.live` action, that waits for upcoming livestreams to go live and attempts to fetch an HLS playlist url. If the url was retrieved successfully, record is then fed into the `execute` plugin entity to preform download. This example uses yt-dlp as downloader, so it must be available.
 
-If the `withny.live` action was unable to retrieve playlist url, an event is generated and passed down the chain instead of the record. Note how the entity of the `execute` plugin has the "event_passthrough" option enabled to skip processing them. The events are then written to a text file by the "failed withny streams" entity of the `to_file` plugin.
+If the `withny.live` action was unable to retrieve the playlist url, an event is generated and passed down the chain instead of the record. Note how the entity of the `execute` plugin has the "event_passthrough" option enabled to skip processing them. The events are then written to a text file by the "failed withny streams" entity of the `to_file` plugin.
 
 ```yaml
 actors:

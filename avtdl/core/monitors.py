@@ -88,7 +88,7 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
     """custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use `cookies_file` option instead"""
 
     adjust_update_interval: bool = True
-    """change delay before next update based on response headers. This setting doesn't affect timeouts after failed requests"""
+    """change delay before the next update based on response headers. This setting doesn't affect timeouts after failed requests"""
     base_update_interval: float = Field(exclude=True, default=60)
     """internal variable to persist state between updates. Used to keep update_interval while timeout after update error is active"""
     last_modified: Optional[str] = Field(exclude=True, default=None)
