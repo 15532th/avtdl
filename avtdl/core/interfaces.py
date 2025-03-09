@@ -459,6 +459,8 @@ class Filter(Actor):
 class ActionEntity(ActorEntity):
     consume_record: bool = True
     """whether record should be consumed or passed down the chain after processing. Disabling it allows chaining multiple Actions"""
+    event_passthrough: bool = False
+    """whether events should be treated as regular records. When enabled, events are passed down the chain without processing, unless `consume_record` is also enabled"""
     timezone: Optional[datetime.tzinfo] = None
     """takes timezone name from <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones> (or local time if omitted), converts record fields containing date and time to this timezone"""
 
@@ -484,7 +486,8 @@ class Action(Actor, ABC):
 
     def handle_record(self, entity: ActionEntity, record: Record) -> None:
         record = record.as_timezone(entity.timezone)
-        self.handle(entity, record)
+        if not entity.event_passthrough or not isinstance(record, Event):
+            self.handle(entity, record)
         if not entity.consume_record:
             self.on_record(entity, record)
 
