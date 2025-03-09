@@ -769,10 +769,17 @@ Since `withny` monitor does not provide a way to select channels to monitor, the
 
 Records that match the filter gets passed to the `withny.live` action, that waits for upcoming livestreams to go live and attempts to fetch HLS playlist url. If the url was retrieved successfully, record is then fed into the `execute` plugin entity to preform download. This example uses yt-dlp as downloader, so it must be available.
 
-If the `withny.live` action was unable to retrieve playlist url, an event is generated and passed down the chain instead of the record. Note how the entity of the 'execute' plugin has the "event_passthrough" option enabled to skip processing them.
+If the `withny.live` action was unable to retrieve playlist url, an event is generated and passed down the chain instead of the record. Note how the entity of the `execute` plugin has the "event_passthrough" option enabled to skip processing them. The events are then written to a text file by the "failed withny streams" entity of the `to_file` plugin.
 
 ```yaml
 actors:
+
+  to_file:
+    entities:
+      - name: "failed withny streams"
+        consume_record: false
+        filename: "failed streams.txt"
+        path: "archive/withny"
 
   withny:
     entities:
@@ -803,9 +810,8 @@ actors:
         event_passthrough: true
         command: "yt-dlp --windows-filenames --add-header Referer:'https://withny.fun/' --add-header Origin:'https://withny.fun/' {playlist_url} --output '{start} [{username}] {title}.%(ext)s'"
         working_dir: "archive/withny/{name} [{username}]/"
-        log_dir: "archive/rplay/logs/"
+        log_dir: "archive/withny/logs/"
         log_filename: "[{username}] {stream_id}.log"
-        report_finished: true
 
 chains:
   "withny_dl":
@@ -817,4 +823,6 @@ chains:
         - "streams"
     - execute:
         - "withny"
+    - to_file:
+        - "failed withny streams"
 ```
