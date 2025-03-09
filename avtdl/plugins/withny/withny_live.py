@@ -4,16 +4,17 @@ import json
 import logging
 import urllib.parse
 from http.cookies import SimpleCookie
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 from aiohttp.abc import AbstractCookieJar
-from pydantic import PositiveInt
+from pydantic import FilePath, PositiveInt, field_validator
 
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import Delay, HttpClient, RetrySettings, StateStorage
-from avtdl.core.utils import JSONType, SessionStorage, get_cookie_value, jwt_decode
+from avtdl.core.utils import JSONType, SessionStorage, get_cookie_value, jwt_decode, load_cookies
 from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
 
 
@@ -82,21 +83,21 @@ def has_expired(expiration_timestamp: str) -> bool:
     return expiration_date > now + datetime.timedelta(minutes=1)
 
 
-async def ensure_login(client: HttpClient, logger: logging.Logger, username: str, password: str) -> bool:
+async def ensure_login(client: HttpClient, logger: logging.Logger) -> bool:
     try:
         auth = AuthToken.from_cookies(client.cookie_jar)
     except ValueError:
         auth = None
     if auth is None:
-        success = await perform_login(client, logger, username, password)
-        return success
+        logger.warning(f'failed to login: error loading data from cookies')
+        return False
     elif has_expired(auth.refresh_token_expiration):
         # no point checking auth token here, since it does not outlive refresh token
-        success = await perform_login(client, logger, username, password)
-        return success
+        logger.warning(f'failed to login: cookies has expired')
+        return False
     elif has_expired(auth.token_expiration):
-        success = await refresh_auth(client, logger)
-        return success
+        ok = await refresh_auth(client, logger)
+        return ok
     else:
         # valid auth token is already present in cookies
         return True
@@ -176,20 +177,28 @@ Plugins.register('withny.live', Plugins.kind.ASSOCIATED_RECORD)(WithnyRecord)
 
 @Plugins.register('withny.live', Plugins.kind.ACTOR_CONFIG)
 class WithnyLiveConfig(BaseDbConfig):
-    login: str
-    """login of the account used for monitoring"""
-    password: str
-    """password of the account used for monitoring"""
+    pass
+
+
+@Plugins.register('withny.live', Plugins.kind.ACTOR_ENTITY)
+class WithnyLiveEntity(ActionEntity):
+    cookies_file: Optional[FilePath]
+    """path to a text file containing cookies in Netscape format"""
     poll_interval: PositiveInt = 30
     """how often live status of the stream that should have started by now is updated, in seconds"""
     poll_attempts: PositiveInt = 120
     """how many times live status of the stream that should have started by now is updated before giving up"""
 
-
-@Plugins.register('withny.live', Plugins.kind.ACTOR_ENTITY)
-class WithnyLiveEntity(ActionEntity):
-    wait_for_live: bool = True
-    """wait for livestream to go live before fetching stream url. When set to false, upcoming streams are ignored"""
+    @field_validator('cookies_file')
+    @classmethod
+    def check_cookies(cls, path: Optional[Path]):
+        if path is None:
+            return None
+        try:
+            load_cookies(path, raise_on_error=True)
+        except Exception as e:
+            raise ValueError(f'{e}') from e
+        return path
 
 
 @Plugins.register('withny.live', Plugins.kind.ACTOR)
@@ -198,8 +207,10 @@ class WithnyLive(Action):
     Wait for livestream on Withny
 
     If incoming record comes from the "withny" monitor and represents an ongoing or upcoming livestream,
-    wait for the stream start and try fetching direct `playlist_url` of the stream, then emit updated record
-    down the chain.
+    waits for the stream start and tries to fetch direct `playlist_url` of the stream, then emits updated record
+    down the chain. Number and frequency of attempts is limited by `poll_attempts` and `poll_interval` settings.
+
+    Requires cookies from a logged in account to work.
     """
 
     def __init__(self, conf: WithnyLiveConfig, entities: Sequence[WithnyLiveEntity], ctx: RuntimeContext):
@@ -221,6 +232,7 @@ class WithnyLive(Action):
             self.tasks[stream_id] = task
 
     async def request_json(self, url: str,
+                           base_update_interval: float,
                            current_update_interval: float,
                            client: HttpClient, method='GET',
                            headers: Optional[Dict[str, str]] = None,
@@ -234,7 +246,7 @@ class WithnyLive(Action):
             update_interval = Delay.get_next(current_update_interval)
             data = None
         else:
-            update_interval = response.next_update_interval(self.conf.poll_interval, current_update_interval, True)
+            update_interval = response.next_update_interval(base_update_interval, current_update_interval, True)
             if response.no_content:
                 data = None
             else:
@@ -255,36 +267,33 @@ class WithnyLive(Action):
     async def fetch_updated_record(self,
                                    client: HttpClient,
                                    record: WithnyRecord,
-                                   update_interval: float) -> Tuple[Optional[WithnyRecord], float]:
+                                   update_interval: float,
+                                   base_update_interval: float) -> Tuple[Optional[WithnyRecord], float]:
         updated_record = None
         if record.schedule_id is not None:
             url = f'https://www.withny.fun/api/schedules/{record.schedule_id}'
-            record_data, update_interval = await self.request_json(url, update_interval, client)
+            record_data, update_interval = await self.request_json(url, base_update_interval, update_interval, client)
             updated_record = self.parse_record(record_data, parse_schedule_record)
         if record.schedule_id is None or updated_record is None:
             url = f'https://www.withny.fun/api/streams/with-rooms?username={record.username}'
-            data, update_interval = await self.request_json(url, update_interval, client)
+            data, update_interval = await self.request_json(url, base_update_interval, update_interval, client)
             record_data = find_stream_data(data, record.stream_id)
             updated_record = self.parse_record(record_data, parse_live_record)
 
         return updated_record, update_interval
 
     async def handle_stream(self, entity: WithnyLiveEntity, record: WithnyRecord):
-        if not record.is_live and not entity.wait_for_live:
-            self.logger.debug(
-                f'stream {record.stream_id} has not started and "wait_for_live" is enabled, dropping record {record!r}')
-            return
-
-        session = self.sessions.get_session(name='withny.live')  # all tasks use the same session to reuse login cookies
+        session = self.sessions.get_session(entity.cookies_file, name=entity.name)
         client = HttpClient(self.logger, session)
 
         # wait for the stream to go live, return if there is no point waiting anymore
-        update_interval = float(self.conf.poll_interval)
-        for attempt in range(self.conf.poll_attempts):
+        update_interval = float(entity.poll_interval)
+        for attempt in range(entity.poll_attempts):
             await asyncio.sleep(update_interval)
             self.logger.debug(
                 f'stream {record.stream_id} by {record.username}, attempt {attempt}: fetching live status')
-            updated_record, update_interval = await self.fetch_updated_record(client, record, update_interval)
+            updated_record, update_interval = await self.fetch_updated_record(client, record, update_interval,
+                                                                              entity.poll_interval)
             if updated_record is None:
                 continue
 
@@ -310,16 +319,16 @@ class WithnyLive(Action):
                     self.logger.debug(
                         f'stream {record.stream_id} is scheduled to {record.scheduled}, waiting for {time_left}: {record!r}')
                 else:
-                    delay = self.conf.poll_interval
+                    delay = entity.poll_interval
                 update_interval = delay
 
         else:
             self.logger.debug(
-                f'stream {record.stream_id} is not live after {self.conf.poll_attempts} checks, dropping record {record!r}')
+                f'stream {record.stream_id} is not live after {entity.poll_attempts} checks, dropping record {record!r}')
             return
 
         # stream is now live for sure, try fetching stream_url
-        logged_in = await ensure_login(client, self.logger, self.conf.login, self.conf.password)
+        logged_in = await ensure_login(client, self.logger)
         if not logged_in:
             self.logger.warning(f'login failed, aborting processing')
             return
