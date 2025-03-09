@@ -24,6 +24,7 @@ Every example is meant to be a valid configuration file, that can be used standa
       * [Send notifications and download Twitter Spaces](#send-notifications-and-download-twitter-spaces)
       * [Monitor and download RPLAY livestreams](#monitor-and-download-rplay-livestreams)
         * [Using yt-dlp fork with RPLAY support](#using-yt-dlp-fork-with-rplay-support)
+      * [Monitor and download Withny livestreams](#monitor-and-download-withny-livestreams)
 <!-- TOC -->
 
 ---
@@ -759,4 +760,61 @@ chains:
     - execute:
         - "rplay-native"
 
+```
+
+
+#### Monitor and download Withny livestreams
+
+Since `withny` monitor does not provide a way to select channels to monitor, the `filter.match` filter is used to perform this task. The username field is the unique part of the user profile and channel urls. For example, it would be `channel1` for `https://www.withny.fun/channels/channel1`.
+
+Records that match the filter gets passed to the `withny.live` action, that waits for upcoming livestreams to go live and attempts to fetch HLS playlist url. If the url was retrieved successfully, record is then fed into the `execute` plugin entity to preform download. This example uses yt-dlp as downloader, so it must be available.
+
+If the `withny.live` action was unable to retrieve playlist url, an event is generated and passed down the chain instead of the record. Note how the entity of the 'execute' plugin has the "event_passthrough" option enabled to skip processing them.
+
+```yaml
+actors:
+
+  withny:
+    entities:
+      - name: "streams"
+        update_interval: 180
+        update_ratio: 4
+        quiet_first_time: false
+
+  filter.match:
+    entities:
+      - name: "withny channels"
+        patterns:
+          - "channel1"
+          - "channel2"
+          - "channel3"
+        fields:
+          - "username"
+
+  withny.live:
+    entities:
+      - name: "streams"
+        cookies_file: "cookies.txt"
+
+  execute:
+    entities:
+      - name: "withny"
+        consume_record: false
+        event_passthrough: true
+        command: "yt-dlp --windows-filenames --add-header Referer:'https://withny.fun/' --add-header Origin:'https://withny.fun/' {playlist_url} --output '{start} [{username}] {title}.%(ext)s'"
+        working_dir: "archive/withny/{name} [{username}]/"
+        log_dir: "archive/rplay/logs/"
+        log_filename: "[{username}] {stream_id}.log"
+        report_finished: true
+
+chains:
+  "withny_dl":
+    - withny:
+        - "streams"
+    - filter.match:
+        - "withny channels"
+    - withny.live:
+        - "streams"
+    - execute:
+        - "withny"
 ```
