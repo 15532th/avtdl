@@ -8,14 +8,25 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 from aiohttp.abc import AbstractCookieJar
-from pydantic import FilePath, PositiveInt, field_validator
+from pydantic import Field, FilePath, PositiveInt, SerializeAsAny, field_validator
 
 from avtdl.core.db import BaseDbConfig, RecordDB
-from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext
+from avtdl.core.interfaces import Action, ActionEntity, Event, EventType, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import Delay, HttpClient, RetrySettings, StateStorage
 from avtdl.core.utils import JSONType, SessionStorage, get_cookie_value, jwt_decode, load_cookies
 from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
+
+
+class WithnyLiveErrorEvent(Event):
+    """Produced on failure to process a livestream"""
+    event_type: str = EventType.error
+    """text describing the nature of event, can be used to filter classes of events, such as errors"""
+    record: SerializeAsAny[Optional[WithnyRecord]] = Field(exclude=True, default=None)
+    """record that was being processed when this event happened"""
+
+    def __str__(self):
+        return f'Processing stream {self.record.stream_id} failed: {self.text}\n[{self.record.name}] {self.record.title}\n{self.record.url}'
 
 
 class AuthToken:
@@ -271,14 +282,17 @@ class WithnyLive(Action):
                                    base_update_interval: float) -> Tuple[Optional[WithnyRecord], float]:
         updated_record = None
         if record.schedule_id is not None:
+            self.logger.debug(f'stream {record.stream_id} is scheduled, using schedule_id')
             url = f'https://www.withny.fun/api/schedules/{record.schedule_id}'
-            record_data, update_interval = await self.request_json(url, base_update_interval, update_interval, client)
-            updated_record = self.parse_record(record_data, parse_schedule_record)
+            maybe_record_data, update_interval = await self.request_json(url, base_update_interval, update_interval,
+                                                                         client)
+            updated_record = self.parse_record(maybe_record_data, parse_schedule_record)
         if record.schedule_id is None or updated_record is None:
+            self.logger.debug(f'stream {record.stream_id} is not scheduled, using stream_id')
             url = f'https://www.withny.fun/api/streams/with-rooms?username={record.username}'
-            data, update_interval = await self.request_json(url, base_update_interval, update_interval, client)
-            record_data = find_stream_data(data, record.stream_id)
-            updated_record = self.parse_record(record_data, parse_live_record)
+            maybe_data, update_interval = await self.request_json(url, base_update_interval, update_interval, client)
+            maybe_record_data = find_stream_data(maybe_data, record.stream_id)
+            updated_record = self.parse_record(maybe_record_data, parse_live_record)
 
         return updated_record, update_interval
 
@@ -310,6 +324,8 @@ class WithnyLive(Action):
             elif record.scheduled is None:
                 self.logger.debug(
                     f'stream {record.stream_id} has neither start nor scheduled date, dropping record {record!r}')
+                msg = 'stream has neither start nor scheduled date'
+                self.on_record(entity, WithnyLiveErrorEvent(text=msg))
                 return
             else:
                 self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: scheduled {record.scheduled}')
@@ -325,17 +341,21 @@ class WithnyLive(Action):
         else:
             self.logger.debug(
                 f'stream {record.stream_id} is not live after {entity.poll_attempts} checks, dropping record {record!r}')
+            msg = f"stream didn't go live after {entity.poll_interval * entity.poll_attempts} seconds"
+            self.on_record(entity, WithnyLiveErrorEvent(text=msg))
             return
 
         # stream is now live for sure, try fetching stream_url
         logged_in = await ensure_login(client, self.logger)
         if not logged_in:
             self.logger.warning(f'login failed, aborting processing')
+            self.on_record(entity, WithnyLiveErrorEvent(text='login failed'))
             return
         auth = AuthToken.from_cookies(session.cookie_jar)
         stream_url = await fetch_stream_url(client, self.logger, record.stream_id, auth)
         if stream_url is None:
             self.logger.warning(f'failed to fetch stream_url for stream {record.stream_id}')
+            self.on_record(entity, WithnyLiveErrorEvent(text='retrieving playlist url failed'))
             return
 
         record.playlist_url = stream_url
