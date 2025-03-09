@@ -22,7 +22,7 @@ class WithnyLiveErrorEvent(Event):
     """Produced on failure to process a livestream"""
     event_type: str = EventType.error
     """text describing the nature of event, can be used to filter classes of events, such as errors"""
-    record: SerializeAsAny[Optional[WithnyRecord]] = Field(exclude=True, default=None)
+    record: SerializeAsAny[Optional[WithnyRecord]] = Field(exclude=True)
     """record that was being processed when this event happened"""
 
     def __str__(self):
@@ -318,7 +318,7 @@ class WithnyLive(Action):
             if record.end is not None:
                 self.logger.debug(f'stream {record.stream_id} has ended at {record.end}: {record!r}')
                 msg = 'stream has already ended'
-                self.on_record(entity, WithnyLiveErrorEvent(text=msg))
+                self.on_record(entity, WithnyLiveErrorEvent(text=msg, record=record))
                 return
             elif record.start is not None:
                 self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: {record.username} is live')
@@ -327,7 +327,7 @@ class WithnyLive(Action):
                 self.logger.debug(
                     f'stream {record.stream_id} has neither start nor scheduled date, dropping record {record!r}')
                 msg = 'stream has neither start nor scheduled date'
-                self.on_record(entity, WithnyLiveErrorEvent(text=msg))
+                self.on_record(entity, WithnyLiveErrorEvent(text=msg, record=record))
                 return
             else:
                 self.logger.debug(f'stream {record.stream_id}, attempt {attempt}: scheduled {record.scheduled}')
@@ -344,20 +344,20 @@ class WithnyLive(Action):
             self.logger.debug(
                 f'stream {record.stream_id} is not live after {entity.poll_attempts} checks, dropping record {record!r}')
             msg = f"stream didn't go live after {entity.poll_interval * entity.poll_attempts} seconds"
-            self.on_record(entity, WithnyLiveErrorEvent(text=msg))
+            self.on_record(entity, WithnyLiveErrorEvent(text=msg, record=record))
             return
 
         # stream is now live for sure, try fetching stream_url
         logged_in = await ensure_login(client, self.logger)
         if not logged_in:
             self.logger.warning(f'login failed, aborting processing')
-            self.on_record(entity, WithnyLiveErrorEvent(text='login failed'))
+            self.on_record(entity, WithnyLiveErrorEvent(text='login failed', record=record))
             return
         auth = AuthToken.from_cookies(session.cookie_jar)
         stream_url = await fetch_stream_url(client, self.logger, record.stream_id, auth)
         if stream_url is None:
             self.logger.warning(f'failed to fetch stream_url for stream {record.stream_id}')
-            self.on_record(entity, WithnyLiveErrorEvent(text='retrieving playlist url failed'))
+            self.on_record(entity, WithnyLiveErrorEvent(text='retrieving playlist url failed', record=record))
             return
 
         record.playlist_url = stream_url
