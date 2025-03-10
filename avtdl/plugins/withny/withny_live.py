@@ -4,7 +4,6 @@ import json
 import logging
 import urllib.parse
 from http.cookies import SimpleCookie
-from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 from aiohttp.abc import AbstractCookieJar
@@ -14,7 +13,8 @@ from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Event, EventType, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import Delay, HttpClient, RetrySettings, StateStorage
-from avtdl.core.utils import JSONType, SessionStorage, get_cookie_value, jwt_decode, load_cookies
+from avtdl.core.utils import CookieStoreError, JSONType, SessionStorage, get_cookie_value, jwt_decode, load_cookies, \
+    store_cookies
 from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
 
 
@@ -95,27 +95,8 @@ def has_expired(expiration_timestamp: str) -> bool:
     return expiration_date < now + datetime.timedelta(minutes=1)
 
 
-async def ensure_login(client: HttpClient, logger: logging.Logger) -> bool:
-    try:
-        auth = AuthToken.from_cookies(client.cookie_jar)
-    except ValueError:
-        auth = None
-    if auth is None:
-        logger.warning(f'failed to login: error loading data from cookies')
-        return False
-    elif has_expired(auth.refresh_token_expiration):
-        # no point checking auth token here, since it does not outlive refresh token
-        logger.warning(f'failed to login: cookies has expired')
-        return False
-    elif has_expired(auth.token_expiration):
-        ok = await refresh_auth(client, logger)
-        return ok
-    else:
-        logger.debug('valid auth token is already present in cookies')
-        return True
-
-
-async def perform_login(client: HttpClient, logger: logging.Logger, username: str, password: str) -> bool:
+async def perform_login(client: HttpClient, logger: logging.Logger, username: str, password: str) -> Optional[
+    AuthToken]:
     """Make request to log in, update session's cookie jar"""
     url = 'https://www.withny.fun/api/auth/login'
     data = json.dumps({'email': username, 'password': password})
@@ -123,13 +104,13 @@ async def perform_login(client: HttpClient, logger: logging.Logger, username: st
     return await make_auth_request(client, logger, url, data, headers)
 
 
-async def refresh_auth(client: HttpClient, logger: logging.Logger) -> bool:
+async def refresh_auth(client: HttpClient, logger: logging.Logger) -> Optional[AuthToken]:
     """Make request to refresh auth token, update client's cookie jar"""
     try:
         auth = AuthToken.from_cookies(client.cookie_jar)
     except Exception as e:
         logger.debug(f'[login] failed to refresh token: error when parsing cookies: {type(e)}, {e}')
-        return False
+        return None
     url = 'https://www.withny.fun/api/auth/token'
     data = json.dumps({'refreshToken': auth.refresh_token})
     headers = {'Referer': 'https://www.withny.fun/', 'Content-Type': 'application/json'}
@@ -137,21 +118,21 @@ async def refresh_auth(client: HttpClient, logger: logging.Logger) -> bool:
 
 
 async def make_auth_request(client: HttpClient, logger: logging.Logger, url: str, data,
-                            headers: Optional[dict] = None):
+                            headers: Optional[dict] = None) -> Optional[AuthToken]:
     result = await client.request_json(url, method='POST', data=data, headers=headers,
                                        settings=RetrySettings(retry_times=2))
     if result is None:
-        return False
+        return None
     try:
         if not isinstance(result, dict):
             raise ValueError('unexpected response format')
         new_auth = AuthToken.from_login_data(result)
         new_auth.set_cookies(client.cookie_jar)
-        return True
+        return new_auth
     except Exception as e:
         logger.exception(
             f'[login] failed to log in: error when parsing response: {type(e)}, {e}. Raw response: {result}')
-        return False
+        return None
 
 
 async def fetch_stream_url(client: HttpClient,
@@ -194,7 +175,7 @@ class WithnyLiveConfig(BaseDbConfig):
 
 @Plugins.register('withny.live', Plugins.kind.ACTOR_ENTITY)
 class WithnyLiveEntity(ActionEntity):
-    cookies_file: Optional[FilePath]
+    cookies_file: FilePath
     """path to a text file containing cookies in Netscape format"""
     poll_interval: PositiveInt = 30
     """how often live status of the stream that should have started by now is updated, in seconds"""
@@ -203,9 +184,7 @@ class WithnyLiveEntity(ActionEntity):
 
     @field_validator('cookies_file')
     @classmethod
-    def check_cookies(cls, path: Optional[Path]):
-        if path is None:
-            return None
+    def check_cookies(cls, path: FilePath):
         try:
             load_cookies(path, raise_on_error=True)
         except Exception as e:
@@ -298,6 +277,30 @@ class WithnyLive(Action):
 
         return updated_record, update_interval
 
+    async def ensure_login(self, client: HttpClient, entity: WithnyLiveEntity) -> Optional[AuthToken]:
+        try:
+            auth = AuthToken.from_cookies(client.cookie_jar)
+        except ValueError:
+            self.logger.warning(f'[{entity.name}] failed to login: error loading data from cookies')
+            return None
+        if has_expired(auth.refresh_token_expiration):
+            # no point checking auth token here, since it does not outlive refresh token
+            self.logger.warning(f'[{entity.name}] failed to login: cookies has expired')
+            return None
+        elif not has_expired(auth.token_expiration):
+            self.logger.debug(f'[{entity.name}] skipping logging in, valid auth token is already present in cookies')
+            return auth
+        else:
+            new_auth = await refresh_auth(client, self.logger)
+            if new_auth is None:
+                return None
+            self.logger.debug(f'[{entity.name}] storing refreshed cookies to "{entity.cookies_file}"')
+            try:
+                store_cookies(client.cookie_jar, str(entity.cookies_file))
+            except CookieStoreError as e:
+                self.logger.warning(f'[{entity.name}] {e}')
+            return new_auth
+
     async def handle_stream(self, entity: WithnyLiveEntity, record: WithnyRecord):
         session = self.sessions.get_session(entity.cookies_file, name=entity.name)
         client = HttpClient(self.logger, session)
@@ -350,12 +353,11 @@ class WithnyLive(Action):
             return
 
         # stream is now live for sure, try fetching stream_url
-        logged_in = await ensure_login(client, self.logger)
-        if not logged_in:
+        auth = await self.ensure_login(client, entity)
+        if not auth:
             self.logger.warning(f'login failed, aborting processing')
             self.on_record(entity, WithnyLiveErrorEvent(text='login failed', record=record))
             return
-        auth = AuthToken.from_cookies(session.cookie_jar)
         stream_url = await fetch_stream_url(client, self.logger, record.stream_id, auth)
         if stream_url is None:
             self.logger.warning(f'failed to fetch stream_url for stream {record.stream_id}')
