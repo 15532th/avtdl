@@ -111,7 +111,7 @@ async def ensure_login(client: HttpClient, logger: logging.Logger) -> bool:
         ok = await refresh_auth(client, logger)
         return ok
     else:
-        # valid auth token is already present in cookies
+        logger.debug('valid auth token is already present in cookies')
         return True
 
 
