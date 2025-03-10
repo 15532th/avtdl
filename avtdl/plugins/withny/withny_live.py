@@ -89,10 +89,10 @@ class AuthToken:
 
 
 def has_expired(expiration_timestamp: str) -> bool:
-    ts = int(expiration_timestamp)
+    ts = int(expiration_timestamp) / 1000
     expiration_date = datetime.datetime.fromtimestamp(ts, tz=None)
     now = datetime.datetime.now(tz=None)
-    return expiration_date > now + datetime.timedelta(minutes=1)
+    return expiration_date < now + datetime.timedelta(minutes=1)
 
 
 async def ensure_login(client: HttpClient, logger: logging.Logger) -> bool:
