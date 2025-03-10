@@ -808,7 +808,7 @@ actors:
       - name: "withny"
         consume_record: false
         event_passthrough: true
-        command: "yt-dlp --windows-filenames --add-header Referer:'https://withny.fun/' --add-header Origin:'https://withny.fun/' {playlist_url} --output '{start} [{username}] {title}.%(ext)s'"
+        command: "yt-dlp --windows-filenames --add-header 'Origin: https://www.withny.fun/' --add-header 'Referer: https://www.withny.fun' --downloader ffmpeg --hls-use-mpegts {playlist_url} --output '{start} [{username}] {title}.%(ext)s'"
         working_dir: "archive/withny/{name} [{username}]/"
         log_dir: "archive/withny/logs/"
         log_filename: "[{username}] {stream_id}.log"
