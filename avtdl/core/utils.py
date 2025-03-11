@@ -53,41 +53,46 @@ def load_cookies(path: Optional[Path], raise_on_error: bool = False) -> Optional
 
 
 class CookieStoreError(Exception):
-    """Raised when store_cookies() failed"""
+    """Raised when save_cookies() failed"""
 
 
-def store_cookies(cookies: AbstractCookieJar, path: str):
-    cookie_jar = cookiejar.MozillaCookieJar()
-    for morsel in cookies:
-        domain = morsel.get('domain', '')
-        try:
-            cookie = http.cookiejar.Cookie(
-                version=morsel.get('version', 0),
-                name=morsel.key,
-                value=morsel.value,
-                port=None,
-                port_specified=False,
-                domain=domain or '',
-                domain_specified=bool(domain),
-                domain_initial_dot=domain.startswith('.'),
-                path=morsel.get('path', ''),
-                path_specified=bool(morsel.get('path')),
-                secure=morsel.get('secure', False),
-                expires=morsel.get('expires') or None,
-                discard=False,
-                comment=morsel.get('comment'),
-                comment_url=None,
-                rest={},
-            )
-        except Exception as e:
-            msg = f'error converting cookie value "{morsel}": {e}'
-            raise CookieStoreError(msg) from e
-        cookie_jar.set_cookie(cookie)
+def save_cookies(cookies: AbstractCookieJar, path: str):
+    try:
+        cookie_jar = unconvert_cookiejar(cookies)
+    except Exception as e:
+        msg = f'error converting cookie jar: {e}'
+        raise CookieStoreError(msg) from e
     try:
         cookie_jar.save(path, ignore_discard=True, ignore_expires=True)
     except Exception as e:
         msg = f'failed to store cookies to "{path}": {e}'
         raise CookieStoreError(msg) from e
+
+
+def unconvert_cookiejar(cookies: AbstractCookieJar) -> cookiejar.MozillaCookieJar:
+    cookie_jar = cookiejar.MozillaCookieJar()
+    for morsel in cookies:
+        domain = morsel.get('domain', '')
+        cookie = http.cookiejar.Cookie(
+            version=morsel.get('version', 0),
+            name=morsel.key,
+            value=morsel.value,
+            port=None,
+            port_specified=False,
+            domain=domain or '',
+            domain_specified=bool(domain),
+            domain_initial_dot=domain.startswith('.'),
+            path=morsel.get('path', ''),
+            path_specified=bool(morsel.get('path')),
+            secure=morsel.get('secure', False),
+            expires=morsel.get('expires') or None,
+            discard=False,
+            comment=morsel.get('comment'),
+            comment_url=None,
+            rest={},
+        )
+        cookie_jar.set_cookie(cookie)
+    return cookie_jar
 
 
 def convert_cookiejar(cookie_jar: cookiejar.CookieJar) -> aiohttp.CookieJar:

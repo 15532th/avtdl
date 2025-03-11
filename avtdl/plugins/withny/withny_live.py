@@ -14,7 +14,7 @@ from avtdl.core.interfaces import Action, ActionEntity, Event, EventType, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import Delay, HttpClient, RetrySettings, StateStorage
 from avtdl.core.utils import CookieStoreError, JSONType, SessionStorage, get_cookie_value, jwt_decode, load_cookies, \
-    store_cookies
+    save_cookies
 from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
 
 
@@ -296,7 +296,7 @@ class WithnyLive(Action):
                 return None
             self.logger.debug(f'[{entity.name}] storing refreshed cookies to "{entity.cookies_file}"')
             try:
-                store_cookies(client.cookie_jar, str(entity.cookies_file))
+                save_cookies(client.cookie_jar, str(entity.cookies_file))
             except CookieStoreError as e:
                 self.logger.warning(f'[{entity.name}] {e}')
             return new_auth
