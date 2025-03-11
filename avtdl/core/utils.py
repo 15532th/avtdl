@@ -21,6 +21,7 @@ from time import perf_counter
 from typing import Any, Dict, Hashable, List, Mapping, MutableMapping, Optional, Tuple, Union
 
 import aiohttp
+import dateutil.parser
 import lxml.html
 from aiohttp.abc import AbstractCookieJar
 from jsonpath import JSONPath
@@ -69,12 +70,23 @@ def save_cookies(cookies: AbstractCookieJar, path: str):
         raise CookieStoreError(msg) from e
 
 
+def parse_to_timestamp(text: Optional[str]) -> Optional[int]:
+    if text is None:
+        return None
+    try:
+        dt = dateutil.parser.parse(str(text))
+    except Exception:
+        return None
+    return int(dt.timestamp())
+
+
 def unconvert_cookiejar(cookies: AbstractCookieJar) -> cookiejar.MozillaCookieJar:
     cookie_jar = cookiejar.MozillaCookieJar()
     for morsel in cookies:
         domain = morsel.get('domain', '')
+        expires = parse_to_timestamp(morsel.get('expires'))
         cookie = http.cookiejar.Cookie(
-            version=morsel.get('version', 0),
+            version=morsel.get('version') or 0,
             name=morsel.key,
             value=morsel.value,
             port=None,
@@ -84,8 +96,8 @@ def unconvert_cookiejar(cookies: AbstractCookieJar) -> cookiejar.MozillaCookieJa
             domain_initial_dot=domain.startswith('.'),
             path=morsel.get('path', ''),
             path_specified=bool(morsel.get('path')),
-            secure=morsel.get('secure', False),
-            expires=morsel.get('expires') or None,
+            secure=morsel.get('secure') or False,
+            expires=expires,
             discard=False,
             comment=morsel.get('comment'),
             comment_url=None,
@@ -95,18 +107,29 @@ def unconvert_cookiejar(cookies: AbstractCookieJar) -> cookiejar.MozillaCookieJa
     return cookie_jar
 
 
+def parse_to_date_string(text: Union[int, str, None]) -> Optional[str]:
+    if text is None:
+        return None
+    try:
+        dt = dateutil.parser.parse(str(text))
+    except Exception:
+        return None
+    date_string = dt.strftime('%a, %d-%b-%y %H:%M:%S GMT')
+    return date_string
+
+
 def convert_cookiejar(cookie_jar: cookiejar.CookieJar) -> aiohttp.CookieJar:
     """convert cookie jar produced by stdlib to format used by aiohttp"""
     cookies: http.cookies.BaseCookie = http.cookies.BaseCookie()
     for cookie in cookie_jar:
         name = cookie.name
         cookies[name] = cookie.value or ''
-        cookies[name]['domain'] = cookie.domain
-        cookies[name]['path'] = cookie.path
-        cookies[name]['expires'] = str(cookie.expires)
-        cookies[name]['secure'] = cookie.secure
-        cookies[name]['version'] = str(cookie.version)
-        cookies[name]['comment'] = cookie.comment
+        cookies[name]['domain'] = cookie.domain or ''
+        cookies[name]['path'] = cookie.path or ''
+        cookies[name]['expires'] = parse_to_date_string(cookie.expires) or ''
+        cookies[name]['secure'] = cookie.secure or ''
+        cookies[name]['version'] = str(cookie.version) if cookie.version else ''
+        cookies[name]['comment'] = cookie.comment or ''
     new_jar = aiohttp.CookieJar(quote_cookie=False)
     new_jar.update_cookies(cookies)
     return new_jar
