@@ -30,6 +30,10 @@ class WithnyLiveErrorEvent(Event):
         return f'Processing stream {self.record.stream_id} failed: {self.text}\n[{self.record.name}] {self.record.title}\n{self.record.url}'
 
 
+def timestamp_now_ms() -> float:
+    return datetime.datetime.now().timestamp() * 1000
+
+
 class AuthToken:
     local_names = {
         'token': 'auth._token.local',
@@ -48,10 +52,10 @@ class AuthToken:
         return f'AuthToken(token={self.token}, token_expiration={self.token_expiration}, self.refresh_token={self.refresh_token}, self.refresh_token_expiration={self.refresh_token_expiration})'
 
     def expired(self) -> bool:
-        return int(self.token_expiration) > int(datetime.datetime.now().timestamp() * 1000)
+        return int(self.token_expiration) < timestamp_now_ms()
 
     def refreshable(self) -> bool:
-        return int(self.refresh_token_expiration) > int(datetime.datetime.now().timestamp() * 1000)
+        return int(self.refresh_token_expiration) > timestamp_now_ms()
 
     @property
     def plain_token(self) -> str:
@@ -89,10 +93,7 @@ class AuthToken:
 
 
 def has_expired(expiration_timestamp: str) -> bool:
-    ts = int(expiration_timestamp) / 1000
-    expiration_date = datetime.datetime.fromtimestamp(ts, tz=None)
-    now = datetime.datetime.now(tz=None)
-    return expiration_date < now + datetime.timedelta(minutes=1)
+    return int(expiration_timestamp) < timestamp_now_ms() + 60000
 
 
 async def perform_login(client: HttpClient, logger: logging.Logger, username: str, password: str) -> Optional[
@@ -120,7 +121,7 @@ async def refresh_auth(client: HttpClient, logger: logging.Logger) -> Optional[A
 async def make_auth_request(client: HttpClient, logger: logging.Logger, url: str, data,
                             headers: Optional[dict] = None) -> Optional[AuthToken]:
     result = await client.request_json(url, method='POST', data=data, headers=headers,
-                                       settings=RetrySettings(retry_times=2))
+                                       settings=RetrySettings(retry_times=1))
     if result is None:
         return None
     try:
@@ -291,6 +292,8 @@ class WithnyLive(Action):
             self.logger.debug(f'[{entity.name}] skipping logging in, valid auth token is already present in cookies')
             return auth
         else:
+            expiration = datetime.timedelta(seconds=(timestamp_now_ms() - int(auth.token_expiration)) / 1000)
+            self.logger.debug(f'[{entity.name}] token expired {expiration} ago, refreshing')
             new_auth = await refresh_auth(client, self.logger)
             if new_auth is None:
                 return None
