@@ -16,6 +16,10 @@ from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_seriali
 MAX_REPR_LEN = 60
 
 
+def utcnow() -> datetime.datetime:
+    return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
 class Record(BaseModel):
     '''Data entry, passed around from Monitors to Actions through Filters'''
 
@@ -26,7 +30,7 @@ class Record(BaseModel):
     chain: str = Field(default='', exclude=True)
     """name of the Chain this record is going through.
     Empty string means it was just produced and should go to every subscriber"""
-    created_at: datetime.datetime = Field(default_factory=datetime.datetime.now, exclude=True)
+    created_at: datetime.datetime = Field(default_factory=utcnow, exclude=True)
     """record creation timestamp"""
     @abstractmethod
     def __str__(self) -> str:
