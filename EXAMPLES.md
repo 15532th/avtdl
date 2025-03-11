@@ -774,13 +774,6 @@ If the `withny.live` action was unable to retrieve the playlist url, an event is
 ```yaml
 actors:
 
-  to_file:
-    entities:
-      - name: "failed withny streams"
-        consume_record: false
-        filename: "failed streams.txt"
-        path: "archive/withny"
-
   withny:
     entities:
       - name: "streams"
@@ -798,6 +791,10 @@ actors:
         fields:
           - "username"
 
+  filter.event:
+    entities:
+      - name: "events"
+
   withny.live:
     entities:
       - name: "streams"
@@ -813,6 +810,13 @@ actors:
         log_dir: "archive/withny/logs/"
         log_filename: "[{username}] {stream_id}.log"
 
+  to_file:
+    entities:
+      - name: "failed withny streams"
+        filename: "failed streams.txt"
+        path: "archive/withny"
+        postfix: '\n--------------------\n'
+
 chains:
   "withny_dl":
     - withny:
@@ -823,6 +827,8 @@ chains:
         - "streams"
     - execute:
         - "withny"
+    - filter.event:
+        - "events"
     - to_file:
         - "failed withny streams"
 ```
