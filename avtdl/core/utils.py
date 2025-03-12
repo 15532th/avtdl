@@ -84,7 +84,7 @@ def unconvert_cookiejar(cookies: AbstractCookieJar) -> cookiejar.MozillaCookieJa
     cookie_jar = cookiejar.MozillaCookieJar()
     for morsel in cookies:
         domain = morsel.get('domain', '')
-        expires = parse_to_timestamp(morsel.get('expires'))
+        expires = parse_to_timestamp(morsel.get('expires')) or 0
         cookie = http.cookiejar.Cookie(
             version=morsel.get('version') or 0,
             name=morsel.key,
