@@ -114,7 +114,10 @@ async def refresh_auth(client: HttpClient, logger: logging.Logger) -> Optional[A
         return None
     url = 'https://www.withny.fun/api/auth/token'
     data = json.dumps({'refreshToken': auth.refresh_token})
-    headers = {'Referer': 'https://www.withny.fun/', 'Content-Type': 'application/json'}
+    headers = {'Referer': 'https://www.withny.fun/',
+               'Origin': 'https: // www.withny.fun',
+               'Content-Type': 'application/json;charset=utf-8',
+               'Authorization': auth.plain_token}
     return await make_auth_request(client, logger, url, data, headers)
 
 
