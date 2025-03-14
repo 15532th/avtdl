@@ -279,7 +279,7 @@ def sanitize_filename(name: str) -> str:
 
 
 class OutputFormat(str, Enum):
-    str = 'text'
+    text = 'text'
     repr = 'short'
     json = 'json'
     pretty_json = 'pretty_json'
@@ -357,9 +357,9 @@ class Fmt:
         return f'<t:{ts}>'
 
     @classmethod
-    def save_as(cls, record: Record, output_format: OutputFormat = OutputFormat.str) -> str:
+    def save_as(cls, record: Record, output_format: OutputFormat = OutputFormat.text) -> str:
         """Take a record and convert in to string as text/json or sha1"""
-        if output_format == OutputFormat.str:
+        if output_format == OutputFormat.text:
             return str(record)
         if output_format == OutputFormat.repr:
             return repr(record)

@@ -230,7 +230,7 @@ class FileActionEntity(ActionEntity):
     """name of the output file. Supports templating with {...}"""
     encoding: Optional[str] = 'utf8'
     """output file encoding"""
-    output_format: OutputFormat = Field(default=OutputFormat.str, description='one of `' + "`, `".join(OutputFormat.__members__) + '`')
+    output_format: OutputFormat = Field(default=OutputFormat.text, description='one of `' + "`, `".join(OutputFormat.__members__) + '`')
     """should record be written in output file as plain text or json"""
     output_template: Optional[str] = None
     """if provided, it will be used as a template to format processed record. Only works with `output_format` set to plain text"""
@@ -296,7 +296,7 @@ class FileAction(Action):
             return
         mode = 'at' if entity.append else 'wt'
         try:
-            if entity.output_template is not None and entity.output_format == OutputFormat.str:
+            if entity.output_template is not None and entity.output_format == OutputFormat.text:
                 text = Fmt.format(entity.output_template, record, entity.missing, tz=entity.timezone)
             else:
                 text = Fmt.save_as(record, entity.output_format)
