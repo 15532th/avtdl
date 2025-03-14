@@ -815,7 +815,7 @@ actors:
       - name: "failed withny streams"
         filename: "failed streams.txt"
         path: "archive/withny"
-        postfix: '\n--------------------\n'
+        postfix: "\n--------------------\n"
 
 chains:
   "withny_dl":
