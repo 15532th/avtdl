@@ -227,15 +227,13 @@ class TasksController:
     class TerminatedError(KeyboardInterrupt):
         """Raised when application restart is requested"""
 
-    _tasks: set[asyncio.Task] = set()
-
     def __init__(self, poll_interval: float = 5, logger: Optional[logging.Logger] = None) -> None:
         self.logger = logger or logging.getLogger('task_controller')
         self.poll_interval = poll_interval
         self.termination_pending = False
         self.termination_required = False
         self.terminated_action = TerminatedAction.EXIT
-        self.tasks = self._tasks
+        self.tasks: set[asyncio.Task] = set()
 
     def create_task(self, coro: Coroutine, *, name: Optional[str] = None) -> asyncio.Task:
         task = asyncio.create_task(coro, name=name)
