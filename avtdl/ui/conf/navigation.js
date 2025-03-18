@@ -1,4 +1,9 @@
 class MenuItem {
+    /**
+     * @param {string} name
+     * @param {MenuItem | null | undefined} [parent]
+     * @param {HTMLElement | undefined} [container]
+     */
     constructor(name, parent, container) {
         this.name = name;
         this.parent = parent || null;
@@ -54,6 +59,9 @@ class MenuItem {
         return this.submenuContainer.style.display !== 'none';
     }
 
+    /**
+     * @param {boolean | undefined} [open]
+     */
     toggleSubmenu(open) {
         let isVisible = this.submenuIsOpen();
         if (typeof open === 'boolean') {
@@ -103,19 +111,25 @@ class MenuItem {
         }
     }
 
+    /**
+     * @param {string} name
+     */
     addSubmenu(name) {
-        const newItem = new MenuItem({ name, parent: this });
+        const newItem = new MenuItem(name, this);
         this.submenuContainer.appendChild(newItem.element);
         return newItem;
     }
 
+    /**
+     * @param {string} newName
+     */
     rename(newName) {
         this.text.textContent = newName;
     }
 
     remove() {
         if (this.parent) {
-            this.parent.submenuItems = this.parent.submenuItems.filter((item) => item !== this);
+            this.parent.submenuItems = this.parent.submenuItems.filter((/** @type {this} */ item) => item !== this);
         }
         this.element.remove();
     }
@@ -124,6 +138,9 @@ class MenuItem {
         return this.element;
     }
 
+    /**
+     * @param {HTMLElement} targetElement
+     */
     registerScrollHandler(targetElement) {
         this.text.onclick = () => {
             scrollIntoView(targetElement);

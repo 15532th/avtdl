@@ -1,3 +1,6 @@
+/**
+ * @param {string} message
+ */
 function createTooltip(message) {
     const showInfo = document.createElement('span');
     showInfo.className = 'show-info';
@@ -11,6 +14,10 @@ function createTooltip(message) {
     return showInfo;
 }
 
+/**
+ * @param {{ selectElement: (arg0: string) => any; }} showInfo
+ * @param {string} newMessage
+ */
 function updateTooltip(showInfo, newMessage) {
     const tooltip = showInfo.selectElement('.tooltip');
     if (!tooltip) {
@@ -19,6 +26,11 @@ function updateTooltip(showInfo, newMessage) {
     tooltip.innerHTML = newMessage;
 }
 
+/**
+ * @param {string} text
+ * @param {((this: GlobalEventHandlers, ev: MouseEvent) => any) | null} onClick
+ * @param {string} addClass
+ */
 function createButton(text, onClick, addClass) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -30,6 +42,10 @@ function createButton(text, onClick, addClass) {
     return button;
 }
 
+/**
+ * @param {string} text
+ * @param {string | null} tooltip
+ */
 function createFieldset(text, tooltip = null) {
     const fieldset = document.createElement('fieldset');
     if (text || tooltip !== null) {
@@ -47,6 +63,11 @@ function createFieldset(text, tooltip = null) {
     return fieldset;
 }
 
+/**
+ * @param {string | null} title
+ * @param {string | null} tooltip
+ * @param {string | null} headline
+ */
 function createDetails(title, tooltip = null, headline = null) {
     const details = document.createElement('details');
     const summary = document.createElement('summary');
@@ -64,6 +85,10 @@ function createDetails(title, tooltip = null, headline = null) {
     return details;
 }
 
+/**
+ * @param {string} text
+ * @param {string} title
+ */
 function createDefinition(text, title) {
     const dfn = document.createElement('dfn');
     dfn.innerText = text;
@@ -72,6 +97,11 @@ function createDefinition(text, title) {
     return dfn;
 }
 
+/**
+ * @param {string} tag
+ * @param {string | undefined} [className]
+ * @param {HTMLElement | undefined} [parentElement]
+ */
 function createElement(tag, className, parentElement) {
     const element = document.createElement(tag);
     if (className) {
@@ -83,6 +113,10 @@ function createElement(tag, className, parentElement) {
     return element;
 }
 
+/**
+ * @param {HTMLElement} container
+ * @param {HTMLInputElement | HTMLSelectElement | undefined} [associatedInput]
+ */
 function addErrorPlaceholder(container, associatedInput) {
     const errorMessage = document.createElement('div');
     errorMessage.classList.add('form-error');
@@ -98,6 +132,12 @@ function addErrorPlaceholder(container, associatedInput) {
     return errorMessage;
 }
 
+/**
+ * @param {string | null} prompt
+ * @param {string | undefined} [initialValue]
+ * @param {HTMLElement | undefined} [containerElement]
+ * @param {(value: string) => string | null} validator
+ */
 function getUserInput(
     prompt,
     initialValue,
@@ -154,8 +194,7 @@ function getUserInput(
         modalInput.addEventListener('keydown', function (event) {
             if (event.key === 'Enter' || event.key === 'NumpadEnter') {
                 acceptValue();
-            }
-            else if (event.key === 'Escape') {
+            } else if (event.key === 'Escape') {
                 rejectValue();
             }
         });
@@ -170,21 +209,31 @@ function getUserInput(
     });
 }
 
+/**
+ * @param {Node} node
+ */
 function openParentsDetails(node) {
+    /** @type {Node | null} */
     let currentNode = node;
 
-    while (currentNode && currentNode.tagName) {
-        if (currentNode.tagName.toLowerCase() === 'details') {
+    while (currentNode !== null) {
+        if (currentNode instanceof HTMLDetailsElement) {
             currentNode.open = true;
         }
         currentNode = currentNode.parentNode;
     }
 }
 
+/**
+ * @param {string} type
+ */
 function getActorTypeBgClass(type) {
     return 'bg-' + type.toLowerCase();
 }
 
+/**
+ * @param {HTMLElement} targetElement
+ */
 function scrollIntoView(targetElement) {
     openParentsDetails(targetElement);
     targetElement.scrollIntoView(true);
@@ -201,6 +250,9 @@ function scrollIntoView(targetElement) {
     }
 }
 
+/**
+ * @param {HTMLElement} element
+ */
 function changeElementVisibility(element, show = true) {
     if (!show) {
         element.style.display = 'none';
@@ -213,14 +265,24 @@ function getTimezonesList() {
     return document['TIMEZONES'] || [];
 }
 
+/**
+ * @param {HTMLDivElement} element
+ * @param {{ (): void; (): void; }} callback
+ */
 function registerOnClickOutside(element, callback) {
     document.addEventListener('click', (event) => {
+        // @ts-ignore
         if (!element.contains(event.target)) {
             callback();
         }
     });
 }
 
+/**
+ * @param {Node} element
+ * @param {{ (): void; (): void; (arg0: MutationRecord): void; }} callback
+ * @returns {{(): void}}
+ */
 function observeChildMutations(element, callback) {
     if (!window.MutationObserver) {
         console.error('MutationObserver is not supported in this browser.');
@@ -241,10 +303,19 @@ function observeChildMutations(element, callback) {
     return () => observer.disconnect();
 }
 
+/**
+ * @param {any[]} array
+ * @param {any} value
+ * @return {number}
+ */
 function countOccurrences(array, value) {
     return array.reduce((count, item) => (item === value ? count + 1 : count), 0);
 }
 
+/**
+ * @param {string} base
+ * @param {string[] | OrderedDict} usedNames
+ */
 function chooseNewName(base, usedNames) {
     let name = base;
     let start = 0;
@@ -309,6 +380,10 @@ class OrderedDict {
         });
     }
 
+    /**
+     * @param {PropertyKey} key
+     * @param {any} value
+     */
     set(key, value) {
         if (!this.data.hasOwnProperty(key)) {
             this.order.push(key);
@@ -316,6 +391,9 @@ class OrderedDict {
         this.data[key] = value;
     }
 
+    /**
+     * @param {PropertyKey} key
+     */
     get(key) {
         return this.data[key];
     }
@@ -326,6 +404,11 @@ class OrderedDict {
         }
     }
 
+    /**
+     * @param {PropertyKey} existingKey
+     * @param {PropertyKey} newKey
+     * @param {any} newValue
+     */
     insertAfter(existingKey, newKey, newValue) {
         if (newKey in this.data) {
             this.order.splice(this.order.indexOf(newKey), 1);
@@ -340,11 +423,19 @@ class OrderedDict {
         }
     }
 
+    /**
+     * @param {any} existingValue
+     * @param {PropertyKey} newKey
+     * @param {any} newValue
+     */
     insertAfterValue(existingValue, newKey, newValue) {
         const existingKey = this.order.find((key) => this.data[key] === existingValue);
         return this.insertAfter(existingKey, newKey, newValue);
     }
 
+    /**
+     * @param {PropertyKey} name
+     */
     move(name, steps = 1) {
         const index = this.order.indexOf(name);
         if (index > -1) {
@@ -364,6 +455,9 @@ class OrderedDict {
     }
 }
 
+/**
+ * @param {HTMLElement} element
+ */
 function moveElement(element, forward = true) {
     if (!element.parentElement) {
         return;
@@ -380,6 +474,11 @@ function moveElement(element, forward = true) {
     parent.insertBefore(element, sibling);
 }
 
+/**
+ * Get Retry-After value from response headers
+ *
+ * @param {Response} response
+ */
 function getRetryAfter(response) {
     const retryAfter = response.headers.get('Retry-After');
     if (retryAfter) {
@@ -393,6 +492,12 @@ function getRetryAfter(response) {
     return null;
 }
 
+/**
+ * Checks if the provided object or array is empty.
+ *
+ * @param {Object|any[]} obj
+ * @returns {boolean}
+ */
 function isEmpty(obj) {
     if (obj instanceof Array) {
         return obj.length === 0;

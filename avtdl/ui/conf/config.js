@@ -1,3 +1,7 @@
+/**
+ * @param {string} path
+ * @param {MessageArea | undefined} [messageArea]
+ */
 async function fetchJSON(path, messageArea, retries = 0) {
     let retryDelay = 3;
     try {
@@ -32,6 +36,10 @@ async function initializeTimezoneList() {
     }
 }
 
+/**
+ * @param {any[] | RawSection} rawSection
+ * @param {SettingsForm | ActorsForm | ChainsForm} form
+ */
 function registerFormContentMonitor(rawSection, form) {
     let updateInput = () => {
         const content = form.read();
@@ -43,11 +51,19 @@ function registerFormContentMonitor(rawSection, form) {
 }
 
 class MessageArea {
+    /**
+     * @param {HTMLElement} container
+     */
     constructor(container) {
         this.container = container;
     }
 
-    showMessage(message, type = 'success', onCLick = null) {
+    /**
+     * @param {string} message
+     * @param {string} type
+     * @param {{(): void} | null} onClick
+     */
+    showMessage(message, type = 'success', onClick = null) {
         const messageContainer = document.createElement('div');
         messageContainer.classList.add('message-container');
         messageContainer.classList.add(type);
@@ -63,10 +79,10 @@ class MessageArea {
             messageDiv.appendChild(p);
         }
 
-        if (onCLick instanceof Function) {
+        if (onClick instanceof Function) {
             messageDiv.style.cursor = 'pointer';
             messageDiv.addEventListener('click', () => {
-                onCLick();
+                onClick();
             });
         }
 
@@ -86,10 +102,17 @@ class MessageArea {
         return messageContainer;
     }
 
+    /**
+     * @param {string} message
+     * @param {{(): void} | null} onClick
+     */
     showError(message, onClick = () => {}) {
         return this.showMessage(message, 'error', onClick);
     }
 
+    /**
+     * @param {HTMLDivElement} node
+     */
     removeAfter(node, delay = 5000) {
         const remove = () => {
             try {
@@ -138,10 +161,15 @@ class RawSection {
 }
 
 class ConfigEditor {
+    /**
+     * @param {HTMLElement} container
+     * @param {MessageArea} messageArea
+     * @param {HTMLElement} navigationArea
+     */
     constructor(container, messageArea, navigationArea) {
         this.container = container;
         this.navigationArea = navigationArea;
-        this.messageArea = messageArea || new MessageArea();
+        this.messageArea = messageArea;
         this.sections = {};
     }
 
@@ -149,6 +177,9 @@ class ConfigEditor {
         return await fetchJSON(path, this.messageArea);
     }
 
+    /**
+     * @param {string} title
+     */
     makeTopLevelSectionContainer(title) {
         const details = document.createElement('details');
         details.open = true;
@@ -207,6 +238,10 @@ class ConfigEditor {
         this.addActionBar();
     }
 
+    /**
+     * @param {any} sectionData
+     * @param {HTMLDetailsElement} sectionContainer
+     */
     async createSettings(sectionData, sectionContainer) {
         const menu = new MenuItem('Settings', null, this.navigationArea);
 
@@ -224,6 +259,10 @@ class ConfigEditor {
         return form;
     }
 
+    /**
+     * @param {any} sectionData
+     * @param {HTMLDetailsElement} sectionContainer
+     */
     async createActors(sectionData, sectionContainer) {
         const menu = new MenuItem('Actors', null, this.navigationArea);
 
@@ -241,6 +280,11 @@ class ConfigEditor {
         return form;
     }
 
+    /**
+     * @param {any} sectionData
+     * @param {HTMLDetailsElement} sectionContainer
+     * @param {ActorsInfo} info
+     */
     async createChains(sectionData, sectionContainer, info) {
         const menu = new MenuItem('Chains', null, this.navigationArea);
 
@@ -285,6 +329,10 @@ class ConfigEditor {
         return submitForm;
     }
 
+    /**
+     * @param {{}} data
+     * @param {string} mode
+     */
     async submitConfig(data, mode) {
         this.messageArea.clear();
         try {
@@ -321,6 +369,9 @@ class ConfigEditor {
         }
     }
 
+    /**
+     * @param {string} errorResponseText
+     */
     fillValidationError(errorResponseText) {
         const badResponse = 'failed to process server response to invalid config: ';
         const data = JSON.parse(errorResponseText);
@@ -354,6 +405,9 @@ class ConfigEditor {
     }
 }
 
+/**
+ * @param {MessageArea} messageArea
+ */
 function showMOTD(messageArea) {
     fetchJSON('/motd', this.messageArea, 10).then((motd_data) => {
         if (motd_data) {
@@ -366,7 +420,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const outputDiv = document.getElementById('output');
     const messageAreaDiv = document.getElementById('message-area');
     const navigationAreaDiv = document.getElementById('sidebar');
-
+    if (outputDiv == null || messageAreaDiv == null || navigationAreaDiv == null) {
+        console.log('missing page elements to mount on')
+        return;
+    }
     const messageArea = new MessageArea(messageAreaDiv);
     const configForm = new ConfigEditor(outputDiv, messageArea, navigationAreaDiv);
     configForm.render();

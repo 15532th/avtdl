@@ -1,4 +1,12 @@
 class EntitiesList {
+    /**
+     * @param {string} name
+     * @param {any} schema
+     * @param {HTMLElement | null} container
+     * @param {MenuItem} parentMenu
+     * @param {(oldName: string | null, newName: string | null) => void} onEntityChange
+     * @param {HistoryView} historyView
+     */
     constructor(name, schema, container = null, parentMenu, onEntityChange = (oldName, newName) => {}, historyView) {
         this.actorName = name;
         this.schema = schema;
@@ -18,6 +26,10 @@ class EntitiesList {
         return this.entries.length == 0;
     }
 
+    /**
+     * @param {{ [x: string]: any; } | null} data
+     * @returns {[Fieldset, HTMLDivElement]}
+     */
     createEntry(data) {
         const entryDiv = document.createElement('div');
         entryDiv.classList.add('entry-container');
@@ -39,9 +51,13 @@ class EntitiesList {
         copyButton.title = 'Duplicate entity';
         buttonsContainer.appendChild(copyButton);
 
-        const historyButton = createButton('ⓘ', () => {
-            this.historyView.showHistory(this.actorName, entity.getName());
-        }, 'entry-button');
+        const historyButton = createButton(
+            'ⓘ',
+            () => {
+                this.historyView.showHistory(this.actorName, entity.getName());
+            },
+            'entry-button'
+        );
         historyButton.title = 'Show recent records';
         buttonsContainer.appendChild(historyButton);
 
@@ -67,6 +83,10 @@ class EntitiesList {
         this.entries.push(entity);
     }
 
+    /**
+     * @param {Fieldset} entry
+     * @param {HTMLDivElement} entryDiv
+     */
     copyEntry(entry, entryDiv) {
         const data = entry.read();
         data['name'] = chooseNewName(data['name'], this.listEntries()) || data['name'];
@@ -79,6 +99,10 @@ class EntitiesList {
         this.entries.splice(pos, 0, newEntity);
     }
 
+    /**
+     * @param {Fieldset} entry
+     * @param {HTMLDivElement} entryDiv
+     */
     deleteEntry(entry, entryDiv) {
         this.container.removeChild(entryDiv);
         this.entries = this.entries.filter((x) => x !== entry);
@@ -97,6 +121,9 @@ class EntitiesList {
         return names;
     }
 
+    /**
+     * @param {string} name
+     */
     isNameUsed(name) {
         const sameNameEntries = [];
         for (const entry of this.entries) {
@@ -107,6 +134,11 @@ class EntitiesList {
         return sameNameEntries.length > 0;
     }
 
+    /**
+     * @param {string | null} oldName
+     * @param {string | null} newName
+     * @param {NameInputField | null} nameField
+     */
     handleNameUpdate(oldName, newName, nameField) {
         const sameNameEntries = [];
         for (const entry of this.entries) {
@@ -123,6 +155,9 @@ class EntitiesList {
         this.onEntityChange(oldName, newName);
     }
 
+    /**
+     * @param {string} entryName
+     */
     getEntry(entryName) {
         for (const entry of this.entries) {
             if (entryName == entry.getName()) {
@@ -140,6 +175,10 @@ class EntitiesList {
         return data;
     }
 
+    /**
+     * @param {string | any[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length > 1) {
@@ -155,6 +194,17 @@ class EntitiesList {
 }
 
 class ActorSection {
+    /**
+     * @param {string} name
+     * @param {any} data
+     * @param {string} info
+     * @param {string} type
+     * @param {any} configSchema
+     * @param {any} entitiesSchema
+     * @param {MenuItem | null | undefined} parentMenu
+     * @param {{ (actorName: string, oldName: string?, newName: string?): void}} onEntityChange
+     * @param {HistoryView} historyView
+     */
     constructor(name, data, info, type, configSchema, entitiesSchema, parentMenu, onEntityChange, historyView) {
         this.name = name;
         this.info = info;
@@ -183,10 +233,14 @@ class ActorSection {
         this.entities = this.generateEntities(data, this.menu, historyView);
     }
 
-    onEntityChange = (oldName, newName) => {
+    onEntityChange = (/** @type {string?} */ oldName, /** @type {string?} */ newName) => {
         this.onAnyEntityChange(this.name, oldName, newName);
     };
 
+    /**
+     * @param {string} name
+     * @param {string} description
+     */
     extendName(name, description) {
         let tempDiv = document.createElement('div');
         tempDiv.innerHTML = description;
@@ -220,10 +274,22 @@ class ActorSection {
         return config;
     }
 
+    /**
+     * @param {{ entities: any[]; defaults: {}; }} data
+     * @param {MenuItem} menu
+     * @param {HistoryView} historyView
+     */
     generateEntities(data, menu, historyView) {
         const entitiesFieldset = createFieldset('entities');
         entitiesFieldset.classList.add('entities');
-        const entitiesList = new EntitiesList(this.name, this.entitiesSchema, entitiesFieldset, menu, this.onEntityChange, historyView);
+        const entitiesList = new EntitiesList(
+            this.name,
+            this.entitiesSchema,
+            entitiesFieldset,
+            menu,
+            this.onEntityChange,
+            historyView
+        );
         this.container.appendChild(entitiesFieldset);
 
         if (data.entities) {
@@ -257,6 +323,10 @@ class ActorSection {
         data['entities'] = this.entities.read();
         return data;
     }
+    /**
+     * @param {string | any[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length > 1) {
@@ -274,6 +344,9 @@ class ActorSection {
 }
 
 class ActorsForm {
+    /**
+     * @param {MenuItem} menu
+     */
     constructor(data, actorsModel, menu) {
         this.container = document.createElement('form');
         this.menu = menu;
@@ -316,6 +389,9 @@ class ActorsForm {
         }
     }
 
+    /**
+     * @param {string} type
+     */
     getSubcategoryHeader(type) {
         const header = document.createElement('h3');
         header.innerText = type;
@@ -324,10 +400,16 @@ class ActorsForm {
         return header;
     }
 
+    /** @param {(actorName: string, oldName: string?, newName: string?) => void} callback  */
     registerOnEntityChangeChangeHandler(callback = (actorName, oldName, newName) => {}) {
         this.onEntityChangeCallbacks.push(callback);
     }
 
+    /**
+     * @param {string} actorName
+     * @param {string?} oldName
+     * @param {string?} newName
+     */
     onEntityChange = (actorName, oldName, newName) => {
         for (const cb of this.onEntityChangeCallbacks) {
             cb(actorName, oldName, newName);
@@ -342,6 +424,9 @@ class ActorsForm {
         return names;
     }
 
+    /**
+     * @param {string} name
+     */
     getActor(name) {
         return this.actorSections[name];
     }
@@ -359,6 +444,10 @@ class ActorsForm {
         }
         return data;
     }
+    /**
+     * @param {string | any[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length > 2) {
@@ -373,6 +462,9 @@ class ActorsForm {
 }
 
 class ActorsInfo {
+    /**
+     * @param {HTMLFormElement} actorsForm
+     */
     constructor(actorsForm) {
         this.form = actorsForm;
         this.historyView = new HistoryView(document.body);
@@ -386,6 +478,9 @@ class ActorsInfo {
         return this._names;
     }
 
+    /**
+     * @param {string} actor
+     */
     listEntities(actor) {
         const actorSection = this.form.getActor(actor);
         if (!actorSection) {
@@ -394,6 +489,9 @@ class ActorsInfo {
         return actorSection.listEntities();
     }
 
+    /**
+     * @param {string} actor
+     */
     listInfo(actor) {
         const actorSection = this.form.getActor(actor);
         if (!actorSection) {
@@ -403,6 +501,7 @@ class ActorsInfo {
     }
 
     _generateTypes() {
+        /** @type {{[s: string]: string[]}} */
         const types = {};
         for (const name of this.listActors()) {
             const type = this.actorType(name);
@@ -421,6 +520,10 @@ class ActorsInfo {
         return this._types;
     }
 
+    /**
+     * @param {string} actor
+     * @returns {string?}
+     */
     actorType(actor) {
         const actorSection = this.form.getActor(actor);
         if (!actorSection) {
@@ -429,6 +532,10 @@ class ActorsInfo {
         return actorSection.type;
     }
 
+    /**
+     * @param {string} actorName
+     * @param {string} entityName
+     */
     getEntity(actorName, entityName) {
         if (this._names.includes(actorName)) {
             const actor = this.form.actorSections[actorName];
@@ -442,6 +549,10 @@ class ActorsInfo {
         return null;
     }
 
+    /**
+     * @param {string} actorName
+     * @param {string} entityName
+     */
     scrollTo(actorName, entityName) {
         const actor = this.form.actorSections[actorName];
         const entity = this.getEntity(actorName, entityName);
@@ -452,6 +563,11 @@ class ActorsInfo {
         }
     }
 
+    /**
+     * @param {string} actorName
+     * @param {string} entityName
+     * @param {string} propertyName
+     */
     getEntityProperty(actorName, entityName, propertyName) {
         const entity = this.getEntity(actorName, entityName);
         if (!entity) {
@@ -461,28 +577,52 @@ class ActorsInfo {
         return data[propertyName];
     }
 
+    /**
+     * @param {string} actorName
+     * @param {string} entityName
+     */
     getConsumeRecord(actorName, entityName) {
         return this.getEntityProperty(actorName, entityName, 'consume_record');
     }
 
+    /**
+     * @param {string} actorName
+     * @param {string} entityName
+     */
     getResetOrigin(actorName, entityName) {
         return this.getEntityProperty(actorName, entityName, 'reset_origin');
     }
 
+    /**
+     * @param {(actorName: string, oldName: string?, newName: string?) => void} callback
+     */
     registerOnEntityChangeChangeHandler(callback = (actorName, oldName, newName) => {}) {
         this._onEntityChangeCallbacks.push(callback);
     }
 
+    /**
+     * @type {(actorName: string, oldName: string?, newName: string?) => void}
+     */
     onEntityChange = (actorName, oldName, newName) => {
         for (const cb of this._onEntityChangeCallbacks) {
             cb(actorName, oldName, newName);
         }
     };
 
+    /**
+     * @param {string} actorName
+     * @param {string} entityName
+     * @param {ChainCard} card
+     */
     addCrossReference(actorName, entityName, card) {
         console.log('TODO add crossreference', actorName, entityName, card.read());
     }
 
+    /**
+     * @param {string} actorName
+     * @param {string} entityName
+     * @param {ChainCard} card
+     */
     removeCrossReference(actorName, entityName, card) {
         console.log('TODO remove crossreference', actorName, entityName, card.read());
     }

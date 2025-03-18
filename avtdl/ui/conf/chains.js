@@ -1,4 +1,8 @@
 class ChainCard {
+    /**
+     * @param {ActorsInfo} info
+     * @param {() => string} getOwnName
+     */
     constructor(info, getOwnName) {
         this.info = info;
         this.getName = getOwnName;
@@ -12,10 +16,11 @@ class ChainCard {
         });
 
         this.headerContainer = createElement('div', 'card-header-container', this.container);
-
+        /** @type {HTMLSelectElement} */
+        // @ts-ignore
         this.headerSelect = createElement('select', 'card-header', this.headerContainer);
         this.populateNestedDropdown(this.headerSelect, info.listTypes());
-        this.headerSelect.value = null;
+        this.headerSelect.value = '';
         this.headerSelect.onchange = () => {
             this.renderForHeader(this.headerSelect.value);
         };
@@ -35,6 +40,10 @@ class ChainCard {
         this.parentContainer.appendChild(this.container);
     }
 
+    /**
+     * @param {HTMLSelectElement} selectElement
+     * @param {string[]} values
+     */
     populateFlatDropdown(selectElement, values) {
         const selectedValue = selectElement.value;
         selectElement.innerHTML = '';
@@ -47,6 +56,10 @@ class ChainCard {
         selectElement.value = selectedValue;
     }
 
+    /**
+     * @param {HTMLSelectElement} selectElement
+     * @param {{ [s: string]: string[]; }} values
+     */
     populateNestedDropdown(selectElement, values) {
         selectElement.innerHTML = '';
         for (const [group, options] of Object.entries(values)) {
@@ -62,6 +75,9 @@ class ChainCard {
         }
     }
 
+    /**
+     * @param {null | string} [value]
+     */
     addItem(value = null) {
         const itemContainer = createElement('div', 'card-item-container');
         const header = this.headerSelect.value;
@@ -70,11 +86,13 @@ class ChainCard {
         if (header) {
             possibleValues = this.info.listEntities(this.headerSelect.value);
         }
-
+        /** @type {HTMLSelectElement} */
+        // @ts-ignore
         const itemSelect = createElement('select', 'card-item-select', itemContainer);
         this.populateFlatDropdown(itemSelect, possibleValues);
 
         itemSelect.onchange = (event) => {
+            // @ts-ignore
             this.updateItemHints(itemContainer, this.headerSelect.value, event.target.value);
         };
 
@@ -122,6 +140,12 @@ class ChainCard {
         this.itemsContainer.appendChild(itemContainer);
     }
 
+    /**
+     * @param {string} symbol
+     * @param {string} text
+     * @param {string} className
+     * @param {HTMLElement} container
+     */
     addItemHint(symbol, text, className, container) {
         const hint = createDefinition(symbol, text);
         hint.classList.add(className);
@@ -129,6 +153,9 @@ class ChainCard {
         container.insertBefore(hint, container.firstChild);
     }
 
+    /**
+     * @param {HTMLElement} itemContainer
+     */
     createItemHints(itemContainer) {
         let text =
             'This entity has "consume_record" option enabled. ' +
@@ -149,12 +176,15 @@ class ChainCard {
         const hintDuplicate = this.addItemHint('⚬', text, 'hint-duplicate', itemContainer);
     }
 
+    /**
+     * @param {string} className
+     * @param {Element} hintContainer
+     */
     showItemHint(className, hintContainer, show = true) {
         let hint = hintContainer.querySelector('.' + className);
-        if (!hint) {
-            return;
+        if (hint instanceof HTMLElement) {
+            changeElementVisibility(hint, show);
         }
-        changeElementVisibility(hint, show);
     }
 
     cardPositionChanged(atEdgeOfChain = true) {
@@ -176,11 +206,14 @@ class ChainCard {
         this.itemsContainer.removeChild(itemContainer);
     }
 
+    /**
+     * @param {string} newHeaderValue
+     */
     renderForHeader(newHeaderValue) {
         this.itemsContainer.innerHTML = '';
         this.addItem();
 
-        this.container.classList = ['chain-card'];
+        this.container.classList.add('chain-card');
         const newType = this.info.actorType(newHeaderValue);
         if (newType) {
             this.container.classList.add(getActorTypeBgClass(newType));
@@ -196,6 +229,11 @@ class ChainCard {
         }
     }
 
+    /**
+     * @param {string | null} actorName
+     * @param {string | null} oldName
+     * @param {string | null} newName
+     */
     handleEntityChange(actorName, oldName, newName) {
         if (actorName != this.getActorName()) {
             return;
@@ -263,6 +301,11 @@ class ChainCard {
 }
 
 class ChainSection {
+    /**
+     * @param {string} name
+     * @param {any} data
+     * @param {ActorsInfo} info
+     */
     constructor(name, data, info) {
         this.name = name;
         this.info = info;
@@ -290,6 +333,9 @@ class ChainSection {
         return this._menu;
     }
 
+    /**
+     * @param {MenuItem} menuItem
+     */
     setMenu(menuItem) {
         this._menu = menuItem;
     }
@@ -298,6 +344,9 @@ class ChainSection {
         return this.name;
     }
 
+    /**
+     * @param {string} newName
+     */
     rename(newName) {
         this.name = newName;
         this.nameContainer.textContent = newName;
@@ -307,6 +356,9 @@ class ChainSection {
         return this.header;
     }
 
+    /**
+     * @param {ChainCard} referenceCard
+     */
     makeAddButton(referenceCard) {
         const addButton = createButton(
             '[+]',
@@ -334,7 +386,11 @@ class ChainSection {
         return cards;
     }
 
-    generateCard(actorName, entities, referenceNode = null) {
+    /**
+     * @param {string | undefined} [actorName]
+     * @param {string[] | undefined} [entities]
+     */
+    generateCard(actorName, entities) {
         const card = new ChainCard(this.info, () => {
             return this.getName();
         });
@@ -382,6 +438,9 @@ class ChainSection {
         return card;
     }
 
+    /**
+     * @param {ChainCard} card
+     */
     moveCard(card, backwards = false) {
         const index = this.cards.indexOf(card);
         if (index == -1 || (index == 0 && backwards) || (index == this.cards.length - 1 && !backwards)) {
@@ -398,6 +457,9 @@ class ChainSection {
         this.container.insertBefore(card.getElement(), neighbour);
     }
 
+    /**
+     * @param {ChainCard | undefined} [anchorCard]
+     */
     addEmptyCard(anchorCard) {
         const card = this.generateCard();
         card.addItem();
@@ -411,6 +473,9 @@ class ChainSection {
         }
     }
 
+    /**
+     * @param {ChainCard} card
+     */
     deleteCard(card) {
         this.container.removeChild(card.getElement());
         this.cards = this.cards.filter((x) => x !== card);
@@ -443,6 +508,10 @@ class ChainSection {
         return data;
     }
 
+    /**
+     * @param {string | any[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length == 0) {
@@ -459,6 +528,10 @@ class ChainSection {
 }
 
 class ChainsForm {
+    /**
+     * @param {MenuItem} menu
+     * @param {ActorsInfo} info
+     */
     constructor(data, menu, info) {
         this.container = document.createElement('div');
         this.container.classList.add('chains-form');
@@ -482,6 +555,7 @@ class ChainsForm {
         this.container.appendChild(this.addButton);
     }
 
+    /** @returns {string} */
     chooseChainName(base = 'Chain') {
         let name = chooseNewName(base, this.chains);
         if (name === null) {
@@ -491,9 +565,15 @@ class ChainsForm {
                 })
                 .catch(() => (name = ''));
         }
+        // @ts-ignore
         return name;
     }
 
+    /**
+     * @param {string} name
+     * @param {any[] | undefined} data
+     * @returns {[ChainSection, HTMLDivElement]}
+     */
     generateChain(name, data) {
         const chainSection = new ChainSection(name, data, this.info);
         if (!data || data.length == 0) {
@@ -503,6 +583,11 @@ class ChainsForm {
         return [chainSection, sectionContainer];
     }
 
+    /**
+     * @param {string | null | undefined} [name]
+     * @param {any[] | undefined} [data]
+     * @param {HTMLElement | null} anchor
+     */
     addChain(name, data, anchor = null) {
         name = name || this.chooseChainName();
         if (!name) {
@@ -513,6 +598,9 @@ class ChainsForm {
         this.container.insertBefore(sectionContainer, anchor || this.addButton);
     }
 
+    /**
+     * @param {ChainSection} chainSection
+     */
     wrapChain(chainSection) {
         const menuItem = new MenuItem(chainSection.name, this.menu);
         menuItem.registerScrollHandler(chainSection.getElement());
@@ -542,6 +630,10 @@ class ChainsForm {
         return chainContainer;
     }
 
+    /**
+     * @param {ChainSection} chainSection
+     * @param {MenuItem} menuItem
+     */
     makeRenameButton(chainSection, menuItem) {
         const checkName = (name) => {
             if (name in this.chains) {
@@ -570,6 +662,11 @@ class ChainsForm {
         return renameButton;
     }
 
+    /**
+     * @param {ChainSection} chainSection
+     * @param {HTMLDivElement} chainContainer
+     * @param {MenuItem} menuItem
+     */
     makeDeleteButton(chainSection, chainContainer, menuItem) {
         const deleteChain = () => this.deleteChain(chainSection, chainContainer, menuItem);
         const deleteButton = createButton('[×]', () => deleteChain(), 'inline-button');
@@ -578,6 +675,11 @@ class ChainsForm {
         return deleteButton;
     }
 
+    /**
+     * @param {ChainSection} chainSection
+     * @param {HTMLDivElement} chainContainer
+     * @param {MenuItem} menuItem
+     */
     makeCopyButton(chainSection, chainContainer, menuItem) {
         const copyChain = () => {
             const name = chainSection.getName();
@@ -590,7 +692,11 @@ class ChainsForm {
 
             const existingMenuElement = menuItem.getElement();
             const menuContainer = existingMenuElement.parentNode;
-            const newMenuElement = newChainSection.getMenu().getElement();
+            const newMenu = newChainSection.getMenu();
+            if (!menuContainer || !newMenu) {
+                return;
+            }
+            const newMenuElement = newMenu.getElement();
             menuContainer.removeChild(newMenuElement);
             menuContainer.insertBefore(newMenuElement, existingMenuElement.nextSibling);
         };
@@ -600,6 +706,13 @@ class ChainsForm {
         return copyButton;
     }
 
+    /**
+     * @param {ChainSection} chainSection
+     * @param {HTMLDivElement} chainContainer
+     * @param {MenuItem} menuItem
+     * @param {string} symbol
+     * @param {boolean | undefined} forward
+     */
     makeMoveButton(chainSection, chainContainer, menuItem, symbol, forward) {
         const moveChain = () => {
             this.moveChain(chainSection, chainContainer, menuItem, forward);
@@ -609,6 +722,11 @@ class ChainsForm {
         return moveButton;
     }
 
+    /**
+     * @param {ChainSection} chainSection
+     * @param {HTMLElement} chainContainer
+     * @param {MenuItem} menuItem
+     */
     moveChain(chainSection, chainContainer, menuItem, forward = true) {
         if (chainContainer === this.container.firstChild && !forward) {
             return;
@@ -622,6 +740,11 @@ class ChainsForm {
         moveElement(menuItem.getElement(), forward);
     }
 
+    /**
+     * @param {ChainSection} chainSection
+     * @param {HTMLDivElement} chainContainer
+     * @param {MenuItem} menuItem
+     */
     deleteChain(chainSection, chainContainer, menuItem) {
         this.container.removeChild(chainContainer);
         delete this.chains[chainSection.name];
@@ -642,6 +765,10 @@ class ChainsForm {
         return data;
     }
 
+    /**
+     * @param {string | any[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length >= 2) {

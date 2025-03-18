@@ -1,3 +1,6 @@
+/**
+ * @param {string} propertyName
+ */
 function generateField(propertyName, schema) {
     const fieldDiv = document.createElement('div');
     fieldDiv.className = 'form-field';
@@ -77,10 +80,18 @@ function generateInput(schema) {
     return inputField;
 }
 
+/**
+ * @param {HTMLDivElement} fieldContainer
+ * @returns {HTMLInputElement?}
+ */
 function selectInput(fieldContainer) {
     return fieldContainer.querySelector('.form-input');
 }
 
+/**
+ * @param {HTMLDivElement} fieldContainer
+ * @param {any} value
+ */
 function fillInput(fieldContainer, value) {
     const inputField = selectInput(fieldContainer);
     if (!inputField) {
@@ -91,8 +102,6 @@ function fillInput(fieldContainer, value) {
             inputField.checked = Boolean(value);
             break;
         case 'number':
-            inputField.value = Number(value);
-            break;
         case 'string':
         case 'select-one':
         default:
@@ -101,8 +110,14 @@ function fillInput(fieldContainer, value) {
     }
 }
 
+/**
+ * @param {HTMLDivElement} fieldContainer
+ * @param {{ description?: string; default: any; required?: boolean; } | undefined} [schema]
+ */
 function readInput(fieldContainer, schema) {
     let value;
+    /** @type {HTMLInputElement} */
+    // @ts-ignore
     const inputField = selectInput(fieldContainer) || fieldContainer;
     switch (inputField.type) {
         case 'checkbox':
@@ -132,10 +147,17 @@ function readInput(fieldContainer, schema) {
     }
 }
 
+/**
+ * @param {HTMLElement} fieldContainer
+ * @param {string} message
+ */
 function showInputError(fieldContainer, message) {
+    /** @type {HTMLElement?} */
     const errorMessage = fieldContainer.querySelector('.form-error');
-    errorMessage.innerText = message;
-    errorMessage.style.display = 'flex';
+    if (errorMessage) {
+        errorMessage.innerText = message;
+        errorMessage.style.display = 'flex';
+    }
     return fieldContainer;
 }
 

@@ -388,6 +388,7 @@ summary .tooltip {
     background-color: #007bff;
     color: white;
     border: none;
+    cursor: pointer;
 }
 
 .actor-type {

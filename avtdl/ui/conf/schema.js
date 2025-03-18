@@ -1,3 +1,6 @@
+/**
+ * @param {{ [x: string]: { [x: string]: any; }; required: string[]; properties: ArrayLike<any> | { [s: string]: any; }; }} schema
+ */
 function flattenSchema(schema) {
     const required = schema.required || [];
     for (const [property, propertySchema] of Object.entries(schema.properties)) {
@@ -6,11 +9,18 @@ function flattenSchema(schema) {
     return resolveRefs(schema.properties, schema['$defs']);
 }
 
+/**
+ * @param {ArrayLike<any>} schemas
+ */
 function flattenSchemas(schemas) {
     let resolve = ([name, schema]) => [name, flattenSchema(schema)];
     return Object.fromEntries(Object.entries(schemas).map(resolve));
 }
 
+/**
+ * @param {any} schema
+ * @param {{ [x: string]: any; }} defs
+ */
 function resolveRefs(schema, defs) {
     const resolve = (currentSchema) => {
         if (typeof currentSchema !== 'object' || currentSchema === null) {

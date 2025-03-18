@@ -1,4 +1,8 @@
 class InputField {
+    /**
+     * @param {string} propertyName
+     * @param {any} schema
+     */
     constructor(propertyName, schema) {
         this.propertyName = propertyName;
         this.schema = schema;
@@ -29,6 +33,10 @@ class InputField {
         return this.fieldContainer;
     }
 
+    /**
+     * @param {string | string[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length == 0) {
@@ -39,20 +47,34 @@ class InputField {
 }
 
 class NameInputField extends InputField {
+    /**
+     * @param {string} propertyName
+     * @param {any} schema
+     */
     constructor(propertyName, schema) {
         super(propertyName, schema);
         this.input = selectInput(this.fieldContainer);
+        if (!this.input) {
+            throw(`error creating name input field ${propertyName}: no input in container`)
+        }
         this.input.classList.add('name-input');
+        /** @type {(newName: string) => null | string} */
         this.nameValidator = (newName) => {
             return null;
         };
         this.addRenameHandler(this.input);
     }
 
+    /**
+     * @param {(newName: string) => null | string} callback
+     */
     registerNameValidator(callback) {
         this.nameValidator = callback;
     }
 
+    /**
+     * @param {HTMLInputElement} input
+     */
     addRenameHandler(input) {
         input.addEventListener('focus', () => {
             if (!input.value) {
@@ -70,6 +92,11 @@ class NameInputField extends InputField {
 }
 
 class SuggestionsInputField {
+    /**
+     * @param {string} propertyName
+     * @param {any} schema
+     * @param {string[]} possibleValues
+     */
     constructor(propertyName, schema, possibleValues) {
         this.propertyName = propertyName;
         this.schema = schema;
@@ -138,6 +165,9 @@ class SuggestionsInputField {
         }, 300);
     }
 
+    /**
+     * @param {string} value
+     */
     selectSuggestion(value) {
         this.inputField.value = value;
         this.suggestionsList.innerHTML = '';
@@ -167,6 +197,10 @@ class SuggestionsInputField {
         return this.container;
     }
 
+    /**
+     * @param {string | string[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length == 0) {
@@ -177,6 +211,10 @@ class SuggestionsInputField {
 }
 
 class DictionaryInputField {
+    /**
+     * @param {string} propertyName
+     * @param {{ description: string; default: any; required: boolean}} schema
+     */
     constructor(propertyName, schema) {
         this.propertyName = propertyName;
         this.schema = schema;
@@ -193,6 +231,11 @@ class DictionaryInputField {
         }
     }
 
+    /**
+     * @param {string} key
+     * @param {string} value
+     * @param {{ description?: string; default?: any; additionalProperties?: any; }} schema
+     */
     generateKeyValuePair(key, value, schema) {
         const keySchema = { type: 'string', default: key };
         let valueSchema;
@@ -231,6 +274,9 @@ class DictionaryInputField {
         this.entries.push(fieldDiv);
     }
 
+    /**
+     * @param {HTMLDivElement} entryDiv
+     */
     deleteEntry(entryDiv) {
         this.fieldContainer.removeChild(entryDiv);
         this.entries = this.entries.filter((x) => x !== entryDiv);
@@ -283,6 +329,10 @@ class DictionaryInputField {
         return data;
     }
 
+    /**
+     * @param {string | string[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length == 0) {
@@ -306,6 +356,10 @@ class DictionaryInputField {
 }
 
 class ArrayInputField {
+    /**
+     * @param {string} propertyName
+     * @param {{ description: string; default: any; required: boolean}} schema
+     */
     constructor(propertyName, schema) {
         this.propertyName = propertyName;
         this.schema = schema;
@@ -322,6 +376,10 @@ class ArrayInputField {
         }
     }
 
+    /**
+     * @param {string} value
+     * @param {{ description?: string; default?: any; required?: boolean; items?: any; additionalProperties?: any; }} schema
+     */
     generateArrayItem(value, schema) {
         let valueSchema;
 
@@ -353,6 +411,9 @@ class ArrayInputField {
         this.entries.push(fieldDiv);
     }
 
+    /**
+     * @param {HTMLDivElement} entryDiv
+     */
     deleteEntry(entryDiv) {
         this.fieldContainer.removeChild(entryDiv);
         this.entries = this.entries.filter((x) => x !== entryDiv);
@@ -372,6 +433,9 @@ class ArrayInputField {
         return currentValue == defaultValue;
     }
 
+    /**
+     * @param {any[]} data
+     */
     fill(data) {
         if (!(data instanceof Array)) {
             return;
@@ -403,6 +467,10 @@ class ArrayInputField {
         return data;
     }
 
+    /**
+     * @param {string | any[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length == 0) {
@@ -425,6 +493,10 @@ class ArrayInputField {
 }
 
 class Fieldset {
+    /**
+     * @param {any} schema
+     * @param {HTMLElement?} container
+     */
     constructor(schema, container = null) {
         this.schema = schema;
         this.fieldset = container || document.createElement('fieldset');
@@ -441,6 +513,9 @@ class Fieldset {
         return this.fieldInputs.length == 0;
     }
 
+    /**
+     * @param {HTMLElement} fieldset
+     */
     generateFieldsInputs(fieldset) {
         const requiredFields = document.createElement('div');
         requiredFields.classList.add('required-fields');
@@ -487,6 +562,9 @@ class Fieldset {
         }
     }
 
+    /**
+     * @param {HTMLElement | null} additional
+     */
     addSeparator(additional) {
         const separator = document.createElement('div');
         separator.classList.add('toggle-additional');
@@ -498,6 +576,10 @@ class Fieldset {
         this.separatorToggler(false);
     }
 
+    /**
+     * @param {HTMLDivElement} separator
+     * @param {HTMLElement | null} additionalFields
+     */
     makeSeparatorToggler(separator, additionalFields) {
         {
             return (newState) => {
@@ -518,29 +600,44 @@ class Fieldset {
 
     getName() {
         if (!this.nameInput) {
-            return null;
+            return '';
         }
         return this.nameInput.value;
     }
 
+    /**
+     * @param {{ (oldName: string, newName: string, nameField: NameInputField | null): void}} callback
+     */
     registerNameChangeCallback(callback) {
-        this.nameInput.addEventListener('input', (event) => {
-            const value = event.target.value;
-            if (!value) {
-                return;
-            }
-            callback(this.oldName, value, this.nameField);
+        if (this.nameInput) {
+            this.nameInput.addEventListener('input', (event) => {
+                if (!event.target) {
+                    return;
+                }
+                // @ts-ignore
+                const value = event.target.value;
+                if (!value) {
+                    return;
+                }
+                callback(this.oldName, value, this.nameField);
 
-            this.oldName = value;
-        });
+                this.oldName = value;
+            });
+        }
     }
 
+    /**
+     * @param {{(newName: string): null | string}} callback
+     */
     registerNameChangeValidator(callback) {
         if (this.nameField) {
             this.nameField.registerNameValidator(callback);
         }
     }
 
+    /**
+     * @param {{ [x: string]: any; }} data
+     */
     fill(data) {
         for (const fieldInput of this.fieldInputs) {
             const value = data[fieldInput.propertyName];
@@ -577,6 +674,10 @@ class Fieldset {
         return this.fieldset;
     }
 
+    /**
+     * @param {string | any[]} path
+     * @param {string} message
+     */
     showError(path, message) {
         if (path instanceof Array) {
             if (path.length > 0) {

@@ -1,3 +1,9 @@
+/**
+ * Renders a table element with the provided header and row data.
+ * @param {Object<string, string>} headersData - Dictionary of header text and tooltip.
+ * @param {Array<Array<Node>>} rowsData - Array of rows, with every row being array of cells contained by the row.
+ * @returns {HTMLTableElement} - The rendered table element.
+ */
 function renderTable(headersData, rowsData) {
     const table = document.createElement('table');
     const thead = document.createElement('thead');
@@ -31,10 +37,18 @@ function renderTable(headersData, rowsData) {
 }
 
 class HistoryView {
+    /**
+     * @param {HTMLElement} parent
+     */
     constructor(parent) {
         this.parent = parent;
     }
 
+    /**
+     * @param {string} actor
+     * @param {string} entity
+     * @param {string} chain
+     */
     async fetchHistory(actor, entity, chain) {
         const url = new URL('/history', window.location.origin);
         url.searchParams.append('actor', actor);
@@ -66,6 +80,11 @@ class HistoryView {
         return container;
     }
 
+    /**
+     * @param {{ appendChild: (arg0: HTMLDetailsElement) => void; }} container
+     * @param {{ [s: string]: any; } | ArrayLike<any>} data
+     * @param {string | null | undefined} headline
+     */
     renderHistory(container, data, headline) {
         if (!data) {
             return;
@@ -101,11 +120,19 @@ class HistoryView {
         }
     }
 
+    /**
+     * @param {HTMLElement | undefined} container
+     * @param {any} error
+     */
     renderError(container, error) {
         const message = createElement('p', 'history-row', container);
         message.innerText = `Error fetching recent records: ${error}`;
     }
 
+    /**
+     * @param {string} actor
+     * @param {string} entity
+     */
     showHistory(actor, entity, chain = '') {
         const container = this.renderPopup();
         let title = `${actor} - ${entity}`;
