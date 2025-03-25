@@ -708,7 +708,7 @@ summary .tooltip {
     background-color: #f0f0f0;
 }
 
-.history-view {
+.modal-view {
     background-color: #eeeeee;
     padding: 20px;
     border-radius: 5px;
@@ -718,11 +718,11 @@ summary .tooltip {
     overflow: auto;
 }
 
-.history-view .summary-headline {
+.modal-view .summary-headline {
     font-style: italic;
 }
 
-.history-view details[open] > summary {
+.modal-view details[open] > summary {
     background-color: #dadada;
 }
 

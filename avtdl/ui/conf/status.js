@@ -1,28 +1,35 @@
 /**
- * Renders a table element with the provided header and row data.
- * @param {Object<string, string>} headersData - Dictionary of header text and tooltip.
- * @param {Array<Array<Node>>} rowsData - Array of rows, with every row being array of cells contained by the row.
- * @returns {HTMLTableElement} - The rendered table element.
+ * @param {any[][]} arrays
  */
-function renderTable(headersData, rowsData) {
+function zipLongest(...arrays) {
+    const maxLength = Math.max(...arrays.map((arr) => arr.length));
+    return Array.from({ length: maxLength }, (_, i) => arrays.map((arr) => arr[i] || null));
+}
+
+/**
+ * Renders a table element with the provided header and row data.
+ * @param {Array<Node>} headersNodes
+ * @param {Array<Array<Node>>} rowsNodes
+ * @returns {HTMLTableElement}
+ */
+function renderTable(headersNodes, rowsNodes) {
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const tbody = document.createElement('tbody');
 
     const headerRow = document.createElement('tr');
 
-    for (const [header, title] of Object.entries(headersData)) {
+    headersNodes.forEach((node) => {
         const th = document.createElement('th');
-        th.textContent = header;
-        th.title = title;
+        th.appendChild(node);
         headerRow.appendChild(th);
-    }
+    });
 
     thead.appendChild(headerRow);
     table.appendChild(thead);
     table.appendChild(tbody);
 
-    rowsData.forEach((rowElements) => {
+    rowsNodes.forEach((rowElements) => {
         const row = document.createElement('tr');
         rowElements.forEach((element) => {
             const cell = document.createElement('td');
@@ -34,6 +41,53 @@ function renderTable(headersData, rowsData) {
     });
 
     return table;
+}
+
+/**
+ * @param {string[]} headers
+ * @param {string[]} tooltips
+ * @param {string[][]} rows
+ */
+function renderClickableTable(headers, tooltips, rows) {
+    const headersData = zipLongest(headers, tooltips);
+    const headersNodes = Array.from(headersData, ([text, tooltip]) => {
+        const node = createElement('div');
+        node.innerText = text;
+        node.title = tooltip;
+        return node;
+    });
+    const elements = Array.from(rows, (row) => {
+        return Array.from(row, (item) => {
+            const element = createElement('div', 'history-content');
+            element.innerHTML = item;
+            element.onclick = () => {
+                element.classList.toggle('minified');
+            };
+            element.click();
+            return element;
+        });
+    });
+    const content = renderTable(headersNodes, elements);
+    return content;
+}
+
+/**
+ * @param {HTMLElement} parent
+ */
+function renderModal(parent) {
+    const background = createElement('div', 'modal-background', parent);
+    const container = createElement('div', 'modal-view', background);
+    background.onclick = (event) => {
+        if (event.target === background) {
+            parent.removeChild(background);
+        }
+    };
+    background.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            parent.removeChild(background);
+        }
+    });
+    return container;
 }
 
 class HistoryView {
@@ -64,26 +118,19 @@ class HistoryView {
         return data;
     }
 
-    renderPopup() {
-        const background = createElement('div', 'modal-background', this.parent);
-        const container = createElement('div', 'history-view', background);
-        background.onclick = (event) => {
-            if (event.target === background) {
-                this.parent.removeChild(background);
-            }
-        };
-        background.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                this.parent.removeChild(background);
-            }
-        });
-        return container;
+    /**
+     * @param {HTMLElement | undefined} container
+     * @param {any} error
+     */
+    renderError(container, error) {
+        const message = createElement('p', 'history-row', container);
+        message.innerText = `Error fetching recent records: ${error}`;
     }
 
     /**
-     * @param {{ appendChild: (arg0: HTMLDetailsElement) => void; }} container
-     * @param {{ [s: string]: any; } | ArrayLike<any>} data
+     * @param {Node} container
      * @param {string | null | undefined} headline
+     * @param {{ [s: string]: string[][]; }} data
      */
     renderHistory(container, data, headline) {
         if (!data) {
@@ -98,35 +145,15 @@ class HistoryView {
                 message.innerText = 'no records so far';
                 continue;
             }
-
-            const headers = {
-                Origin: 'Actor and entity this records has originated from',
-                Chain: 'Chain this records is associated with',
-                Record: 'Record preview',
-            };
-            const elements = Array.from(lines, (line) => {
-                return Array.from(line, (item) => {
-                    const element = createElement('div', 'history-content');
-                    element.innerHTML = item;
-                    element.onclick = () => {
-                        element.classList.toggle('minified');
-                    };
-                    element.click();
-                    return element;
-                });
-            });
-            const content = renderTable(headers, elements);
+            const headers = ['Origin', 'Chain', 'Record'];
+            const tooltips = [
+                'Actor and entity this records has originated from',
+                'Chain this records is associated with',
+                'Record preview',
+            ];
+            const content = renderClickableTable(headers, tooltips, lines);
             section.appendChild(content);
         }
-    }
-
-    /**
-     * @param {HTMLElement | undefined} container
-     * @param {any} error
-     */
-    renderError(container, error) {
-        const message = createElement('p', 'history-row', container);
-        message.innerText = `Error fetching recent records: ${error}`;
     }
 
     /**
@@ -134,7 +161,7 @@ class HistoryView {
      * @param {string} entity
      */
     showHistory(actor, entity, chain = '') {
-        const container = this.renderPopup();
+        const container = renderModal(this.parent);
         let title = `${actor} - ${entity}`;
         if (chain) {
             title += ` - ${chain}`;
