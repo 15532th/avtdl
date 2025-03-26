@@ -52,8 +52,10 @@ function renderClickableTable(headers, tooltips, rows) {
     const headersData = zipLongest(headers, tooltips);
     const headersNodes = Array.from(headersData, ([text, tooltip]) => {
         const node = createElement('div');
-        node.innerText = text;
-        node.title = tooltip;
+        node.innerText = text || '';
+        if (tooltip) {
+            node.title = tooltip;
+        }
         return node;
     });
     const elements = Array.from(rows, (row) => {
@@ -169,6 +171,71 @@ class HistoryView {
         this.fetchHistory(actor, entity, chain)
             .then((data) => {
                 this.renderHistory(container, data, title);
+            })
+            .catch((error) => {
+                this.renderError(container, error);
+            });
+    }
+}
+
+class TaskView {
+    /**
+     * @param {string?} actor
+     */
+    static async fetchData(actor) {
+        const url = new URL('/tasks', window.location.origin);
+        if (actor) {
+            url.searchParams.append('actor', actor);
+        }
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`got ${response.status} (${response.statusText}) when requesting ${url}`);
+        }
+        const data = await response.json();
+        return data;
+    }
+
+    /**
+     * @param {HTMLElement | undefined} container
+     * @param {any} error
+     */
+    static renderError(container, error) {
+        const message = createElement('p', 'history-row', container);
+        message.innerText = `Error fetching tasks status: ${error}`;
+    }
+
+    /**
+     * @param {Node} container
+     * @param {{ [s: string]: any; } | ArrayLike<any>} data
+     */
+    static renderView(container, data) {
+        if (!data) {
+            return;
+        }
+        for (const [actorName, actorData] of Object.entries(data)) {
+            const section = createDetails(actorName);
+            section.open = true;
+            container.appendChild(section);
+            if (actorData.length == 0) {
+                const message = createElement('div', 'history-blank', section);
+                message.innerText = 'no tasks running';
+                continue;
+            }
+
+            const content = renderClickableTable(actorData['headers'] || [], [], actorData['rows'] || []);
+            section.appendChild(content);
+        }
+    }
+
+    /**
+     * @param {string} actor
+     * @param {HTMLElement} parent
+     */
+    static showView(parent, actor = '') {
+        const container = renderModal(parent);
+        this.fetchData(actor)
+            .then((data) => {
+                this.renderView(container, data);
             })
             .catch((error) => {
                 this.renderError(container, error);

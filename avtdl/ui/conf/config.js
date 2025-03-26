@@ -306,6 +306,10 @@ class ConfigEditor {
         actionBar.classList.add('action-bar');
         this.container.appendChild(actionBar);
 
+        const tasksButton = createButton('Running tasks', () => {TaskView.showView(this.container)}, 'action-button');
+        tasksButton.title = 'Show tasks currently running for active actors'
+        actionBar.appendChild(tasksButton);
+
         const checkButton = createButton('Check Config', this.makeSaveConfigCallback('check'), 'action-button');
         checkButton.title = 'Validate changes without applying them';
         actionBar.appendChild(checkButton);

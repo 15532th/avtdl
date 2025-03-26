@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import pathlib
+from collections import defaultdict
 from typing import Dict, List, Optional
 
 import dateutil.zoneinfo
@@ -12,7 +13,7 @@ from avtdl.core import info
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
-from avtdl.core.interfaces import Actor, Record, RuntimeContext, TerminatedAction
+from avtdl.core.interfaces import Actor, Record, RuntimeContext, TaskStatus, TerminatedAction
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import strip_text, write_file
 from avtdl.core.yaml import merge_data, yaml_dump
@@ -121,6 +122,7 @@ class WebUI:
         self.routes.append(web.get('/timezones', self.timezones))
         self.routes.append(web.get('/motd', self.motd))
         self.routes.append(web.get('/history', self.history))
+        self.routes.append(web.get('/tasks', self.tasks))
 
         self.routes.append(web.get('/ui/info/info.html', self.info_webui))
 
@@ -252,6 +254,31 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         for title, content in data_structure:
             records = [[record.origin, record.chain, record_preview(record, representation)] for record in content]
             data[title] = records
+        return web.json_response(data, dumps=json_dumps)
+
+    @staticmethod
+    def render_status_data(status_list: List[TaskStatus], actor: Optional[str]) -> dict:
+        if not status_list:
+            return {}
+        headers = ['State', 'Actor', 'Entity', 'Record']
+        data: dict = defaultdict(lambda: {'headers': headers, 'rows': []})
+        for status in status_list:
+            if status.actor_name is None:
+                continue
+            if actor is not None and status.actor_name != actor:
+                continue
+            record = record_preview(status.record) if status.record else ''
+            row = [status.status, status.actor_name, status.entity_name, record]
+            data[status.actor_name]['rows'].append(row)
+        return data
+
+    async def tasks(self, request: web.Request) -> web.Response:
+        actor_name = request.query.get('actor')
+        actor = self.actors.get(actor_name) if actor_name is not None else None
+        if actor_name is not None and actor is None:
+            raise web.HTTPBadRequest(text=f'actor "{actor_name}" is not found')
+        status_list = self.ctx.controller.get_status()
+        data = self.render_status_data(status_list, actor_name)
         return web.json_response(data, dumps=json_dumps)
 
 
