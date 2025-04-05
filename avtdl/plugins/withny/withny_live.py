@@ -273,7 +273,7 @@ class WithnyLive(Action):
                                                                          client)
             updated_record = self.parse_record(maybe_record_data, parse_schedule_record)
         if record.schedule_id is None or updated_record is None:
-            self.logger.debug(f'stream {record.stream_id} is not scheduled, using stream_id')
+            self.logger.debug(f'stream {record.stream_id} is not scheduled or schedule update failed, using stream_id')
             url = f'https://www.withny.fun/api/streams/with-rooms?username={record.username}'
             maybe_data, update_interval = await self.request_json(url, base_update_interval, update_interval, client)
             maybe_record_data = find_stream_data(maybe_data, record.stream_id)
