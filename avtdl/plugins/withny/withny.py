@@ -107,7 +107,7 @@ class WithnyMonitor(BaseFeedMonitor):
         if data is None or not isinstance(data, dict):
             return [], context
 
-        entity.since = since
+        entity.since = utcnow_with_offset(hours=-3)
 
         for name, _type in [('schedules', list), ('count', int)]:
             if not name in data or not isinstance(data[name], _type):
