@@ -96,20 +96,21 @@ class WithnyMonitor(BaseFeedMonitor):
         url = 'https://www.withny.fun/api/schedules'
         context = context or Context(count=0, page=1)
 
-        since = entity.since or utcnow_with_offset(hours=-3)
+        if entity.since is None:
+            entity.since = utcnow_with_offset(hours=-3)
         params = {
             'page': context.page,
             'take': context.take,
             'isFavorite': 'false',
             'excludeClosedStream': 'false',
-            'later': format_timestamp(since)
+            'later': format_timestamp(entity.since)
         }
         data = await self.request_json(url, entity, client, params=params)
         if data is None or not isinstance(data, dict):
             return [], context
 
         for name, _type in [('schedules', list), ('count', int)]:
-            if not name in data or not isinstance(data[name], _type):
+            if name not in data or not isinstance(data[name], _type):
                 self.logger.warning(f'unexpected data from /schedules/ api')
                 self.logger.debug(f'raw /schedules/ api response: {data}')
                 return [], context
