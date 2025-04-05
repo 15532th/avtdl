@@ -5,6 +5,7 @@ from typing import Callable, Optional, Sequence, Tuple
 
 from pydantic import Field, PositiveFloat, PositiveInt
 
+from avtdl.core.interfaces import Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient
@@ -125,7 +126,12 @@ class WithnyMonitor(BaseFeedMonitor):
         next_page_records, _ = await self._get_schedules(entity, client, context)
         records = [*records, *next_page_records]
 
-        entity.since = utcnow_with_offset(hours=-3)
-        self.logger.debug(f'[{entity.name}] got total of {len(records)} records, "since" set to {entity.since}')
-
         return records, context
+
+    async def get_new_records(self, entity: WithnyMonitorEntity, client: HttpClient) -> Sequence[Record]:
+        new_records = await super().get_new_records(entity, client)
+        if new_records:
+            # updating "since" invalidates caching headers, so it's only done when response content has changed anyway
+            entity.since = utcnow_with_offset(hours=-3)
+            self.logger.debug(f'[{entity.name}] got {len(new_records)} new records, "since" set to {entity.since}')
+        return new_records
