@@ -41,7 +41,7 @@ class WithnyMonitorEntity(BaseFeedMonitorEntity):
 class Context:
     count: int
     page: int
-    take: int = 60
+    take: int = 20
 
 
 @Plugins.register('withny', Plugins.kind.ACTOR)
@@ -120,6 +120,9 @@ class WithnyMonitor(BaseFeedMonitor):
         context.count = data['count']
         self.logger.debug(f'[{entity.name}] schedules: {len(records)}/{context.count} records on page {context.page}')
         if context.page * context.take > context.count:  # this page is the last one
+            return records, context
+        if context.page < 2 and not all([self.record_is_new(record, entity) for record in records]):
+            self.logger.debug(f'found already seen records on page {context.page}, aborting early')
             return records, context
 
         context.page += 1
