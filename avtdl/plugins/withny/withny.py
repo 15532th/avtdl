@@ -107,8 +107,6 @@ class WithnyMonitor(BaseFeedMonitor):
         if data is None or not isinstance(data, dict):
             return [], context
 
-        entity.since = utcnow_with_offset(hours=-3)
-
         for name, _type in [('schedules', list), ('count', int)]:
             if not name in data or not isinstance(data[name], _type):
                 self.logger.warning(f'unexpected data from /schedules/ api')
@@ -126,4 +124,8 @@ class WithnyMonitor(BaseFeedMonitor):
         context.page += 1
         next_page_records, _ = await self._get_schedules(entity, client, context)
         records = [*records, *next_page_records]
+
+        entity.since = utcnow_with_offset(hours=-3)
+        self.logger.debug(f'[{entity.name}] got total of {len(records)} records, "since" set to {entity.since}')
+
         return records, context
