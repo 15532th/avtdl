@@ -179,7 +179,9 @@ class FileDownload(Action):
             self.logger.warning(f'[{entity.name}] failed to process record: {e}')
             return
         if path.exists() and not entity.overwrite:
-            for p in path.parent.glob(path.stem + '*'):
+            for p in path.parent.iterdir():
+                if not p.stem.startswith(path.stem):
+                    continue
                 if has_same_content(temp_file, p):
                     self.logger.info(f'[{entity.name}] file "{temp_file}" is already stored as "{p}", deleting')
                     remove_files([temp_file])
