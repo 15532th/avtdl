@@ -85,7 +85,7 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
     cookies_file: Optional[FilePath] = None
     """path to a text file containing cookies in Netscape format"""
     headers: Optional[Dict[str, str]] = {'Accept-Language': 'en-US,en;q=0.9'}
-    """custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use `cookies_file` option instead"""
+    """custom HTTP headers as "key": value" pairs. "Set-Cookie" header will be ignored, use `cookies_file` option instead. "Etag" and "Last-Modified" are set automatically if available in server response. Plugin might also overwrite other headers required to make requests to a specific endpoint"""
 
     adjust_update_interval: bool = True
     """change delay before the next update based on response headers. This setting doesn't affect timeouts after failed requests"""
