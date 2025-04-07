@@ -20,7 +20,7 @@ dependencies = [
     "multidict",
     "feedparser",
     "python-dateutil",
-    "slixmpp",
+    "slixmpp>=1.8.6",
     "lxml",
     "ruamel.yaml>=0.15",
     "Markdown",
