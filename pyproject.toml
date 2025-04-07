@@ -35,7 +35,7 @@ Repository = "https://github.com/15532th/avtdl.git"
 Issues = "https://github.com/15532th/avtdl/issues"
 
 [build-system]
-requires = ["setuptools == 62.0", "setuptools-scm==8.0"]
+requires = ["setuptools == 61.0", "setuptools-scm==8.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
