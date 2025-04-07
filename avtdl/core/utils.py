@@ -351,6 +351,20 @@ class Fmt:
         return dt.strftime('%Y-%m-%d %H:%M')
 
     @classmethod
+    def size(cls, size: Union[int, float]) -> str:
+        for unit in ['B', 'kB', 'MB', 'GB', 'TB']:
+            if size < 1024:
+                break
+            size /= 1024
+        return f"{size:.2f} {unit}"
+
+    @classmethod
+    def duration(cls, seconds: int) -> str:
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours}:{minutes:02}:{seconds:02}"
+
+    @classmethod
     def dtf(cls, dt: datetime.datetime) -> str:
         """format datetime to Discord timestamp"""
         ts = int(dt.timestamp())
