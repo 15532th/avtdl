@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import aiohttp
 from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_validator
 
-from avtdl.core.db import BaseDbConfig, RecordDB
-from avtdl.core.interfaces import ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
+from avtdl.core.db import BaseDbConfig, RecordDB, RecordDbView
+from avtdl.core.interfaces import AbstractRecordsStorage, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
 from avtdl.core.request import HttpClient, HttpResponse, StateStorage, decide_on_update_interval
 from avtdl.core.utils import JSONType, SessionStorage, load_cookies, show_diff, with_prefix
 
@@ -281,6 +281,9 @@ class BaseFeedMonitor(HttpTaskMonitor):
         records = await self.get_records(entity, client)
         new_records = self.filter_new_records(records, entity)
         return new_records
+
+    def get_records_storage(self, entity_name: Optional[str] = None) -> Optional[AbstractRecordsStorage]:
+        return RecordDbView(self.db, entity_name)
 
 
 class PagedFeedMonitorConfig(BaseFeedMonitorConfig):

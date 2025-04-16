@@ -1,3 +1,4 @@
+import abc
 import asyncio
 import datetime
 import json
@@ -385,6 +386,18 @@ class RuntimeContext:
         return cls(bus=bus, controller=controller)
 
 
+class AbstractRecordsStorage(abc.ABC):
+    """Interface for accessing persistent records storage from web ui"""
+
+    @abstractmethod
+    def page_count(self, per_page: int) -> int:
+        """return total number of pages"""
+
+    @abstractmethod
+    def load_page(self, page: Optional[int], per_page: int) -> List[Record]:
+        """return content of specific page as a list of Record instances"""
+
+
 class ActorConfig(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -431,6 +444,10 @@ class Actor(ABC):
             self.handle_record(entity, record)
         except Exception:
             self.logger.exception(f'{self.conf.name}.{entity_name}: error while processing record "{record!r}"')
+
+    def get_records_storage(self, entity_name: Optional[str] = None) -> Optional[AbstractRecordsStorage]:
+        '''Implementations might overwrite this method to give web interface access to persistent records storage'''
+        return None
 
     @abstractmethod
     def handle_record(self, entity: ActorEntity, record: Record) -> None:

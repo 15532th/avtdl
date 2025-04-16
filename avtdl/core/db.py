@@ -9,11 +9,9 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from pydantic import Field, field_validator, model_validator
 
-from avtdl.core.interfaces import ActorConfig, Record
+from avtdl.core.interfaces import AbstractRecordsStorage, Action, Actor, ActorConfig, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import check_dir
-
-RECORDS_PER_PAGE = 32
 
 
 class BaseRecordDB:
@@ -158,7 +156,7 @@ class RecordDB(BaseRecordDB):
         stored_record_dump = stored_record.model_dump(exclude=excluded_fields)
         return record_dump != stored_record_dump
 
-    def page_count(self, entity_name: Optional[str], per_page: int = RECORDS_PER_PAGE) -> int:
+    def page_count(self, entity_name: Optional[str], per_page: int) -> int:
         pages = self.get_size(entity_name) / per_page
         pages = math.ceil(pages)
         return pages
@@ -174,7 +172,7 @@ class RecordDB(BaseRecordDB):
         record = record_type.model_validate_json(row['as_json'])
         return record
 
-    def load_page(self, entity_name: Optional[str], page: Optional[int], per_page: int = RECORDS_PER_PAGE) -> List[Record]:
+    def load_page(self, entity_name: Optional[str], page: Optional[int], per_page: int) -> List[Record]:
         total_rows = self.get_size(entity_name)
 
         limit, offset = calculate_offset(page, per_page, total_rows)
@@ -216,3 +214,36 @@ def validate_db_path(path: Union[Path, str]) -> Union[Path, str]:
         if not ok:
             raise ValueError(f'error accessing path {path}, check if it is a valid path and is writeable')
     return Path(path)
+
+
+class HistoryView(AbstractRecordsStorage):
+
+    def __init__(self, actor: Actor, entity_name: str):
+        self.actor = actor
+        self.entity_name = entity_name
+
+    def _get_records(self, entity_name: str) -> List[Record]:
+        direction = 'in' if isinstance(self.actor, Action) else 'out'
+        records = self.actor.bus.get_history(self.actor.conf.name, entity_name, '', direction)  # type: ignore
+        return records
+
+    def page_count(self, per_page: int) -> int:
+        return len(self._get_records(self.entity_name))
+
+    def load_page(self, page: Optional[int], per_page: int) -> List[Record]:
+        records = self._get_records(self.entity_name)
+        limit, offset = calculate_offset(page, per_page, len(records))
+        return records[offset:offset + limit]
+
+
+class RecordDbView(AbstractRecordsStorage):
+
+    def __init__(self, db: RecordDB, entity_name: Optional[str]):
+        self.db = db
+        self.entity_name = entity_name
+
+    def page_count(self, per_page: int) -> int:
+        return self.db.page_count(self.entity_name, per_page)
+
+    def load_page(self, page: Optional[int], per_page: int) -> List[Record]:
+        return self.db.load_page(self.entity_name, page, per_page)

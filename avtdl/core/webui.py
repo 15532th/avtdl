@@ -13,13 +13,16 @@ from pydantic import BaseModel
 from avtdl.core import info
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
-from avtdl.core.db import RecordDB
+from avtdl.core.db import HistoryView
 from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
-from avtdl.core.interfaces import Action, Actor, Record, RuntimeContext, TaskStatus, TerminatedAction
+from avtdl.core.interfaces import AbstractRecordsStorage, Actor, Record, RuntimeContext, TaskStatus, \
+    TerminatedAction
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import JSONType, strip_text, write_file
 from avtdl.core.yaml import merge_data, yaml_dump
 from avtdl.plugins.discord import webhook
+
+RECORDS_PER_PAGE = 32
 
 
 def serialize_config(settings: SettingsSection,
@@ -304,7 +307,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
 
     async def records(self, request: web.Request) -> web.Response:
         actor_name = request.query.get('actor')
-        entity = request.query.get('entity')
+        entity_name = request.query.get('entity')
         page_num = request.query.get('page')
         representation = request.query.get('repr', 'text')
 
@@ -320,18 +323,21 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             raise web.HTTPBadRequest(text=f'missing "actor" parameter')
         if actor_name not in self.actors:
             raise web.HTTPBadRequest(text=f'actor {actor_name} not found')
+        if entity_name is None:
+            raise web.HTTPBadRequest(text=f'missing "entity" parameter')
+
         actor = self.actors[actor_name]
-        db: Optional[RecordDB] = getattr(actor, 'db', None)
-        if db is not None:
-            records = db.load_page(entity, page)
-            total_pages = db.page_count(entity)
-        else:
-            if not entity:
-                raise web.HTTPBadRequest(text=f'entity name not specified and actor {actor_name} does not use db')
-            outgoing = actor.bus.get_history(actor_name, entity, '', 'out')
-            incoming = actor.bus.get_history(actor_name, entity, '', 'in')
-            records = incoming if isinstance(actor, Action) else outgoing
-            total_pages = 1
+
+        if entity_name not in actor.entities:
+            raise web.HTTPBadRequest(text=f'actor {actor_name} does not have entity "{entity_name}"')
+
+        db: Optional[AbstractRecordsStorage] = actor.get_records_storage(entity_name)
+        if db is None:
+            # HistoryView instance should have been returned from base Actor.get_records_storage implementation,
+            # but it would lead to circular imports between interfaces.py and db.py
+            db = HistoryView(actor, entity_name)
+        records = db.load_page(page, RECORDS_PER_PAGE)
+        total_pages = db.page_count(RECORDS_PER_PAGE)
         records_view = [record_preview(record, representation) for record in records]
 
         data = {
