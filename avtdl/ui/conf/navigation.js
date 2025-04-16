@@ -147,6 +147,24 @@ class MenuItem {
         };
     }
 
+    /**
+     * @param {() => void} cb
+     */
+    registerOnclickHandler(cb) {
+        this.text.onclick = () => { cb(); };
+    }
+
+    /**
+     * @param {string} link
+     */
+    registerUrlHandler(link) {
+        const url = document.createElement('a');
+        url.href = link;
+        url.textContent = this.text.textContent;
+        this.text.innerHTML = '';
+        this.text.appendChild(url);
+    }
+
     scrollTo() {
         if (this.text.onclick instanceof Function) {
             this.text.click();

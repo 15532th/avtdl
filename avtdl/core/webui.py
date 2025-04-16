@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import pathlib
+import urllib.parse
 from collections import defaultdict
 from typing import Dict, List, Optional
 
@@ -12,11 +13,13 @@ from pydantic import BaseModel
 from avtdl.core import info
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
+from avtdl.core.db import RecordDB
 from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
-from avtdl.core.interfaces import Actor, Record, RuntimeContext, TaskStatus, TerminatedAction
+from avtdl.core.interfaces import Action, Actor, Record, RuntimeContext, TaskStatus, TerminatedAction
 from avtdl.core.plugins import Plugins
-from avtdl.core.utils import strip_text, write_file
+from avtdl.core.utils import JSONType, strip_text, write_file
 from avtdl.core.yaml import merge_data, yaml_dump
+from avtdl.plugins.discord import webhook
 
 
 def serialize_config(settings: SettingsSection,
@@ -77,13 +80,17 @@ def get_entity_schema(actor_name: str) -> dict:
     return get_schema(entity)
 
 
-def record_preview(record: Record, representation: str = 'text') -> str:
+def record_preview(record: Record, representation: str = 'text') -> JSONType:
     if representation == 'text':
         return str(record).replace('\n', '<br>\n')
     elif representation == 'json':
         return record.as_json(indent=4)
     elif representation == 'short':
         return repr(record)
+    elif representation == 'embed':
+        embeds = webhook.MessageFormatter.make_embeds(record)
+        message = webhook.MessageFormatter.make_message(embeds)
+        return message
     else:
         return str(record)
 
@@ -125,6 +132,9 @@ class WebUI:
         self.routes.append(web.get('/tasks', self.tasks))
 
         self.routes.append(web.get('/ui/info/info.html', self.info_webui))
+
+        self.routes.append(web.get('/entities', self.show_entities))
+        self.routes.append(web.get('/records', self.records))
 
         self.routes.append(web.get('/', self.index))
         self.routes.append(web.static('/ui', self.WEBROOT))
@@ -279,6 +289,56 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             raise web.HTTPBadRequest(text=f'actor "{actor_name}" is not found')
         status_list = self.ctx.controller.get_status()
         data = self.render_status_data(status_list, actor_name)
+        return web.json_response(data, dumps=json_dumps)
+
+    async def show_entities(self, request: web.Request) -> web.Response:
+        data: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(dict)
+        for actor_name, actor in self.actors.items():
+            actor_type = get_plugin_type(actor_name) or 'Other'
+            entities = {}
+            for entity_name in actor.entities.keys():
+                query = urllib.parse.urlencode({'actor': actor_name, 'entity': entity_name})
+                entities[entity_name] = query
+            data[actor_type][actor_name] = entities
+        return web.json_response(data, dumps=json_dumps)
+
+    async def records(self, request: web.Request) -> web.Response:
+        actor_name = request.query.get('actor')
+        entity = request.query.get('entity')
+        page_num = request.query.get('page')
+        representation = request.query.get('repr', 'text')
+
+        if page_num is not None:
+            try:
+                page = int(page_num)
+            except ValueError:
+                raise web.HTTPBadRequest(text=f'page number must be positive integer')
+        else:
+            page = None
+
+        if actor_name is None:
+            raise web.HTTPBadRequest(text=f'missing "actor" parameter')
+        if actor_name not in self.actors:
+            raise web.HTTPBadRequest(text=f'actor {actor_name} not found')
+        actor = self.actors[actor_name]
+        db: Optional[RecordDB] = getattr(actor, 'db', None)
+        if db is not None:
+            records = db.load_page(entity, page)
+            total_pages = db.page_count(entity)
+        else:
+            if not entity:
+                raise web.HTTPBadRequest(text=f'entity name not specified and actor {actor_name} does not use db')
+            outgoing = actor.bus.get_history(actor_name, entity, '', 'out')
+            incoming = actor.bus.get_history(actor_name, entity, '', 'in')
+            records = incoming if isinstance(actor, Action) else outgoing
+            total_pages = 1
+        records_view = [record_preview(record, representation) for record in records]
+
+        data = {
+            'total': total_pages,
+            'current': page or total_pages,
+            'records': records_view
+        }
         return web.json_response(data, dumps=json_dumps)
 
 

@@ -1,0 +1,151 @@
+#output {
+    max-width: fit-content;
+    padding: 20px;
+    padding-left: 40px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    flex-grow: 1;
+}
+
+.pagination-link {
+    display: inline-block;
+    padding: 8px 12px;
+    margin: 0 4px;
+    text-decoration: none;
+    color: #007bff; /* Bootstrap primary color */
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.pagination-link:hover {
+    background-color: #007bff;
+    color: white;
+}
+
+.pagination-text {
+    display: inline-block;
+    padding: 8px 12px;
+    margin: 0 4px;
+    color: #555; /* Gray color for plain text */
+}
+
+.pagination-link.active {
+    background-color: #007bff;
+    color: white;
+    border: 1px solid #007bff;
+    pointer-events: none; /* Disable clicking on the active page */
+}
+
+.pagination-link:disabled {
+    color: #ccc; /* Gray out disabled links */
+    pointer-events: none; /* Disable clicking */
+}
+
+.pagination {
+    text-align: center; /* Center the pagination */
+    margin: 20px 0; /* Add some margin */
+}
+
+/* Container for the gallery */
+.gallery-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px; /* Space between cards */
+    padding: 16px; /* Padding around the gallery */
+}
+
+/* Individual card styling */
+.gallery-card {
+    background-color: #f9f9f9; /* Light background color */
+    border: 1px solid #ddd; /* Light border */
+    border-radius: 8px; /* Rounded corners */
+    padding: 16px; /* Padding inside the card */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    flex: 1 1 calc(25% - 16px); /* Responsive card size (4 cards per row) */
+    min-width: 200px; /* Minimum width for cards */
+    text-align: center; /* Center text inside the card */
+}
+
+.discord-card {
+    background-color: #36393f; /* Dark background color */
+    color: #ffffff; /* White text color */
+    border-radius: 8px; /* Rounded corners */
+    padding: 12px; /* Padding inside the card */
+    margin: 8px 0; /* Margin between cards */
+    display: flex;
+    flex-direction: column;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px; /* Space between header and content */
+}
+
+/* Author name styling */
+.author-name {
+    font-weight: bold; /* Bold author name */
+}
+
+/* Content styling */
+.card-content {
+    margin-bottom: 4px; /* Space between content and timestamp */
+}
+
+/* Timestamp styling */
+.timestamp {
+    font-size: 12px; /* Smaller font for timestamp */
+    color: #b9bbbe; /* Gray color for timestamp */
+}
+
+.embed {
+    background-color: #2f3136; /* Darker background for embeds */
+    border: 1px solid #202225; /* Dark border */
+    border-radius: 8px; /* Rounded corners */
+    padding: 12px; /* Padding inside the embed */
+    margin-top: 8px; /* Space above the embed */
+    position: relative; /* For positioning the colored border */
+}
+
+/* Embed title styling */
+.embed-title {
+    margin: 0; /* Remove default margin */
+    font-size: 16px; /* Font size for title */
+    color: #ffffff; /* White text color */
+}
+
+/* Embed description styling */
+.embed-description {
+    margin: 4px 0; /* Margin for description */
+    color: #b9bbbe; /* Gray color for description text */
+}
+
+/* Embed field styling */
+.embed-field {
+    margin-top: 8px; /* Space above each field */
+    color: #b9bbbe; /* Gray color for field text */
+}
+
+.embed-field-value {
+    margin-left: 8px;
+}
+
+/* Embed footer styling */
+.embed-footer {
+    margin-top: 12px; /* Space above footer */
+    font-size: 12px; /* Smaller font for footer */
+    color: #b9bbbe; /* Gray color for footer text */
+}
+
+/* Footer timestamp styling */
+.footer-timestamp {
+    margin-left: 8px; /* Space between footer text and timestamp */
+    font-style: italic; /* Italic style for timestamp */
+}
+
+/* Embed image styling */
+.embed-image {
+    max-width: 100%; /* Responsive image */
+    border-radius: 4px; /* Slightly rounded corners for the image */
+    margin-top: 8px; /* Space above the image */
+}

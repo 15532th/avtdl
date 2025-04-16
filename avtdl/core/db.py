@@ -1,13 +1,19 @@
 import datetime
+import itertools
 import logging
+import math
 import sqlite3
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Set, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from pydantic import Field, field_validator, model_validator
 
 from avtdl.core.interfaces import ActorConfig, Record
+from avtdl.core.plugins import Plugins
 from avtdl.core.utils import check_dir
+
+RECORDS_PER_PAGE = 32
 
 
 class BaseRecordDB:
@@ -71,6 +77,39 @@ class BaseRecordDB:
         self.cursor.execute(sql, keys)
         return int(self.cursor.fetchone()[0])
 
+    def fetch_offset(self, limit: int, offset: int, group_id: Optional[str] = None) -> List[sqlite3.Row]:
+        if group_id is not None:
+            sql = f'SELECT * FROM records WHERE {self.group_id_field}=:group_id ORDER BY {self.sorting_field} DESC LIMIT :limit OFFSET :offset'
+        else:
+            sql = f'SELECT * FROM records ORDER BY {self.sorting_field} DESC LIMIT :limit OFFSET :offset'
+        keys = {'group_id': group_id, 'limit': limit, 'offset': offset}
+        self.cursor.execute(sql, keys)
+        return self.cursor.fetchall()
+
+
+@lru_cache(maxsize=1)
+def record_types() -> Dict[str, type[Record]]:
+    """Return mapping name: type for all record types registered in plugins"""
+    associated_records = Plugins.known[Plugins.kind.ASSOCIATED_RECORD]
+    return {t.__name__: t for t in itertools.chain(*associated_records.values())}
+
+
+def calculate_offset(page: Optional[int], per_page: int, total_rows: int) -> Tuple[int, int]:
+    if total_rows == 0:
+        return 0, 0
+    last_page = math.ceil(total_rows / per_page)
+    if page is None:
+        page = last_page
+    if page > last_page:
+        page = last_page
+    if page < 1:
+        page = 1
+    page_offset = page * per_page
+    offset = max(total_rows - page_offset, 0)
+    rows_on_last_page = total_rows % per_page or per_page
+    limit = per_page if page != last_page else rows_on_last_page
+    return limit, offset
+
 
 class RecordDB(BaseRecordDB):
 
@@ -87,7 +126,8 @@ class RecordDB(BaseRecordDB):
             feed_name = entity_name
             class_name = record.__class__.__name__
             as_json = record.as_json()
-            row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum, 'class_name': class_name, 'as_json': as_json}
+            row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum,
+                   'class_name': class_name, 'as_json': as_json}
             rows.append(row)
         self.store(rows)
 
@@ -118,6 +158,34 @@ class RecordDB(BaseRecordDB):
         stored_record_dump = stored_record.model_dump(exclude=excluded_fields)
         return record_dump != stored_record_dump
 
+    def page_count(self, entity_name: Optional[str], per_page: int = RECORDS_PER_PAGE) -> int:
+        pages = self.get_size(entity_name) / per_page
+        pages = math.ceil(pages)
+        return pages
+
+    def parse_record(self, row: sqlite3.Row) -> Optional[Record]:
+        type_name = row['class_name']
+        record_type = record_types().get(type_name)
+        if record_type is None:
+            self.logger.warning(f'failed to restore record: unsupported record type "{record_type}')
+            row_content = {k: row[k] for k in row.keys()}
+            self.logger.debug(f'Raw row: {row_content}')
+            return None
+        record = record_type.model_validate_json(row['as_json'])
+        return record
+
+    def load_page(self, entity_name: Optional[str], page: Optional[int], per_page: int = RECORDS_PER_PAGE) -> List[Record]:
+        total_rows = self.get_size(entity_name)
+
+        limit, offset = calculate_offset(page, per_page, total_rows)
+        rows = self.fetch_offset(limit, offset, entity_name)
+        records = []
+        for row in rows:
+            record = self.parse_record(row)
+            if record is not None:
+                records.append(record)
+        return records
+
 
 class BaseDbConfig(ActorConfig):
     db_path: Union[Path, str] = Field(default='db/', validate_default=True)
@@ -129,18 +197,22 @@ class BaseDbConfig(ActorConfig):
     @field_validator('db_path')
     @classmethod
     def str_to_path(cls, path: Union[Path, str]):
-        if isinstance(path, Path):
-            return path
-        if path == ':memory:':
-            return path
-        if path.endswith('/') or path.endswith('\\'):
-            ok = check_dir(Path(path), create=True)
-            if not ok:
-                raise ValueError(f'error accessing path {path}, check if it is a valid path and is writeable')
-        return Path(path)
+        return validate_db_path(path)
 
     @model_validator(mode='after')
     def handle_db_directory(self):
         if isinstance(self.db_path, Path) and self.db_path.is_dir():
             self.db_path = self.db_path.joinpath(f'{self.name}.sqlite')
         return self
+
+
+def validate_db_path(path: Union[Path, str]) -> Union[Path, str]:
+    if isinstance(path, Path):
+        return path
+    if path == ':memory:':
+        return path
+    if path.endswith('/') or path.endswith('\\'):
+        ok = check_dir(Path(path), create=True)
+        if not ok:
+            raise ValueError(f'error accessing path {path}, check if it is a valid path and is writeable')
+    return Path(path)
