@@ -3,7 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Sequence
 
-from pydantic import FilePath, NonNegativeInt
+from pydantic import FilePath, NonNegativeFloat
 
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 from avtdl.core.request import HttpClient
@@ -44,7 +44,7 @@ class HttpAction(Action, ABC):
 
 
 class QueueActionConfig(HttpActionConfig):
-    consumption_delay: NonNegativeInt = 2
+    consumption_delay: NonNegativeFloat = 1
     """delay before entity starts processing next record after finishing previous, in seconds"""
 
 
@@ -97,7 +97,7 @@ class QueueAction(HttpAction):
 
 
 class TaskActionConfig(HttpActionConfig):
-    consumption_delay: NonNegativeInt = 3
+    consumption_delay: NonNegativeFloat = 1
     """delay between start of processing of multiple records received at the same time, in seconds. Used to even out short bursts of activity"""
 
 
