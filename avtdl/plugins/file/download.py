@@ -1,20 +1,22 @@
 import asyncio
+import logging
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import List, Mapping, Optional, Sequence
 
-from pydantic import AnyUrl, Field, FilePath, RootModel, ValidationError, field_validator
+from pydantic import AnyUrl, Field, RootModel, ValidationError, field_validator
 
+from avtdl.core.actions import QueueAction, QueueActionConfig, QueueActionEntity
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
+from avtdl.core.interfaces import Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import Fmt, SessionStorage, check_dir, sanitize_filename, sha1
+from avtdl.core.utils import Fmt, check_dir, sanitize_filename, sha1
 
 
 @Plugins.register('download', Plugins.kind.ACTOR_CONFIG)
-class FileDownloadConfig(ActorConfig):
+class FileDownloadConfig(QueueActionConfig):
     max_concurrent_downloads: int = Field(default=1, ge=1)
     """limit for simultaneously active download tasks among all entities. Note that each entity will still process records sequentially regardless of this setting"""
     partial_file_suffix: str = '.part'
@@ -22,13 +24,9 @@ class FileDownloadConfig(ActorConfig):
 
 
 @Plugins.register('download', Plugins.kind.ACTOR_ENTITY)
-class FileDownloadEntity(ActionEntity):
+class FileDownloadEntity(QueueActionEntity):
     url_field: str
     """field in the incoming record containing url of file to be downloaded"""
-    cookies_file: Optional[FilePath] = None
-    """path to a text file containing cookies in Netscape format"""
-    headers: Optional[Dict[str, str]] = {}
-    """custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use `cookies_file` option instead"""
     path: Path
     """directory where downloaded file should be created. Supports templating with {...}"""
     filename: Optional[str] = None
@@ -58,8 +56,9 @@ class FileDownloadEntity(ActionEntity):
         value = sanitize_filename(value)
         return value
 
+
 @Plugins.register('download', Plugins.kind.ACTOR)
-class FileDownload(Action):
+class FileDownload(QueueAction):
     """
     Download a file
 
@@ -88,23 +87,13 @@ class FileDownload(Action):
     def __init__(self, conf: FileDownloadConfig, entities: Sequence[FileDownloadEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
         self.conf: FileDownloadConfig
-        self.entities: Mapping[str, FileDownloadEntity]  # type: ignore
+        self.entities: Mapping[str, FileDownloadEntity]
         self.concurrency_limit = asyncio.BoundedSemaphore(value=conf.max_concurrent_downloads)
-        self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
-        self.sessions = SessionStorage(self.logger)
-
-    def handle(self, entity: FileDownloadEntity, record: Record):
-        try:
-            queue = self.queues[entity.name]
-            queue.put_nowait(record)
-            self.logger.debug(f'[{entity.name}] added new record to the queue, current queue size is {queue.qsize()}')
-        except (asyncio.QueueFull, KeyError) as e:
-            self.logger.exception(f'[{entity.name}] failed to add url, {type(e)}: {e}. This is a bug, please report it.')
 
     def _get_urls_list(self, entity: FileDownloadEntity, record: Record) -> Optional[List[str]]:
         field = getattr(record, entity.url_field, None)
         if field is None:
-            msg = f'[{entity.name}] received a record that does not contain "{entity.url_field}" field. The record: {record!r}'
+            msg = f'received a record that does not contain "{entity.url_field}" field. The record: {record!r}'
             self.logger.debug(msg)
             return None
         if isinstance(field, str):
@@ -113,29 +102,21 @@ class FileDownload(Action):
             urls = [str(url) for url in UrlList(field)]
             return urls
         except ValidationError:
-            self.logger.debug(f'[{entity.name}] received record with the "{entity.url_field}" field that was not recognised as a valid url or a sequence of urls. Raw record: {record!r}')
+            self.logger.debug(
+                f'received record with the "{entity.url_field}" field that was not recognised as a valid url or a sequence of urls. Raw record: {record!r}')
             return None
 
-    async def run_for(self, entity: FileDownloadEntity):
-        try:
-            session = self.sessions.get_session(entity.cookies_file, entity.headers)
-            client = HttpClient(self.logger, session)
-            queue = self.queues[entity.name]
-            while True:
-                record = await queue.get()
-                self.logger.debug(f'[{entity.name}] processing record {record!r}')
-                self.logger.debug(f'[{entity.name}] {queue.qsize()} records left waiting in the queue')
-                urls = self._get_urls_list(entity, record)
-                if urls is None:
-                    self.logger.debug(f'[{entity.name}] found no values in field "{entity.url_field}", skipping record')
-                    continue
-                for url in urls:
-                    self.logger.debug(f'[{entity.name}] processing url {url}')
-                    await self.handle_download(client, entity, record, url)
-        except Exception:
-            self.logger.exception(f'[{entity.name}] unexpected error in background task, terminating')
+    async def handle_single_record(self, logger: logging.Logger, client: HttpClient,
+                                   entity: FileDownloadEntity, record: Record) -> None:
+        urls = self._get_urls_list(entity, record)
+        if urls is None:
+            self.logger.debug(f'found no values in field "{entity.url_field}", skipping record')
+            return
+        for url in urls:
+            self.logger.debug(f'processing url {url}')
+            await self.handle_download(logger, client, entity, record, url)
 
-    async def handle_download(self, client: HttpClient, entity: FileDownloadEntity, record: Record, url: str):
+    async def handle_download(self, logger, client: HttpClient, entity: FileDownloadEntity, record: Record, url: str):
         """
         Handle download-related stuff: generating filenames, moving files, error reporting
 
@@ -148,16 +129,17 @@ class FileDownload(Action):
         path = Fmt.format_path(entity.path, record, tz=entity.timezone)
         ok = check_dir(path)
         if not ok:
-            self.logger.warning(f'[{entity.name}] check "{path}" is a valid and writeable directory')
+            logger.warning(f'check "{path}" is a valid and writeable directory')
             return
 
         temp_file = path / Path(sha1(url)).with_suffix(self.conf.partial_file_suffix)
         if temp_file.exists():
-            self.logger.warning(f'[{entity.name}] aborting download of "{url}": temporary file "{temp_file}" already exists, meaning download is already in progress or download process has been interrupted abruptly')
+            logger.warning(
+                f'aborting download of "{url}": temporary file "{temp_file}" already exists, meaning download is already in progress or download process has been interrupted abruptly')
             return
 
-        self.logger.debug(f'[{entity.name}] downloading "{url}" to "{temp_file}"')
-        info = await self.download(client, url, temp_file)
+        logger.debug(f'downloading "{url}" to "{temp_file}"')
+        info = await self.download(logger, client, url, temp_file)
         if info is None:
             return None
 
@@ -176,14 +158,14 @@ class FileDownload(Action):
         try:
             path.exists()
         except OSError as e:
-            self.logger.warning(f'[{entity.name}] failed to process record: {e}')
+            logger.warning(f'failed to process record: {e}')
             return
         if path.exists() and not entity.overwrite:
             for p in path.parent.iterdir():
                 if not p.stem.startswith(path.stem):
                     continue
                 if has_same_content(temp_file, p):
-                    self.logger.info(f'[{entity.name}] file "{temp_file}" is already stored as "{p}", deleting')
+                    self.logger.info(f'file "{temp_file}" is already stored as "{p}", deleting')
                     remove_files([temp_file])
                     return
             new_path = Path(path)  # making a copy
@@ -195,30 +177,27 @@ class FileDownload(Action):
                 new_path = new_path.with_stem(new_name)
             path = new_path
         try:
-            self.logger.debug(f'[{entity.name}] moving "{temp_file}" to "{path}"')
+            self.logger.debug(f'moving "{temp_file}" to "{path}"')
             os.replace(temp_file, path)
         except Exception as e:
             message = f'[{entity}]: when downloading "{url}" failed to move file "{temp_file}" to desired location "{path}": {e}'
-            self.logger.warning(message)
+            logger.warning(message)
 
-    async def download(self, client: HttpClient, url: str, output_file: Path) -> Optional[RemoteFileInfo]:
+    async def download(self, logger: logging.Logger, client: HttpClient, url: str, output_file: Path) -> Optional[
+        RemoteFileInfo]:
         """Perform the actual download"""
         try:
-            self.logger.debug(f'waiting for semaphore({self.concurrency_limit._value}) to download "{url}"')
+            logger.debug(f'waiting for semaphore({self.concurrency_limit._value}) to download "{url}"')
             async with self.concurrency_limit:
-                self.logger.debug(f'acquired semaphore({self.concurrency_limit._value}), downloading "{url}" to "{output_file}"')
+                logger.debug(
+                    f'acquired semaphore({self.concurrency_limit._value}), downloading "{url}" to "{output_file}"')
                 info = await download_file(url, output_file, client.session)
         except Exception as e:
-            self.logger.exception(f'unexpected error when downloading "{url}" to "{output_file}": {e}')
+            logger.exception(f'unexpected error when downloading "{url}" to "{output_file}": {e}')
             return None
-        self.logger.debug(f'finished downloading "{url}" to "{output_file}", semaphore({self.concurrency_limit._value}) released')
+        logger.debug(
+            f'finished downloading "{url}" to "{output_file}", semaphore({self.concurrency_limit._value}) released')
         return info
-
-    async def run(self) -> None:
-        name = f'ensure_closed for {self.logger.name} ({self!r})'
-        _ = self.controller.create_task(self.sessions.ensure_closed(), name=name)
-        for entity in self.entities.values():
-            _ = self.controller.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
 
 
 class UrlList(RootModel):

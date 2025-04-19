@@ -132,8 +132,12 @@ class TaskAction(HttpAction):
     async def _handle_record_task(self, logger: logging.Logger, client: HttpClient,
                                   entity: TaskActionEntity, record: Record) -> None:
         async with self.start_token:
+            # ideally delay should be applied after the task creation, but it means adding yet another create_task()
             await asyncio.sleep(self.conf.consumption_delay)
-        await self.handle_record_task(logger, client, entity, record)
+        try:
+            await self.handle_record_task(logger, client, entity, record)
+        except Exception as e:
+            logger.exception(f'unexpected exception while processing record {record!r}')
 
     @abstractmethod
     async def handle_record_task(self, logger: logging.Logger, client: HttpClient,
