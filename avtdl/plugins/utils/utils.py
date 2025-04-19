@@ -31,6 +31,7 @@ class QuitAction(Action):
 
     Triggers avtdl shutdown when specified number of records is received.
     """
+
     def __init__(self, conf: QuitActionConfig, entities: Sequence[QuitActionEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
 
@@ -43,7 +44,8 @@ class QuitAction(Action):
 
         if entity.global_counter > 0:
             entity.global_counter -= 1
-            self.logger.info(f'[{entity.name}] decrementing global counter, {entity.global_counter} left for this entity')
+            self.logger.info(
+                f'[{entity.name}] decrementing global counter, {entity.global_counter} left for this entity')
         self.check_global_counter(entity)
 
     def check_global_counter(self, entity: QuitActionEntity):
@@ -89,6 +91,7 @@ class Consumer(Action):
     Keeps history of received records, allow registering handlers
     for records received by specific entity.
     """
+
     def __init__(self, conf: ActorConfig, entities: Sequence[ActionEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
         self.history: Dict[str, List[Record]] = {entity.name: [] for entity in entities}
