@@ -1,7 +1,11 @@
+import asyncio
 from collections import defaultdict
 from enum import Enum
 from typing import Callable, Dict, List, Optional, Sequence
 
+from pydantic import FilePath, NonNegativeFloat, NonNegativeInt
+
+from avtdl.core.db import RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 
@@ -108,3 +112,52 @@ class Consumer(Action):
 
     def register_callback(self, callback: Callable[[ActionEntity, Record], None], entity_name: Optional[str] = None):
         self.callbacks[entity_name].append(callback)
+
+
+Plugins.register('utils.replay', Plugins.kind.ACTOR_CONFIG)(ActorConfig)
+
+
+@Plugins.register('utils.replay', Plugins.kind.ACTOR_ENTITY)
+class ReplayEntity(MonitorEntity):
+    db_path: FilePath
+    """path to the sqlite database file storing records"""
+    entity_name: Optional[str] = None
+    """if specified, only records belonging to entity with this name are replayed"""
+    emit_limit: NonNegativeInt = 10
+    """how many records should be replayed"""
+    emit_interval: NonNegativeFloat = 0.01
+    """delay between two consequentially produced records, in seconds"""
+
+
+@Plugins.register('utils.replay', Plugins.kind.ACTOR)
+class Replay(Monitor):
+    """
+    Used for testing purposes
+
+    Load records from db, emit them one by one
+    """
+
+    def __init__(self, conf: ActorConfig, entities: Sequence[ReplayEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
+        self.databases = {}
+        for entity in entities:
+            db = RecordDB(entity.db_path, logger=self.logger.getChild('name'))
+            self.databases[entity.name] = db
+
+    async def replay_task(self, entity: ReplayEntity):
+        db = self.databases.get(entity.name)
+        if db is None:
+            self.logger.exception(f'no database is opened for entity {entity.name}')
+            return
+        records = db.load_page(entity.entity_name, 0, entity.emit_limit)
+        self.logger.debug(f'[{entity.name}] {len(records)} records to emit with {entity.emit_interval} interval')
+        for record in records:
+            self.on_record(entity, record)
+            await asyncio.sleep(entity.emit_interval)
+        self.logger.debug(f'[{entity.name}] done')
+
+    async def run(self):
+        for entity in self.entities.values():
+            task = self.replay_task(entity)
+            self.ctx.controller.create_task(task, name=f'{self.conf.name}:{entity.name}')
+        await super().run()
