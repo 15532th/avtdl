@@ -101,7 +101,7 @@ class YoutubeFeedRecord(Record):
             'color': None,
             'author': {'name': self.author},
             'timestamp': self.format_date(self.published),
-            'image': {'url': thumbnail_url(self.video_id)}
+            'image': {'url': self.thumbnail_url}
         }
         if self.scheduled is not None:
             scheduled = self.scheduled.strftime('%Y-%m-%d %H:%M')
