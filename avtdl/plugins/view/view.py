@@ -33,7 +33,7 @@ class ViewEntity(ActionEntity):
     @model_validator(mode='after')
     def handle_db_directory(self):
         if isinstance(self.db_path, Path) and self.db_path.is_dir():
-            self.db_path = self.db_path.joinpath(f'view_{self.name}.sqlite')
+            self.db_path = self.db_path.joinpath(f'view/{self.name}.sqlite')
         return self
 
 
