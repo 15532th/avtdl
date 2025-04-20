@@ -11,6 +11,7 @@ from aiohttp import web
 from pydantic import BaseModel
 
 from avtdl.core import info
+from avtdl.core.cache import FileCache, is_url
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.db import HistoryView
@@ -107,9 +108,11 @@ class ActorModel(BaseModel):
 
 class WebUI:
     WEBROOT: pathlib.Path = pathlib.Path(__file__).parent.parent.resolve() / 'ui'
+    CACHE_ROUTE: pathlib.Path = pathlib.Path('/cache')
     RESTART_DELAY: int = 3
 
-    def __init__(self, config_path: pathlib.Path, config, ctx: RuntimeContext, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
+    def __init__(self, config_path: pathlib.Path, config, ctx: RuntimeContext, settings: SettingsSection,
+                 actors: Dict[str, Actor], chains: Dict[str, Chain]):
         self.logger = logging.getLogger('webui')
         self.host = settings.host
         self.port = settings.port
@@ -120,6 +123,7 @@ class WebUI:
         self.actors = actors
         self.chains = chains
         self.restart_pending = False
+        self.cache = FileCache(self.settings.cache_directory, '.part')
         self._actors_models = self.generate_actors_models()
         self.routes: List[web.AbstractRouteDef] = []
 
@@ -138,6 +142,7 @@ class WebUI:
 
         self.routes.append(web.get('/entities', self.show_entities))
         self.routes.append(web.get('/records', self.records))
+        self.routes.append(web.static(str(self.CACHE_ROUTE), self.cache.cache_directory))
 
         self.routes.append(web.get('/', self.index))
         self.routes.append(web.static('/ui', self.WEBROOT))
@@ -200,11 +205,13 @@ class WebUI:
             try:
                 write_file(self.config_path, raw_yaml, encoding=config_encoding, backups=10)
             except Exception as e:
-                raise web.HTTPInternalServerError(text=f'failed to store config in "{self.config_path}": {e or type(e)}')
+                raise web.HTTPInternalServerError(
+                    text=f'failed to store config in "{self.config_path}": {e or type(e)}')
             if mode == 'reload':
                 self.restart_pending = True
                 self.ctx.controller.terminate_after(self.RESTART_DELAY, TerminatedAction.RESTART)
-                return web.Response(text=f'Updated config successfully stored in "{self.config_path}". Restarting in a few seconds.')
+                return web.Response(
+                    text=f'Updated config successfully stored in "{self.config_path}". Restarting in a few seconds.')
             else:
                 text = f'Updated config successfully stored in "{self.config_path}". It will be used after next restart.'
                 return web.Response(text=text)
@@ -255,7 +262,8 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         chain = request.query.get('chain', '')
         representation = request.query.get('repr', 'text')
         if actor is None or entity is None:
-            raise web.HTTPBadRequest(text=f'not enough arguments. Got actor="{actor}", entity="{entity}", chain="{chain}"')
+            raise web.HTTPBadRequest(
+                text=f'not enough arguments. Got actor="{actor}", entity="{entity}", chain="{chain}"')
         incoming = self.ctx.bus.get_history(actor, entity, chain, 'in')
         outgoing = self.ctx.bus.get_history(actor, entity, chain, 'out')
         data_structure = [
@@ -305,6 +313,39 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             data[actor_type][actor_name] = entities
         return web.json_response(data, dumps=json_dumps)
 
+    def _rewrite_embed_image(self, record: Record, embed: dict, field: str, subfield: str):
+        """if it exists, is a valid url and is cached, replace embed[field][subfield] with link to cached file"""
+        image_url = embed.get(field, {}).get(subfield, None)
+        if image_url is None:
+            return
+        if not is_url(image_url):
+            return
+        image_file = self.cache.retrieve(record, image_url)
+        if image_file is None:
+            return
+        try:
+            relative = image_file.relative_to(self.cache.cache_directory)
+        except Exception as e:
+            msg = f'cached file "{image_file}" for url "{image_url}" is not relative to "{self.cache.cache_directory}"'
+            self.logger.warning(msg)
+            return
+        resource = str(self.CACHE_ROUTE / relative)
+        embed[field][subfield] = resource
+
+    def render_record(self, record: Record) -> JSONType:
+        embeds = webhook.MessageFormatter.make_embeds(record)
+        for embed in embeds:
+            self._rewrite_embed_image(record, embed, 'image', 'url')
+            self._rewrite_embed_image(record, embed, 'author', 'icon_url')
+            # # now embeds are rendered on frontend and any html coming inside field values is escaped, no point rendering description here
+            # description = embed.get('description')
+            # if description is not None:
+            #     description = re.sub(r'\n', '<br>', description)
+            #     description = re.sub(r'https?://\s', '<a href="$1" target="_blank">\1</a>', description)
+            #     embed['description'] = description
+        message = webhook.MessageFormatter.make_message(embeds)
+        return message
+
     async def records(self, request: web.Request) -> web.Response:
         actor_name = request.query.get('actor')
         entity_name = request.query.get('entity')
@@ -338,7 +379,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             db = HistoryView(actor, entity_name)
         records = db.load_page(page, RECORDS_PER_PAGE)
         total_pages = db.page_count(RECORDS_PER_PAGE)
-        records_view = [record_preview(record, representation) for record in records]
+        records_view = [self.render_record(record) for record in records]
 
         data = {
             'total': total_pages,
@@ -369,6 +410,7 @@ async def run_app(webui: WebUI):
         webui.logger.debug('server stopped')
 
 
-async def run(config_path: pathlib.Path, config, ctx: RuntimeContext, settings: SettingsSection, actors: Dict[str, Actor], chains: Dict[str, Chain]):
+async def run(config_path: pathlib.Path, config, ctx: RuntimeContext, settings: SettingsSection,
+              actors: Dict[str, Actor], chains: Dict[str, Chain]):
     webui = WebUI(config_path, config, ctx, settings, actors, chains)
     await run_app(webui)

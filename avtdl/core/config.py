@@ -3,8 +3,9 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, create_model
+from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, create_model, field_validator
 
+from avtdl.core import utils
 from avtdl.core.chain import Chain, ChainConfigSection
 from avtdl.core.interfaces import Actor, RuntimeContext
 from avtdl.core.loggers import LogLevel, override_loglevel, set_file_logger
@@ -59,6 +60,18 @@ class SettingsSection(BaseModel):
     """web-interface host, typically "127.0.0.1", "0.0.0.0" or the machine external IP"""
     encoding: Optional[str] = None
     """configuration file encoding. Leave empty to use system-wide default. Note, that webui will forcibly overwrite empty value with "utf8" when saving new configuration"""
+    cache_directory: Path = Field(default='cache/downloads/', validate_default=True)
+    """directory used for storing pre-downloaded images and other resources, used to display records in the web-interface.
+    Send records through the "cache" plugin to download and store resources it references"""
+
+    @field_validator('cache_directory')
+    @classmethod
+    def check_dir(cls, path: Path):
+        ok = utils.check_dir(path)
+        if ok:
+            return path
+        else:
+            raise ValueError(f'check path "{path}" exists and is a writeable directory')
 
 
 def configure_loggers(settings: SettingsSection):
