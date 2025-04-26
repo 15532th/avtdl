@@ -40,8 +40,9 @@ class BaseRecordDB:
         else:
             self.logger.debug(f'successfully connected to sqlite database at "{db_path}"')
 
-    def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
-        sql = "INSERT OR IGNORE INTO {} VALUES({})".format(self.table_name, self.row_structure)
+    def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]], replace: bool = False) -> None:
+        on_conflict = 'REPLACE' if replace else 'IGNORE'
+        sql = "INSERT OR {} INTO {} VALUES({})".format(on_conflict, self.table_name, self.row_structure)
         if not isinstance(rows, list):
             rows = [rows]
         self.cursor.executemany(sql, rows)
@@ -115,7 +116,7 @@ class RecordDB(BaseRecordDB):
     def _get_record_id(record: Record, entity_name: str) -> str:
         return '{}:{}'.format(entity_name, record.get_uid())
 
-    def store_records(self, records: Sequence[Record], entity_name: str):
+    def store_records(self, records: Sequence[Record], entity_name: str, replace: bool = False):
         rows = []
         for record in records:
             uid = self._get_record_id(record, entity_name)
@@ -127,7 +128,7 @@ class RecordDB(BaseRecordDB):
             row = {'parsed_at': parsed_at, 'feed_name': feed_name, 'uid': uid, 'hashsum': hashsum,
                    'class_name': class_name, 'as_json': as_json}
             rows.append(row)
-        self.store(rows)
+        self.store(rows, replace)
 
     def load_record(self, record: Record, entity_name: str) -> Optional[Record]:
         """load most recently stored version of the record from db"""

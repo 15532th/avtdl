@@ -24,6 +24,9 @@ class ViewEntity(ActionEntity):
     database is kept in memory and not stored on disk at all, providing a clean database on every startup"""
     readonly: bool = False
     """when enabled, prevents any writes to the database"""
+    replace: bool = True
+    """when exactly the same record is received more than once, the latest copy will overwrite already stored one,
+    updating the time the record was stored"""
 
     @field_validator('db_path')
     @classmethod
@@ -55,7 +58,7 @@ class View(Action):
             self.logger.exception(
                 f'no database is opened for entity {entity.name}, the following record will not be stored: {record!r}')
             return
-        db.store_records([record], entity.name)
+        db.store_records([record], entity.name, entity.replace)
 
     def get_records_storage(self, entity_name: Optional[str] = None) -> Optional[AbstractRecordsStorage]:
         if entity_name not in self.databases:
