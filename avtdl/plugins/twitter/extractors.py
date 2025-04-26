@@ -78,52 +78,49 @@ class TwitterRecord(Record):
     def get_uid(self) -> str:
         return self.url
 
-    def discord_embed(self) -> List[dict]:
-        quote = self.quote if self.retweet is None else self.retweet.quote
+    def discord_embed(self, color: Optional[int] = None) -> List[dict]:
+        quote = self.quote
+        footer = {'text': 'Referring to:'} if quote else None
 
         text_items = [self.text]
         if len(self.attachments) > 1:
             text_items.extend(self.attachments)
-        if quote:
-            text_items.append('\nReferring to ')
-            text_items.append(str(quote))
-        text = '\n'.join(text_items)
+        text = '\n'.join(text_items) if not self.retweet else None
 
         if self.retweet is not None:
-            author = f'[{self.published.strftime("%Y-%m-%d %H:%M:%S")}] {self.author} (@{self.username}) has retweeted:'
-            title = f'{self.retweet.author} ({self.retweet.username})'
-            if self.replying_to_username:
-                title += f', replying to @{self.replying_to_username}:'
-            avatar = self.retweet.avatar_url
-            timestamp = self.retweet.published.isoformat()
+            title = f'{self.author} has retweeted:'
+        elif self.replying_to_username:
+            title = f'Replying to @{self.replying_to_username}:'
         else:
-            author = f'{self.author} ({self.username})'
-            title = f'Replying to @{self.replying_to_username}:' if self.replying_to_username else self.url
-            avatar = self.avatar_url
-            timestamp = self.published.isoformat()
+            title = self.url
+        author = f'{self.author} ({self.username})'
+        avatar = self.avatar_url
+        timestamp = self.published.isoformat()
 
         embed = {
             'title': title,
             'description': text,
             'url': self.url,
-            'color': None,
+            'color': color,
             'author': {'name': author, 'icon_url': avatar, 'url': user_url_by_id(self.username)},
             'timestamp': timestamp,
+            'footer': footer
         }
 
         def format_attachments(post_url: str, attachments: List[str]) -> List[dict]:
             return [{'url': post_url, 'image': {'url': attachment}} for attachment in attachments]
 
-        if self.attachments:
+        embeds = [embed]
+        if self.attachments and not self.retweet:
             images = format_attachments(self.url, self.attachments)
             embed['image'] = images.pop(0)['image']
-            embeds = [embed, *images]
-        elif quote and quote.attachments:
-            images = format_attachments(quote.url, quote.attachments)
-            embed['image'] = images.pop(0)['image']
-            embeds = [embed, *images]
-        else:
-            embeds = [embed]
+            embeds.extend(images)
+        if self.retweet is not None:
+            retweet_embed = self.retweet.discord_embed(color=0xb0c8d4)
+            embeds.extend(retweet_embed)
+        if quote:
+            quote_embeds = quote.discord_embed(color=0xb0c8d4)
+            embeds.extend(quote_embeds)
         return embeds
 
 
