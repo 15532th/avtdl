@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import List, Mapping, Optional, Sequence
 
-from pydantic import AnyUrl, Field, RootModel, ValidationError, field_validator
+from pydantic import AnyUrl, Field, NonNegativeFloat, RootModel, ValidationError, field_validator
 
 from avtdl.core import utils
 from avtdl.core.actions import QueueAction, QueueActionConfig, QueueActionEntity
@@ -241,8 +241,8 @@ class FileCacheConfig(FileDownloadConfig):
 class FileCacheEntity(QueueActionEntity):
     url_fields: List[str] = ['attachments', 'thumbnail_url', 'avatar_url']
     """names of fields in the incoming record containing urls of files to be downloaded"""
-    no_reuse: bool = False
-    """force download even if file from the same url was already stored in cache"""
+    replace_after: Optional[NonNegativeFloat] = None
+    """how old existing file should be to get redownloaded, in hours"""
 
 
 @Plugins.register('cache', Plugins.kind.ACTOR)
@@ -265,26 +265,27 @@ class FileCacheAction(QueueAction):
     async def handle_single_record(self, logger: logging.Logger, client: HttpClient,
                                    entity: FileCacheEntity, record: Record) -> None:
         for field in entity.url_fields:
-            await self._handle_field(logger, client, record, field)
+            await self._handle_field(logger, client, record, field, entity.replace_after)
 
-    async def _handle_field(self, logger: logging.Logger, client: HttpClient, record: Record, field_name: str):
+    async def _handle_field(self, logger: logging.Logger, client: HttpClient,
+                            record: Record, field_name: str, replace_after: Optional[float]):
         field = getattr(record, field_name, None)
         if field is None:
             logger.debug(f'no field "{field_name}" in record {record!r}, skipping')
         elif isinstance(field, str):
-            await self._cache_urls(logger, client, record, [field])
+            await self._cache_urls(logger, client, record, [field], replace_after)
         elif isinstance(field, list):
-            await self._cache_urls(logger, client, record, field)
+            await self._cache_urls(logger, client, record, field, replace_after)
         else:
             msg = f'field "{field_name}" of record {record!r} does not seem to hold any links. Raw field value: {field}'
             logger.debug(msg)
 
     async def _cache_urls(self, logger: logging.Logger, client: HttpClient,
-                          record: Record, maybe_urls: List[str]) -> None:
+                          record: Record, maybe_urls: List[str], replace_after: Optional[float]) -> None:
         for url in maybe_urls:
             if is_url(url):
                 async with self.concurrency_limit:
-                    await self.cache.store(logger, client, record, url)
+                    await self.cache.store(logger, client, record, url, replace_after)
             else:
                 msg = f'"{url}" does not seem to be a valid url, skipping. Record: {record!r}'
                 logger.debug(msg)

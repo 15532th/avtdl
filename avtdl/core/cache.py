@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 import logging
 import os
@@ -74,6 +75,25 @@ def find_free_suffix(path: Path, suffix_template: str) -> Path:
     return new_path
 
 
+def has_expired(file: Path, ttl: Optional[float]) -> bool:
+    """check if file was created earlier than ttl hours ago"""
+    if ttl is None:
+        return False
+    if ttl == 0:
+        return True
+    if not file.exists():
+        return True
+    try:
+        stat = file.stat()
+    except OSError:
+        return True
+    modified = datetime.datetime.fromtimestamp(stat.st_ctime)
+    now = datetime.datetime.now()
+    hours_passed = (now - modified).total_seconds() / 3600
+
+    return hours_passed > ttl
+
+
 class FileCache:
     RENAME_SUFFIX = ' [{i}]'
 
@@ -109,12 +129,12 @@ class FileCache:
         return file
 
     async def store(self, logger: logging.Logger, client: HttpClient,
-                    record: Record, url: str, reuse: bool = True) -> Optional[Path]:
+                    record: Record, url: str, replace_after: Optional[float] = None) -> Optional[Path]:
         """download and store or find existing local copy of the url, return path to the local file.
         Use existing file if "reuse" option enabled, otherwise pick a new name and download anyway"""
         store_path = self.filename_for(record, url)
         file = self._find_file(store_path, url)
-        if file and reuse:
+        if file and not has_expired(file, replace_after):
             self.logger.debug(f'reusing stored file "{file}" for "{url}"')
             return file
         store_path = find_free_suffix(store_path, self.RENAME_SUFFIX)
