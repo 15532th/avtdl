@@ -337,6 +337,15 @@ class Fmt:
         return Path(formatted_path)
 
     @classmethod
+    def format_filename(cls, path: Union[str, Path], name: str, record: Record, missing: Optional[str] = None,
+                    tz: Optional[datetime.tzinfo] = None, extra: Optional[Dict[str, Any]] = None) -> Path:
+        """format file path and filename templates into a Path object"""
+        path = cls.format_path(path, record, missing, tz, extra)
+        formatted_name = cls.format(name, record, missing, tz=tz, sanitize=True, extra=extra)
+        sanitized_name = sanitize_filename(formatted_name)
+        return path / sanitized_name
+
+    @classmethod
     def strftime(cls, fmt: str, dt: datetime.datetime) -> str:
         if '%' in fmt:
             fmt = re.sub(r'(%[^aAwdbBmyYHIpMSfzZjUWcxX%GuV])', r'%\1', fmt)
