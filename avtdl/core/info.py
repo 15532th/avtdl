@@ -337,8 +337,6 @@ def get_known_plugins() -> List[str]:
         'Other': []
     }
     for name, plugin in Plugins.known[Plugins.kind.ACTOR].items():
-        if name.startswith(INTERNAL_PLUGINS_PATTERN):
-            continue
         plugin_type = get_plugin_type(name)
         if plugin_type not in plugins_by_type:
             plugin_type = 'Other'
