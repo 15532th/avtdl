@@ -129,9 +129,11 @@ class FileCache:
         return file
 
     async def store(self, logger: logging.Logger, client: HttpClient,
-                    record: Record, url: str, replace_after: Optional[float] = None) -> Optional[Path]:
+                    record: Record, url: str,
+                    replace_after: Optional[float] = None, external_path: Optional[Path] = None) -> Optional[Path]:
         """download and store or find existing local copy of the url, return path to the local file.
-        Use existing file if "reuse" option enabled, otherwise pick a new name and download anyway"""
+        Use existing file "unless replace_after" hours has passed since it was created, otherwise
+        pick a new name and download anyway"""
         store_path = self.filename_for(record, url)
         file = self._find_file(store_path, url)
         if file and not has_expired(file, replace_after):

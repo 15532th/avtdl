@@ -251,8 +251,8 @@ class FileCacheAction(QueueAction):
     Cache url locally
 
     For every incoming record, go through fields specified in "url_fields" setting
-    and download files the urls are pointing to. Downloaded files are then used
-    to present record in the web interface.
+    and download files the urls are pointing to. Downloaded files are stored under
+    the cache_directory, where they are used to present record in the web interface.
     """
 
     def __init__(self, conf: FileCacheConfig, entities: Sequence[FileCacheEntity], ctx: RuntimeContext):
