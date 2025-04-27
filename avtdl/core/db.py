@@ -229,7 +229,7 @@ class HistoryView(AbstractRecordsStorage):
         return records
 
     def page_count(self, per_page: int) -> int:
-        return len(self._get_records(self.entity_name))
+        return math.ceil(len(self._get_records(self.entity_name)) / per_page)
 
     def load_page(self, page: Optional[int], per_page: int) -> List[Record]:
         records = self._get_records(self.entity_name)
