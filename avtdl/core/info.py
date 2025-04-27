@@ -47,7 +47,6 @@ section of the README.
 ---
 '''
 
-
 STRUCTURE = '''
 ## Monitors:
 
@@ -294,7 +293,8 @@ class TOC:
 
     @classmethod
     def generate_toc_tokens(cls, text: str, toc_depth: Union[int, str]) -> List[TOCToken]:
-        md = markdown.Markdown(output_format='html', extensions=['md_in_html', TocExtension(toc_depth=toc_depth, slugify=cls.slugify)])
+        md = markdown.Markdown(output_format='html',
+                               extensions=['md_in_html', TocExtension(toc_depth=toc_depth, slugify=cls.slugify)])
         _ = md.convert(text)
         tokens = [TOCToken.model_validate(token) for token in md.toc_tokens]
         return tokens
@@ -322,10 +322,11 @@ class TOC:
         return md
 
     @classmethod
-    def insert_toc(cls, source_text: str, target_text: str, toc_marker: str = '{TOC}', toc_depth='2-3', indent: str = '  ') -> str:
-       toc = cls.generate_toc(source_text, toc_depth, indent)
-       result = target_text.replace(toc_marker, toc)
-       return result
+    def insert_toc(cls, source_text: str, target_text: str,
+                   toc_marker: str = '{TOC}', toc_depth='2-3', indent: str = '  ') -> str:
+        toc = cls.generate_toc(source_text, toc_depth, indent)
+        result = target_text.replace(toc_marker, toc)
+        return result
 
 
 def get_known_plugins() -> List[str]:
