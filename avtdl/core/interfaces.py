@@ -394,7 +394,7 @@ class AbstractRecordsStorage(abc.ABC):
         """return total number of pages"""
 
     @abstractmethod
-    def load_page(self, page: Optional[int], per_page: int) -> List[Record]:
+    def load_page(self, page: Optional[int], per_page: int, desc: bool = True) -> List[Record]:
         """return content of specific page as a list of Record instances"""
 
 

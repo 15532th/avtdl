@@ -76,11 +76,12 @@ class BaseRecordDB:
         self.cursor.execute(sql, keys)
         return int(self.cursor.fetchone()[0])
 
-    def fetch_offset(self, limit: int, offset: int, group_id: Optional[str] = None) -> List[sqlite3.Row]:
+    def fetch_offset(self, limit: int, offset: int, group_id: Optional[str] = None, desc: bool = True) -> List[sqlite3.Row]:
+        order = 'DESC' if desc else 'ASC'
         if group_id is not None:
-            sql = f'SELECT * FROM records WHERE {self.group_id_field}=:group_id ORDER BY {self.sorting_field} DESC LIMIT :limit OFFSET :offset'
+            sql = f'SELECT * FROM records WHERE {self.group_id_field}=:group_id ORDER BY {self.sorting_field} {order} LIMIT :limit OFFSET :offset'
         else:
-            sql = f'SELECT * FROM records ORDER BY {self.sorting_field} DESC LIMIT :limit OFFSET :offset'
+            sql = f'SELECT * FROM records ORDER BY {self.sorting_field} {order} LIMIT :limit OFFSET :offset'
         keys = {'group_id': group_id, 'limit': limit, 'offset': offset}
         self.cursor.execute(sql, keys)
         return self.cursor.fetchall()
@@ -173,11 +174,11 @@ class RecordDB(BaseRecordDB):
         record = record_type.model_validate_json(row['as_json'])
         return record
 
-    def load_page(self, entity_name: Optional[str], page: Optional[int], per_page: int) -> List[Record]:
+    def load_page(self, entity_name: Optional[str], page: Optional[int], per_page: int, desc: bool = True) -> List[Record]:
         total_rows = self.get_size(entity_name)
 
         limit, offset = calculate_offset(page, per_page, total_rows)
-        rows = self.fetch_offset(limit, offset, entity_name)
+        rows = self.fetch_offset(limit, offset, entity_name, desc)
         records = []
         for row in rows:
             record = self.parse_record(row)
@@ -231,10 +232,13 @@ class HistoryView(AbstractRecordsStorage):
     def page_count(self, per_page: int) -> int:
         return math.ceil(len(self._get_records(self.entity_name)) / per_page)
 
-    def load_page(self, page: Optional[int], per_page: int) -> List[Record]:
+    def load_page(self, page: Optional[int], per_page: int, desc: bool = True) -> List[Record]:
         records = self._get_records(self.entity_name)
         limit, offset = calculate_offset(page, per_page, len(records))
-        return records[offset:offset + limit]
+        page_records = records[offset:offset + limit]
+        if desc:
+            page_records = page_records[::-1]
+        return page_records
 
 
 class RecordDbView(AbstractRecordsStorage):
@@ -246,5 +250,5 @@ class RecordDbView(AbstractRecordsStorage):
     def page_count(self, per_page: int) -> int:
         return self.db.page_count(self.entity_name, per_page)
 
-    def load_page(self, page: Optional[int], per_page: int) -> List[Record]:
-        return self.db.load_page(self.entity_name, page, per_page)
+    def load_page(self, page: Optional[int], per_page: int, desc: bool = True) -> List[Record]:
+        return self.db.load_page(self.entity_name, page, per_page, desc)

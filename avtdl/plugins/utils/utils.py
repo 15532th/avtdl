@@ -127,6 +127,8 @@ class ReplayEntity(MonitorEntity):
     """how many records should be replayed"""
     emit_interval: NonNegativeFloat = 0.01
     """delay between two consequentially produced records, in seconds"""
+    reverse: bool = True
+    """replace records from newest to oldest"""
 
 
 @Plugins.register('utils.replay', Plugins.kind.ACTOR)
@@ -149,7 +151,7 @@ class Replay(Monitor):
         if db is None:
             self.logger.exception(f'no database is opened for entity {entity.name}')
             return
-        records = db.load_page(entity.entity_name, 0, entity.emit_limit)
+        records = db.load_page(entity.entity_name, 0, entity.emit_limit, entity.reverse)
         self.logger.debug(f'[{entity.name}] {len(records)} records to emit with {entity.emit_interval} interval')
         for record in records:
             self.on_record(entity, record)
