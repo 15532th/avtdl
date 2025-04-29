@@ -3,13 +3,13 @@ from textwrap import shorten
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import feedparser
-from pydantic import ConfigDict, ValidationError
+from pydantic import ConfigDict, ValidationError, model_validator
 
 from avtdl.core.interfaces import MAX_REPR_LEN, Record, TextRecord
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import html_images, html_to_text, make_datetime
+from avtdl.core.utils import Fmt, html_images, html_to_text, make_datetime
 
 
 @Plugins.register('generic_rss', Plugins.kind.ASSOCIATED_RECORD)
@@ -48,6 +48,30 @@ class GenericRSSRecord(Record):
 
     def get_uid(self) -> str:
         return self.uid
+
+    @model_validator(mode='after')
+    def attach_attachments(self):
+        if not self.attachments:
+            self.attachments = html_images(self.summary, self.url)
+        return self
+
+    def discord_embed(self) -> List[dict]:
+        embed: Dict[str, Any] = {
+            'title': self.title,
+            'description': html_to_text(self.summary, self.url),
+            'url': self.url,
+            'color': None,
+            'author': {'name': self.author},
+            'timestamp': Fmt.date(self.published),
+        }
+        if self.attachments:
+            images: List[dict] = [{'url': self.url, 'image': {'url': attachment}} for attachment in self.attachments]
+            if embed.get('image') is None:
+                embed['image'] = images.pop(0)['image']
+            embeds = [embed, *images]
+        else:
+            embeds = [embed]
+        return embeds
 
 
 @Plugins.register('generic_rss', Plugins.kind.ACTOR_CONFIG)
@@ -180,7 +204,6 @@ class GenericRSSMonitor(BaseFeedMonitor):
         if updated is not None:
             parsed['updated'] = make_datetime(updated)
             entry.pop('updated', '')
-        parsed['attachments'] = html_images(parsed['summary'], parsed['url'])
 
         for key, value in entry.items():
             parsed[key] = value
