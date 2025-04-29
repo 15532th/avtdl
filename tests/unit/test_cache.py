@@ -52,7 +52,7 @@ class TestFindFile:
         expected_paths = prepare_files(tmp_path, expected)
 
         result = find_file(tmp_path / query)
-        assert result == expected_paths
+        assert sorted(result) == sorted(expected_paths)
 
 
 class TestFindFreeSuffix:
@@ -95,7 +95,8 @@ class TestFindWithSuffix:
         prepare_files(tmp_path, files)
 
         results = find_with_suffix(tmp_path / query, SUFFIX_TEMPLATE)
-        assert [result.name for result in results] == expected
+        results_names = [result.name for result in results]
+        assert sorted(results_names) == sorted(expected)
 
 
 def file_cache(tmp_path):

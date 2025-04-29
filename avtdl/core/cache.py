@@ -35,19 +35,25 @@ def find_file(path: Path) -> List[Path]:
 
 def find_with_suffix(path: Path, suffix_template: str) -> List[Path]:
     """given path to possible existing file name without extension and a suffix template,
-    find and return a list of all existing files with given name and suffix.
+    find and return a sorted list of all existing files with given name and suffix.
     The suffix_template parameter must contain "{i}" exactly once"""
     if suffix_template.count("{i}") != 1:
         raise ValueError("The suffix_template must contain '{i}' exactly once.")
     if not path.parent.exists():
         return []
     base_name = strip_rename_suffix(path.name, suffix_template)
-    found = []
+    matches = []
+    matches_with_suffix = []
     for p in path.parent.iterdir():
         if p.stem.startswith(base_name):
-            if strip_rename_suffix(p.stem, suffix_template) == base_name:
-                found.append(p)
-    return found
+            if p.stem == base_name:
+                matches.append(p)
+            elif strip_rename_suffix(p.stem, suffix_template) == base_name:
+                matches_with_suffix.append(p)
+
+    matches_with_suffix.sort()
+    matches.extend(matches_with_suffix)
+    return matches
 
 
 def strip_rename_suffix(name: str, suffix_template: str) -> str:
