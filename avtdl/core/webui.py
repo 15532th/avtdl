@@ -108,7 +108,7 @@ class ActorModel(BaseModel):
 
 class WebUI:
     WEBROOT: pathlib.Path = pathlib.Path(__file__).parent.parent.resolve() / 'ui'
-    CACHE_ROUTE: pathlib.Path = pathlib.Path('/cache')
+    CACHE_ROUTE = '/cache'
     RESTART_DELAY: int = 3
 
     def __init__(self, config_path: pathlib.Path, config, ctx: RuntimeContext, settings: SettingsSection,
@@ -142,7 +142,7 @@ class WebUI:
 
         self.routes.append(web.get('/entities', self.show_entities))
         self.routes.append(web.get('/records', self.records))
-        self.routes.append(web.static(str(self.CACHE_ROUTE), self.cache.cache_directory))
+        self.routes.append(web.static(self.CACHE_ROUTE, self.cache.cache_directory))
 
         self.routes.append(web.get('/', self.index))
         self.routes.append(web.static('/ui', self.WEBROOT))
