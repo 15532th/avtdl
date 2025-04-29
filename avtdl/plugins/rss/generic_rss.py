@@ -1,6 +1,6 @@
 import datetime
 from textwrap import shorten
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import feedparser
 from pydantic import ConfigDict, ValidationError
@@ -9,7 +9,7 @@ from avtdl.core.interfaces import MAX_REPR_LEN, Record, TextRecord
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import html_to_text, make_datetime
+from avtdl.core.utils import html_images, html_to_text, make_datetime
 
 
 @Plugins.register('generic_rss', Plugins.kind.ASSOCIATED_RECORD)
@@ -27,6 +27,8 @@ class GenericRSSRecord(Record):
     """"href" or "link" field value of this entry"""
     summary: str
     """"summary" or "description" field value of this entry"""
+    attachments: List[str] = []
+    """list of links to images extracted from the summary field text"""
     author: str = ''
     """"author" field value. Might be empty"""
     title: str = ''
@@ -178,6 +180,7 @@ class GenericRSSMonitor(BaseFeedMonitor):
         if updated is not None:
             parsed['updated'] = make_datetime(updated)
             entry.pop('updated', '')
+        parsed['attachments'] = html_images(parsed['summary'], parsed['url'])
 
         for key, value in entry.items():
             parsed[key] = value
