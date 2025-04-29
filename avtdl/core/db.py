@@ -172,7 +172,19 @@ class RecordDB(BaseRecordDB):
             self.logger.debug(f'Raw row: {row_content}')
             return None
         record = record_type.model_validate_json(row['as_json'])
+        self.set_record_time(record, row['parsed_at'] or None)
         return record
+
+    @staticmethod
+    def set_record_time(record: Record, ts: Optional[str]):
+        if ts is None:
+            return
+        try:
+            dt = datetime.datetime.fromisoformat(ts)
+        except Exception:
+            return
+        dt = dt.astimezone(tz=datetime.timezone.utc)
+        record.created_at = dt
 
     def load_page(self, entity_name: Optional[str], page: Optional[int], per_page: int, desc: bool = True) -> List[Record]:
         total_rows = self.get_size(entity_name)

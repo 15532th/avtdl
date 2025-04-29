@@ -337,6 +337,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         for embed in embeds:
             self._rewrite_embed_image(record, embed, 'image', 'url')
             self._rewrite_embed_image(record, embed, 'author', 'icon_url')
+            embed['_timestamp'] = int(record.created_at.timestamp() * 1000)
             # # now embeds are rendered on frontend and any html coming inside field values is escaped, no point rendering description here
             # description = embed.get('description')
             # if description is not None:
