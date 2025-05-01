@@ -40,6 +40,40 @@ function renderMarkdown(markdown) {
 }
 
 /**
+ * Return first valid _timestamp field from embeds in the message
+ * @param {any[]} embeds
+ */
+function getMessageTimestamp(embeds) {
+    let messageTimestamp = null;
+    embeds.forEach((embed) => {
+        if (embed['_timestamp']) {
+            messageTimestamp = embed['_timestamp'];
+        }
+    });
+    if (!messageTimestamp) {
+        return null;
+    }
+    return messageTimestamp;
+}
+
+/**
+ * Render element containing timestamp. If messageTimestamp is missing or invalid, render empty element
+ * @param {any[]} embeds
+ */
+function renderMessageTimestamp(embeds) {
+    const messageTimestamp = getMessageTimestamp(embeds);
+    const element = document.createElement('div');
+    element.classList.add('card-timestamp');
+    if (messageTimestamp) {
+        const ts = new Date(messageTimestamp).toLocaleString();
+        if (ts != 'Invalid Date') {
+            element.innerText = `Parsed ${ts}`;
+        }
+    }
+    return element;
+}
+
+/**
  * Renders a card from a Discord-like message object.
  * @param {Object} message - The message object.
  * @returns {HTMLElement} The rendered card as a div element.
@@ -55,8 +89,8 @@ function renderDiscordCard(message) {
             const embedDiv = renderDiscordEmbed(embed);
             card.appendChild(embedDiv);
         });
+        card.appendChild(renderMessageTimestamp(message.embeds));
     }
-
     return card;
 }
 

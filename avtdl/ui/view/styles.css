@@ -11,7 +11,7 @@
     padding: 8px 12px;
     margin: 0 4px;
     text-decoration: none;
-    color: #007bff; /* Bootstrap primary color */
+    color: #007bff;
     border: 1px solid #007bff;
     border-radius: 4px;
     transition: background-color 0.3s, color 0.3s;
@@ -26,52 +26,52 @@
     display: inline-block;
     padding: 8px 12px;
     margin: 0 4px;
-    color: #555; /* Gray color for plain text */
+    color: #555;
 }
 
 .pagination-link.active {
     background-color: #007bff;
     color: white;
     border: 1px solid #007bff;
-    pointer-events: none; /* Disable clicking on the active page */
+    pointer-events: none;
 }
 
 .pagination-link:disabled {
-    color: #ccc; /* Gray out disabled links */
-    pointer-events: none; /* Disable clicking */
+    color: #ccc;
+    pointer-events: none;
 }
 
 .pagination {
-    text-align: center; /* Center the pagination */
-    margin: 20px 0; /* Add some margin */
+    text-align: center;
+    margin: 20px 0;
 }
 
-/* Container for the gallery */
+
 .gallery-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px; /* Space between cards */
-    padding: 16px; /* Padding around the gallery */
+    gap: 16px;
+    padding: 16px;
 }
 
-/* Individual card styling */
+
 .gallery-card {
-    background-color: #f9f9f9; /* Light background color */
-    border: 1px solid #ddd; /* Light border */
-    border-radius: 8px; /* Rounded corners */
-    padding: 16px; /* Padding inside the card */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-    flex: 1 1 calc(25% - 16px); /* Responsive card size (4 cards per row) */
-    min-width: 200px; /* Minimum width for cards */
-    text-align: center; /* Center text inside the card */
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    flex: 1 1 calc(25% - 16px);
+    min-width: 200px;
+    text-align: center;
 }
 
 .discord-card {
-    background-color: #36393f; /* Dark background color */
-    color: #ffffff; /* White text color */
-    border-radius: 8px; /* Rounded corners */
-    padding: 12px; /* Padding inside the card */
-    margin: 8px 0; /* Margin between cards */
+    background-color: #36393f;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px 0;
     display: flex;
     flex-direction: column;
 }
@@ -79,73 +79,81 @@
 .card-header {
     display: flex;
     align-items: center;
-    margin-bottom: 8px; /* Space between header and content */
+    margin-bottom: 8px;
 }
 
-/* Author name styling */
+
 .author-name {
-    font-weight: bold; /* Bold author name */
+    font-weight: bold;
 }
 
-/* Content styling */
+
 .card-content {
-    margin-bottom: 4px; /* Space between content and timestamp */
+    margin-bottom: 4px;
 }
 
-/* Timestamp styling */
+
 .timestamp {
-    font-size: 12px; /* Smaller font for timestamp */
-    color: #b9bbbe; /* Gray color for timestamp */
+    font-size: 12px;
+    color: #b9bbbe;
+}
+
+.card-timestamp {
+    font-size: 12px;
+    color: #b9bbbe;
+    padding: 4px;
+    margin-top: auto;
+    margin-left: auto;
 }
 
 .embed {
-    background-color: #2f3136; /* Darker background for embeds */
-    border: 1px solid #202225; /* Dark border */
-    border-radius: 8px; /* Rounded corners */
-    padding: 12px; /* Padding inside the embed */
-    margin-top: 8px; /* Space above the embed */
-    position: relative; /* For positioning the colored border */
+    background-color: #2f3136;
+    border: 1px solid #202225;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+    position: relative;
 }
 
-/* Embed title styling */
+
 .embed-title {
-    margin: 0; /* Remove default margin */
-    font-size: 16px; /* Font size for title */
-    color: #ffffff; /* White text color */
+    margin: 0;
+    font-size: 16px;
+    color: #ffffff;
 }
 
-/* Embed description styling */
+
 .embed-description {
-    margin: 4px 0; /* Margin for description */
-    color: #b9bbbe; /* Gray color for description text */
+    margin: 4px 0;
+    color: #b9bbbe;
 }
 
-/* Embed field styling */
+
 .embed-field {
-    margin-top: 8px; /* Space above each field */
-    color: #b9bbbe; /* Gray color for field text */
+    margin-top: 8px;
+    color: #b9bbbe;
 }
 
 .embed-field-value {
     margin-left: 8px;
 }
 
-/* Embed footer styling */
+
 .embed-footer {
-    margin-top: 12px; /* Space above footer */
-    font-size: 12px; /* Smaller font for footer */
-    color: #b9bbbe; /* Gray color for footer text */
+    margin-top: 12px;
+    font-size: 12px;
+    color: #b9bbbe;
 }
 
-/* Footer timestamp styling */
+
 .footer-timestamp {
-    margin-left: 8px; /* Space between footer text and timestamp */
-    font-style: italic; /* Italic style for timestamp */
+    margin-left: 8px;
+    font-style: italic;
 }
 
-/* Embed image styling */
+
 .embed-image {
-    max-width: 100%; /* Responsive image */
-    border-radius: 4px; /* Slightly rounded corners for the image */
-    margin-top: 8px; /* Space above the image */
+    max-width: 100%;
+    border-radius: 4px;
+    margin-top: auto;
 }
