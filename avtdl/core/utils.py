@@ -415,10 +415,15 @@ def html_to_text(html: str, base_url: Optional[str] = None) -> str:
     # walk tree manually and for images containing links
     # add them to text representation
     for elem in root.iter():
+        if elem.tag == 'br':
+            elem.text = '\n'
         if elem.tag == 'a':
             link = elem.get('href')
             if link is not None:
-                elem.text = f'{link}'
+                if elem.text_content():
+                    elem.text = f'{elem.text_content()} ({link})'
+                else:
+                    elem.text = f'{link}'
         if elem.tag == 'img':
             image_link = elem.get('src')
             if image_link is not None:
