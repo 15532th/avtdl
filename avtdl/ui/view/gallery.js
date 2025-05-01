@@ -70,10 +70,12 @@ function renderEmbed(embed) {
     }
 
     if (embed.image) {
-        const image = document.createElement('img');
-        image.classList.add('embed-image');
-        image.src = embed.image.url;
-        image.alt = embed.image.url;
+        const image = createImage(embed.image.url, 'embed-image', embedDiv);
+        image.onclick = (event) => {
+            const modal = renderModal(embedDiv);
+            modal.classList.add('fullsize-image-container');
+            const fullImage = createImage(embed.image.url, 'fullsize-image', modal);
+        }
         embedDiv.appendChild(image);
     }
 

@@ -73,25 +73,6 @@ function renderClickableTable(headers, tooltips, rows) {
     return content;
 }
 
-/**
- * @param {HTMLElement} parent
- */
-function renderModal(parent) {
-    const background = createElement('div', 'modal-background', parent);
-    const container = createElement('div', 'modal-view', background);
-    background.onclick = (event) => {
-        if (event.target === background) {
-            parent.removeChild(background);
-        }
-    };
-    background.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            parent.removeChild(background);
-        }
-    });
-    return container;
-}
-
 class HistoryView {
     /**
      * @param {HTMLElement} parent

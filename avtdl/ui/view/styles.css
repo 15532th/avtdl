@@ -54,7 +54,7 @@
 
 .gallery-card {
     background-color: #36393f;
-    color: #ffffff;
+    color: rgb(243, 243, 244);
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -165,4 +165,19 @@
     margin-top: 5px;
     margin-left: 8px;
     font-style: italic;
+}
+
+.fullsize-image-container {
+    background-color: rgba(45, 45, 45, 0.9);
+    display: flex;
+    flex: 1 1 80%;
+    justify-content: center;
+    max-width: 80%;
+    max-height: 80%;
+    padding: 20px;
+}
+
+.fullsize-image {
+    max-width: 100%;
+    max-height: 100%;
 }

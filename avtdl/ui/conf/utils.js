@@ -98,6 +98,24 @@ function createDefinition(text, title) {
 }
 
 /**
+ * @param {string} src
+ * @param {string?} className
+ * @param {HTMLElement?} parentElement
+ */
+function createImage(src, className, parentElement=null) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = src;
+    if (className) {
+        img.classList.add(className);
+    }
+    if (parentElement) {
+        parentElement.appendChild(img);
+    }
+    return img;
+}
+
+/**
  * @param {string} tag
  * @param {string | undefined} [className]
  * @param {HTMLElement | undefined} [parentElement]
@@ -616,4 +634,23 @@ async function fetchJSON(path, messageArea, retries = 0) {
         }
         return null;
     }
+}
+
+/**
+ * @param {HTMLElement} parent
+ */
+function renderModal(parent) {
+    const background = createElement('div', 'modal-background', parent);
+    const container = createElement('div', 'modal-view', background);
+    background.onclick = (event) => {
+        if (event.target === background) {
+            parent.removeChild(background);
+        }
+    };
+    background.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            parent.removeChild(background);
+        }
+    });
+    return container;
 }
