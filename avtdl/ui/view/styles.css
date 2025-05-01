@@ -46,14 +46,12 @@
     margin: 20px 0;
 }
 
-
 .gallery-container {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
     padding: 16px;
 }
-
 
 .gallery-card {
     background-color: #f9f9f9;
@@ -82,16 +80,13 @@
     margin-bottom: 8px;
 }
 
-
 .author-name {
     font-weight: bold;
 }
 
-
 .card-content {
     margin-bottom: 4px;
 }
-
 
 .timestamp {
     font-size: 12px;
@@ -115,19 +110,16 @@
     position: relative;
 }
 
-
 .embed-title {
     margin: 0;
     font-size: 16px;
     color: #ffffff;
 }
 
-
 .embed-description {
     margin: 4px 0;
     color: #b9bbbe;
 }
-
 
 .embed-field {
     margin-top: 8px;
@@ -138,22 +130,102 @@
     margin-left: 8px;
 }
 
-
 .embed-footer {
     margin-top: 12px;
     font-size: 12px;
     color: #b9bbbe;
 }
 
-
 .footer-timestamp {
     margin-left: 8px;
     font-style: italic;
 }
 
-
 .embed-image {
     max-width: 100%;
     border-radius: 4px;
     margin-top: auto;
+}
+
+.embed-container {
+    background-color: #2f3136;
+    color: #ffffff;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 10px 0;
+    font-family: Arial, sans-serif;
+}
+
+.embed-author {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.embed-icon {
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    margin-right: 5px;
+}
+
+.embed-author-name {
+    font-weight: bold;
+}
+
+.embed-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin: 5px 0;
+    cursor: pointer;
+}
+
+.embed-description {
+    margin: 5px 0;
+}
+
+.embed-fields {
+    margin: 10px 0;
+}
+
+.embed-field {
+    margin-bottom: 5px;
+}
+
+.embed-field-name {
+    font-weight: bold;
+}
+
+.embed-field-value {
+    margin-top: 2px;
+}
+
+.embed-image {
+    width: 100%;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+
+.embed-thumbnail {
+    width: 100%;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+
+.embed-footer {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #b9bbbe;
+}
+
+.embed-footer-text {
+    margin-left: 5px;
+}
+
+.embed-timestamp {
+    font-size: 12px;
+    color: #b9bbbe;
+    margin-top: 5px;
 }

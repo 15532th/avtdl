@@ -1,42 +1,125 @@
 /**
- * Escapes HTML special characters to prevent XSS.
- * @param {string} str - The string to escape.
- * @returns {string} The escaped string.
+ * @param {string} text
  */
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.innerText = str; // Use innerText to escape HTML
-    return div.innerHTML;
+function renderTextContent(text) {
+    const container = document.createElement('div');
+    const lines = text.split('\n');
+    lines.forEach((line) => {
+        const lineElement = createElement('span', undefined, container);
+        lineElement.innerText = line;
+        createElement('br', undefined, container);
+    });
+    return container;
 }
 
 /**
- * Converts a Markdown string to a rendered HTML element.
- * @param {string} markdown - The Markdown string to convert.
- * @returns {HTMLElement} The converted HTML element.
+ * @param {string?} text
+ * @param {string?} link
  */
-function renderMarkdown(markdown) {
-    const container = document.createElement('div');
-    const lines = markdown.split('\n');
-    lines.forEach((line) => {
-        let htmlLine = escapeHtml(line);
+function renderMaybeLink(text, link) {
+    let element;
+    if (link) {
+        element = document.createElement('a');
+        element.href = link;
+        element.textContent = text || link;
+    } else {
+        element = document.createElement('span');
+        element.textContent = text || '';
+    }
+    return element;
+}
 
-        htmlLine = htmlLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        htmlLine = htmlLine.replace(/\*(.*?)\*/g, '<em>$1</em>');
+/**
+ * @param {object} embed
+ */
+function renderEmbed(embed) {
+    const embedDiv = document.createElement('div');
+    embedDiv.classList.add('embed');
 
-        htmlLine = htmlLine.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-        htmlLine = htmlLine.replace(/(ftp:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-        htmlLine = htmlLine.replace(/(www\.[^\s]+)/g, '<a href="https://$1" target="_blank">$1</a>');
+    if (embed.color) {
+        embedDiv.style.borderLeft = `4px solid #${embed.color.toString(16)}`;
+    }
 
-        htmlLine = htmlLine.replace(/`(.*?)`/g, '<code>$1</code>');
-        htmlLine = htmlLine.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+    if (embed.author) {
+        const author = document.createElement('div');
+        author.classList.add('embed-author');
+        if (embed.author.icon_url) {
+            const authorIcon = document.createElement('img');
+            authorIcon.classList.add('embed-icon');
+            authorIcon.src = embed.author.icon_url;
+            author.appendChild(authorIcon);
+        }
+        if (embed.author.name) {
+            const authorName = renderMaybeLink(embed.author.name, embed.author.url);
+            authorName.classList.add('author-name');
+            author.appendChild(authorName);
+        }
+        embedDiv.appendChild(author);
+    }
 
-        const lineElement = document.createElement('div');
-        lineElement.innerHTML = htmlLine;
-        container.appendChild(lineElement);
-        // container.appendChild(document.createElement('br'));
-    });
+    if (embed.title || embed.url) {
+        const title = renderMaybeLink(embed.title, embed.url);
+        title.classList.add('embed-title');
+        embedDiv.appendChild(title);
+    }
 
-    return container;
+    if (embed.description) {
+        const description = renderTextContent(embed.description);
+        description.classList.add('embed-description');
+        embedDiv.appendChild(description);
+    }
+
+    if (embed.image) {
+        const image = document.createElement('img');
+        image.classList.add('embed-image');
+        image.src = embed.image.url;
+        embedDiv.appendChild(image);
+    }
+
+    if (embed.thumbnail && embed.thumbnail.url) {
+        const thumbnail = document.createElement('img');
+        thumbnail.classList.add('embed-thumbnail');
+        thumbnail.src = embed.thumbnail.url;
+        embedDiv.appendChild(thumbnail);
+    }
+
+    if (embed.fields && Array.isArray(embed.fields)) {
+        const fieldsContainer = createElement('div', 'embed-fields');
+        embed.fields.forEach((field) => {
+            const fieldDiv = createElement('div', 'embed-field');
+            const fieldName = createElement('strong', 'embed-field-name', field.name);
+            const fieldValue = createElement('div', 'embed-field-value', field.value);
+            fieldDiv.appendChild(fieldName);
+            fieldDiv.appendChild(fieldValue);
+            fieldsContainer.appendChild(fieldDiv);
+        });
+        embedDiv.appendChild(fieldsContainer);
+    }
+
+    if (embed.timestamp) {
+        const timestamp = document.createElement('div');
+        timestamp.classList.add('timestamp');
+        timestamp.textContent = new Date(embed.timestamp).toLocaleString();
+        embedDiv.appendChild(timestamp);
+    }
+    if (embed.footer) {
+        const footer = document.createElement('div');
+        footer.classList.add('embed-footer');
+        if (embed.footer.icon_url) {
+            const footerIcon = document.createElement('img');
+            footerIcon.classList.add('embed-icon');
+            footerIcon.src = embed.footer.icon_url;
+            footer.appendChild(footerIcon);
+        }
+        const footerText = createElement('span');
+        footerText.classList.add('embed-footer-text');
+        footerText.textContent = embed.footer.text;
+        footer.appendChild(footerText);
+
+        embedDiv.appendChild(footer);
+    }
+
+    return embedDiv;
 }
 
 /**
@@ -74,129 +157,21 @@ function renderMessageTimestamp(embeds) {
 }
 
 /**
- * Renders a card from a Discord-like message object.
  * @param {Object} message - The message object.
  * @returns {HTMLElement} The rendered card as a div element.
  */
-function renderDiscordCard(message) {
-    // Create the main card div
+function renderGalleryCard(message) {
     const card = document.createElement('div');
     card.classList.add('discord-card');
 
-    // Handle embeds if they exist
     if (message.embeds && message.embeds.length > 0) {
         message.embeds.forEach((embed) => {
-            const embedDiv = renderDiscordEmbed(embed);
+            const embedDiv = renderEmbed(embed);
             card.appendChild(embedDiv);
         });
         card.appendChild(renderMessageTimestamp(message.embeds));
     }
     return card;
-}
-
-/**
- * @param {object} embed
- */
-function renderDiscordEmbed(embed) {
-    const embedDiv = document.createElement('div');
-    embedDiv.classList.add('embed');
-
-    // Create the header for the card if author information is present
-    if (embed.author) {
-        const author = document.createElement('div');
-        author.classList.add('card-header');
-        let authorName;
-        if (embed.author.name) {
-            if (embed.author.url) {
-                authorName = document.createElement('a');
-                authorName.href = embed.author.url;
-            } else {
-                authorName = document.createElement('span');
-            }
-            authorName.classList.add('author-name');
-            authorName.textContent = embed.author.name;
-            author.appendChild(authorName);
-        }
-
-        // Append the header to the card
-        embedDiv.appendChild(author);
-    }
-    // Set embed color if it exists
-    if (embed.color) {
-        embedDiv.style.borderLeft = `4px solid #${embed.color.toString(16)}`; // Convert color to hex
-    }
-
-    // Create title if it exists
-    if (embed.title) {
-        const title = document.createElement('h4');
-        title.classList.add('embed-title');
-        title.textContent = embed.title;
-
-        // Create a link for the title if a URL is provided
-        if (embed.url) {
-            const titleLink = document.createElement('a');
-            titleLink.href = embed.url;
-            titleLink.target = '_blank'; // Open in a new tab
-            titleLink.appendChild(title);
-            embedDiv.appendChild(titleLink);
-        } else {
-            embedDiv.appendChild(title);
-        }
-    }
-
-    // Create description if it exists
-    if (embed.description) {
-        const description = document.createElement('p');
-        description.classList.add('embed-description');
-        const content = renderMarkdown(embed.description);
-        description.appendChild(content);
-        embedDiv.appendChild(description);
-    }
-
-    // Create image if it exists
-    if (embed.image) {
-        const image = document.createElement('img');
-        image.classList.add('embed-image');
-        image.src = embed.image.url;
-        image.alt = embed.image.url;
-        embedDiv.appendChild(image);
-    }
-
-    // Create fields if they exist
-    if (embed.fields) {
-        embed.fields.forEach((field) => {
-            const fieldDiv = document.createElement('div');
-            fieldDiv.classList.add('embed-field');
-
-            const fieldName = document.createElement('strong');
-            fieldName.textContent = field.name;
-            fieldDiv.appendChild(fieldName);
-
-            const fieldValue = document.createElement('span');
-            fieldValue.textContent = field.value;
-            fieldValue.classList.add('embed-field-value');
-            fieldDiv.appendChild(fieldValue);
-
-            embedDiv.appendChild(fieldDiv);
-        });
-    }
-
-    if (embed.timestamp) {
-        const timestamp = document.createElement('div');
-        timestamp.classList.add('timestamp');
-        timestamp.textContent = new Date(embed.timestamp).toLocaleString();
-        embedDiv.appendChild(timestamp);
-    }
-
-    // Create footer if it exists
-    if (embed.footer) {
-        const footer = document.createElement('div');
-        footer.classList.add('embed-footer');
-        footer.textContent = embed.footer.text;
-        embedDiv.appendChild(footer);
-    }
-
-    return embedDiv;
 }
 
 class Gallery {
@@ -214,7 +189,7 @@ class Gallery {
      */
     render(data) {
         data.forEach((element) => {
-            const card = renderDiscordCard(element);
+            const card = renderGalleryCard(element);
             card.classList.add('gallery-card');
             this.container.appendChild(card);
         });
