@@ -34,7 +34,7 @@ function renderMaybeLink(text, link) {
  */
 function renderEmbed(embed) {
     const embedDiv = document.createElement('div');
-    embedDiv.classList.add('embed');
+    embedDiv.classList.add('embed-container');
 
     if (embed.color) {
         embedDiv.style.borderLeft = `4px solid #${embed.color.toString(16)}`;
@@ -51,7 +51,7 @@ function renderEmbed(embed) {
         }
         if (embed.author.name) {
             const authorName = renderMaybeLink(embed.author.name, embed.author.url);
-            authorName.classList.add('author-name');
+            authorName.classList.add('embed-author-name');
             author.appendChild(authorName);
         }
         embedDiv.appendChild(author);
@@ -73,6 +73,7 @@ function renderEmbed(embed) {
         const image = document.createElement('img');
         image.classList.add('embed-image');
         image.src = embed.image.url;
+        image.alt = embed.image.url;
         embedDiv.appendChild(image);
     }
 
@@ -80,18 +81,18 @@ function renderEmbed(embed) {
         const thumbnail = document.createElement('img');
         thumbnail.classList.add('embed-thumbnail');
         thumbnail.src = embed.thumbnail.url;
+        thumbnail.alt = embed.thumbnail.url;
         embedDiv.appendChild(thumbnail);
     }
 
     if (embed.fields && Array.isArray(embed.fields)) {
         const fieldsContainer = createElement('div', 'embed-fields');
         embed.fields.forEach((field) => {
-            const fieldDiv = createElement('div', 'embed-field');
-            const fieldName = createElement('strong', 'embed-field-name', field.name);
-            const fieldValue = createElement('div', 'embed-field-value', field.value);
-            fieldDiv.appendChild(fieldName);
-            fieldDiv.appendChild(fieldValue);
-            fieldsContainer.appendChild(fieldDiv);
+            const fieldDiv = createElement('div', 'embed-field', fieldsContainer);
+            const fieldName = createElement('div', 'embed-field-name', fieldDiv);
+            const fieldValue = createElement('div', 'embed-field-value', fieldDiv);
+            fieldName.textContent = field.name;
+            fieldValue.textContent = field.value;
         });
         embedDiv.appendChild(fieldsContainer);
     }
@@ -146,7 +147,7 @@ function getMessageTimestamp(embeds) {
 function renderMessageTimestamp(embeds) {
     const messageTimestamp = getMessageTimestamp(embeds);
     const element = document.createElement('div');
-    element.classList.add('card-timestamp');
+    element.classList.add('gallery-card-timestamp');
     if (messageTimestamp) {
         const ts = new Date(messageTimestamp).toLocaleString();
         if (ts != 'Invalid Date') {
