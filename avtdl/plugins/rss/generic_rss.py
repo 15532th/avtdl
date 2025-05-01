@@ -51,8 +51,11 @@ class GenericRSSRecord(Record):
 
     @model_validator(mode='after')
     def attach_attachments(self):
+        """if "summary" field contains <img>, strip them and put links into "attachments" field"""
         if not self.attachments:
             self.attachments = html_images(self.summary, self.url)
+            for link in self.attachments:
+                self.summary = self.summary.replace(link, '')
         return self
 
     def discord_embed(self) -> List[dict]:
