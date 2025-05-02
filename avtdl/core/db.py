@@ -95,7 +95,7 @@ def record_types() -> Dict[str, type[Record]]:
 
 
 def calculate_offset(page: Optional[int], per_page: int, total_rows: int) -> Tuple[int, int]:
-    if total_rows == 0:
+    if total_rows == 0 or per_page == 0:
         return 0, 0
     last_page = math.ceil(total_rows / per_page)
     if page is None:
