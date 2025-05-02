@@ -1,4 +1,5 @@
 import asyncio
+import math
 from collections import defaultdict
 from enum import Enum
 from typing import Callable, Dict, List, Optional, Sequence
@@ -123,8 +124,8 @@ class ReplayEntity(MonitorEntity):
     """path to the sqlite database file storing records"""
     entity_name: Optional[str] = None
     """if specified, only records belonging to entity with this name are replayed"""
-    emit_limit: NonNegativeInt = 10
-    """how many records should be replayed"""
+    emit_limit: Optional[NonNegativeInt] = None
+    """how many records should be replayed. Default is no limit"""
     emit_interval: NonNegativeFloat = 0.01
     """delay between two consequentially produced records, in seconds"""
     reverse: bool = True
@@ -151,11 +152,28 @@ class Replay(Monitor):
         if db is None:
             self.logger.exception(f'no database is opened for entity {entity.name}')
             return
-        records = db.load_page(entity.entity_name, 0, entity.emit_limit, entity.reverse)
-        self.logger.debug(f'[{entity.name}] {len(records)} records to emit with {entity.emit_interval} interval')
-        for record in records:
-            self.on_record(entity, record)
-            await asyncio.sleep(entity.emit_interval)
+
+        per_page = 20
+        total_records = db.page_count(entity.entity_name, per_page) * per_page
+        if entity.emit_limit == 0:
+            return
+        elif entity.emit_limit is None:
+            to_emit = total_records
+        else:
+            to_emit = min(entity.emit_limit, total_records)
+        pages_to_emit = max(1, math.ceil(to_emit / per_page))
+        emitted = 0
+
+        self.logger.debug(f'[{entity.name}] {to_emit} records to emit with {entity.emit_interval} interval')
+        for page in range(pages_to_emit):
+            records = db.load_page(entity.entity_name, page, per_page, entity.reverse)
+            self.logger.debug(f'[{entity.name}] page {page} got {len(records)} records')
+            for record in records:
+                if emitted >= to_emit:
+                    break
+                emitted += 1
+                self.on_record(entity, record)
+                await asyncio.sleep(entity.emit_interval)
         self.logger.debug(f'[{entity.name}] done')
 
     async def run(self):
