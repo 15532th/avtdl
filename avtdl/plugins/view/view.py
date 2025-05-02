@@ -58,7 +58,7 @@ class View(Action):
             self.logger.exception(
                 f'no database is opened for entity {entity.name}, the following record will not be stored: {record!r}')
             return
-        db.store_records([record], entity.name, entity.replace)
+        db.store_records([record], entity.name, entity.replace, use_created_as_parsed=True)
 
     def get_records_storage(self, entity_name: Optional[str] = None) -> Optional[AbstractRecordsStorage]:
         if entity_name not in self.databases:

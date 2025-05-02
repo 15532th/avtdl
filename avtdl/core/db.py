@@ -117,11 +117,14 @@ class RecordDB(BaseRecordDB):
     def _get_record_id(record: Record, entity_name: str) -> str:
         return '{}:{}'.format(entity_name, record.get_uid())
 
-    def store_records(self, records: Sequence[Record], entity_name: str, replace: bool = False):
+    def store_records(self, records: Sequence[Record], entity_name: str,
+                      replace: bool = False, use_created_as_parsed: bool = False):
         rows = []
         for record in records:
             uid = self._get_record_id(record, entity_name)
             parsed_at = datetime.datetime.now(tz=datetime.timezone.utc)
+            if use_created_as_parsed:
+                parsed_at = record.created_at
             hashsum = record.hash()
             feed_name = entity_name
             class_name = record.__class__.__name__
