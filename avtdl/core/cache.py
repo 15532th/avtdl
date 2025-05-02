@@ -3,6 +3,7 @@ import hashlib
 import logging
 import os
 import re
+import shutil
 import urllib.parse
 from pathlib import Path
 from typing import Any, Iterable, List, Optional
@@ -139,7 +140,8 @@ class FileCache:
                     replace_after: Optional[float] = None, external_path: Optional[Path] = None) -> Optional[Path]:
         """download and store or find existing local copy of the url, return path to the local file.
         Use existing file "unless replace_after" hours has passed since it was created, otherwise
-        pick a new name and download anyway"""
+        pick a new name and download anyway. If external_path is provided and is a file, it is
+        copied to cache directory instead of downloading"""
         store_path = self.filename_for(record, url)
         file = self._find_file(store_path, url)
         if file and not has_expired(file, replace_after):
@@ -151,6 +153,13 @@ class FileCache:
         except OSError as e:
             logger.warning(f'failed to create directory hierarchy "{store_path.parent}", skipping record {record!r}')
             return None
+        if external_path and external_path.exists() and external_path.is_file():
+            logger.debug(f'reusing external file "{external_path}" for "{url}"')
+            try:
+                shutil.copy2(external_path, store_path)
+                return store_path
+            except OSError as e:
+                logger.warning(f'failed to copy external file "{external_path}" to "{store_path}", downloading')
         return await self._download_file(logger, client, url, store_path)
 
     async def _download_file(self, logger: logging.Logger, client: HttpClient, url: str, path: Path) -> Optional[Path]:

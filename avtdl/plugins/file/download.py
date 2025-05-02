@@ -2,14 +2,15 @@ import asyncio
 import logging
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import List, Mapping, Optional, Sequence
 
-from pydantic import AnyUrl, Field, NonNegativeFloat, RootModel, ValidationError, field_validator
+from pydantic import AnyUrl, Field, NonNegativeFloat, RootModel, ValidationError, field_validator, model_validator
 
 from avtdl.core import utils
 from avtdl.core.actions import QueueAction, QueueActionConfig, QueueActionEntity
-from avtdl.core.cache import FileCache, is_url
+from avtdl.core.cache import FileCache, find_free_suffix, find_with_suffix, is_url
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
 from avtdl.core.interfaces import Record, RuntimeContext
 from avtdl.core.plugins import Plugins
@@ -243,6 +244,29 @@ class FileCacheEntity(QueueActionEntity):
     """names of fields in the incoming record containing urls of files to be downloaded"""
     replace_after: Optional[NonNegativeFloat] = None
     """how old existing file should be to get redownloaded, in hours"""
+    import_path: Optional[str] = None
+    """path to external location to look for a file before downloading. Supports templating with '{...}'"""
+    import_filename: Optional[str] = None
+    """name (without extension) of external file to use instead of downloading.
+    If file exists, it is copied to the cache directory once for every processed url. Supports templating with '{...}'"""
+    import_rename_suffix: str = ' [{i}]'
+    """for fields containing list of urls, this suffix is added to import_filename template to look for additional files.
+    Must contain {i} exactly once"""
+    export_path: Optional[str] = None
+    """path to external location to store a copy of cached file. Supports templating with '{...}'"""
+    export_filename: Optional[str] = None
+    """name used to store a copy of cached file externally. Supports templating with '{...}'"""
+    export_rename_suffix: str = ' [{i}]'
+    """if export_filename already exists, this suffix is used to generate a new, unique name.
+    Must contain {i} exactly once"""
+
+    @model_validator(mode='after')
+    def check_paths(self):
+        if (self.import_path and not self.import_filename) or (not self.import_path and self.import_filename):
+            raise ValueError(f'both import_path and import_filename should be present if specified')
+        if (self.export_path and not self.export_filename) or (not self.export_path and self.export_filename):
+            raise ValueError(f'both export_path and export_filename should be present if specified')
+        return self
 
 
 @Plugins.register('cache', Plugins.kind.ACTOR)
@@ -253,6 +277,11 @@ class FileCacheAction(QueueAction):
     For every incoming record, go through fields specified in "url_fields" setting
     and download files the urls are pointing to. Downloaded files are stored under
     the cache_directory, where they are used to present record in the web interface.
+
+    It is possible to reuse files already stored by the "download" plugin with
+    import_path/import_filename template options, though it might not work well
+    with the "attachments" field. A copy of cached file can be
+    stored to external location by providing export_path/export_filename templates.
     """
 
     def __init__(self, conf: FileCacheConfig, entities: Sequence[FileCacheEntity], ctx: RuntimeContext):
@@ -265,27 +294,58 @@ class FileCacheAction(QueueAction):
     async def handle_single_record(self, logger: logging.Logger, client: HttpClient,
                                    entity: FileCacheEntity, record: Record) -> None:
         for field in entity.url_fields:
-            await self._handle_field(logger, client, record, field, entity.replace_after)
+            await self._handle_field(logger, client, entity, record, field)
 
     async def _handle_field(self, logger: logging.Logger, client: HttpClient,
-                            record: Record, field_name: str, replace_after: Optional[float]):
+                            entity: FileCacheEntity, record: Record, field_name: str):
         field = getattr(record, field_name, None)
         if field is None:
             logger.debug(f'no field "{field_name}" in record {record!r}, skipping')
         elif isinstance(field, str):
-            await self._cache_urls(logger, client, record, [field], replace_after)
+            await self._cache_urls(logger, client, entity, record, [field])
         elif isinstance(field, list):
-            await self._cache_urls(logger, client, record, field, replace_after)
+            await self._cache_urls(logger, client, entity, record, field)
         else:
             msg = f'field "{field_name}" of record {record!r} does not seem to hold any links. Raw field value: {field}'
             logger.debug(msg)
 
+    def _find_external_files(self, entity: FileCacheEntity, record: Record) -> List[Path]:
+        if entity.import_path and entity.import_filename:
+            external_path = Fmt.format_filename(entity.import_path, entity.import_filename, record)
+            external_files = find_with_suffix(external_path, entity.import_rename_suffix)
+            self.logger.debug(f'[{entity.name}] external files found: {len(external_files)}')
+            return external_files
+        return []
+
+    def _export(self, entity: FileCacheEntity, record: Record, cache_path: Optional[Path]):
+        if cache_path is None:
+            return
+        if not entity.export_path or not entity.export_filename:
+            return
+        export_path = Fmt.format_filename(entity.export_path, entity.export_filename, record)
+        export_path = find_free_suffix(export_path, entity.export_rename_suffix)
+        export_path = export_path.with_suffix(cache_path.suffix)
+        try:
+            self.logger.debug(f'[{entity.name}] creating a copy of "{cache_path}" at "{export_path}"')
+            shutil.copy2(cache_path, export_path)
+        except OSError as e:
+            self.logger.warning(f'[{entity.name}] failed to copy "{cache_path}" to "{export_path}": {e}')
+
     async def _cache_urls(self, logger: logging.Logger, client: HttpClient,
-                          record: Record, maybe_urls: List[str], replace_after: Optional[float]) -> None:
+                          entity: FileCacheEntity, record: Record, maybe_urls: List[str]) -> None:
+        urls = []
         for url in maybe_urls:
             if is_url(url):
-                async with self.concurrency_limit:
-                    await self.cache.store(logger, client, record, url, replace_after)
+                urls.append(url)
             else:
-                msg = f'"{url}" does not seem to be a valid url, skipping. Record: {record!r}'
-                logger.debug(msg)
+                logger.debug(f'"{url}" does not seem to be a valid url, skipping. Record: {record!r}')
+
+        external_files: Sequence[Optional[Path]] = self._find_external_files(entity, record)
+        if not external_files or len(external_files) != len(urls):
+            external_files = [None] * len(urls)
+
+        for url, external_file in zip(urls, external_files):
+            async with self.concurrency_limit:
+                cache_path = await self.cache.store(logger, client, record, url, entity.replace_after, external_file)
+            self._export(entity, record, cache_path)
+
