@@ -4,7 +4,7 @@ from collections import defaultdict
 from enum import Enum
 from typing import Callable, Dict, List, Optional, Sequence
 
-from pydantic import FilePath, NonNegativeFloat, NonNegativeInt
+from pydantic import FilePath, NonNegativeFloat, field_validator
 
 from avtdl.core.db import RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
@@ -124,12 +124,19 @@ class ReplayEntity(MonitorEntity):
     """path to the sqlite database file storing records"""
     entity_name: Optional[str] = None
     """if specified, only records belonging to entity with this name are replayed"""
-    emit_limit: Optional[NonNegativeInt] = None
-    """how many records should be replayed. Default is no limit"""
+    emit_limit: Optional[int] = 10
+    """how many records should be replayed. Use -1 to disable limit"""
     emit_interval: NonNegativeFloat = 0.01
     """delay between two consequentially produced records, in seconds"""
     reverse: bool = True
     """replace records from newest to oldest"""
+
+    @field_validator('emit_limit')
+    @classmethod
+    def negative_is_none(cls, emit_limit):
+        if emit_limit < 0:
+            return None
+        return emit_limit
 
 
 @Plugins.register('utils.replay', Plugins.kind.ACTOR)
