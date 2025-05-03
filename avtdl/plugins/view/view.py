@@ -27,6 +27,8 @@ class ViewEntity(ActionEntity):
     replace: bool = True
     """when exactly the same record is received more than once, the latest copy will overwrite already stored one,
     updating the time the record was stored"""
+    use_creation_timestamp: bool = False
+    """use time record was initially parsed at instead of the moment it was stored in the database for chronological sorting"""
 
     @field_validator('db_path')
     @classmethod
@@ -58,7 +60,7 @@ class View(Action):
             self.logger.exception(
                 f'no database is opened for entity {entity.name}, the following record will not be stored: {record!r}')
             return
-        db.store_records([record], entity.name, entity.replace, use_created_as_parsed=True)
+        db.store_records([record], entity.name, entity.replace, use_created_as_parsed=entity.use_creation_timestamp)
 
     def get_records_storage(self, entity_name: Optional[str] = None) -> Optional[AbstractRecordsStorage]:
         if entity_name not in self.databases:
