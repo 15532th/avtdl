@@ -365,7 +365,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         actor_name = request.query.get('actor')
         entity_name = request.query.get('entity')
         page_num = request.query.get('page')
-        representation = request.query.get('repr', 'text')
+        page_size = request.query.get('size', RECORDS_PER_PAGE)
 
         if page_num is not None:
             try:
@@ -374,6 +374,10 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
                 raise web.HTTPBadRequest(text=f'page number must be positive integer')
         else:
             page = None
+        try:
+            per_page = int(page_size)
+        except ValueError:
+            raise web.HTTPBadRequest(text=f'page size must be positive integer')
 
         if actor_name is None:
             raise web.HTTPBadRequest(text=f'missing "actor" parameter')
@@ -392,8 +396,8 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             # HistoryView instance should have been returned from base Actor.get_records_storage implementation,
             # but it would lead to circular imports between interfaces.py and db.py
             db = HistoryView(actor, entity_name)
-        records = db.load_page(page, RECORDS_PER_PAGE)
-        total_pages = db.page_count(RECORDS_PER_PAGE)
+        records = db.load_page(page, per_page)
+        total_pages = db.page_count(per_page)
         records_view = [self.render_record(record) for record in records]
 
         data = {

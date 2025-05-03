@@ -61,6 +61,8 @@ class RecordsView {
 
         const pageParam = params.get('page');
         const page = pageParam ? parseInt(pageParam, 10) : null;
+        
+        const perPage = params.get('size');
 
         const url = new URL('/records', window.location.origin);
 
@@ -75,7 +77,9 @@ class RecordsView {
         if (page) {
             url.searchParams.set('page', page.toString());
         }
-        url.searchParams.set('repr', 'embed');
+        if (perPage) {
+            url.searchParams.set('size', perPage);
+        }
 
         const data = await this.fetchJSON(url);
         if (data === null) {
