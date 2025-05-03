@@ -244,6 +244,8 @@ class FileCacheEntity(QueueActionEntity):
     """names of fields in the incoming record containing urls of files to be downloaded"""
     replace_after: Optional[NonNegativeFloat] = None
     """how old existing file should be to get redownloaded, in hours"""
+    consume_record: bool = False
+    """whether record should be consumed or passed down the chain after processing"""
     import_path: Optional[str] = None
     """path to external location to look for a file before downloading. Supports templating with '{...}'"""
     import_filename: Optional[str] = None
