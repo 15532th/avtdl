@@ -10,6 +10,7 @@ class EntitiesList {
     constructor(name, schema, container = null, parentMenu, onEntityChange = (oldName, newName) => {}, historyView) {
         this.actorName = name;
         this.schema = schema;
+        /** @type {Fieldset[]} */
         this.entries = [];
         this.container = container || document.createElement('div');
         this.container.classList.add('editable-list');
@@ -77,10 +78,20 @@ class EntitiesList {
         return [entity, entryDiv];
     }
 
+    /** @param {object?} data */
     addEntry(data = null) {
+        let isNew = (data === null);
+        if (isNew) {
+            let name = chooseNewName('entity', this.listEntries()) || `entity ${Date.now()}`;
+            data = {'name': name};
+        }
         const [entity, entityDiv] = this.createEntry(data);
         this.container.insertBefore(entityDiv, this.addButton);
         this.entries.push(entity);
+        if (isNew) {
+            this.onEntityChange(null, entity.getName());
+        }
+        return entity;
     }
 
     /**
@@ -307,8 +318,15 @@ class ActorSection {
         return this.entities.listEntries();
     }
 
+    /**
+     * @param {string} entityName
+     */
     getEntity(entityName) {
         return this.entities.getEntry(entityName);
+    }
+
+    addEntity(data) {
+        return this.entities.addEntry(data);
     }
 
     getElement() {
@@ -534,11 +552,24 @@ class ActorsInfo {
 
     /**
      * @param {string} actorName
-     * @param {string} entityName
+     * @returns {ActorSection?}
      */
-    getEntity(actorName, entityName) {
+    getActor(actorName) {
         if (this._names.includes(actorName)) {
             const actor = this.form.actorSections[actorName];
+            return actor;
+        }
+        return null;
+    }
+
+    /**
+     * @param {string} actorName
+     * @param {string} entityName
+     * @returns {Fieldset?}
+     */
+    getEntity(actorName, entityName) {
+        const actor = this.getActor(actorName);
+        if (actor != null) {
             if (this.listEntities(actorName).includes(entityName)) {
                 const entity = actor.getEntity(entityName);
                 if (entity) {

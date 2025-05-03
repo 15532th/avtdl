@@ -266,12 +266,21 @@ class ChainCard {
      * @param {string} entityName
      */
     editEntity(actorName, entityName) {
-        const entity = this.info.getEntity(actorName, entityName);
-        if (!entity) {
+        const actor = this.info.getActor(actorName);
+        if (!actor) {
             return;
+        }
+        let entity = this.info.getEntity(actorName, entityName);
+        if (!entity) {
+            entity = actor.addEntity();
+            this.addItem(entity.getName());
+            
         }
         const entityElement = entity.getElement();
         const entityParent = entityElement.parentNode;
+        if (!entityParent) {
+            return;
+        }
         const entitySibling = entityElement.nextSibling;
         const modal = renderModal(this.parentContainer, () => {
             entityParent.insertBefore(entityElement, entitySibling);
