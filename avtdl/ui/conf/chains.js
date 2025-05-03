@@ -106,6 +106,16 @@ class ChainCard {
         deleteButton.title = 'Remove line';
         itemContainer.appendChild(deleteButton);
 
+        const editButton = createButton(
+            '✎',
+            () => {
+                this.editEntity(this.headerSelect.value, itemSelect.value);
+            },
+            'inline-button'
+        );
+        editButton.title = 'Edit entity';
+        itemContainer.appendChild(editButton);
+
         const definitionButton = createButton(
             '⤴',
             () => {
@@ -249,6 +259,24 @@ class ChainCard {
             }
         }
         this.fill({ header: actorName, items: updatedData });
+    }
+
+    /**
+     * @param {string} actorName
+     * @param {string} entityName
+     */
+    editEntity(actorName, entityName) {
+        const entity = this.info.getEntity(actorName, entityName);
+        if (!entity) {
+            return;
+        }
+        const entityElement = entity.getElement();
+        const entityParent = entityElement.parentNode;
+        const entitySibling = entityElement.nextSibling;
+        const modal = renderModal(this.parentContainer, () => {
+            entityParent.insertBefore(entityElement, entitySibling);
+        });
+        modal.appendChild(entityElement);
     }
 
     readItems() {

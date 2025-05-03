@@ -639,16 +639,18 @@ async function fetchJSON(path, messageArea, retries = 0) {
 /**
  * @param {HTMLElement} parent
  */
-function renderModal(parent) {
+function renderModal(parent, onClose = () => {}) {
     const background = createElement('div', 'modal-background', parent);
     const container = createElement('div', 'modal-view', background);
     background.onclick = (event) => {
         if (event.target === background) {
+            onClose();
             parent.removeChild(background);
         }
     };
     background.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
+            onClose();
             parent.removeChild(background);
         }
     });
