@@ -140,7 +140,7 @@ class WebUI:
 
         self.routes.append(web.get('/ui/info/info.html', self.info_webui))
 
-        self.routes.append(web.get('/entities', self.show_entities))
+        self.routes.append(web.get('/viewable', self.viewable_plugins))
         self.routes.append(web.get('/records', self.records))
         self.routes.append(web.static(self.CACHE_ROUTE, self.cache.cache_directory))
 
@@ -211,7 +211,7 @@ class WebUI:
                 self.restart_pending = True
                 self.ctx.controller.terminate_after(self.RESTART_DELAY, TerminatedAction.RESTART)
                 return web.Response(
-                    text=f'Updated config successfully stored in "{self.config_path}". Restarting in a few seconds.')
+                    text=f'Updated config successfully stored in "{self.config_path}". Restarting in a few seconds (the page will reload).')
             else:
                 text = f'Updated config successfully stored in "{self.config_path}". It will be used after next restart.'
                 return web.Response(text=text)
@@ -302,15 +302,29 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         data = self.render_status_data(status_list, actor_name)
         return web.json_response(data, dumps=json_dumps)
 
-    async def show_entities(self, request: web.Request) -> web.Response:
-        data: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(dict)
+    async def viewable_plugins(self, request: web.Request) -> web.Response:
+        runtime: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(dict)
+        internal: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(dict)
+        viewable: Dict[str, str] = {}
         for actor_name, actor in self.actors.items():
-            actor_type = get_plugin_type(actor_name) or 'Other'
             entities = {}
             for entity_name in actor.entities.keys():
                 query = urllib.parse.urlencode({'actor': actor_name, 'entity': entity_name})
                 entities[entity_name] = query
-            data[actor_type][actor_name] = entities
+            actor_type = get_plugin_type(actor_name) or 'Other'
+            if actor.conf.name == 'view':
+                viewable = entities
+            elif actor.get_records_storage() is not None:
+                internal[actor_type][actor_name] = entities
+            else:
+                runtime[actor_type][actor_name] = entities
+        data: dict = {}
+        if viewable:
+            data['View stored records'] = viewable
+        if internal:
+            data['View internal database'] = internal
+        if runtime:
+            data['View runtime history'] = runtime
         return web.json_response(data, dumps=json_dumps)
 
     def _rewrite_embed_image(self, record: Record, embed: dict, field: str, subfield: str):

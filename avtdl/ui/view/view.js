@@ -9,7 +9,7 @@ class Sidebar {
     }
 
     async render() {
-        const data = await fetchJSON('/entities', this.messageArea);
+        const data = await fetchJSON('/viewable', this.messageArea);
         if (data) {
             this.renderMenuLevel(data, null, this.container);
         }
@@ -45,8 +45,9 @@ class RecordsView {
         this.messageArea = messageArea;
     }
 
-    async fetchJSON(path) {
-        return await fetchJSON(path, this.messageArea);
+    async fetchJSON(path, reportError = false) {
+        const messageArea = reportError ? this.messageArea : undefined;
+        return await fetchJSON(path, messageArea);
     }
 
     clear() {
@@ -60,7 +61,7 @@ class RecordsView {
 
         const pageParam = params.get('page');
         const page = pageParam ? parseInt(pageParam, 10) : null;
-        
+
         const url = new URL('/records', window.location.origin);
 
         if (!actor) {
@@ -78,6 +79,7 @@ class RecordsView {
 
         const data = await this.fetchJSON(url);
         if (data === null) {
+            this.container.innerText = 'Select plugin from menu on the left.';
             return;
         }
         this.clear();
