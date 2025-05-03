@@ -272,7 +272,9 @@ class DictionaryInputField {
 
         this.fieldContainer.insertBefore(fieldDiv, this.addButton);
         this.entries.push(fieldDiv);
-        keyInput.focus();
+        if (!key) {
+            keyInput.focus();
+        }
     }
 
     /**
@@ -410,7 +412,9 @@ class ArrayInputField {
 
         this.fieldContainer.insertBefore(fieldDiv, this.addButton);
         this.entries.push(fieldDiv);
-        valueInput.focus();
+        if (!value) {
+            valueInput.focus();
+        }
     }
 
     /**
