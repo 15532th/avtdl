@@ -44,6 +44,13 @@ class ViewEntity(ActionEntity):
 
 @Plugins.register('view', Plugins.kind.ACTOR)
 class View(Action):
+    """
+    View records in the web interface
+
+    Incoming records are stored in sqlite database at db_path (unless readonly parameter enabled).
+    The stored records are available on the "View" tab of the web interface.
+    """
+
     def __init__(self, conf: ViewConfig, entities: Sequence[ViewEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
         self.databases = {}
