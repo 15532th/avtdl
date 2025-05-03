@@ -222,11 +222,9 @@ class ChainCard {
         if (this.headerTooltip) {
             this.headerContainer.removeChild(this.headerTooltip);
         }
-        const description = this.info.listInfo(this.headerSelect.value);
-        if (description) {
-            this.headerTooltip = createTooltip(description);
-            this.headerContainer.insertBefore(this.headerTooltip, this.headerSelect.nextSibling);
-        }
+        const description = this.info.listInfo(this.headerSelect.value) || 'This element has no description';
+        this.headerTooltip = createTooltip(description);
+        this.headerContainer.insertBefore(this.headerTooltip, this.headerSelect.nextSibling);
     }
 
     /**
