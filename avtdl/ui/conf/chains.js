@@ -47,6 +47,9 @@ class ChainCard {
     populateFlatDropdown(selectElement, values) {
         const selectedValue = selectElement.value;
         selectElement.innerHTML = '';
+        if (values) {
+            values.push('');
+        }
         values.forEach((value) => {
             const option = document.createElement('option');
             option.value = value;
