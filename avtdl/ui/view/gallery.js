@@ -101,7 +101,7 @@ function renderEmbed(embed) {
 
     if (embed.timestamp) {
         const timestamp = document.createElement('div');
-        timestamp.classList.add('timestamp');
+        timestamp.classList.add('embed-timestamp');
         timestamp.textContent = new Date(embed.timestamp).toLocaleString();
         embedDiv.appendChild(timestamp);
     }

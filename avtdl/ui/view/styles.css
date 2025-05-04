@@ -53,9 +53,9 @@
 }
 
 .gallery-card {
-    background-color: #36393f;
+    background-color: #323339;
     color: rgb(243, 243, 244);
-    border-radius: 8px;
+    border-radius: 3px;
     padding: 12px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     display: flex;
@@ -65,6 +65,7 @@
 
 .gallery-card-timestamp {
     font-size: 12px;
+    font-style: italic;
     color: #b9bbbe;
     padding: 4px;
     padding-top: 8px;
@@ -73,9 +74,9 @@
 }
 
 .embed-container {
-    background-color: #2f3136;
-    border: 1px solid #202225;
-    border-radius: 8px;
+    background-color: #393a41;
+    box-shadow: 0 0 1px #9e9e9ecc;
+    border-radius: 2px;
     padding: 12px;
     margin-top: 8px;
     position: relative;
@@ -91,26 +92,27 @@
 
 .embed-icon {
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
+    width: 25px;
+    height: 25px;
     margin-right: 5px;
 }
 
 .embed-author-name {
     font-weight: bold;
+    text-decoration: none;
+    color: #f3f3f3;
 }
 
 .embed-title {
-    text-align: center;
     font-size: 16px;
     font-weight: bold;
     margin: 5px 0;
-    color: #ffffff;
+    color: #79acf0;
+    text-decoration: none;
 }
 
 .embed-description {
     margin: 4px 0;
-    color: #b9bbbe;
     overflow-wrap: break-word;
 }
 
@@ -163,7 +165,6 @@
     font-size: 12px;
     color: #b9bbbe;
     margin-top: 5px;
-    margin-left: 8px;
     font-style: italic;
 }
 
