@@ -30,6 +30,22 @@ function renderMaybeLink(text, link) {
 }
 
 /**
+ * @param {string?} url
+ */
+function renderEmbedIcon(url) {
+    const container = document.createElement('div');
+    container.classList.add('embed-icon-container');
+    if (url) {
+        const icon = createImage(url, 'embed-icon', container);
+        icon.onerror = () => {
+            icon.style.display = 'none';
+        };
+        const preview = createImage(url, 'embed-icon-preview', container);
+    }
+    return container;
+}
+
+/**
  * @param {object} embed
  */
 function renderEmbed(embed) {
@@ -43,12 +59,8 @@ function renderEmbed(embed) {
     if (embed.author) {
         const author = document.createElement('div');
         author.classList.add('embed-author');
-        if (embed.author.icon_url) {
-            const authorIcon = document.createElement('img');
-            authorIcon.classList.add('embed-icon');
-            authorIcon.src = embed.author.icon_url;
-            author.appendChild(authorIcon);
-        }
+        const authorIcon = renderEmbedIcon(embed.author.icon_url);
+        author.appendChild(authorIcon);
         if (embed.author.name) {
             const authorName = renderMaybeLink(embed.author.name, embed.author.url);
             authorName.classList.add('embed-author-name');
@@ -75,7 +87,7 @@ function renderEmbed(embed) {
             const modal = renderModal(embedDiv);
             modal.classList.add('fullsize-image-container');
             const fullImage = createImage(embed.image.url, 'fullsize-image', modal);
-        }
+        };
         embedDiv.appendChild(image);
     }
 
@@ -108,12 +120,10 @@ function renderEmbed(embed) {
     if (embed.footer) {
         const footer = document.createElement('div');
         footer.classList.add('embed-footer');
-        if (embed.footer.icon_url) {
-            const footerIcon = document.createElement('img');
-            footerIcon.classList.add('embed-icon');
-            footerIcon.src = embed.footer.icon_url;
-            footer.appendChild(footerIcon);
-        }
+
+        const footerIcon = renderEmbedIcon(embed.footer.icon_url);
+        footer.appendChild(footerIcon);
+
         const footerText = createElement('span');
         footerText.classList.add('embed-footer-text');
         footerText.textContent = embed.footer.text;

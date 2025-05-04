@@ -90,11 +90,26 @@
     margin-bottom: 5px;
 }
 
+.embed-icon-container {
+    display: flex;
+}
+
 .embed-icon {
     border-radius: 50%;
     width: 25px;
     height: 25px;
     margin-right: 5px;
+}
+
+.embed-icon-preview {
+    display: none;
+    position: absolute;
+    z-index: 10;
+    max-width: 400px;
+}
+
+.embed-icon-container:hover .embed-icon-preview {
+    display: block;
 }
 
 .embed-author-name {
