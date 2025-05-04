@@ -67,7 +67,12 @@ class View(Action):
             self.logger.exception(
                 f'no database is opened for entity {entity.name}, the following record will not be stored: {record!r}')
             return
-        db.store_records([record], entity.name, entity.replace, use_created_as_parsed=entity.use_creation_timestamp)
+        if record.origin:
+            origin_items = record.origin.split(':', maxsplit=1)
+            entity_name = origin_items[-1]  # take entire origin value if no separator present
+        else:
+            entity_name = entity.name
+        db.store_records([record], entity_name, entity.replace, use_created_as_parsed=entity.use_creation_timestamp)
 
     def get_records_storage(self, entity_name: Optional[str] = None) -> Optional[AbstractRecordsStorage]:
         if entity_name not in self.databases:
