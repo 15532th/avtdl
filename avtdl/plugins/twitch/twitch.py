@@ -38,7 +38,7 @@ class TwitchRecord(Record):
     def get_uid(self) -> str:
         return self.url
 
-    def discord_embed(self) -> dict:
+    def as_embed(self) -> dict:
         return {
             'title': self.title,
             'description': self.url,

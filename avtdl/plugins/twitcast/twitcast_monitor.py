@@ -35,7 +35,7 @@ class TwitcastRecord(Record):
     def get_uid(self) -> str:
         return self.movie_id
 
-    def discord_embed(self) -> dict:
+    def as_embed(self) -> dict:
         return {
             'title': self.movie_url,
             'description': None,

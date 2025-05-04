@@ -64,6 +64,19 @@ class Record(BaseModel):
     def as_json(self, indent: Union[int, str, None] = None) -> str:
         return json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False, default=str, indent=indent)
 
+    def as_embed(self) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        embed_title_max_length = 256
+        embed_description_max_length = 4096
+
+        text = str(self)
+        if text.find('\n') > -1:
+            title, description = text.split('\n', 1)
+        else:
+            title, description = '', text
+        title = shorten(title, embed_title_max_length)
+        description = shorten(description, embed_description_max_length)
+        return {'title': title, 'description': description}
+
     def hash(self) -> str:
         record_hash = sha1(self.as_json().encode())
         return record_hash.hexdigest()

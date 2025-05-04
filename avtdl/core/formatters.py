@@ -4,7 +4,6 @@ import re
 from email.utils import mktime_tz
 from enum import Enum
 from pathlib import Path
-from textwrap import shorten
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import lxml.html
@@ -192,9 +191,13 @@ class Fmt:
             return record.hash()
 
 
-EMBEDS_PER_MESSAGE = 10
-EMBED_TITLE_MAX_LENGTH = 256
-EMBED_DESCRIPTION_MAX_LENGTH = 4096
+class DiscordEmbedLimits:
+    TOTAL = 6000
+    AUTHOR_NAME = 256
+    TITLE = 256
+    DESCRIPTION = 4096
+    FOOTER_TEXT = 2048
+    EMBEDS_PER_MESSAGE = 10
 
 
 class MessageFormatter:
@@ -207,7 +210,7 @@ class MessageFormatter:
         excess_records = []
         for i, record in enumerate(records):
             record_embeds = cls.make_embeds(record, True)
-            if len(embeds) + len(record_embeds) > EMBEDS_PER_MESSAGE:
+            if len(embeds) + len(record_embeds) > DiscordEmbedLimits.EMBEDS_PER_MESSAGE:
                 excess_records = records[i:]
                 break
             else:
@@ -224,13 +227,9 @@ class MessageFormatter:
 
     @classmethod
     def make_embeds(cls, record: Record, strip_extra: bool = False) -> List[Dict[str, Any]]:
-        formatter = getattr(record, 'discord_embed', None)
-        if formatter is not None and callable(formatter):
-            embeds = formatter()
-            if not isinstance(embeds, list):
-                embeds = [embeds]
-        else:
-            embeds = [cls.plaintext_embed(record)]
+        embeds = record.as_embed()
+        if not isinstance(embeds, list):
+            embeds = [embeds]
         if strip_extra:
             cls.clean_embeds(embeds)
         return embeds
@@ -244,44 +243,29 @@ class MessageFormatter:
                 embed.pop(field)
 
     @classmethod
-    def plaintext_embed(cls, record: Record) -> dict:
-        text = str(record)
-        if text.find('\n') > -1:
-            title, description = text.split('\n', 1)
-        else:
-            title, description = '', text
-        title = shorten(title, EMBED_TITLE_MAX_LENGTH)
-        description = shorten(description, EMBED_DESCRIPTION_MAX_LENGTH)
-        return {'title': title, 'description': description}
-
-    @classmethod
     def check_limits(cls, message: dict) -> bool:
         # doesn't count field.name and field.value number and size in hope it will not change outcome
 
-        class Limits:
-            TOTAL = 6000
-            AUTHOR_NAME = 256
-            TITLE = 256
-            DESCRIPTION = 4096
-            FOOTER_TEXT = 2048
-
         total_length = 0
         embeds = message.get('embeds', [])
+        if len(embeds) > DiscordEmbedLimits.EMBEDS_PER_MESSAGE:
+            return False
+
         for embed in embeds:
             author_name = len(embed.get('author', {}).get('name', '') or '')
             title = len(embed.get('title') or '')
             description = len(embed.get('description') or '')
             footer_text = len((embed.get('footer') or {}).get('text') or '')
-            if author_name > Limits.AUTHOR_NAME:
+            if author_name > DiscordEmbedLimits.AUTHOR_NAME:
                 return False
-            if title > Limits.TITLE:
+            if title > DiscordEmbedLimits.TITLE:
                 return False
-            if description > Limits.DESCRIPTION:
+            if description > DiscordEmbedLimits.DESCRIPTION:
                 return False
-            if footer_text > Limits.FOOTER_TEXT:
+            if footer_text > DiscordEmbedLimits.FOOTER_TEXT:
                 return False
             total_length += author_name + title + description + footer_text
 
-        if total_length > Limits.TOTAL:
+        if total_length > DiscordEmbedLimits.TOTAL:
             return False
         return True

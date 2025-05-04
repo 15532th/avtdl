@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import multidict
 
-from avtdl.core.formatters import EMBEDS_PER_MESSAGE, MessageFormatter
+from avtdl.core.formatters import DiscordEmbedLimits, MessageFormatter
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient, HttpResponse, RateLimit
@@ -130,9 +130,9 @@ class DiscordHook(Action):
     @staticmethod
     async def wait_for_records(queue: asyncio.Queue, pending: List[Record]) -> List[Record]:
         to_be_sent = pending
-        while len(to_be_sent) < EMBEDS_PER_MESSAGE:
+        while len(to_be_sent) < DiscordEmbedLimits.EMBEDS_PER_MESSAGE:
             try:
-                record = await asyncio.wait_for(queue.get(), 60 / EMBEDS_PER_MESSAGE)
+                record = await asyncio.wait_for(queue.get(), 60 / DiscordEmbedLimits.EMBEDS_PER_MESSAGE)
                 to_be_sent.append(record)
             except asyncio.TimeoutError:
                 if to_be_sent:

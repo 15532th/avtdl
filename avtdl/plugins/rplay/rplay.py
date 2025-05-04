@@ -63,7 +63,7 @@ class RplayRecord(Record):
     def get_uid(self) -> str:
         return f'{self.creator_id}:{int(self.start.timestamp() * 1000)}'
 
-    def discord_embed(self) -> dict:
+    def as_embed(self) -> dict:
         return {
             'title': self.title,
             'url': self.url,

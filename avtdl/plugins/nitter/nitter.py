@@ -71,7 +71,7 @@ class NitterRecord(Record):
     def get_uid(self) -> str:
         return self.url
 
-    def discord_embed(self) -> List[dict]:
+    def as_embed(self) -> List[dict]:
         text_items = [self.text]
         if len(self.attachments) > 1:
             text_items.extend(self.attachments)

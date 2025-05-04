@@ -59,7 +59,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
     def get_uid(self) -> str:
         return  f'{self.channel_id}:{self.post_id}'
 
-    def discord_embed(self) -> List[dict]:
+    def as_embed(self) -> List[dict]:
         channel_url = f'https://www.youtube.com/channel/{self.channel_id}'
         post_url = f'https://www.youtube.com/post/{self.post_id}'
 
@@ -124,7 +124,7 @@ class SharedCommunityPostRecord(Record, SharedCommunityPostInfo):
     def get_uid(self) -> str:
         return  f'{self.channel_id}:{self.post_id}'
 
-    def discord_embed(self) -> List[dict]:
+    def as_embed(self) -> List[dict]:
         channel_url = f'https://www.youtube.com/channel/{self.channel_id}'
         post_url = f'https://www.youtube.com/post/{self.post_id}'
 

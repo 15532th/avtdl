@@ -45,7 +45,7 @@ class FC2Record(Record):
         title = shorten(self.title, MAX_REPR_LEN)
         return f'FC2Record(user_id={self.user_id}, start={self.start_timestamp}, title={title})'
 
-    def discord_embed(self) -> dict:
+    def as_embed(self) -> dict:
         return {
             'title': self.title,
             'description': self.url,

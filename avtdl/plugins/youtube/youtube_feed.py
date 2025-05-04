@@ -76,7 +76,7 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
     def get_uid(self) -> str:
         return self.video_id
 
-    def discord_embed(self) -> dict:
+    def as_embed(self) -> dict:
         embed: Dict[str, Any] = {
             'title': self.title,
             # 'description': ,

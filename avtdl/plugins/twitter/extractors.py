@@ -79,7 +79,7 @@ class TwitterRecord(Record):
     def get_uid(self) -> str:
         return self.url
 
-    def discord_embed(self, color: Optional[int] = None) -> List[dict]:
+    def as_embed(self, color: Optional[int] = None) -> List[dict]:
         quote = self.quote
         footer = {'text': 'Referring to:'} if quote else None
 
@@ -117,10 +117,10 @@ class TwitterRecord(Record):
             embed['image'] = images.pop(0)['image']
             embeds.extend(images)
         if self.retweet is not None:
-            retweet_embed = self.retweet.discord_embed(color=0xb0c8d4)
+            retweet_embed = self.retweet.as_embed(color=0xb0c8d4)
             embeds.extend(retweet_embed)
         if quote:
-            quote_embeds = quote.discord_embed(color=0xb0c8d4)
+            quote_embeds = quote.as_embed(color=0xb0c8d4)
             embeds.extend(quote_embeds)
         return embeds
 
@@ -516,7 +516,7 @@ class TwitterSpaceRecord(Record):
     def get_uid(self) -> str:
         return self.uid
 
-    def discord_embed(self) -> List[dict]:
+    def as_embed(self) -> List[dict]:
         author = f'{self.author} ({self.username})'
         fields: List[dict] = []
         state_text = ' '.join(re.split('(?=[A-Z])', self.state)).strip().lower()

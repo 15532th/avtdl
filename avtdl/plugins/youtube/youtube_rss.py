@@ -93,7 +93,7 @@ class YoutubeFeedRecord(Record):
         record_dict.update(additional_fields)
         return record_dict
 
-    def discord_embed(self) -> dict:
+    def as_embed(self) -> dict:
         embed: Dict[str, Any] = {
             'title': self.title,
             # 'description': ,

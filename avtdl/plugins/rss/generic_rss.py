@@ -58,7 +58,7 @@ class GenericRSSRecord(Record):
                 self.summary = self.summary.replace(link, '')
         return self
 
-    def discord_embed(self) -> List[dict]:
+    def as_embed(self) -> List[dict]:
         embed: Dict[str, Any] = {
             'title': self.title,
             'description': html_to_text(self.summary, self.url),

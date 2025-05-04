@@ -54,7 +54,7 @@ class IwaraVideoRecord(IwaraPostRecord):
         template = '[{}] {} ({})'
         return template.format(self.name, self.title[:60], self.url)
 
-    def discord_embed(self) -> dict:
+    def as_embed(self) -> dict:
         profile_url = f'https://www.iwara.tv/profile/{self.username}'
         footer = '{}, {}'.format(Fmt.duration(self.duration), Fmt.size(self.size))
         return {
