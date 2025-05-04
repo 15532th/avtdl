@@ -468,6 +468,12 @@ class Actor(ABC):
 
     def on_record(self, entity: ActorEntity, record: Record):
         '''Implementation should call it for every new Record it produces'''
+        origin = f'{self.conf.name}:{entity.name}'
+        if record.origin == origin:
+            self.logger.warning(f'[{entity.name}] received incoming record produced by self, which indicates loop in a chain, dropping: "{record!r}".\nCheck config for chains, passing records to each other in a loop. Record has chain set to "{record.chain}"')
+            return
+        if record.origin is None:
+            record.origin = origin
         if entity.reset_origin:
             record = record.model_copy(deep=True)
             record.chain = ''
@@ -496,12 +502,6 @@ class Monitor(Actor, ABC):
 
     def on_record(self, entity: ActorEntity, record: Record):
         '''Implementation should call it for every new Record it produces'''
-        origin = f'{self.conf.name}:{entity.name}'
-        if record.origin == origin:
-            self.logger.warning(f'[{entity.name}] received incoming record produced by self, which indicates loop in a chain, dropping: "{record!r}".\nCheck config for chains, passing records to each other in a loop.')
-            return
-        if record.origin is None:
-            record.origin = origin
         super().on_record(entity, record)
 
 
