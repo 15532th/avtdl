@@ -18,6 +18,64 @@ def sanitize_filename(name: str, collapse: bool = False) -> str:
     return re.sub(pattern, "_", name)
 
 
+def make_datetime(items) -> datetime.datetime:
+    """take 10-tuple and return datetime object with UTC timezone"""
+    if len(items) == 9:
+        items = *items, None
+    if len(items) != 10:
+        raise ValueError(f'Expected tuple with 10 elements, got {len(items)}')
+    timestamp = mktime_tz(items)
+    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
+
+
+def html_from_string(html: str, base_url: Optional[str] = None) -> lxml.html.HtmlElement:
+    try:
+        root: lxml.html.HtmlElement = lxml.html.fromstring(html)
+        if base_url is not None:
+            root.make_links_absolute(base_url=base_url, handle_failures='ignore')
+        return root
+    except Exception as e:
+        logging.getLogger('html_to_text').exception(e)
+        raise
+
+
+def html_to_text(html: str, base_url: Optional[str] = None) -> str:
+    """take html fragment, try to parse it and convert to text using lxml"""
+    try:
+        root = html_from_string(html, base_url)
+    except Exception:
+        return html
+    # text_content() skips <img> content altogether
+    # walk tree manually and for images containing links
+    # add them to text representation
+    for elem in root.iter():
+        if elem.tag == 'br':
+            elem.text = '\n'
+        if elem.tag == 'a':
+            link = elem.get('href')
+            if link is not None:
+                if elem.text_content():
+                    elem.text = f'{elem.text_content()} ({link})'
+                else:
+                    elem.text = f'{link}'
+        if elem.tag == 'img':
+            image_link = elem.get('src')
+            if image_link is not None:
+                elem.text = f'\n{image_link}\n'
+    text = root.text_content()
+    return text
+
+
+def html_images(html: str, base_url: Optional[str]) -> List[str]:
+    """take html fragment, try to parse it and extract image links"""
+    try:
+        root = html_from_string(html, base_url)
+    except Exception:
+        return []
+    images = [elem.get('src') for elem in root.iter() if elem.tag == 'img' and elem.get('src')]
+    return images
+
+
 class OutputFormat(str, Enum):
     text = 'text'
     repr = 'short'
@@ -77,7 +135,7 @@ class Fmt:
 
     @classmethod
     def format_filename(cls, path: Union[str, Path], name: str, record: Record, missing: Optional[str] = None,
-                    tz: Optional[datetime.tzinfo] = None, extra: Optional[Dict[str, Any]] = None) -> Path:
+                        tz: Optional[datetime.tzinfo] = None, extra: Optional[Dict[str, Any]] = None) -> Path:
         """format file path and filename templates into a Path object"""
         path = cls.format_path(path, record, missing, tz, extra)
         formatted_name = cls.format(name, record, missing, tz=tz, sanitize=True, extra=extra)
@@ -134,44 +192,6 @@ class Fmt:
             return record.hash()
 
 
-def html_from_string(html: str, base_url: Optional[str] = None) -> lxml.html.HtmlElement:
-    try:
-        root: lxml.html.HtmlElement = lxml.html.fromstring(html)
-        if base_url is not None:
-            root.make_links_absolute(base_url=base_url, handle_failures='ignore')
-        return root
-    except Exception as e:
-        logging.getLogger('html_to_text').exception(e)
-        raise
-
-
-def html_to_text(html: str, base_url: Optional[str] = None) -> str:
-    """take html fragment, try to parse it and convert to text using lxml"""
-    try:
-        root = html_from_string(html, base_url)
-    except Exception:
-        return html
-    # text_content() skips <img> content altogether
-    # walk tree manually and for images containing links
-    # add them to text representation
-    for elem in root.iter():
-        if elem.tag == 'br':
-            elem.text = '\n'
-        if elem.tag == 'a':
-            link = elem.get('href')
-            if link is not None:
-                if elem.text_content():
-                    elem.text = f'{elem.text_content()} ({link})'
-                else:
-                    elem.text = f'{link}'
-        if elem.tag == 'img':
-            image_link = elem.get('src')
-            if image_link is not None:
-                elem.text = f'\n{image_link}\n'
-    text = root.text_content()
-    return text
-
-
 EMBEDS_PER_MESSAGE = 10
 EMBED_TITLE_MAX_LENGTH = 256
 EMBED_DESCRIPTION_MAX_LENGTH = 4096
@@ -181,8 +201,8 @@ class MessageFormatter:
 
     @classmethod
     def format(cls, records: List[Record]) -> Tuple[dict, List[Record]]:
-        '''take records and format them in Discord webhook payload as embeds
-        after the limit on embeds is reached, the rest of the records are returned back'''
+        """take records and format them in Discord webhook payload as embeds
+        after the limit on embeds is reached, the rest of the records are returned back"""
         embeds: List[dict] = []
         excess_records = []
         for i, record in enumerate(records):
@@ -254,23 +274,3 @@ class MessageFormatter:
         if total_length > Limits.TOTAL:
             return False
         return True
-
-
-def make_datetime(items) -> datetime.datetime:
-    """take 10-tuple and return datetime object with UTC timezone"""
-    if len(items) == 9:
-        items = *items, None
-    if len(items) != 10:
-        raise ValueError(f'Expected tuple with 10 elements, got {len(items)}')
-    timestamp = mktime_tz(items)
-    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
-
-
-def html_images(html: str, base_url: Optional[str]) -> List[str]:
-    """take html fragment, try to parse it and extract image links"""
-    try:
-        root = html_from_string(html, base_url)
-    except Exception:
-        return []
-    images = [elem.get('src') for elem in root.iter() if elem.tag == 'img' and elem.get('src')]
-    return images
