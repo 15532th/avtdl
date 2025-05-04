@@ -203,10 +203,10 @@ class MessageFormatter:
     def format(cls, records: List[Record]) -> Tuple[dict, List[Record]]:
         """take records and format them in Discord webhook payload as embeds
         after the limit on embeds is reached, the rest of the records are returned back"""
-        embeds: List[dict] = []
+        embeds: List[Dict[str, Any]] = []
         excess_records = []
         for i, record in enumerate(records):
-            record_embeds = cls.make_embeds(record)
+            record_embeds = cls.make_embeds(record, True)
             if len(embeds) + len(record_embeds) > EMBEDS_PER_MESSAGE:
                 excess_records = records[i:]
                 break
@@ -216,21 +216,32 @@ class MessageFormatter:
         return message, excess_records
 
     @classmethod
-    def make_message(cls, embeds: List[dict]) -> dict:
+    def make_message(cls, embeds: List[Dict[str, Any]]) -> dict:
         return {
             "content": None,
             "embeds": embeds
         }
 
     @classmethod
-    def make_embeds(cls, record: Record) -> List[dict]:
+    def make_embeds(cls, record: Record, strip_extra: bool = False) -> List[Dict[str, Any]]:
         formatter = getattr(record, 'discord_embed', None)
         if formatter is not None and callable(formatter):
             embeds = formatter()
             if not isinstance(embeds, list):
                 embeds = [embeds]
-            return embeds
-        return [cls.plaintext_embed(record)]
+        else:
+            embeds = [cls.plaintext_embed(record)]
+        if strip_extra:
+            cls.clean_embeds(embeds)
+        return embeds
+
+    @classmethod
+    def clean_embeds(cls, embeds: List[Dict[str, Any]]):
+        """remove embed fields starting with underscore"""
+        for embed in embeds:
+            extra_fields = [field for field in embed if field.startswith('_')]
+            for field in extra_fields:
+                embed.pop(field)
 
     @classmethod
     def plaintext_embed(cls, record: Record) -> dict:
