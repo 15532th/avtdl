@@ -9,8 +9,9 @@ import dateutil.parser
 from pydantic import BaseModel, ValidationError
 
 from avtdl.core.config import format_validation_error
+from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
-from avtdl.core.utils import Fmt, find_one
+from avtdl.core.utils import find_one
 
 local_logger = logging.getLogger().getChild('twitter_extractors')
 

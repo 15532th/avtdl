@@ -8,9 +8,10 @@ from typing import Any, List, Optional, Sequence
 from pydantic import Field, field_validator
 
 from avtdl.core.config import Plugins
+from avtdl.core.formatters import Fmt, OutputFormat, sanitize_filename
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, TextRecord
 from avtdl.core.monitors import HIGHEST_UPDATE_INTERVAL, TaskMonitor, TaskMonitorEntity
-from avtdl.core.utils import Fmt, OutputFormat, check_dir, read_file, sanitize_filename
+from avtdl.core.utils import check_dir, read_file
 
 Plugins.register('from_file', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
 

@@ -14,10 +14,10 @@ import dateutil.parser
 from pydantic import Field, FilePath, PositiveFloat, model_validator
 
 from avtdl.core.config import Plugins
+from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import MAX_REPR_LEN, Record, RuntimeContext
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.request import HttpClient, RetrySettings
-from avtdl.core.utils import Fmt
 
 
 @Plugins.register('rplay', Plugins.kind.ASSOCIATED_RECORD)

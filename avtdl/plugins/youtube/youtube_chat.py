@@ -5,11 +5,12 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from pydantic import Field, PositiveFloat
 
+from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import Delay, HttpClient, RetrySettings
-from avtdl.core.utils import Fmt, find_all, find_one, parse_timestamp_us
+from avtdl.core.utils import find_all, find_one, parse_timestamp_us
 from avtdl.plugins.youtube import video_info
 from avtdl.plugins.youtube.common import NextPageContext, extract_keys, get_innertube_context, \
     get_session_index, handle_consent, \

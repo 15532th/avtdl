@@ -11,9 +11,9 @@ from typing import Any, Iterable, List, Optional
 from pydantic import AnyHttpUrl, ValidationError
 
 from avtdl.core.download import download_file
+from avtdl.core.formatters import sanitize_filename
 from avtdl.core.interfaces import Record
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import sanitize_filename
 
 
 def is_url(maybe_url: str) -> bool:

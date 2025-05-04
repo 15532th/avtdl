@@ -5,11 +5,11 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import feedparser
 from pydantic import ConfigDict, ValidationError, model_validator
 
+from avtdl.core.formatters import Fmt, html_images, html_to_text, make_datetime
 from avtdl.core.interfaces import MAX_REPR_LEN, Record, TextRecord
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import Fmt, html_images, html_to_text, make_datetime
 
 
 @Plugins.register('generic_rss', Plugins.kind.ASSOCIATED_RECORD)

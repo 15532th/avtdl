@@ -10,8 +10,9 @@ from pydantic import field_validator
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
+from avtdl.core.formatters import Fmt, sanitize_filename
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, RuntimeContext
-from avtdl.core.utils import Fmt, check_dir, sanitize_filename
+from avtdl.core.utils import check_dir
 
 Plugins.register('execute', Plugins.kind.ASSOCIATED_RECORD)(Event)
 

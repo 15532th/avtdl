@@ -10,6 +10,7 @@ import dateutil.zoneinfo
 from aiohttp import web
 from pydantic import BaseModel
 
+import avtdl.core.formatters
 from avtdl.core import info
 from avtdl.core.cache import FileCache, is_url
 from avtdl.core.chain import Chain
@@ -21,7 +22,6 @@ from avtdl.core.interfaces import AbstractRecordsStorage, Actor, Record, Runtime
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import JSONType, strip_text, write_file
 from avtdl.core.yaml import merge_data, yaml_dump
-from avtdl.plugins.discord import webhook
 
 RECORDS_PER_PAGE = 32
 
@@ -92,8 +92,8 @@ def record_preview(record: Record, representation: str = 'text') -> JSONType:
     elif representation == 'short':
         return repr(record)
     elif representation == 'embed':
-        embeds = webhook.MessageFormatter.make_embeds(record)
-        message = webhook.MessageFormatter.make_message(embeds)
+        embeds = avtdl.core.formatters.MessageFormatter.make_embeds(record)
+        message = avtdl.core.formatters.MessageFormatter.make_message(embeds)
         return message
     else:
         return str(record)
@@ -347,7 +347,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         embed[field][subfield] = resource
 
     def render_record(self, record: Record) -> JSONType:
-        embeds = webhook.MessageFormatter.make_embeds(record)
+        embeds = avtdl.core.formatters.MessageFormatter.make_embeds(record)
         for embed in embeds:
             self._rewrite_embed_image(record, embed, 'image', 'url')
             self._rewrite_embed_image(record, embed, 'author', 'icon_url')
@@ -358,7 +358,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             #     description = re.sub(r'\n', '<br>', description)
             #     description = re.sub(r'https?://\s', '<a href="$1" target="_blank">\1</a>', description)
             #     embed['description'] = description
-        message = webhook.MessageFormatter.make_message(embeds)
+        message = avtdl.core.formatters.MessageFormatter.make_message(embeds)
         return message
 
     async def records(self, request: web.Request) -> web.Response:

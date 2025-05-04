@@ -8,10 +8,11 @@ import pydantic
 from pydantic import Field, PositiveFloat
 
 from avtdl.core.config import Plugins
+from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import Fmt, parse_timestamp_ms
+from avtdl.core.utils import parse_timestamp_ms
 
 
 @Plugins.register('fc2', Plugins.kind.ASSOCIATED_RECORD)

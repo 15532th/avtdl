@@ -6,11 +6,12 @@ from typing import List, Optional, Sequence, Tuple
 import dateutil.parser
 from pydantic import Field, PositiveFloat
 
+from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import Fmt, JSONType, find_all
+from avtdl.core.utils import JSONType, find_all
 
 
 class IwaraPostRecord(Record, ABC):

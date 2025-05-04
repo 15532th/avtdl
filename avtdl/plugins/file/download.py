@@ -12,10 +12,11 @@ from avtdl.core import utils
 from avtdl.core.actions import QueueAction, QueueActionConfig, QueueActionEntity
 from avtdl.core.cache import FileCache, find_free_suffix, find_with_suffix, is_url
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
+from avtdl.core.formatters import Fmt, sanitize_filename
 from avtdl.core.interfaces import Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import Fmt, check_dir, sanitize_filename, sha1
+from avtdl.core.utils import check_dir, sha1
 
 
 @Plugins.register('download', Plugins.kind.ACTOR_CONFIG)

@@ -9,8 +9,9 @@ from pydantic import Field, field_serializer, field_validator
 
 from avtdl.core import utils
 from avtdl.core.config import Plugins
+from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import ActorConfig, Event, Filter, FilterEntity, Record, RuntimeContext, TextRecord, Timezone
-from avtdl.core.utils import Fmt, find_matching_field
+from avtdl.core.utils import find_matching_field
 
 
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_CONFIG)

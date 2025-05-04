@@ -2,19 +2,15 @@ import asyncio
 import datetime
 import json
 import logging
-from textwrap import shorten
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import multidict
 
+from avtdl.core.formatters import EMBEDS_PER_MESSAGE, MessageFormatter
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient, HttpResponse, RateLimit
 from avtdl.core.utils import SessionStorage
-
-EMBEDS_PER_MESSAGE = 10
-EMBED_TITLE_MAX_LENGTH = 256
-EMBED_DESCRIPTION_MAX_LENGTH = 4096
 
 
 class DiscordRateLimit(RateLimit):
@@ -38,85 +34,6 @@ class NoRateLimit(DiscordRateLimit):
 
     def _submit_headers(self, headers: Union[Dict[str, str], multidict.CIMultiDictProxy[str]], logger: logging.Logger):
         pass
-
-
-class MessageFormatter:
-
-    @classmethod
-    def format(cls, records: List[Record]) -> Tuple[dict, List[Record]]:
-        '''take records and format them in Discord webhook payload as embeds
-        after the limit on embeds is reached, the rest of the records are returned back'''
-        embeds: List[dict] = []
-        excess_records = []
-        for i, record in enumerate(records):
-            record_embeds = cls.make_embeds(record)
-            if len(embeds) + len(record_embeds) > EMBEDS_PER_MESSAGE:
-                excess_records = records[i:]
-                break
-            else:
-                embeds.extend(record_embeds)
-        message = cls.make_message(embeds)
-        return message, excess_records
-
-    @classmethod
-    def make_message(cls, embeds: List[dict]) -> dict:
-        return {
-            "content": None,
-            "embeds": embeds
-        }
-
-    @classmethod
-    def make_embeds(cls, record: Record) -> List[dict]:
-        formatter = getattr(record, 'discord_embed', None)
-        if formatter is not None and callable(formatter):
-            embeds = formatter()
-            if not isinstance(embeds, list):
-                embeds = [embeds]
-            return embeds
-        return [cls.plaintext_embed(record)]
-
-    @classmethod
-    def plaintext_embed(cls, record: Record) -> dict:
-        text = str(record)
-        if text.find('\n') > -1:
-            title, description = text.split('\n', 1)
-        else:
-            title, description = '', text
-        title = shorten(title, EMBED_TITLE_MAX_LENGTH)
-        description = shorten(description, EMBED_DESCRIPTION_MAX_LENGTH)
-        return {'title': title, 'description': description}
-
-    @classmethod
-    def check_limits(cls, message: dict) -> bool:
-        # doesn't count field.name and field.value number and size in hope it will not change outcome
-
-        class Limits:
-            TOTAL = 6000
-            AUTHOR_NAME = 256
-            TITLE = 256
-            DESCRIPTION = 4096
-            FOOTER_TEXT = 2048
-
-        total_length = 0
-        embeds = message.get('embeds', [])
-        for embed in embeds:
-            author_name = len(embed.get('author', {}).get('name', '') or '')
-            title = len(embed.get('title') or '')
-            description = len(embed.get('description') or '')
-            footer_text = len((embed.get('footer') or {}).get('text') or '')
-            if author_name > Limits.AUTHOR_NAME:
-                return False
-            if title > Limits.TITLE:
-                return False
-            if description > Limits.DESCRIPTION:
-                return False
-            if footer_text > Limits.FOOTER_TEXT:
-                return False
-            total_length += author_name + title + description + footer_text
-
-        if total_length > Limits.TOTAL:
-            return False
-        return True
 
 
 @Plugins.register('discord.hook', Plugins.kind.ACTOR_CONFIG)

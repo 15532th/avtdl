@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Union
 import feedparser
 from pydantic import ConfigDict, PositiveFloat
 
-from avtdl.core import utils
+import avtdl.core.formatters
 from avtdl.core.config import Plugins
 from avtdl.core.interfaces import Record, RuntimeContext
 from avtdl.core.request import HttpClient
@@ -204,9 +204,9 @@ class FeedMonitor(GenericRSSMonitor):
         parsed: Dict[str, Any] = {}
         parsed['url'] = entry['link']
         parsed['title'] = entry['title']
-        parsed['updated'] = utils.make_datetime(entry['updated_parsed'])
+        parsed['updated'] = avtdl.core.formatters.make_datetime(entry['updated_parsed'])
 
-        parsed['published'] = utils.make_datetime(entry['published_parsed'])
+        parsed['published'] = avtdl.core.formatters.make_datetime(entry['published_parsed'])
         parsed['author'] = entry.get('author')
         parsed['summary'] = entry.get('summary')
         video_id = entry.get('yt_videoid')
