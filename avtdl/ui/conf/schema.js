@@ -26,6 +26,9 @@ function resolveRefs(schema, defs) {
         if (typeof currentSchema !== 'object' || currentSchema === null) {
             return currentSchema;
         }
+        if (Array.isArray(currentSchema)) {
+            return currentSchema.map(resolve);
+        }
 
         let resolvedSchema = {};
         for (const key in currentSchema) {
