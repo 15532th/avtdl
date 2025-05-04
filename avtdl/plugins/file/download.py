@@ -242,7 +242,8 @@ class FileCacheConfig(FileDownloadConfig):
 @Plugins.register('cache', Plugins.kind.ACTOR_ENTITY)
 class FileCacheEntity(QueueActionEntity):
     url_fields: List[str] = ['attachments', 'thumbnail_url', 'avatar_url']
-    """names of fields in the incoming record containing urls of files to be downloaded"""
+    """names of fields in the incoming record containing urls of files to be downloaded.
+    Field must contain url, list of urls, or a nested record to look for fields names into"""
     replace_after: Optional[NonNegativeFloat] = None
     """how old existing file should be to get redownloaded, in hours"""
     consume_record: bool = False
@@ -308,6 +309,8 @@ class FileCacheAction(QueueAction):
             await self._cache_urls(logger, client, entity, record, [field])
         elif isinstance(field, list):
             await self._cache_urls(logger, client, entity, record, field)
+        elif isinstance(field, Record):
+            await self.handle_single_record(logger, client, entity, field)
         else:
             msg = f'field "{field_name}" of record {record!r} does not seem to hold any links. Raw field value: {field}'
             logger.debug(msg)
