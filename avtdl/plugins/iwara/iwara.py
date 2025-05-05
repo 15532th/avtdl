@@ -61,7 +61,7 @@ class IwaraVideoRecord(IwaraPostRecord):
             'title': self.title,
             'url': self.url,
             'description': None,
-            'image': {'url': self.thumbnail_url},
+            'image': {'url': self.thumbnail_url, '_preview': self.preview_url},
             'color': None,
             'author': {'name': self.name, 'url': profile_url, 'icon_url': self.avatar_url},
             'timestamp': self.published.isoformat(),

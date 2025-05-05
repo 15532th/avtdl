@@ -88,6 +88,14 @@ function renderEmbed(embed) {
             modal.classList.add('fullsize-image-container');
             const fullImage = createImage(embed.image.url, 'fullsize-image', modal);
         };
+        if (embed.image._preview) {
+            image.onmouseenter = () => {
+                image.src = embed.image._preview;
+            };
+            image.onmouseleave = () => {
+                image.src = embed.image.url;
+            };
+        }
         embedDiv.appendChild(image);
     }
 
