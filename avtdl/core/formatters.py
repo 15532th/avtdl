@@ -231,16 +231,21 @@ class MessageFormatter:
         if not isinstance(embeds, list):
             embeds = [embeds]
         if strip_extra:
-            cls.clean_embeds(embeds)
+            for embed in embeds:
+                cls.clean_embed(embed)
         return embeds
 
     @classmethod
-    def clean_embeds(cls, embeds: List[Dict[str, Any]]):
+    def clean_embed(cls, embed: Dict[str, Any]):
         """remove embed fields starting with underscore"""
-        for embed in embeds:
-            extra_fields = [field for field in embed if field.startswith('_')]
-            for field in extra_fields:
-                embed.pop(field)
+        extra_fields = []
+        for field in embed:
+            if field.startswith('_'):
+                extra_fields.append(field)
+            elif isinstance(field, dict):
+                cls.clean_embed(field)
+        for field in extra_fields:
+            embed.pop(field)
 
     @classmethod
     def check_limits(cls, message: dict) -> bool:
