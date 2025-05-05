@@ -270,12 +270,18 @@ class FileCacheAction(QueueAction):
 
     For every incoming record, go through fields specified in "url_fields" setting
     and download files the urls are pointing to. Downloaded files are stored under
-    the cache_directory, where they are used to present record in the web interface.
+    the path, defined by the cache_directory parameter in application-wide settings,
+    where they are used to present record in the web interface.
 
     It is possible to reuse files already stored by the "download" plugin with
     import_path/import_filename template options, though it might not work well
     with the "attachments" field. A copy of cached file can be
     stored to external location by providing export_path/export_filename templates.
+
+    The way files are stored internally might change in the future, leaving already
+    stored files inaccessible by the web interface. Use export_path/export_filename
+    and import_path/import_filename options to define external persistent storage
+    layout, that doesn't depend on the cache format.
     """
 
     def __init__(self, conf: FileCacheConfig, entities: Sequence[FileCacheEntity], ctx: RuntimeContext):
