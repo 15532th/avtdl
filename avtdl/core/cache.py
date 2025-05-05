@@ -102,6 +102,20 @@ def has_expired(file: Path, ttl: Optional[float]) -> bool:
 
 
 class FileCache:
+    """
+    Provide interface to store and retrieve url content locally
+
+    Uses name of the record field containing the url, url host
+    and md5(url) to generate unique path for an url.
+
+    cache_directory: path to cache directory. Multiple instances
+    pointing to the same directory should be able to coexist
+    (at least read-only and write-only ones)
+
+    partial_file_suffix: new file initially has this extension and is then
+    renamed once actual extension becomes known after download
+    """
+
     RENAME_SUFFIX = ' [{i}]'
 
     def __init__(self, cache_directory: Path, partial_file_suffix: str):
