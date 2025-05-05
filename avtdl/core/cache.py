@@ -1,4 +1,5 @@
 import datetime
+import glob
 import hashlib
 import logging
 import os
@@ -33,14 +34,14 @@ def find_with_suffix(path: Path, suffix_template: str) -> List[Path]:
     if not path.parent.exists():
         return []
     base_name = strip_rename_suffix(path.name, suffix_template)
+    pattern = f'{glob.escape(base_name)}*'
     matches = []
     matches_with_suffix = []
-    for p in path.parent.iterdir():
-        if p.stem.startswith(base_name):
-            if p.stem == base_name:
-                matches.append(p)
-            elif strip_rename_suffix(p.stem, suffix_template) == base_name:
-                matches_with_suffix.append(p)
+    for p in path.parent.glob(pattern):
+        if p.stem == base_name:
+            matches.append(p)
+        elif strip_rename_suffix(p.stem, suffix_template) == base_name:
+            matches_with_suffix.append(p)
 
     matches_with_suffix.sort()
     matches.extend(matches_with_suffix)
