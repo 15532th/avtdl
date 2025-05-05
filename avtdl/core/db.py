@@ -37,8 +37,22 @@ class BaseRecordDB:
             self.logger.error(
                 f'error opening sqlite database at path "{db_path}", specified in "db_path" config variable: {e}. If file exists make sure it was produced by this application, otherwise check if new file can be created at specified location. Alternatively use special value ":memory:" to use in-memory database instead.')
             raise
-        else:
-            self.logger.debug(f'successfully connected to sqlite database at "{db_path}"')
+        self.logger.debug(f'successfully connected to sqlite database at "{db_path}"')
+        self.create_indexes()
+
+    def create_indexes(self):
+        queries = [
+            f'CREATE INDEX IF NOT EXISTS `index_{self.group_id_field}` ON `{self.table_name}` (`{self.group_id_field}`);',
+            f'CREATE INDEX IF NOT EXISTS `index_{self.sorting_field}` ON `{self.table_name}` ( `{self.sorting_field}`)',
+            f'CREATE INDEX IF NOT EXISTS `index_{self.id_field}_{self.sorting_field}` ON `{self.table_name}` ( `{self.id_field}`, `{self.sorting_field}` )'
+        ]
+        for query in queries:
+            try:
+                self.cursor.execute(query)
+
+            except sqlite3.OperationalError as e:
+                self.logger.exception(f'failed to create index: {e}. Raw query: {query}')
+        self.db.commit()
 
     def store(self, rows: Union[Dict[str, Any], List[Dict[str, Any]]], replace: bool = False) -> None:
         on_conflict = 'REPLACE' if replace else 'IGNORE'
