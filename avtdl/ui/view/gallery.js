@@ -20,6 +20,8 @@ function renderMaybeLink(text, link) {
     let element;
     if (link) {
         element = document.createElement('a');
+        element.rel = 'noreferrer';
+        element.target = '_blank';
         element.href = link;
         element.textContent = text || link;
     } else {
