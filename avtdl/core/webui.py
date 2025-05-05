@@ -14,10 +14,10 @@ import avtdl.core.formatters
 from avtdl.core import info
 from avtdl.core.cache import FileCache, is_url
 from avtdl.core.chain import Chain
-from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
+from avtdl.core.config import ConfigParser, ConfigurationError
 from avtdl.core.db import HistoryView
 from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
-from avtdl.core.interfaces import AbstractRecordsStorage, Actor, Record, RuntimeContext, TaskStatus, \
+from avtdl.core.interfaces import AbstractRecordsStorage, Actor, Record, RuntimeContext, SettingsSection, TaskStatus, \
     TerminatedAction
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import JSONType, strip_text, write_file

@@ -9,9 +9,9 @@ from typing import Any, Dict, Optional, Tuple
 
 from avtdl.core import webui
 from avtdl.core.chain import Chain
-from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection, config_sancheck
+from avtdl.core.config import ConfigParser, ConfigurationError, config_sancheck
 from avtdl.core.info import generate_plugins_description, generate_version_string
-from avtdl.core.interfaces import Actor, RuntimeContext, TerminatedAction
+from avtdl.core.interfaces import Actor, RuntimeContext, SettingsSection, TerminatedAction
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
 from avtdl.core.utils import read_file, write_file

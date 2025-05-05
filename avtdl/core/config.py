@@ -1,14 +1,12 @@
 import logging
 from functools import wraps
-from pathlib import Path
-from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Dict, Generic, List, Tuple, Type, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, create_model, field_validator
+from pydantic import BaseModel, ConfigDict, RootModel, ValidationError, create_model
 
-from avtdl.core import utils
 from avtdl.core.chain import Chain, ChainConfigSection
-from avtdl.core.interfaces import Actor, RuntimeContext
-from avtdl.core.loggers import LogLevel, override_loglevel, set_file_logger
+from avtdl.core.interfaces import Actor, RuntimeContext, SettingsSection
+from avtdl.core.loggers import override_loglevel, set_file_logger
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import strip_text
 
@@ -40,38 +38,6 @@ def try_parsing(func):
             raise ConfigurationError(error) from e
 
     return wrapper
-
-
-class SettingsSection(BaseModel):
-    model_config = ConfigDict(use_attribute_docstrings=True)
-
-    log_directory: Path = Field(default='logs', validate_default=True)
-    """path to a directory where application will write log file"""
-    logfile_size: int = Field(gt=0, default=1000000)
-    """size of a single log file in bytes. After reaching this size the file will be replaced by a new one. Only last 10 files are kept inside the log directory"""
-    logfile_level: LogLevel = LogLevel.debug
-    """how detailed the output to log file is. Can be "DEBUG", "INFO", "WARNING" or "ERROR". It is recommended to keep log file loglevel set to "DEBUG" """
-    loglevel_override: Dict[str, LogLevel] = {'bus': LogLevel.info, 'chain': LogLevel.info,
-                                              'actor.request': LogLevel.info}
-    """allows to overwrite loglevel of a specific logger. Used to prevent a single talkative logger from filling up the log file"""
-    port: int = Field(gt=0, le=65535, default=8080)
-    """web-interface port"""
-    host: str = 'localhost'
-    """web-interface host, typically "127.0.0.1", "0.0.0.0" or the machine external IP"""
-    encoding: Optional[str] = None
-    """configuration file encoding. Leave empty to use system-wide default. Note, that webui will forcibly overwrite empty value with "utf8" when saving new configuration"""
-    cache_directory: Path = Field(default='cache/downloads/', validate_default=True)
-    """directory used for storing pre-downloaded images and other resources, used to display records in the web-interface.
-    Send records through the "cache" plugin to download and store resources it references"""
-
-    @field_validator('cache_directory')
-    @classmethod
-    def check_dir(cls, path: Path):
-        ok = utils.check_dir(path)
-        if ok:
-            return path
-        else:
-            raise ValueError(f'check path "{path}" exists and is a writeable directory')
 
 
 def configure_loggers(settings: SettingsSection):
@@ -170,7 +136,7 @@ class ConfigParser:
     def load_models(config: Config) -> Type[SpecificConfig]:
         actors_model: SpecificActors = ActorParser.load_actors_plugins_model(config.actors)
         SpecificConfigModel: type[SpecificConfig] = create_model('SpecificConfig',
-                                                                __base__= SpecificConfig,
+                                                                 __base__= SpecificConfig,
                                                                  settings=(SettingsSection, ...),
                                                                  actors=(actors_model, ...),
                                                                  chains=(Dict[str, ChainConfigSection], ...)

@@ -9,11 +9,15 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
 from hashlib import sha1
+from pathlib import Path
 from textwrap import shorten
 from typing import Any, Callable, Coroutine, Deque, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import dateutil.tz
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_serializer, field_validator
+
+from avtdl.core import utils
+from avtdl.core.loggers import LogLevel
 
 MAX_REPR_LEN = 60
 
@@ -409,6 +413,38 @@ class AbstractRecordsStorage(abc.ABC):
     @abstractmethod
     def load_page(self, page: Optional[int], per_page: int, desc: bool = True) -> List[Record]:
         """return content of specific page as a list of Record instances"""
+
+
+class SettingsSection(BaseModel):
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    log_directory: Path = Field(default='logs', validate_default=True)
+    """path to a directory where application will write log file"""
+    logfile_size: int = Field(gt=0, default=1000000)
+    """size of a single log file in bytes. After reaching this size the file will be replaced by a new one. Only last 10 files are kept inside the log directory"""
+    logfile_level: LogLevel = LogLevel.debug
+    """how detailed the output to log file is. Can be "DEBUG", "INFO", "WARNING" or "ERROR". It is recommended to keep log file loglevel set to "DEBUG" """
+    loglevel_override: Dict[str, LogLevel] = {'bus': LogLevel.info, 'chain': LogLevel.info,
+                                              'actor.request': LogLevel.info}
+    """allows to overwrite loglevel of a specific logger. Used to prevent a single talkative logger from filling up the log file"""
+    port: int = Field(gt=0, le=65535, default=8080)
+    """web-interface port"""
+    host: str = 'localhost'
+    """web-interface host, typically "127.0.0.1", "0.0.0.0" or the machine external IP"""
+    encoding: Optional[str] = None
+    """configuration file encoding. Leave empty to use system-wide default. Note, that webui will forcibly overwrite empty value with "utf8" when saving new configuration"""
+    cache_directory: Path = Field(default='cache/downloads/', validate_default=True)
+    """directory used for storing pre-downloaded images and other resources, used to display records in the web-interface.
+    Send records through the "cache" plugin to download and store resources it references"""
+
+    @field_validator('cache_directory')
+    @classmethod
+    def check_dir(cls, path: Path):
+        ok = utils.check_dir(path)
+        if ok:
+            return path
+        else:
+            raise ValueError(f'check path "{path}" exists and is a writeable directory')
 
 
 class ActorConfig(BaseModel):
