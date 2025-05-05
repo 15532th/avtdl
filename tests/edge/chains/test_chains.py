@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from avtdl.avtdl import parse_config
 from avtdl.core.config import config_sancheck
-from avtdl.core.interfaces import Actor, Record, TextRecord
+from avtdl.core.interfaces import Actor, Record, RuntimeContext, TextRecord
 from avtdl.core.loggers import set_logging_format, silence_library_loggers
 from avtdl.core.yaml import yaml_load
 from avtdl.plugins.utils.utils import Consumer, Producer
@@ -60,7 +60,8 @@ async def run(config: str):
 
     conf: dict = yaml_load(config)
     senders, receivers = _Testcases.load(conf.pop('testcases'))
-    _, actors, chains = parse_config(conf)
+    ctx = RuntimeContext.create()
+    _, actors, chains = parse_config(conf, ctx)
     config_sancheck(actors, chains)
 
     send_records(actors, senders)

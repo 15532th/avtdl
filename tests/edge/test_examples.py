@@ -8,6 +8,7 @@ import pytest
 
 from avtdl.avtdl import load_config, parse_config
 from avtdl.core.config import config_sancheck
+from avtdl.core.interfaces import RuntimeContext
 from avtdl.core.loggers import silence_library_loggers
 
 
@@ -69,7 +70,8 @@ def test_config_loading(config: str, tmp_path, caplog):
     path = text_as_path(tmp_path, config)
 
     conf = load_config(path)
-    _, actors, chains = parse_config(conf)
+    ctx = RuntimeContext.create()
+    _, actors, chains = parse_config(conf, ctx)
     config_sancheck(actors, chains)
 
     assert not caplog.records

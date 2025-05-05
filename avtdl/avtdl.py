@@ -63,8 +63,7 @@ def load_config(path: Path, encoding: Optional[str] = None) -> Any:
     return config
 
 
-def parse_config(conf, ctx: Optional[RuntimeContext] = None) -> Tuple[SettingsSection, Dict[str, Actor], Dict[str, Chain]]:
-    ctx = ctx or RuntimeContext.create()
+def parse_config(conf, ctx: RuntimeContext) -> Tuple[SettingsSection, Dict[str, Actor], Dict[str, Chain]]:
     try:
         settings, actors, chains = ConfigParser.parse(conf, ctx)
     except (ConfigurationError, UnknownPluginError) as e:
