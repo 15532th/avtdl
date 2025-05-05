@@ -8,20 +8,10 @@ import urllib.parse
 from pathlib import Path
 from typing import Any, Iterable, List, Optional
 
-from pydantic import AnyHttpUrl, ValidationError
-
 from avtdl.core.download import download_file
 from avtdl.core.formatters import sanitize_filename
 from avtdl.core.interfaces import Record
 from avtdl.core.request import HttpClient
-
-
-def is_url(maybe_url: str) -> bool:
-    try:
-        AnyHttpUrl(maybe_url)
-        return True
-    except ValidationError:
-        return False
 
 
 def find_file(path: Path) -> List[Path]:

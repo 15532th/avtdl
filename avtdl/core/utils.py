@@ -22,6 +22,7 @@ import aiohttp
 import dateutil.parser
 from aiohttp.abc import AbstractCookieJar
 from jsonpath import JSONPath
+from pydantic import AnyHttpUrl, ValidationError
 
 from avtdl.core.interfaces import Record
 
@@ -427,3 +428,13 @@ def with_prefix(logger: logging.Logger, prefix: str) -> logging.Logger:
             return message, kwargs
 
     return Adapter(logger, extra=dict())  # type: ignore
+
+
+def is_url(maybe_url: Optional[str]) -> bool:
+    if maybe_url is None:
+        return False
+    try:
+        AnyHttpUrl(maybe_url)
+        return True
+    except ValidationError:
+        return False

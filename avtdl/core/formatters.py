@@ -4,11 +4,12 @@ import re
 from email.utils import mktime_tz
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import lxml.html
 
 from avtdl.core.interfaces import Record
+from avtdl.core.utils import is_url
 
 
 def sanitize_filename(name: str, collapse: bool = False) -> str:
@@ -233,6 +234,12 @@ class MessageFormatter:
         if strip_extra:
             for embed in embeds:
                 cls.clean_embed(embed)
+        else:
+            # only adding more extra fields if they are not going to be stripped
+            for embed in embeds:
+                embed['_timestamp'] = int(record.created_at.timestamp() * 1000)
+                embed['_origin'] = record.origin
+
         return embeds
 
     @classmethod
@@ -246,6 +253,24 @@ class MessageFormatter:
                 cls.clean_embed(field)
         for field in extra_fields:
             embed.pop(field)
+
+    @classmethod
+    def rewrite_embed_links(cls, embed: Dict[str, Any], rewriter: Callable[[str], Optional[str]]):
+        """replace known image urls in the embed with rewriter(url)"""
+        image_fields = [('image', 'url'),
+                        ('image', 'thumbnail'),
+                        ('image', '_preview'),
+                        ('author', 'icon_url'),
+                        ('footer', 'icon_url')]
+        for field_name, subfield_name in image_fields:
+            field = embed.get(field_name, None)
+            if not isinstance(field, dict):
+                continue
+            image_url = field.get(subfield_name, None)
+            if is_url(image_url):
+                new_url = rewriter(image_url)
+                if new_url is not None:
+                    embed[field_name][subfield_name] = new_url
 
     @classmethod
     def check_limits(cls, message: dict) -> bool:

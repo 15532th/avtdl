@@ -4,15 +4,14 @@ import logging
 import pathlib
 import urllib.parse
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import dateutil.zoneinfo
 from aiohttp import web
 from pydantic import BaseModel
 
-import avtdl.core.formatters
-from avtdl.core import info
-from avtdl.core.cache import FileCache, is_url
+from avtdl.core import formatters, info
+from avtdl.core.cache import FileCache
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.db import HistoryView
@@ -329,38 +328,27 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             data['View runtime history'] = runtime
         return web.json_response(data, dumps=json_dumps)
 
-    def _rewrite_embed_image(self, record: Record, embed: dict, field: str, subfield: str):
-        """if it exists, is a valid url and is cached, replace embed[field][subfield] with link to cached file"""
-        image_url = embed.get(field, {}).get(subfield, None)
-        if image_url is None:
-            return
-        if not is_url(image_url):
-            return
-        image_file = self.cache.retrieve(record, image_url)
-        if image_file is None:
-            return
-        try:
-            relative = image_file.relative_to(self.cache.cache_directory)
-        except Exception as e:
-            msg = f'cached file "{image_file}" for url "{image_url}" is not relative to "{self.cache.cache_directory}"'
-            self.logger.warning(msg)
-            return
-        resource = str(self.CACHE_ROUTE / relative)
-        embed[field][subfield] = resource
+    def _get_embed_image_rewriter(self, record: Record) -> Callable[[str], Optional[str]]:
+        def rewriter(image_url: str) -> Optional[str]:
+            image_file = self.cache.retrieve(record, image_url)
+            if image_file is None:
+                return None
+            try:
+                relative = image_file.relative_to(self.cache.cache_directory)
+            except Exception as e:
+                msg = f'cached file "{image_file}" for url "{image_url}" is not relative to "{self.cache.cache_directory}"'
+                self.logger.warning(msg)
+                return None
+            resource = str(self.CACHE_ROUTE / relative)
+            return resource
+        return rewriter
 
     def render_record(self, record: Record) -> JSONType:
-        embeds = avtdl.core.formatters.MessageFormatter.make_embeds(record)
+        embeds = formatters.MessageFormatter.make_embeds(record, False)
+        rewriter = self._get_embed_image_rewriter(record)
         for embed in embeds:
-            self._rewrite_embed_image(record, embed, 'image', 'url')
-            self._rewrite_embed_image(record, embed, 'author', 'icon_url')
-            embed['_timestamp'] = int(record.created_at.timestamp() * 1000)
-            # # now embeds are rendered on frontend and any html coming inside field values is escaped, no point rendering description here
-            # description = embed.get('description')
-            # if description is not None:
-            #     description = re.sub(r'\n', '<br>', description)
-            #     description = re.sub(r'https?://\s', '<a href="$1" target="_blank">\1</a>', description)
-            #     embed['description'] = description
-        message = avtdl.core.formatters.MessageFormatter.make_message(embeds)
+            formatters.MessageFormatter.rewrite_embed_links(embed, rewriter)
+        message = formatters.MessageFormatter.make_message(embeds)
         return message
 
     async def records(self, request: web.Request) -> web.Response:
