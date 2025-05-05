@@ -128,12 +128,16 @@ class HistoryView {
                 message.innerText = 'no records so far';
                 continue;
             }
-            const headers = ['Origin', 'Chain', 'Record'];
+            const headers = ['Parsed', 'Origin', 'Chain', 'Record'];
             const tooltips = [
-                'Actor and entity this records has originated from',
-                'Chain this records is associated with',
+                'Time this record was parsed at',
+                'Actor and entity this record has originated from',
+                'Chain this record is associated with',
                 'Record preview',
             ];
+            lines.forEach((line) => {
+                line[0] = new Date(line[0]).toLocaleString();
+            })
             const content = renderClickableTable(headers, tooltips, lines);
             section.appendChild(content);
         }

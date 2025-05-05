@@ -269,8 +269,14 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         data = {}
 
         for title, content in data_structure:
-            records = [[record.origin, record.chain, record_preview(record, representation)] for record in content]
-            data[title] = records
+            rows = []
+            for record in content:
+                row = [int(record.created_at.timestamp() * 1000),
+                       record.origin,
+                       record.chain,
+                       record_preview(record, representation)]
+                rows.append(row)
+            data[title] = rows
         return web.json_response(data, dumps=json_dumps)
 
     @staticmethod
