@@ -60,7 +60,7 @@ class SettingsSection(BaseModel):
     """web-interface host, typically "127.0.0.1", "0.0.0.0" or the machine external IP"""
     encoding: Optional[str] = None
     """configuration file encoding. Leave empty to use system-wide default. Note, that webui will forcibly overwrite empty value with "utf8" when saving new configuration"""
-    cache_directory: Path = Field(default='cache/downloads/', validate_default=True)
+    cache_directory: Path = Field(default='cache/cache/', validate_default=True)
     """directory used for storing pre-downloaded images and other resources, used to display records in the web-interface.
     Send records through the "cache" plugin to download and store resources it references"""
 
