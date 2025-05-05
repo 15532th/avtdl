@@ -374,8 +374,15 @@ class RuntimeContext:
     def __init__(self, bus: MessageBus, controller: TasksController):
         self.bus: MessageBus = bus
         self.controller: TasksController = controller
+        self.extra: Dict[str, Any] = {}
         self._sigint_handler = signal.getsignal(signal.SIGINT)
         self._sigterm_handler = signal.getsignal(signal.SIGINT)
+
+    def set_extra(self, name: str, value: Any):
+        self.extra[name] = value
+
+    def get_extra(self, name: str) -> Optional[Any]:
+        return self.extra.get(name)
 
     def _get_handler(self) -> Callable:
         controller = self.controller

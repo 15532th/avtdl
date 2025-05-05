@@ -190,6 +190,7 @@ class ConfigParser:
         # do basic structural validation of config file
         config = Config(**conf)
 
+        ctx.set_extra('settings', config.settings)
         configure_loggers(config.settings)
         Plugins.load()
 

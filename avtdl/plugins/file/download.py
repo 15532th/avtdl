@@ -8,9 +8,9 @@ from typing import List, Mapping, Optional, Sequence
 
 from pydantic import AnyUrl, Field, NonNegativeFloat, RootModel, ValidationError, field_validator, model_validator
 
-from avtdl.core import utils
 from avtdl.core.actions import QueueAction, QueueActionConfig, QueueActionEntity
 from avtdl.core.cache import FileCache, find_free_suffix, find_with_suffix, is_url
+from avtdl.core.config import SettingsSection
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
 from avtdl.core.formatters import Fmt, sanitize_filename
 from avtdl.core.interfaces import Record, RuntimeContext
@@ -226,17 +226,7 @@ def move_file(source: Path, target: Path, logger: logging.Logger) -> bool:
 
 @Plugins.register('cache', Plugins.kind.ACTOR_CONFIG)
 class FileCacheConfig(FileDownloadConfig):
-    cache_directory: Path = Field(default='cache/downloads/', validate_default=True)
-    """base directory to store cached resources"""
-
-    @field_validator('cache_directory')
-    @classmethod
-    def check_dir(cls, path: Path):
-        ok = utils.check_dir(path)
-        if ok:
-            return path
-        else:
-            raise ValueError(f'check path "{path}" exists and is a writeable directory')
+    pass
 
 
 @Plugins.register('cache', Plugins.kind.ACTOR_ENTITY)
@@ -293,7 +283,10 @@ class FileCacheAction(QueueAction):
         self.conf: FileCacheConfig
         self.entities: Mapping[str, FileCacheEntity]
         self.concurrency_limit = asyncio.BoundedSemaphore(value=conf.max_concurrent_downloads)
-        self.cache = FileCache(self.conf.cache_directory, self.conf.partial_file_suffix)
+        settings: Optional[SettingsSection] = ctx.get_extra('settings')
+        if settings is None:
+            raise RuntimeError(f'runtime context is missing Settings instance. This is a bug, please report it')
+        self.cache = FileCache(settings.cache_directory, self.conf.partial_file_suffix)
 
     async def handle_single_record(self, logger: logging.Logger, client: HttpClient,
                                    entity: FileCacheEntity, record: Record) -> None:
