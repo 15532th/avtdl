@@ -84,17 +84,13 @@ def get_entity_schema(actor_name: str) -> dict:
     return get_schema(entity)
 
 
-def record_preview(record: Record, representation: str = 'text') -> JSONType:
+def record_preview(record: Record, representation: str = 'text') -> str:
     if representation == 'text':
         return str(record).replace('\n', '<br>\n')
     elif representation == 'json':
         return record.as_json(indent=4)
     elif representation == 'short':
         return repr(record)
-    elif representation == 'embed':
-        embeds = avtdl.core.formatters.MessageFormatter.make_embeds(record)
-        message = avtdl.core.formatters.MessageFormatter.make_message(embeds)
-        return message
     else:
         return str(record)
 
