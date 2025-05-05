@@ -95,6 +95,10 @@ function renderEmbed(embed) {
             image.onmouseleave = () => {
                 image.src = embed.image.url;
             };
+            image.onerror = () => {
+                image.onmouseenter = null;
+                image.onmouseleave = null;
+            };
         }
         embedDiv.appendChild(image);
     }
