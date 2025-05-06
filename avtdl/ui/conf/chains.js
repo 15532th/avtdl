@@ -178,7 +178,7 @@ class ChainCard {
 
         text =
             'This entity has "reset_origin" option enabled. ' +
-            'When used it multiple chains, it will pass incoming records ' +
+            'When used multiple chains, it will pass incoming records ' +
             'from any of them to all of them.';
         const hintResetOrigin = this.addItemHint('⤋', text, 'hint-reset-origin', itemContainer);
 
