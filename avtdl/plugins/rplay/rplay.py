@@ -251,7 +251,7 @@ class RplayUserMonitor(BaseFeedMonitor):
         self.own_user: Optional['User'] = None
 
     async def get_records(self, entity: RplayUserMonitorEntity, client: HttpClient) -> Sequence[RplayRecord]:
-        r = RplayUrl.play(entity.creator_oid)
+        r = RplayUrl.play(entity.creator_oid, self.conf.user_id)
         data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
         if data is None:
             return []
@@ -489,7 +489,7 @@ class RplayUrl:
         return RequestDetails(url=url, params=params)
 
     @staticmethod
-    def play(oid: str, key: str = '') -> RequestDetails:
+    def play(oid: str, requestor_id: Optional[str] = None, key: str = '') -> RequestDetails:
         """
         'streamState': 'offline', 'live' | 'twitch' | 'youtube'
         'liveStreamId' - youtube video_id or ""
@@ -504,7 +504,7 @@ class RplayUrl:
         }
         """
         url = f'https://api.rplay-cdn.com/live/play'
-        params = {'creatorOid': oid, 'key': key, 'lang': 'en'}
+        params = {'creatorOid': oid, 'key': key, 'lang': 'en', 'requestorOid': requestor_id or '6596e71c04a7ea2fd7c36ae7'}
         return RequestDetails(url=url, params=params)
 
     @staticmethod
