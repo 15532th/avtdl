@@ -105,6 +105,9 @@ class FileCache:
 
     partial_file_suffix: new file initially has this extension and is then
     renamed once actual extension becomes known after download
+
+    This plugin is under active development. The way it works might change,
+    options might be renamed or removed.
     """
 
     RENAME_SUFFIX = ' [{i}]'

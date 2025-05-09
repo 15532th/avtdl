@@ -49,6 +49,9 @@ class View(Action):
 
     Incoming records are stored in sqlite database at db_path (unless readonly parameter enabled).
     The stored records are available on the "View" tab of the web interface.
+
+    This plugin is under active development. The way it works might change, options might be
+    renamed or removed.
     """
 
     def __init__(self, conf: ViewConfig, entities: Sequence[ViewEntity], ctx: RuntimeContext):
