@@ -217,6 +217,8 @@ class RplayUserMonitorConfig(BaseFeedMonitorConfig):
 
 @Plugins.register('rplay.user', Plugins.kind.ACTOR_ENTITY)
 class RplayUserMonitorEntity(RplayMonitorEntity):
+    creators: None = Field(default=None, exclude=True)
+    """Not used for this monitor"""
     creator_oid: str
     """ID of the user to monitor"""
 
