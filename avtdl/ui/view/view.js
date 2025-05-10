@@ -43,6 +43,7 @@ class RecordsView {
     constructor(container, messageArea) {
         this.container = container;
         this.messageArea = messageArea;
+        this.originalPageTitle = document.title;
     }
 
     async fetchJSON(path, reportError = false) {
@@ -64,12 +65,13 @@ class RecordsView {
         
         const perPage = params.get('size');
 
-        const url = new URL('/records', window.location.origin);
-
+        document.title = this.originalPageTitle;
+        
         if (!actor) {
             this.container.innerText = 'Select plugin from menu on the left.';
             return;
         }
+        const url = new URL('/records', window.location.origin);
         url.searchParams.set('actor', actor);
         if (entity) {
             url.searchParams.set('entity', entity);
@@ -91,9 +93,12 @@ class RecordsView {
         const galleryContainer = createElement('div', 'gallery', this.container);
         const gallery = new Gallery(galleryContainer);
         gallery.render(data['records']);
+
         const pageContainer = createElement('div', 'pagination', this.container);
         const pages = new Pagination(pageContainer);
         pages.render(data['current'], data['total'], window.location.pathname + window.location.search);
+
+        document.title = `${entity} / ${actor} — avtdl`;
     }
 }
 
