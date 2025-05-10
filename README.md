@@ -517,6 +517,21 @@ actors:
         ...
 ```
 
+Use `Host` header to set the host name that the target server’s certificate will be matched against. It might be useful when using secure connection with url pointing to IP address:
+
+```yaml
+actors:
+
+  generic_rss:
+    entities:
+      - name: "example feed"
+        update_interval: 600
+        url: "https://192.168.52.16/feed.xml"
+        headers:
+          "Host": "example.local"
+```
+
+
 ##### `timezone`
 
 Used in notification plugins to specify timezone in which date and time in the message should be presented in, where possible. Timezone is identified by name, as specified in "TZ identifier" column of [this](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List) table.

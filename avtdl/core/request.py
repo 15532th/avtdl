@@ -133,10 +133,10 @@ class HttpClient:
             request_headers['If-Modified-Since'] = state.last_modified
         if state.etag is not None:
             request_headers['If-None-Match'] = state.etag
-
+        server_hostname = self.session.headers.get('Host') or request_headers.get('Host') or None
         try:
             async with self.session.request(method, url, headers=request_headers, params=params, data=data,
-                                            json=data_json) as client_response:
+                                            json=data_json, server_hostname=server_hostname) as client_response:
                 # fully read http response to get it cached inside ClientResponse object
                 # client code can then use it by awaiting .text() again without causing
                 # network activity and potentially triggering associated errors
