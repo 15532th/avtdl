@@ -58,9 +58,10 @@ function renderEmbed(embed) {
         embedDiv.style.borderLeft = `4px solid #${embed.color.toString(16)}`;
     }
 
+    const embedHeader = createElement('div', 'embed-header', embedDiv);
+
     if (embed.author) {
-        const author = document.createElement('div');
-        author.classList.add('embed-author');
+        const author = createElement('div', 'embed-author', embedHeader);
         const authorIcon = renderEmbedIcon(embed.author.icon_url);
         author.appendChild(authorIcon);
         if (embed.author.name) {
@@ -68,27 +69,28 @@ function renderEmbed(embed) {
             authorName.classList.add('embed-author-name');
             author.appendChild(authorName);
         }
-        embedDiv.appendChild(author);
     }
 
     if (embed.title || embed.url) {
         const title = renderMaybeLink(embed.title, embed.url);
         title.classList.add('embed-title');
-        embedDiv.appendChild(title);
+        embedHeader.appendChild(title);
     }
+
+    const embedBody = createElement('div', 'embed-body', embedDiv);
 
     if (embed.description) {
         const description = renderTextContent(embed.description);
         description.classList.add('embed-description');
-        embedDiv.appendChild(description);
+        embedBody.appendChild(description);
     }
 
     if (embed.image) {
-        const image = createImage(embed.image.url, 'embed-image', embedDiv);
+        const image = createImage(embed.image.url, 'embed-image', embedBody);
         image.onclick = (event) => {
             const modal = renderModal(embedDiv);
             modal.classList.add('fullsize-image-container');
-            const fullImage = createImage(embed.image.url, 'fullsize-image', modal);
+            createImage(embed.image.url, 'fullsize-image', modal);
         };
         if (embed.image._preview) {
             image.onmouseenter = () => {
@@ -102,7 +104,6 @@ function renderEmbed(embed) {
                 image.onmouseleave = null;
             };
         }
-        embedDiv.appendChild(image);
     }
 
     if (embed.thumbnail && embed.thumbnail.url) {
@@ -110,12 +111,12 @@ function renderEmbed(embed) {
         thumbnail.classList.add('embed-thumbnail');
         thumbnail.src = embed.thumbnail.url;
         thumbnail.alt = embed.thumbnail.url;
-        embedDiv.appendChild(thumbnail);
+        embedBody.appendChild(thumbnail);
     }
 
     if (embed.fields && Array.isArray(embed.fields)) {
         const fieldsContainer = createElement('div', 'embed-fields');
-        embed.fields.forEach((field) => {
+        embed.fields.forEach((/** @type {{ name: string | null; value: string | null; }} */ field) => {
             const fieldDiv = createElement('div', 'embed-field', fieldsContainer);
             const fieldName = createElement('div', 'embed-field-name', fieldDiv);
             const fieldValue = createElement('div', 'embed-field-value', fieldDiv);
@@ -125,15 +126,11 @@ function renderEmbed(embed) {
         embedDiv.appendChild(fieldsContainer);
     }
 
-    if (embed.timestamp) {
-        const timestamp = document.createElement('div');
-        timestamp.classList.add('embed-timestamp');
-        timestamp.textContent = new Date(embed.timestamp).toLocaleString();
-        embedDiv.appendChild(timestamp);
-    }
+    const embedFooter = createElement('div', 'embed-footer', embedDiv);
+
     if (embed.footer) {
         const footer = document.createElement('div');
-        footer.classList.add('embed-footer');
+        footer.classList.add('embed-footer-content');
 
         const footerIcon = renderEmbedIcon(embed.footer.icon_url);
         footer.appendChild(footerIcon);
@@ -143,7 +140,13 @@ function renderEmbed(embed) {
         footerText.textContent = embed.footer.text;
         footer.appendChild(footerText);
 
-        embedDiv.appendChild(footer);
+        embedFooter.appendChild(footer);
+    }
+    if (embed.timestamp) {
+        const timestamp = document.createElement('div');
+        timestamp.classList.add('embed-timestamp');
+        timestamp.textContent = new Date(embed.timestamp).toLocaleString();
+        embedFooter.appendChild(timestamp);
     }
 
     return embedDiv;
@@ -189,16 +192,49 @@ function renderMessageTimestamp(embeds) {
  */
 function renderGalleryCard(message) {
     const card = document.createElement('div');
-    card.classList.add('discord-card');
+            card.classList.add('gallery-card');
 
     if (message.embeds && message.embeds.length > 0) {
-        message.embeds.forEach((embed) => {
+        message.embeds.forEach((/** @type {any} */ embed) => {
             const embedDiv = renderEmbed(embed);
             card.appendChild(embedDiv);
         });
         card.appendChild(renderMessageTimestamp(message.embeds));
     }
     return card;
+}
+
+class StateToggler {
+    /**
+     * Allows switching between predefined list of CSS classes (states) on given element
+     * @param {HTMLElement} element
+     * @param {{ [s: string]: string; }} states Mapping {name: cssClass}
+     */
+    constructor(element, states) {
+        this.element = element;
+        this.states = states;
+    }
+
+    availableStates() {
+        return Object.keys(this.states);
+    }
+
+    /**
+     * Set
+     * @param {string} state
+     */
+    setState(state) {
+        if (!this.states.hasOwnProperty(state)) {
+            return;
+        }
+        Object.entries(this.states).forEach(([key, className]) => {
+            if (key === state) {
+                this.element.classList.add(className);
+            } else {
+                this.element.classList.remove(className);
+            }
+        });
+    }
 }
 
 class Gallery {
@@ -208,6 +244,7 @@ class Gallery {
     constructor(container) {
         this.container = container;
         this.container.classList.add('gallery-container');
+        this.container.classList.add('gallery-container-grid');
     }
 
     /**
@@ -217,9 +254,16 @@ class Gallery {
     render(data) {
         data.forEach((element) => {
             const card = renderGalleryCard(element);
-            card.classList.add('gallery-card');
             this.container.appendChild(card);
         });
+    }
+
+    getViewToggler() {
+        const toggler = new StateToggler(this.container, {
+            '▤': 'gallery-container-list',
+            '▦': 'gallery-container-grid',
+        });
+        return toggler;
     }
 }
 
@@ -349,5 +393,56 @@ class Pagination {
         }
 
         return pageLinks;
+    }
+}
+
+class ViewControls {
+    /**
+     * @param {HTMLElement} parent
+     * @param {Gallery} gallery
+     * @param {Pagination} pagination
+     */
+    constructor(parent, gallery, pagination) {
+        this.container = parent;
+        this.gallery = gallery;
+        this.pagination = pagination;
+
+        this.container = createElement('div', 'controls', parent);
+    }
+
+    render() {
+        const viewToggler = this.gallery.getViewToggler();
+        const viewGroup = this.createGroup();
+        this.fillGroup(viewGroup, viewToggler);
+        this.container.appendChild(viewGroup);
+    }
+
+    createGroup() {
+        const groupContainer = createElement('div', 'controls-group');
+        return groupContainer;
+    }
+
+    /**
+     * @param {string | null} text
+     * @param {(event: MouseEvent | undefined) => void} callback
+     */
+    createButton(text, callback) {
+        const button = createElement('button', 'controls-button');
+        button.textContent = text;
+        button.onclick = callback;
+        return button;
+    }
+
+    /**
+     * @param {HTMLElement} group
+     * @param {StateToggler} toggler
+     */
+    fillGroup(group, toggler) {
+        toggler.availableStates().forEach((state) => {
+            const button = this.createButton(state, (event) => {
+                toggler.setState(state);
+            });
+            group.appendChild(button);
+        });
     }
 }

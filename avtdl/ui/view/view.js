@@ -1,10 +1,10 @@
 class Sidebar {
     /**
-     * @param {HTMLElement} container
+     * @param {HTMLElement} parent
      * @param {MessageArea} messageArea
      */
-    constructor(container, messageArea) {
-        this.container = container;
+    constructor(parent, messageArea) {
+        this.container = createElement('div', 'navigation', parent);
         this.messageArea = messageArea;
     }
 
@@ -44,15 +44,19 @@ class RecordsView {
         this.container = container;
         this.messageArea = messageArea;
         this.originalPageTitle = document.title;
+
+        this.container.innerHTML = '';
+
+        const galleryContainer = createElement('div', 'gallery', this.container);
+        this.gallery = new Gallery(galleryContainer);
+
+        const pageContainer = createElement('div', 'pagination', this.container);
+        this.pages = new Pagination(pageContainer);
     }
 
     async fetchJSON(path, reportError = false) {
         const messageArea = reportError ? this.messageArea : undefined;
         return await fetchJSON(path, messageArea);
-    }
-
-    clear() {
-        this.container.innerHTML = '';
     }
 
     async render() {
@@ -62,11 +66,11 @@ class RecordsView {
 
         const pageParam = params.get('page');
         const page = pageParam ? parseInt(pageParam, 10) : null;
-        
+
         const perPage = params.get('size');
 
         document.title = this.originalPageTitle;
-        
+
         if (!actor) {
             this.container.innerText = 'Select plugin from menu on the left.';
             return;
@@ -88,15 +92,8 @@ class RecordsView {
             this.container.innerText = 'Select plugin from menu on the left.';
             return;
         }
-        this.clear();
-
-        const galleryContainer = createElement('div', 'gallery', this.container);
-        const gallery = new Gallery(galleryContainer);
-        gallery.render(data['records']);
-
-        const pageContainer = createElement('div', 'pagination', this.container);
-        const pages = new Pagination(pageContainer);
-        pages.render(data['current'], data['total'], window.location.pathname + window.location.search);
+        this.gallery.render(data['records']);
+        this.pages.render(data['current'], data['total'], window.location.pathname + window.location.search);
 
         document.title = `${entity} / ${actor} — avtdl`;
     }
@@ -111,8 +108,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     const messageArea = new MessageArea(messageAreaDiv);
+
     const navbar = new Sidebar(navigationAreaDiv, messageArea);
     navbar.render();
+
     const view = new RecordsView(outputDiv, messageArea);
     view.render();
+
+    const controls = new ViewControls(navigationAreaDiv, view.gallery, view.pages);
+    controls.render();
 });
