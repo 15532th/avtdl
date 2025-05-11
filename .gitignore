@@ -2,27 +2,29 @@
 **/*.swo
 **/*~
 
+.vscode/**
+.idea/**
+
 **/__pycache__/*
 **/.mypy_cache/**
 
 dist/**
 build/**
-*egg-info/**
+avtdl.egg-info/**
+avtdl.spec
 
 **/*.sqlite
-config.yml
 logs/**
 db/**
 cache/**
-*.txt
+
 *.yml
 *.yml.[0-9]
 *.yml.10
+
+*.txt
 *.exe
 
 tests/manual/**
 
 **/_version.py
-
-.vscode/**
-.idea/**
