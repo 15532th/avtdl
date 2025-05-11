@@ -142,8 +142,8 @@ class WebUI:
         self.routes.append(web.get('/', self.index))
         self.routes.append(web.static('/ui', self.WEBROOT))
 
-    async def favicon(self, request: web.Request) -> web.Response:
-        return web.Response()
+    async def favicon(self, request: web.Request) -> web.FileResponse:
+        return web.FileResponse(self.WEBROOT / 'misc/favicon.svg')
 
     async def index(self, request):
         raise web.HTTPFound('/ui/conf/config.html')
