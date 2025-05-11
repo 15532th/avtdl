@@ -16,6 +16,8 @@ db/**
 cache/**
 *.txt
 *.yml
+*.yml.[0-9]
+*.yml.10
 *.exe
 
 tests/manual/**
