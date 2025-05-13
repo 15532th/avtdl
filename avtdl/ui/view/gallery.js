@@ -263,7 +263,7 @@ class Gallery {
     constructor(container) {
         this.container = container;
         this.container.classList.add('gallery-container');
-        this.container.classList.add('gallery-container-grid');
+        this.lastElement = null;
     }
 
     /**
@@ -271,10 +271,19 @@ class Gallery {
      * @param {object[]} data
      */
     render(data) {
+        this.container.innerHTML = '';
         data.forEach((element) => {
             const card = renderGalleryCard(element);
             this.container.appendChild(card);
+
+            if (element == this.lastElement) {
+                card.scrollIntoView();
+            }
         });
+
+        if (data && data.length > 0) {
+            this.lastElement = data[data.length - 1];
+        }
     }
 
     makeToggleViewButton() {
@@ -316,97 +325,75 @@ class Gallery {
 
 class Pagination {
     /**
-     * @param {HTMLElement} container - The DOM element to mount the pagination on.
+     * @param {HTMLElement} container
      */
     constructor(container) {
         this.container = container;
     }
 
     /**
-     * Renders the pagination section.
-     * @param {number} currentPage - The current page number.
-     * @param {number} totalPages - The total number of pages.
-     * @param {string} baseUrl - The base URL to use for constructing links.
+     * @param {number} currentPage
+     * @param {number} totalPages
+     * @param {string} baseUrl
      */
     render(currentPage, totalPages, baseUrl) {
         this.container.innerHTML = '';
 
-        const fragment = document.createDocumentFragment();
+        const onFirstPage = currentPage <= 1;
+        this.addPageLink('«', 1, baseUrl, onFirstPage);
+        this.addPageLink('‹', currentPage - 1, baseUrl, onFirstPage);
 
-        if (currentPage > 1) {
-            const firstLink = this.createPageLink('«', 1, baseUrl);
-            fragment.appendChild(firstLink);
-        } else {
-            fragment.appendChild(this.createPlainText('«'));
-        }
-
-        if (currentPage > 1) {
-            const prevLink = this.createPageLink('‹', currentPage - 1, baseUrl);
-            fragment.appendChild(prevLink);
-        } else {
-            fragment.appendChild(this.createPlainText('‹'));
-        }
-
-        const pageLinks = this.getPageLinks(currentPage, totalPages);
-        pageLinks.forEach((page) => {
+        const pageNumbers = this.getPageNumbers(currentPage, totalPages);
+        pageNumbers.forEach((page) => {
             const pageLink = this.createPageLink(page.toString(), page, baseUrl);
             if (page === currentPage) {
                 pageLink.classList.add('active');
             }
-            fragment.appendChild(pageLink);
+            this.container.appendChild(pageLink);
         });
 
-        if (currentPage < totalPages) {
-            const nextLink = this.createPageLink('›', currentPage + 1, baseUrl);
-            fragment.appendChild(nextLink);
+        const onLastPage = currentPage >= totalPages;
+        this.addPageLink('›', currentPage + 1, baseUrl, onLastPage);
+        this.addPageLink('»', totalPages, baseUrl, onLastPage);
+    }
+
+    /**
+     * @param {string} text
+     * @param {number} page
+     * @param {string} baseUrl
+     */
+    addPageLink(text, page, baseUrl, disabled = false) {
+        const link = this.createPageLink(text, page, baseUrl, disabled);
+        this.container.appendChild(link);
+    }
+
+    /**
+     * @param {string} text
+     * @param {number} page
+     * @param {string} baseUrl
+     * @returns {HTMLElement}
+     */
+    createPageLink(text, page, baseUrl, disabled = false) {
+        if (disabled) {
+            const span = document.createElement('span');
+            span.textContent = text;
+            span.classList.add('pagination-text');
+            return span;
         } else {
-            fragment.appendChild(this.createPlainText('›'));
+            const link = document.createElement('a');
+            link.textContent = text;
+            link.classList.add('pagination-link');
+
+            link.href = this.getPageUrl(baseUrl, page);
+            return link;
         }
-
-        if (currentPage < totalPages) {
-            const lastLink = this.createPageLink('»', totalPages, baseUrl);
-            fragment.appendChild(lastLink);
-        } else {
-            fragment.appendChild(this.createPlainText('»'));
-        }
-
-        this.container.appendChild(fragment);
     }
 
     /**
-     * Creates a link element for a given page.
-     * @param {string} text - The text to display for the link.
-     * @param {number} page - The page number for the link.
-     * @param {string} baseUrl - The base URL to use for the link.
-     * @returns {HTMLAnchorElement} The created link element.
+     * @param {string | URL} baseUrl
+     * @param {number} page
      */
-    createPageLink(text, page, baseUrl) {
-        const link = document.createElement('a');
-        link.textContent = text;
-        link.href = this.constructUrl(baseUrl, page);
-        link.classList.add('pagination-link');
-        return link;
-    }
-
-    /**
-     * Creates a plain text element for non-clickable items.
-     * @param {string} text - The text to display.
-     * @returns {HTMLElement} The created plain text element.
-     */
-    createPlainText(text) {
-        const span = document.createElement('span');
-        span.textContent = text;
-        span.classList.add('pagination-text');
-        return span;
-    }
-
-    /**
-     * Constructs the full URL with the page query parameter.
-     * @param {string} baseUrl - The base URL.
-     * @param {number} page - The page number to append as a query parameter.
-     * @returns {string} The constructed URL.
-     */
-    constructUrl(baseUrl, page) {
+    getPageUrl(baseUrl, page) {
         const url = new URL(baseUrl, window.location.origin);
         url.searchParams.set('page', page.toString());
         return url.toString();
@@ -418,7 +405,7 @@ class Pagination {
      * @param {number} totalPages - The total number of pages.
      * @returns {number[]} An array of page numbers to display.
      */
-    getPageLinks(currentPage, totalPages) {
+    getPageNumbers(currentPage, totalPages) {
         const pageLinks = [];
         const maxPagesToShow = 7;
         const halfRange = Math.floor(maxPagesToShow / 2);
@@ -440,52 +427,5 @@ class Pagination {
         }
 
         return pageLinks;
-    }
-}
-
-class ViewControls {
-    /**
-     * @param {HTMLElement} parent
-     * @param {Gallery} gallery
-     * @param {Pagination} pagination
-     */
-    constructor(parent, gallery, pagination) {
-        this.container = parent;
-        this.gallery = gallery;
-        this.pagination = pagination;
-
-        this.container = createElement('div', 'controls', parent);
-    }
-
-    render() {
-        const viewGroup = this.createGroup([
-            this.gallery.makeToggleViewButton(),
-            this.gallery.makeToggleImagesButton(),
-            this.gallery.makeToggleDescriptionButton()
-        ]);
-        this.container.appendChild(viewGroup);
-    }
-
-    /**
-     * @param {HTMLButtonElement[]} buttons
-     */
-    createGroup(buttons) {
-        const groupContainer = createElement('div', 'controls-group');
-        buttons.forEach((button) => {
-            button.classList.add('controls-button');
-            groupContainer.appendChild(button);
-        });
-        return groupContainer;
-    }
-
-    /**
-     * @param {string | null} text
-     * @param {(event: MouseEvent | undefined) => void} callback
-     */
-    createButton(text, callback) {
-        const button = createElement('button', 'controls-button');
-        button.textContent = text;
-        button.onclick = callback;
-        return button;
     }
 }

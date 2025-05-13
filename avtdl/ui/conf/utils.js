@@ -609,7 +609,7 @@ class MessageArea {
 }
 
 /**
- * @param {string} path
+ * @param {string | URL} path
  * @param {MessageArea | undefined} [messageArea]
  */
 async function fetchJSON(path, messageArea, retries = 0) {

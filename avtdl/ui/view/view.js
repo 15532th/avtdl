@@ -54,6 +54,9 @@ class RecordsView {
         this.pages = new Pagination(pageContainer);
     }
 
+    /**
+     * @param {string | URL} path
+     */
     async fetchJSON(path, reportError = false) {
         const messageArea = reportError ? this.messageArea : undefined;
         return await fetchJSON(path, messageArea);
@@ -96,6 +99,42 @@ class RecordsView {
         this.pages.render(data['current'], data['total'], window.location.pathname + window.location.search);
 
         document.title = `${entity} / ${actor} — avtdl`;
+    }
+}
+
+class ViewControls {
+    /**
+     * @param {HTMLElement} parent
+     * @param {Gallery} gallery
+     * @param {Pagination} pagination
+     */
+    constructor(parent, gallery, pagination) {
+        this.container = parent;
+        this.gallery = gallery;
+        this.pagination = pagination;
+
+        this.container = createElement('div', 'controls', parent);
+    }
+
+    render() {
+        const viewGroup = this.createGroup([
+            this.gallery.makeToggleViewButton(),
+            this.gallery.makeToggleImagesButton(),
+            this.gallery.makeToggleDescriptionButton(),
+        ]);
+        this.container.appendChild(viewGroup);
+    }
+
+    /**
+     * @param {HTMLButtonElement[]} buttons
+     */
+    createGroup(buttons) {
+        const groupContainer = createElement('div', 'controls-group');
+        buttons.forEach((button) => {
+            button.classList.add('controls-button');
+            groupContainer.appendChild(button);
+        });
+        return groupContainer;
     }
 }
 
