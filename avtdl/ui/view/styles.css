@@ -59,6 +59,23 @@
     display: grid;
 }
 
+.gallery-container-hide-images .embed-image {
+    display: none;
+}
+
+.gallery-container-hide-images .embed-thumbnail {
+    display: none;
+}
+
+.gallery-container-clamp-description .embed-description {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
+    overflow: clamp;
+    text-overflow: ellipsis;
+    line-clamp: 6;
+}
+
 .embed-header {
     display: flex;
     flex-direction: row;
@@ -176,7 +193,8 @@
     margin-top: 2px;
 }
 
-.embed-image, .embed-thumbnail {
+.embed-image,
+.embed-thumbnail {
     max-width: 400px;
     width: 100%;
     height: fit-content;

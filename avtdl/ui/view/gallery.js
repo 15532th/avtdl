@@ -192,7 +192,7 @@ function renderMessageTimestamp(embeds) {
  */
 function renderGalleryCard(message) {
     const card = document.createElement('div');
-            card.classList.add('gallery-card');
+    card.classList.add('gallery-card');
 
     if (message.embeds && message.embeds.length > 0) {
         message.embeds.forEach((/** @type {any} */ embed) => {
@@ -204,37 +204,56 @@ function renderGalleryCard(message) {
     return card;
 }
 
-class StateToggler {
-    /**
-     * Allows switching between predefined list of CSS classes (states) on given element
-     * @param {HTMLElement} element
-     * @param {{ [s: string]: string; }} states Mapping {name: cssClass}
-     */
-    constructor(element, states) {
-        this.element = element;
-        this.states = states;
-    }
+/**
+ * @param {Function} callback0
+ * @param {Function} callback1
+ * @param {string} text0
+ * @param {string} text1
+ * @param {string?} hint0
+ * @param {string?} hint1
+ * @param {boolean} initialState
+ */
+function renderToggleButton(callback0, callback1, text0, text1, hint0, hint1, initialState = false) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    let currentState = !initialState;
+    const toggle = () => {
+        currentState = !currentState;
+        button.innerText = currentState ? text1 : text0;
+        button.title = (currentState ? hint1 : hint0) || '';
+        const callback = currentState ? callback1 : callback0;
+        callback();
+    };
+    toggle();
+    button.onclick = toggle;
+    return button;
+}
 
-    availableStates() {
-        return Object.keys(this.states);
-    }
-
-    /**
-     * Set
-     * @param {string} state
-     */
-    setState(state) {
-        if (!this.states.hasOwnProperty(state)) {
-            return;
-        }
-        Object.entries(this.states).forEach(([key, className]) => {
-            if (key === state) {
-                this.element.classList.add(className);
-            } else {
-                this.element.classList.remove(className);
-            }
-        });
-    }
+/**
+ * @param {HTMLElement} element
+ * @param {string | null} className0
+ * @param {string | null} className1
+ * @param {string} text0
+ * @param {string} text1
+ * @param {string | null} hint0
+ * @param {string | null} hint1
+ */
+function renderStyleToggleButton(element, className0, className1, text0, text1, hint0, hint1, initialState = false) {
+    return renderToggleButton(
+        () => {
+            if (className1) element.classList.remove(className1);
+            if (className0) element.classList.add(className0);
+        },
+        () => {
+            if (className0) element.classList.remove(className0);
+            if (className1) element.classList.add(className1);
+        },
+        text0,
+        text1,
+        hint0,
+        hint1,
+        initialState
+    );
 }
 
 class Gallery {
@@ -258,12 +277,40 @@ class Gallery {
         });
     }
 
-    getViewToggler() {
-        const toggler = new StateToggler(this.container, {
-            '▤': 'gallery-container-list',
-            '▦': 'gallery-container-grid',
-        });
-        return toggler;
+    makeToggleViewButton() {
+        return renderStyleToggleButton(
+            this.container,
+            'gallery-container-grid',
+            'gallery-container-list',
+            '▦',
+            '▤',
+            'Grid/List view',
+            'List/Grid view'
+        );
+    }
+
+    makeToggleImagesButton() {
+        return renderStyleToggleButton(
+            this.container,
+            null,
+            'gallery-container-hide-images',
+            '🖼',
+            '🖾',
+            'Display/Hide images',
+            'Display/Hide images'
+        );
+    }
+
+    makeToggleDescriptionButton() {
+        return renderStyleToggleButton(
+            this.container,
+            null,
+            'gallery-container-clamp-description',
+            '☐',
+            '⬒',
+            'Expand/Hide descriptions',
+            'Hide/Expand descriptions'
+        );
     }
 }
 
@@ -411,14 +458,23 @@ class ViewControls {
     }
 
     render() {
-        const viewToggler = this.gallery.getViewToggler();
-        const viewGroup = this.createGroup();
-        this.fillGroup(viewGroup, viewToggler);
+        const viewGroup = this.createGroup([
+            this.gallery.makeToggleViewButton(),
+            this.gallery.makeToggleImagesButton(),
+            this.gallery.makeToggleDescriptionButton()
+        ]);
         this.container.appendChild(viewGroup);
     }
 
-    createGroup() {
+    /**
+     * @param {HTMLButtonElement[]} buttons
+     */
+    createGroup(buttons) {
         const groupContainer = createElement('div', 'controls-group');
+        buttons.forEach((button) => {
+            button.classList.add('controls-button');
+            groupContainer.appendChild(button);
+        });
         return groupContainer;
     }
 
@@ -431,18 +487,5 @@ class ViewControls {
         button.textContent = text;
         button.onclick = callback;
         return button;
-    }
-
-    /**
-     * @param {HTMLElement} group
-     * @param {StateToggler} toggler
-     */
-    fillGroup(group, toggler) {
-        toggler.availableStates().forEach((state) => {
-            const button = this.createButton(state, (event) => {
-                toggler.setState(state);
-            });
-            group.appendChild(button);
-        });
     }
 }
