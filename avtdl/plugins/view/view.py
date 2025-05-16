@@ -80,5 +80,4 @@ class View(Action):
     def get_records_storage(self, entity_name: Optional[str] = None) -> Optional[AbstractRecordsStorage]:
         if entity_name not in self.databases:
             return None
-        # entity_name is not specified because db is going to store records originating from different entities
-        return RecordDbView(self.databases[entity_name], None)
+        return RecordDbView(self.databases[entity_name])

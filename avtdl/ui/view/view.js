@@ -65,6 +65,7 @@ class RecordsView {
     async render() {
         const params = new URLSearchParams(window.location.search);
         const actor = params.get('actor');
+        const view = params.get('view');
         const entity = params.get('entity');
 
         const pageParam = params.get('page');
@@ -80,7 +81,9 @@ class RecordsView {
         }
         const url = new URL('/records', window.location.origin);
         url.searchParams.set('actor', actor);
-        if (entity) {
+        if (view) {
+            url.searchParams.set('view', view);
+        }        if (entity) {
             url.searchParams.set('entity', entity);
         }
         if (page) {

@@ -283,7 +283,9 @@ class BaseFeedMonitor(HttpTaskMonitor):
         return new_records
 
     def get_records_storage(self, entity_name: Optional[str] = None) -> Optional[AbstractRecordsStorage]:
-        return RecordDbView(self.db, entity_name)
+        if entity_name is not None:
+            return None
+        return RecordDbView(self.db)
 
 
 class PagedFeedMonitorConfig(BaseFeedMonitorConfig):

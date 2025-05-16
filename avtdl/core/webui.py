@@ -14,7 +14,6 @@ from avtdl.core import formatters, info
 from avtdl.core.cache import FileCache
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
-from avtdl.core.db import HistoryView
 from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
 from avtdl.core.interfaces import AbstractRecordsStorage, Actor, Record, RuntimeContext, TaskStatus, \
     TerminatedAction
@@ -304,28 +303,43 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         return web.json_response(data, dumps=json_dumps)
 
     async def viewable_plugins(self, request: web.Request) -> web.Response:
-        runtime: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(dict)
-        internal: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(dict)
-        viewable: Dict[str, str] = {}
+        internal: Dict[str, Dict[str, Dict[str, Dict[str, str]]]] = defaultdict(dict)
+        viewable: Dict[str, Dict[str, str]] = defaultdict(dict)
         for actor_name, actor in self.actors.items():
-            entities = {}
-            for entity_name in actor.entities.keys():
-                query = urllib.parse.urlencode({'actor': actor_name, 'entity': entity_name})
-                entities[entity_name] = query
+            entities: dict = defaultdict(dict)
+            for view_name in [None, *actor.entities.keys()]:
+                db = actor.get_records_storage(view_name)
+                if db is None:
+                    continue
+                feeds = db.feeds()
+                if not feeds:
+                    continue
+                queries: Dict[str, str] = {}
+                if len(feeds) > 1:
+                    params = {'actor': actor_name,}
+                    if view_name:
+                        params['view'] = view_name
+                    queries['[Everything]'] = urllib.parse.urlencode(params)
+                for entity_name, record_count in feeds:
+                    params = {'actor': actor_name, 'entity': entity_name}
+                    if view_name:
+                        params['view'] = view_name
+                    query = urllib.parse.urlencode(params)
+                    queries[f'{entity_name} ({record_count})'] = query
+                if view_name is not None:
+                    entities[view_name] = queries
+                else:
+                    entities = queries
             actor_type = get_plugin_type(actor_name) or 'Other'
             if actor.conf.name == 'view':
                 viewable = entities
             elif actor.get_records_storage() is not None:
                 internal[actor_type][actor_name] = entities
-            else:
-                runtime[actor_type][actor_name] = entities
         data: dict = {}
         if viewable:
             data['View stored records'] = viewable
         if internal:
-            data['View internal database'] = internal
-        if runtime:
-            data['View runtime history'] = runtime
+            data['Internal databases'] = internal
         return web.json_response(data, dumps=json_dumps)
 
     def _get_embed_image_rewriter(self, record: Record) -> Callable[[str], Optional[str]]:
@@ -353,7 +367,8 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
 
     async def records(self, request: web.Request) -> web.Response:
         actor_name = request.query.get('actor')
-        entity_name = request.query.get('entity')
+        entity_name = request.query.get('entity') or None
+        view_name = request.query.get('view') or None
         page_num = request.query.get('page')
         page_size = request.query.get('size', RECORDS_PER_PAGE)
 
@@ -373,26 +388,20 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             raise web.HTTPBadRequest(text=f'missing "actor" parameter')
         if actor_name not in self.actors:
             raise web.HTTPBadRequest(text=f'actor {actor_name} not found')
-        if entity_name is None:
-            raise web.HTTPBadRequest(text=f'missing "entity" parameter')
 
         actor = self.actors[actor_name]
 
-        if entity_name not in actor.entities:
-            raise web.HTTPBadRequest(text=f'actor {actor_name} does not have entity "{entity_name}"')
-
-        db: Optional[AbstractRecordsStorage] = actor.get_records_storage(entity_name)
+        db: Optional[AbstractRecordsStorage] = actor.get_records_storage(view_name)
         if db is None:
-            # HistoryView instance should have been returned from base Actor.get_records_storage implementation,
-            # but it would lead to circular imports between interfaces.py and db.py
-            db = HistoryView(actor, entity_name)
-        records = db.load_page(page, per_page)
-        total_pages = db.page_count(per_page)
+            raise web.HTTPBadRequest(text=f'actor {actor_name} does not have persistent storage')
+        records = db.load_page(page, per_page, feed=entity_name)
+        total_pages = db.page_count(per_page, entity_name)
         records_view = [self.render_record(record) for record in records]
 
         data = {
             'total': total_pages,
             'current': page or total_pages,
+            'feed': entity_name,
             'records': records_view
         }
         return web.json_response(data, dumps=json_dumps)

@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from pydantic import Field, field_validator, model_validator
 
-from avtdl.core.interfaces import AbstractRecordsStorage, Action, Actor, ActorConfig, Record
+from avtdl.core.interfaces import AbstractRecordsStorage, ActorConfig, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import check_dir
 
@@ -89,6 +89,13 @@ class BaseRecordDB:
         keys = {'group': group_id}
         self.cursor.execute(sql, keys)
         return int(self.cursor.fetchone()[0])
+
+    def get_groups(self) -> List[Tuple[str, int]]:
+        sql = f'SELECT {self.group_id_field}, COUNT(1) as count FROM records GROUP BY {self.group_id_field}'
+        self.cursor.execute(sql)
+        rows = self.cursor.fetchall()
+        return [(row[self.group_id_field], int(row['count'])) for row in rows]
+
 
     def fetch_offset(self, limit: int, offset: int, group_id: Optional[str] = None, desc: bool = True) -> List[sqlite3.Row]:
         order = 'DESC' if desc else 'ASC'
@@ -215,6 +222,9 @@ class RecordDB(BaseRecordDB):
                 records.append(record)
         return records
 
+    def feeds(self) -> List[Tuple[str, int]]:
+        return self.get_groups()
+
 
 class BaseDbConfig(ActorConfig):
     db_path: Union[Path, str] = Field(default='db/', validate_default=True)
@@ -247,37 +257,16 @@ def validate_db_path(path: Union[Path, str]) -> Union[Path, str]:
     return Path(path)
 
 
-class HistoryView(AbstractRecordsStorage):
-
-    def __init__(self, actor: Actor, entity_name: str):
-        self.actor = actor
-        self.entity_name = entity_name
-
-    def _get_records(self, entity_name: str) -> List[Record]:
-        direction = 'in' if isinstance(self.actor, Action) else 'out'
-        records = self.actor.bus.get_history(self.actor.conf.name, entity_name, '', direction)  # type: ignore
-        return records
-
-    def page_count(self, per_page: int) -> int:
-        return math.ceil(len(self._get_records(self.entity_name)) / per_page)
-
-    def load_page(self, page: Optional[int], per_page: int, desc: bool = True) -> List[Record]:
-        records = self._get_records(self.entity_name)
-        limit, offset = calculate_offset(page, per_page, len(records))
-        page_records = records[offset:offset + limit]
-        if desc:
-            page_records = page_records[::-1]
-        return page_records
-
-
 class RecordDbView(AbstractRecordsStorage):
 
-    def __init__(self, db: RecordDB, entity_name: Optional[str]):
+    def __init__(self, db: RecordDB):
         self.db = db
-        self.entity_name = entity_name
 
-    def page_count(self, per_page: int) -> int:
-        return self.db.page_count(self.entity_name, per_page)
+    def feeds(self) -> List[Tuple[str, int]]:
+        return self.db.feeds()
 
-    def load_page(self, page: Optional[int], per_page: int, desc: bool = True) -> List[Record]:
-        return self.db.load_page(self.entity_name, page, per_page, desc)
+    def page_count(self, per_page: int, feed: Optional[str] = None) -> int:
+        return self.db.page_count(feed, per_page)
+
+    def load_page(self, page: Optional[int], per_page: int, desc: bool = True, feed: Optional[str] = None) -> List[Record]:
+        return self.db.load_page(feed, page, per_page, desc)

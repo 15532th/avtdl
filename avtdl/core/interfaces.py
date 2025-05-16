@@ -410,11 +410,14 @@ class AbstractRecordsStorage(abc.ABC):
     """Interface for accessing persistent records storage from web ui"""
 
     @abstractmethod
-    def page_count(self, per_page: int) -> int:
+    def feeds(self) -> List[Tuple[str, int]]:
+        """return names and number of records of distinct feeds storage currently has"""
+    @abstractmethod
+    def page_count(self, per_page: int, feed: Optional[str] = None) -> int:
         """return total number of pages"""
 
     @abstractmethod
-    def load_page(self, page: Optional[int], per_page: int, desc: bool = True) -> List[Record]:
+    def load_page(self, page: Optional[int], per_page: int, desc: bool = True, feed: Optional[str] = None) -> List[Record]:
         """return content of specific page as a list of Record instances"""
 
 
@@ -466,7 +469,12 @@ class Actor(ABC):
             self.logger.exception(f'{self.conf.name}.{entity_name}: error while processing record "{record!r}"')
 
     def get_records_storage(self, entity_name: Optional[str] = None) -> Optional[AbstractRecordsStorage]:
-        '''Implementations might overwrite this method to give web interface access to persistent records storage'''
+        '''
+        Implementations might overwrite this method to give web interface access to persistent records storage
+        If implementation uses a single storage for all entities, it must return it with entity_name=None,
+        and return None when entity_name provided. If each entity uses individual storage, it must be returned
+        when entity_name is specified, and for entity_name=None the return value should be None
+        '''
         return None
 
     @abstractmethod
