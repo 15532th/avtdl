@@ -1,15 +1,136 @@
+// /**
+//  * @param {string} text
+//  */
+// function renderTextContent(text) {
+//     const container = document.createElement('div');
+//     const lines = text.split('\n');
+//     lines.forEach((line) => {
+//         const lineElement = createElement('span', undefined, container);
+//         lineElement.innerText = line;
+//         createElement('br', undefined, container);
+//     });
+//     return container;
+// }
+
 /**
  * @param {string} text
  */
 function renderTextContent(text) {
-    const container = document.createElement('div');
-    const lines = text.split('\n');
-    lines.forEach((line) => {
-        const lineElement = createElement('span', undefined, container);
-        lineElement.innerText = line;
-        createElement('br', undefined, container);
-    });
-    return container;
+    const div = document.createElement('div');
+
+    // Define the mapping of regex patterns to handlers
+    const patterns = [
+        {
+            regex: /^([^\n]+)\n\n+/,
+            handler: (match) => {
+                const p = document.createElement('p');
+                const content = renderTextContent(match[1]);
+                p.appendChild(content);
+                return p;
+            },
+        },
+        {
+            regex: /^\n/,
+            handler: (match) => {
+                const fragment = document.createDocumentFragment();
+                const br = document.createElement('br');
+                fragment.appendChild(br);
+                return fragment;
+            },
+        },
+        {
+            regex: /^\[([^\]]*)\]\(([^\)]+)\)/,
+            handler: (match) => {
+                return renderLink(match[2], match[1]);
+            },
+        },
+        {
+            // links wrapped in ()
+            regex: /^\((https?:\/\/[^\s]+)\)/,
+            handler: (match) => {
+                const fragment = document.createDocumentFragment();
+                fragment.appendChild(document.createTextNode('('));
+                fragment.appendChild(renderLink(match[1], match[1]));
+                fragment.appendChild(document.createTextNode(')'));
+                return fragment;
+            },
+        },
+        {
+            regex: /^https?:\/\/[^\s]+/,
+            handler: (match) => {
+                return renderLink(match[0], match[0]);
+            },
+        },
+        {
+            regex: /^\*\*(.*?)\*\*/,
+            handler: (match) => {
+                const fragment = document.createDocumentFragment();
+                const strong = document.createElement('strong');
+                strong.textContent = match[1];
+                fragment.appendChild(strong);
+                return fragment;
+            },
+        },
+        {
+            regex: /^\*(.*?)\*/,
+            handler: (match) => {
+                const fragment = document.createDocumentFragment();
+                const em = document.createElement('em');
+                em.textContent = match[1];
+                fragment.appendChild(em);
+                return fragment;
+            },
+        },
+    ];
+
+    let currentIndex = 0;
+    let buffer = '';
+
+    while (currentIndex < text.length) {
+        let matched = false;
+
+        for (const { regex, handler } of patterns) {
+            const match = text.slice(currentIndex).match(regex);
+            if (match) {
+                // Append buffered text if any
+                if (buffer) {
+                    div.appendChild(document.createTextNode(buffer));
+                    buffer = ''; // Clear the buffer
+                }
+                const fragment = handler(match);
+                div.appendChild(fragment);
+                currentIndex += match[0].length;
+                matched = true;
+                break; // Exit the loop after a match
+            }
+        }
+
+        // If no match was found, add the current character to the buffer
+        if (!matched) {
+            buffer += text[currentIndex];
+            currentIndex++;
+        }
+    }
+
+    // Append any remaining buffered text at the end
+    if (buffer) {
+        div.appendChild(document.createTextNode(buffer));
+    }
+
+    return div;
+}
+
+/**
+ * @param {string} link
+ * @param {string?} text
+ */
+function renderLink(link, text) {
+    const element = document.createElement('a');
+    element.rel = 'noreferrer';
+    element.target = '_blank';
+    element.href = link;
+    element.textContent = text || link;
+    return element;
 }
 
 /**
@@ -19,11 +140,7 @@ function renderTextContent(text) {
 function renderMaybeLink(text, link) {
     let element;
     if (link) {
-        element = document.createElement('a');
-        element.rel = 'noreferrer';
-        element.target = '_blank';
-        element.href = link;
-        element.textContent = text || link;
+        element = renderLink(link, text);
     } else {
         element = document.createElement('span');
         element.textContent = text || '';

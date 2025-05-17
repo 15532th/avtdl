@@ -61,7 +61,7 @@ class GenericRSSRecord(Record):
     def as_embed(self) -> List[dict]:
         embed: Dict[str, Any] = {
             'title': self.title,
-            'description': html_to_text(self.summary, self.url),
+            'description': html_to_text(self.summary, self.url, markdown=True),
             'url': self.url,
             'color': None,
             'author': {'name': self.author},

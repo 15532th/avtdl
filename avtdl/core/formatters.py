@@ -39,8 +39,9 @@ def html_from_string(html: str, base_url: Optional[str] = None) -> lxml.html.Htm
         raise
 
 
-def html_to_text(html: str, base_url: Optional[str] = None) -> str:
-    """take html fragment, try to parse it and convert to text using lxml"""
+def html_to_text(html: str, base_url: Optional[str] = None, markdown: bool = False) -> str:
+    """Take html fragment, try to parse it and convert to text using lxml
+    Convert links to markdown representation if markdown is True"""
     try:
         root = html_from_string(html, base_url)
     except Exception:
@@ -55,7 +56,10 @@ def html_to_text(html: str, base_url: Optional[str] = None) -> str:
             link = elem.get('href')
             if link is not None:
                 if elem.text_content():
-                    elem.text = f'{elem.text_content()} ({link})'
+                    if markdown:
+                        elem.text = f'[{elem.text_content()}]({link})'
+                    else:
+                        elem.text = f'{elem.text_content()} ({link})'
                 else:
                     elem.text = f'{link}'
         if elem.tag == 'img':
