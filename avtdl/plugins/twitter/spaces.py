@@ -10,8 +10,7 @@ from pydantic import FilePath
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import Delay
-from avtdl.core.request import HttpClient
+from avtdl.core.request import Delay, HttpClient
 from avtdl.core.utils import SessionStorage, find_matching_field_value
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
 from avtdl.plugins.twitter.extractors import TwitterSpaceRecord, find_space_id, parse_media_url, parse_space, \
@@ -151,7 +150,7 @@ class TwitterSpace(Action):
         if self.db.record_exists(space, entity.name):
             self.logger.debug(f'[{entity.name}] space {space_id} has already been processed')
             return
-        info.set_status('fetching initial info')
+        info.set_status('initial update', space)
         space.media_url = await self.wait_for_any_url(client, entity, space) or None
         self.db.store_records([space], entity.name)
 
@@ -161,15 +160,15 @@ class TwitterSpace(Action):
 
         while True:
             if SpaceState.is_upcoming(space):
-                info.set_status('waiting for space to start')
+                info.set_status('waiting for space to start', space)
                 media_url = await self.wait_for_live(client, entity, space)
             elif SpaceState.is_ongoing(space):
-                info.set_status('waiting for space to end')
+                info.set_status('waiting for space to end', space)
                 media_url = await self.wait_for_replay(client, entity, space)
                 if media_url == '':
                     self.logger.debug(f'[{entity.name}] media url unavailable for running space {space.url}, updating space metadata to see if it ended')
             elif SpaceState.has_ended(space):
-                info.set_status('fetching data for ended space')
+                info.set_status('handling ended space', space)
                 media_url = await self.wait_for_any_url(client, entity, space)
                 if media_url == '':
                     self.logger.debug(f'[{entity.name}] space {space.url} has ended at {space.ended} and media url is unavailable. The space likely does not have archive at this point')
@@ -178,6 +177,7 @@ class TwitterSpace(Action):
                 self.logger.warning(f'[{entity.name}] space {space.url} state is unknown, aborting. {space.model_dump()}')
                 break
 
+            info.set_status('updating space status', space)
             old_media_url = space.media_url
             space = await self.fetch_space(client, entity, space_id) or space
 
@@ -189,6 +189,7 @@ class TwitterSpace(Action):
 
             done = handle_update_result(space)
             if done:
+                info.set_status(f'all done', space)
                 break
 
     async def wait_for_live(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:

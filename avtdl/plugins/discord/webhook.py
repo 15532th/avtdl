@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import multidict
 
 from avtdl.core.formatters import DiscordEmbedLimits, MessageFormatter
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient, HttpResponse, RateLimit
 from avtdl.core.utils import SessionStorage
@@ -83,10 +83,23 @@ class DiscordHook(Action):
         session = self.sessions.get_session(name=self.conf.name)
         client = HttpClient(self.logger, session)
         for entity in self.entities.values():
-            _ = self.controller.create_task(self.run_for(entity, client), name=f'{self.conf.name}:{entity.name}')
+            name = f'{self.conf.name}:{entity.name}'
+            info = TaskStatus(self.conf.name, entity.name)
+            _ = self.controller.create_task(self.run_for(entity, client, info), name=name, _info=info)
         await self.sessions.ensure_closed()
 
-    async def run_for(self, entity: DiscordHookEntity, client: HttpClient):
+    def update_status(self, info: TaskStatus, queue: asyncio.Queue, pending: List[Record]):
+        msg = ''
+        record = None
+        if queue.qsize():
+            msg += f'{queue.qsize()} records are waiting in queue\n'
+        if pending:
+            msg += f'{len(pending)} records to be send in the next batch'
+            record = pending[-1]
+        # if queue is empty and there is no pending records, message is effectively cleared
+        info.set_status(msg, record)
+
+    async def run_for(self, entity: DiscordHookEntity, client: HttpClient, info: TaskStatus):
         send_queue = self.queues[entity.name]
 
         bucket: Optional[str] = None
@@ -95,8 +108,10 @@ class DiscordHook(Action):
 
         while True:
             await asyncio.sleep(until_next_try)
+            self.update_status(info, send_queue, to_be_sent)
             to_be_sent = await self.wait_for_records(send_queue, pending=to_be_sent)
             message, pending_records = self._prepare_message(to_be_sent, entity)
+            self.update_status(info, send_queue, pending_records)
             if message is None:
                 to_be_sent = pending_records
                 continue
