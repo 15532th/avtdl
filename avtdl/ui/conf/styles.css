@@ -1,6 +1,5 @@
 body {
     font-family: Arial, sans-serif;
-    margin: 0;
     padding: 0;
 }
 
@@ -443,11 +442,12 @@ summary .tooltip {
     padding: 8px;
     margin: 16px;
     border-radius: 3px;
+    background-color: #f4f4f4;
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
     position: fixed;
-    right: 0;
+    right: 4vh;
     bottom: 0;
-    width: 200px;
+    width: 180px;
 }
 
 .action-button {

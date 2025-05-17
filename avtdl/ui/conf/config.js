@@ -201,7 +201,7 @@ class ConfigEditor {
         checkButton.title = 'Validate changes without applying them';
         actionBar.appendChild(checkButton);
         const reloadButton = createButton(
-            'Save Changes and Reload',
+            'Apply Changes',
             this.makeSaveConfigCallback('reload'),
             'action-button'
         );
