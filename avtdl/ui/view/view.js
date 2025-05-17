@@ -101,7 +101,7 @@ class RecordsView {
         this.gallery.render(data['records']);
         this.pages.render(data['current'], data['total'], window.location.pathname + window.location.search);
 
-        document.title = `${entity} / ${actor} — avtdl`;
+        document.title = `${view || entity} / ${actor} — avtdl`;
     }
 }
 
