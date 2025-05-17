@@ -277,18 +277,21 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         return web.json_response(data, dumps=json_dumps)
 
     @staticmethod
-    def render_status_data(status_list: List[TaskStatus]) -> dict:
+    def render_status_data(status_list: List[TaskStatus], include_empty: bool = False) -> dict:
         if not status_list:
             return {}
         headers = ['Actor', 'Entity', 'Info', 'Record']
         data: dict = defaultdict(lambda: {'headers': headers, 'rows': []})
         for status in status_list:
+            if not include_empty and status.is_empty():
+                continue
             record = record_preview(status.record) if status.record else ''
             row = [status.actor, status.entity, status.status, record]
             data[status.actor]['rows'].append(row)
         return data
 
     async def tasks(self, request: web.Request) -> web.Response:
+        show_empty = request.query.get('empty') is not None
         actor_name = request.query.get('actor')
         if actor_name is not None:
             actor = self.actors.get(actor_name) if actor_name is not None else None
@@ -299,7 +302,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             controller = self.ctx.controller
 
         status_list = controller.get_status()
-        data = self.render_status_data(status_list)
+        data = self.render_status_data(status_list, show_empty)
         return web.json_response(data, dumps=json_dumps)
 
     async def viewable_plugins(self, request: web.Request) -> web.Response:

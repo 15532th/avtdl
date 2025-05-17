@@ -7,7 +7,8 @@ from typing import Callable, Dict, List, Optional, Sequence
 from pydantic import FilePath, NonNegativeFloat, field_validator
 
 from avtdl.core.db import RecordDB
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext, \
+    TaskStatus
 from avtdl.core.plugins import Plugins
 
 
@@ -154,7 +155,7 @@ class Replay(Monitor):
             db = RecordDB(entity.db_path, logger=self.logger.getChild('name'))
             self.databases[entity.name] = db
 
-    async def replay_task(self, entity: ReplayEntity):
+    async def replay_task(self, entity: ReplayEntity, info: TaskStatus):
         db = self.databases.get(entity.name)
         if db is None:
             self.logger.exception(f'no database is opened for entity {entity.name}')
@@ -180,11 +181,14 @@ class Replay(Monitor):
                     break
                 emitted += 1
                 self.on_record(entity, record)
+                info.set_status(f'{emitted}/{to_emit} records left to replay', record)
                 await asyncio.sleep(entity.emit_interval)
         self.logger.debug(f'[{entity.name}] done')
+        info.clear()
 
     async def run(self):
         for entity in self.entities.values():
-            task = self.replay_task(entity)
-            self.ctx.controller.create_task(task, name=f'{self.conf.name}:{entity.name}')
+            info = TaskStatus(self.conf.name, entity.name)
+            task = self.replay_task(entity, info)
+            self.ctx.controller.create_task(task, name=f'{self.conf.name}:{entity.name}', _info=info)
         await super().run()

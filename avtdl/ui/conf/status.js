@@ -137,7 +137,7 @@ class HistoryView {
             ];
             lines.forEach((line) => {
                 line[0] = new Date(line[0]).toLocaleString();
-            })
+            });
             const content = renderClickableTable(headers, tooltips, lines);
             section.appendChild(content);
         }
@@ -190,13 +190,14 @@ class TaskView {
     }
 
     /**
-     * @param {Node} container
-     * @param {{ [s: string]: any; } | ArrayLike<any>} data
+     * @param {HTMLElement} container
+     * @param {{ [s: string]: string[]; }} data
      */
     static renderView(container, data) {
         if (!data) {
             return;
         }
+        let noData = true;
         for (const [actorName, actorData] of Object.entries(data)) {
             const section = createDetails(actorName);
             section.open = true;
@@ -209,6 +210,11 @@ class TaskView {
 
             const content = renderClickableTable(actorData['headers'] || [], [], actorData['rows'] || []);
             section.appendChild(content);
+            noData = false;
+        }
+        if (noData) {
+            const message = createElement('div', 'history-blank', container);
+            message.innerText = 'no tasks running';
         }
     }
 

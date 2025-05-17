@@ -245,11 +245,17 @@ class TaskStatus:
     status: str = ''
     record: Optional[Record] = None
 
-    def set_status(self, status: str):
+    def set_status(self, status: str, record: Optional[Record] = ...):  # type: ignore
         self.status = status
+        if record is not ...:
+            self.record = record
 
-    def set_record(self, record: Record):
-        self.record = record
+    def clear(self):
+        self.status = ''
+        self.record = None
+
+    def is_empty(self) -> bool:
+        return not self.status and not self.record
 
 
 class TasksController:

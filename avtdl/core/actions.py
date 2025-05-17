@@ -73,10 +73,6 @@ class QueueAction(HttpAction):
                 f'[{entity.name}] failed to add url, {type(e)}: {e}. This is a bug, please report it.')
         else:
             self.logger.debug(f'[{entity.name}] added new record to the queue, current queue size is {queue.qsize()}')
-            info = self.info.get(entity.name)
-            if info is not None:
-                info.set_status(f'current queue size is {queue.qsize()}')
-                info.set_record(record)
 
     async def run_for(self, entity: QueueActionEntity):
         logger = with_prefix(self.logger, f'[{entity.name}] ')
@@ -88,12 +84,26 @@ class QueueAction(HttpAction):
                 self.logger.debug(f'(queued: {queue.qsize()}) processing record {record!r}')
                 await self.handle_single_record(logger, client, entity, record)
                 await asyncio.sleep(self.conf.consumption_delay)
+                self.update_info(entity, record)
         except Exception:
             logger.exception(f'unexpected error in background task, terminating')
 
+    def update_info(self, entity: QueueActionEntity, record: Record):
+        info = self.info.get(entity.name)
+        if info is None:
+            return
+        queue = self.queues[entity.name]
+        size = queue.qsize()
+        if size:
+            info.set_status(f'current queue size is {size}', record)
+        else:
+            info.clear()
+
     async def run(self) -> None:
         for entity in self.entities.values():
-            _ = self.controller.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
+            name = f'{self.conf.name}:{entity.name}'
+            info = self.info.get(entity.name)
+            _ = self.controller.create_task(self.run_for(entity), name=name, _info=info)
         await super().run()
 
     @abstractmethod
@@ -130,8 +140,9 @@ class TaskAction(HttpAction):
             logger.debug(f'task for record {record_id} is already running')
             return
         name = f'{self.conf.name}:{entity.name} {record_id}'
+        info = TaskStatus(self.conf.name, entity.name, record=record)
         client = self.get_client(entity)
-        task = self.controller.create_task(self._handle_record_task(logger, client, entity, record), name=name)
+        task = self.controller.create_task(self._handle_record_task(logger, client, entity, record), name=name, _info=info)
         task.add_done_callback(lambda _: self.tasks.pop(record_id))
         self.tasks[record_id] = task
 
