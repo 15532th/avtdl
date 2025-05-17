@@ -10,7 +10,7 @@ from aiohttp.abc import AbstractCookieJar
 from pydantic import Field, FilePath, PositiveInt, SerializeAsAny, field_validator
 
 from avtdl.core.db import BaseDbConfig, RecordDB
-from avtdl.core.interfaces import Action, ActionEntity, Event, EventType, Record, RuntimeContext
+from avtdl.core.interfaces import Action, ActionEntity, Event, EventType, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import Delay, HttpClient, RetrySettings, StateStorage
 from avtdl.core.utils import CookieStoreError, JSONType, SessionStorage, get_cookie_value, jwt_decode, load_cookies, \
@@ -223,7 +223,8 @@ class WithnyLive(Action):
                 self.logger.debug(f'[{entity.name}] task for stream {stream_id} is already running')
                 return
             name = f'{self.conf.name}:{entity.name} {stream_id}'
-            task = self.controller.create_task(self.handle_stream(entity, record), name=name)
+            info = TaskStatus(self.conf.name, entity.name, 'starting', record)
+            task = self.controller.create_task(self.handle_stream(entity, record, info), name=name, _info=info)
             task.add_done_callback(lambda _: self.tasks.pop(stream_id))
             self.tasks[stream_id] = task
 
@@ -307,7 +308,7 @@ class WithnyLive(Action):
                 self.logger.warning(f'[{entity.name}] {e}')
             return new_auth
 
-    async def handle_stream(self, entity: WithnyLiveEntity, record: WithnyRecord):
+    async def handle_stream(self, entity: WithnyLiveEntity, record: WithnyRecord, info: TaskStatus):
         session = self.sessions.get_session(entity.cookies_file, name=entity.name)
         client = HttpClient(self.logger, session)
 
@@ -315,8 +316,9 @@ class WithnyLive(Action):
         update_interval = float(entity.poll_interval)
         for attempt in range(entity.poll_attempts):
             await asyncio.sleep(update_interval)
-            self.logger.debug(
-                f'stream {record.stream_id} by {record.username}, attempt {attempt}: fetching live status')
+            msg = f'stream {record.stream_id} by {record.username}, attempt {attempt}: fetching live status'
+            self.logger.debug(msg)
+            info.set_status(msg)
             updated_record, update_interval = await self.fetch_updated_record(client, record, update_interval,
                                                                               entity.poll_interval)
             if updated_record is None:
@@ -345,8 +347,9 @@ class WithnyLive(Action):
                 time_left = record.scheduled - datetime.datetime.now(datetime.timezone.utc)
                 delay = time_left.total_seconds()
                 if delay > 0:
-                    self.logger.debug(
-                        f'stream {record.stream_id} is scheduled to {record.scheduled}, waiting for {time_left}: {record!r}')
+                    msg = f'stream {record.stream_id} is scheduled to {record.scheduled}, waiting for {time_left}: {record!r}'
+                    self.logger.debug(msg)
+                    info.set_status(msg)
                 else:
                     delay = entity.poll_interval
                 update_interval = delay

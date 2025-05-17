@@ -5,7 +5,7 @@ from typing import Dict, Optional, Sequence
 
 from pydantic import FilePath, NonNegativeFloat
 
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext, TaskStatus
 from avtdl.core.request import HttpClient
 from avtdl.core.utils import SessionStorage, with_prefix
 
@@ -59,6 +59,7 @@ class QueueAction(HttpAction):
         self.conf: QueueActionConfig
         self.entities: Mapping[str, QueueActionEntity]  # type: ignore
         self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
+        self.info: Dict[str, TaskStatus] = {entity.name: TaskStatus(self.conf.name, entity.name) for entity in entities}
 
     def get_client(self, entity: QueueActionEntity) -> HttpClient:
         return super().get_client(entity)
@@ -67,10 +68,15 @@ class QueueAction(HttpAction):
         try:
             queue = self.queues[entity.name]
             queue.put_nowait(record)
-            self.logger.debug(f'[{entity.name}] added new record to the queue, current queue size is {queue.qsize()}')
         except (asyncio.QueueFull, KeyError) as e:
             self.logger.exception(
                 f'[{entity.name}] failed to add url, {type(e)}: {e}. This is a bug, please report it.')
+        else:
+            self.logger.debug(f'[{entity.name}] added new record to the queue, current queue size is {queue.qsize()}')
+            info = self.info.get(entity.name)
+            if info is not None:
+                info.set_status(f'current queue size is {queue.qsize()}')
+                info.set_record(record)
 
     async def run_for(self, entity: QueueActionEntity):
         logger = with_prefix(self.logger, f'[{entity.name}] ')

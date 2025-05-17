@@ -397,11 +397,6 @@ class SessionStorage:
                     await session.close()
             self.logger.debug('done')
 
-    def run(self) -> None:
-        if self.task is None:
-            name = f'ensure_closed for {self.logger.name} ({self!r})'
-            self.task = asyncio.create_task(self.ensure_closed(), name=name)
-
 
 def strip_text(s: str, text: str) -> str:
     if s.startswith(text):

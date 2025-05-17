@@ -240,52 +240,17 @@ class TerminatedAction(int, Enum):
 
 @dataclass
 class TaskStatus:
-    name: str
-    status: str
-    actor_name: Optional[str] = None
-    entity_name: Optional[str] = None
+    actor: Optional[str]
+    entity: Optional[str]
+    status: str = ''
     record: Optional[Record] = None
 
-    @staticmethod
-    def task_status(task: asyncio.Task) -> str:
-        if task.done():
-            if task.cancelled():
-                return 'cancelled'
-            elif task.exception() is not None:
-                return f'failed: {task.exception()}'
-            else:
-                return 'done'
-        else:
-            return 'running'
-    @classmethod
-    def from_task(cls, task: asyncio.Task) -> 'TaskStatus':
-        name = task.get_name()
-        status = cls.task_status(task)
-        actor_name = None
-        entity_name = None
-        record = None
-        try:
-            stack = task.get_stack(limit=1)
-            args = stack[0].f_locals
-            for arg_name, arg_value in args.items():
-                if isinstance(arg_value, Actor):
-                    actor_name = arg_value.conf.name
-                elif isinstance(arg_value, ActorEntity):
-                    entity_name = arg_value.name
-                elif isinstance(arg_value, Record):
-                    record = arg_value
-        except Exception:
-            pass
-        return cls(name, status, actor_name, entity_name, record)
+    def set_status(self, status: str):
+        self.status = status
 
-    def as_json(self) -> Dict[str, Optional[str]]:
-        return {
-            'name': self.name,
-            'status': self.status,
-            'actor': self.actor_name,
-            'entity': self.entity_name,
-            'record': str(self.record) if self.record else None
-        }
+    def set_record(self, record: Record):
+        self.record = record
+
 
 class TasksController:
     class TerminatedError(KeyboardInterrupt):
@@ -298,12 +263,15 @@ class TasksController:
         self.termination_required = False
         self.terminated_action = TerminatedAction.EXIT
         self.tasks: set[asyncio.Task] = set()
+        self._info: Dict[asyncio.Task, Optional[TaskStatus]] = {}
 
-    def create_task(self, coro: Coroutine, *, name: Optional[str] = None) -> asyncio.Task:
+    def create_task(self, coro: Coroutine, *, name: Optional[str] = None,
+                    _info: Optional[TaskStatus] = None) -> asyncio.Task:
         task = asyncio.create_task(coro, name=name)
         if task in self.tasks:
             raise RuntimeError(f'newly created task {task} is already monitored')
         self.tasks.add(task)
+        self._info[task] = _info
         return task
 
     async def check_done_tasks(self, done: set[asyncio.Task]) -> None:
@@ -317,6 +285,7 @@ class TasksController:
             except asyncio.CancelledError:
                 self.logger.debug(f'task "{task.get_name()}" cancelled')
             self.tasks.discard(task)
+            self._info.pop(task)
 
     async def monitor_tasks(self) -> None:
         while not self.termination_required:
@@ -367,7 +336,7 @@ class TasksController:
         return self.terminated_action
 
     def get_status(self) -> List[TaskStatus]:
-        return [TaskStatus.from_task(task) for task in self.tasks]
+        return [status for status in self._info.values() if status is not None]
 
 
 class RuntimeContext:

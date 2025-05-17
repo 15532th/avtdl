@@ -8,7 +8,7 @@ from typing import Callable, Dict, Optional, Sequence
 from pydantic import FilePath
 
 from avtdl.core.db import BaseDbConfig, RecordDB
-from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext
+from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import Delay
 from avtdl.core.request import HttpClient
@@ -82,14 +82,15 @@ class TwitterSpace(Action):
             self.logger.debug(f'[{entity.name}] task for space {space_id} is already running')
             return
         name = f'{self.conf.name}:{entity.name} {space_id}'
-        task = self.controller.create_task(self.handle_space(entity, space_id, record), name=name)
+        info = TaskStatus(self.conf.name, entity.name, 'starting', record)
+        task = self.controller.create_task(self.handle_space(entity, space_id, record, info), name=name, _info=info)
         task.add_done_callback(lambda _: self.tasks.pop(space_id))
         self.tasks[space_id] = task
 
     async def run(self) -> None:
         await self.sessions.ensure_closed()
 
-    async def handle_space(self, entity: TwitterSpaceEntity, space_id: str, source_record: Record):
+    async def handle_space(self, entity: TwitterSpaceEntity, space_id: str, source_record: Record, info: TaskStatus):
         should_emit_something: bool = entity.emit_immediately
         should_emit_live_url: bool = entity.emit_on_live
         should_emit_replay_url: bool = entity.emit_on_archive
@@ -150,6 +151,7 @@ class TwitterSpace(Action):
         if self.db.record_exists(space, entity.name):
             self.logger.debug(f'[{entity.name}] space {space_id} has already been processed')
             return
+        info.set_status('fetching initial info')
         space.media_url = await self.wait_for_any_url(client, entity, space) or None
         self.db.store_records([space], entity.name)
 
@@ -159,12 +161,15 @@ class TwitterSpace(Action):
 
         while True:
             if SpaceState.is_upcoming(space):
+                info.set_status('waiting for space to start')
                 media_url = await self.wait_for_live(client, entity, space)
             elif SpaceState.is_ongoing(space):
+                info.set_status('waiting for space to end')
                 media_url = await self.wait_for_replay(client, entity, space)
                 if media_url == '':
                     self.logger.debug(f'[{entity.name}] media url unavailable for running space {space.url}, updating space metadata to see if it ended')
             elif SpaceState.has_ended(space):
+                info.set_status('fetching data for ended space')
                 media_url = await self.wait_for_any_url(client, entity, space)
                 if media_url == '':
                     self.logger.debug(f'[{entity.name}] space {space.url} has ended at {space.ended} and media url is unavailable. The space likely does not have archive at this point')

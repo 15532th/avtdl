@@ -11,7 +11,8 @@ from pydantic import field_validator
 from avtdl.core import utils
 from avtdl.core.config import Plugins
 from avtdl.core.formatters import Fmt, sanitize_filename
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, RuntimeContext
+from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, RuntimeContext, \
+    TaskStatus
 from avtdl.core.utils import check_dir
 
 Plugins.register('execute', Plugins.kind.ASSOCIATED_RECORD)(Event)
@@ -160,7 +161,9 @@ class Command(Action):
             return
         self.logger.debug(f'[{entity.name}] executing command "{command_line}" for record {record!r}')
         task = self.run_subprocess(args, task_id, working_dir, entity, record)
-        self.running_commands[task_id] = asyncio.get_event_loop().create_task(task, name=f'{self.conf.name}:{entity.name}:{task_id}')
+        name = f'{self.conf.name}:{entity.name}:{task_id}'
+        info = TaskStatus(self.conf.name, entity.name, command_line, record)
+        self.running_commands[task_id] = self.controller.create_task(task, name=name, _info=info)
 
         self._check_running_commands()
 

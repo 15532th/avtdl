@@ -15,8 +15,7 @@ from avtdl.core.cache import FileCache
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
-from avtdl.core.interfaces import AbstractRecordsStorage, Actor, Record, RuntimeContext, TaskStatus, \
-    TerminatedAction
+from avtdl.core.interfaces import AbstractRecordsStorage, Actor, Record, RuntimeContext, TaskStatus, TerminatedAction
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import JSONType, strip_text, write_file
 from avtdl.core.yaml import merge_data, yaml_dump
@@ -278,28 +277,29 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         return web.json_response(data, dumps=json_dumps)
 
     @staticmethod
-    def render_status_data(status_list: List[TaskStatus], actor: Optional[str]) -> dict:
+    def render_status_data(status_list: List[TaskStatus]) -> dict:
         if not status_list:
             return {}
-        headers = ['State', 'Actor', 'Entity', 'Record']
+        headers = ['Actor', 'Entity', 'Info', 'Record']
         data: dict = defaultdict(lambda: {'headers': headers, 'rows': []})
         for status in status_list:
-            if status.actor_name is None:
-                continue
-            if actor is not None and status.actor_name != actor:
-                continue
             record = record_preview(status.record) if status.record else ''
-            row = [status.status, status.actor_name, status.entity_name, record]
-            data[status.actor_name]['rows'].append(row)
+            row = [status.actor, status.entity, status.status, record]
+            data[status.actor]['rows'].append(row)
         return data
 
     async def tasks(self, request: web.Request) -> web.Response:
         actor_name = request.query.get('actor')
-        actor = self.actors.get(actor_name) if actor_name is not None else None
-        if actor_name is not None and actor is None:
-            raise web.HTTPBadRequest(text=f'actor "{actor_name}" is not found')
-        status_list = self.ctx.controller.get_status()
-        data = self.render_status_data(status_list, actor_name)
+        if actor_name is not None:
+            actor = self.actors.get(actor_name) if actor_name is not None else None
+            if actor is None:
+                raise web.HTTPBadRequest(text=f'actor "{actor_name}" is not found')
+            controller = actor.ctx.controller
+        else:
+            controller = self.ctx.controller
+
+        status_list = controller.get_status()
+        data = self.render_status_data(status_list)
         return web.json_response(data, dumps=json_dumps)
 
     async def viewable_plugins(self, request: web.Request) -> web.Response:
