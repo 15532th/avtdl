@@ -25,7 +25,7 @@ class CommunityPostInfo(BaseModel):
         post_id = find_one(post_renderer, '$.postId')
         avatar_url = find_one(post_renderer, '$.authorThumbnail.thumbnails.[::-1].url')
         if avatar_url is not None and str(avatar_url).startswith(r'//'):
-            avatar_url = 'https:' + avatar_url
+            avatar_url = f'https:{avatar_url}'
 
         vote_count = find_one(post_renderer, '$.voteCount.simpleText')
 
@@ -73,7 +73,7 @@ class SharedCommunityPostInfo(BaseModel):
         post_id = find_one(post_renderer, '$.postId')
         avatar_url = find_one(post_renderer, '$.thumbnail.thumbnails.[::-1].url')
         if avatar_url is not None and str(avatar_url).startswith(r'//'):
-            avatar_url = 'https:' + avatar_url
+            avatar_url = f'https:{avatar_url}'
 
         published_text = find_one(post_renderer, '$.publishedTimeText..text')
 
@@ -109,6 +109,7 @@ def render_text_item(item):
     else:
         text = ''.join(item['text'])
     return text.replace('\r', '')
+
 
 def get_renderers(data: Union[dict, list]) -> list:
     renderers = find_all(data, '$..backstagePostThreadRenderer')

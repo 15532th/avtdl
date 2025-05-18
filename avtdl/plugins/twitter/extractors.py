@@ -59,8 +59,7 @@ class TwitterRecord(Record):
 
     def __str__(self):
         tweet = self.retweet or self
-        elements = []
-        elements.append(tweet.url)
+        elements = [tweet.url]
         if self.retweet is not None:
             retweet_header = f'[{self.published.strftime("%Y-%m-%d %H:%M:%S")}] {self.author} (@{self.username}) has retweeted:'
             elements.append(retweet_header)
@@ -431,6 +430,8 @@ def parse_space(data: dict) -> 'TwitterSpaceRecord':
     metadata = find_one(data, '$..metadata')
     if metadata is None:
         raise ValueError(f'failed to parse space: no metadata found')
+    if not isinstance(metadata, dict):
+        raise ValueError(f'failed to parse space: unexpected metadata format')
     try:
         user_result = metadata['creator_results']['result']
         user = UserInfo.from_result(user_result)
