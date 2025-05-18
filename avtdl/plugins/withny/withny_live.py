@@ -316,9 +316,7 @@ class WithnyLive(Action):
         # wait for the stream to go live, return if there is no point waiting anymore
         update_interval = float(entity.poll_interval)
         for attempt in range(entity.poll_attempts):
-            info.set_status(f'attempt {attempt}/{entity.poll_attempts}, waiting for {update_interval}', record)
             await asyncio.sleep(update_interval)
-            info.set_status(f'attempt {attempt}/{entity.poll_attempts}, fetching stream status', record)
             msg = f'stream {record.stream_id} by {record.username}, attempt {attempt}: fetching live status'
             self.logger.debug(msg)
             updated_record, update_interval = await self.fetch_updated_record(client, record, update_interval,
@@ -355,6 +353,8 @@ class WithnyLive(Action):
                     info.set_status(msg)
                 else:
                     delay = entity.poll_interval
+                    msg = f'[{attempt}/{entity.poll_attempts}] waiting for stream to start, next check in {delay:.0f}'
+                    info.set_status(msg, record)
                 update_interval = delay
 
         else:
