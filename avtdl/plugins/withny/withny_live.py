@@ -14,7 +14,7 @@ from avtdl.core.interfaces import Action, ActionEntity, Event, EventType, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import Delay, HttpClient, RetrySettings, StateStorage
 from avtdl.core.utils import CookieStoreError, JSONType, SessionStorage, get_cookie_value, jwt_decode, load_cookies, \
-    save_cookies
+    save_cookies, utcnow
 from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
 
 
@@ -268,11 +268,12 @@ class WithnyLive(Action):
                                    base_update_interval: float) -> Tuple[Optional[WithnyRecord], float]:
         updated_record = None
         if record.schedule_id is not None:
-            self.logger.debug(f'stream {record.stream_id} is scheduled, using schedule_id')
-            url = f'https://www.withny.fun/api/schedules/{record.schedule_id}'
-            maybe_record_data, update_interval = await self.request_json(url, base_update_interval, update_interval,
-                                                                         client)
-            updated_record = self.parse_record(maybe_record_data, parse_schedule_record)
+            if record.scheduled is not None and record.scheduled > utcnow():
+                self.logger.debug(f'stream {record.stream_id} is scheduled, using schedule_id')
+                url = f'https://www.withny.fun/api/schedules/{record.schedule_id}'
+                maybe_record_data, update_interval = await self.request_json(url, base_update_interval,
+                                                                             update_interval, client)
+                updated_record = self.parse_record(maybe_record_data, parse_schedule_record)
         if record.schedule_id is None or updated_record is None:
             self.logger.debug(f'stream {record.stream_id} is not scheduled or schedule update failed, using stream_id')
             url = f'https://www.withny.fun/api/streams/with-rooms?username={record.username}'
