@@ -220,6 +220,8 @@ class RecordDB(BaseRecordDB):
             record = self.parse_record(row)
             if record is not None:
                 records.append(record)
+        if desc:
+            records = records[::-1]
         return records
 
     def feeds(self) -> List[Tuple[str, int]]:
