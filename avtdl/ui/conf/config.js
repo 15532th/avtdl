@@ -193,7 +193,7 @@ class ConfigEditor {
         actionBar.classList.add('action-bar');
         this.container.appendChild(actionBar);
 
-        const tasksButton = createButton('Running tasks', () => {TaskView.showView(this.container)}, 'action-button');
+        const tasksButton = createButton('Running Tasks', () => {TaskView.showView(this.container)}, 'action-button');
         tasksButton.title = 'Show tasks currently running for active actors'
         actionBar.appendChild(tasksButton);
 

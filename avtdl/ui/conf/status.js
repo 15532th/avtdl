@@ -204,7 +204,7 @@ class TaskView {
             container.appendChild(section);
             if (actorData.length == 0) {
                 const message = createElement('div', 'history-blank', section);
-                message.innerText = 'no tasks running';
+                message.innerText = 'no long-running tasks';
                 continue;
             }
 
@@ -214,7 +214,7 @@ class TaskView {
         }
         if (noData) {
             const message = createElement('div', 'history-blank', container);
-            message.innerText = 'no tasks running';
+            message.innerText = 'no long-running tasks at the moment';
         }
     }
 
