@@ -84,8 +84,6 @@ class TwitterRecord(Record):
         footer = {'text': 'Referring to:'} if quote else None
 
         text_items = [self.text]
-        if len(self.attachments) > 1:
-            text_items.extend(self.attachments)
         text = '\n'.join(text_items) if not self.retweet else None
 
         if self.retweet is not None:

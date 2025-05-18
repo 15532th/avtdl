@@ -68,7 +68,7 @@ class CommunityPostRecord(Record, CommunityPostInfo):
         if self.video_id and self.full_text.find(self.video_id) == -1:
             video = video_url(self.video_id)
         original_post = str(self.original_post) if self.original_post else ''
-        text = '\n'.join([self.full_text, attachments, video, original_post])
+        text = '\n'.join([self.full_text, video, original_post])
 
         embed: Dict[str, Any] = {
             'title': self.post_id,
@@ -155,6 +155,7 @@ class CommunityPostsMonitorEntity(PagedFeedMonitorEntity):
     update_interval: PositiveFloat = 1800
     """how often the community page will be checked for new posts"""
 
+
 @Plugins.register('community', Plugins.kind.ACTOR)
 class CommunityPostsMonitor(PagedFeedMonitor):
     """
@@ -233,4 +234,3 @@ class CommunityPostsMonitor(PagedFeedMonitor):
                 self.logger.debug(f'error parsing shared post renderer {item}: {e}')
                 continue
         return records
-
