@@ -113,6 +113,10 @@
     flex-direction: column;
 }
 
+.embed-container a {
+    color: #79acf0;
+}
+
 .embed-author {
     display: flex;
     align-items: center;
