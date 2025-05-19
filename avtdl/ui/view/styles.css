@@ -136,6 +136,16 @@
     font-family: monospace;
 }
 
+.embed-container blockquote {
+    background-color: #23272a;
+    color: #d3d3d3;
+    border-left: 4px solid #7289da;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    font-family: 'Arial', sans-serif;
+}
+
 .embed-author {
     display: flex;
     align-items: center;
