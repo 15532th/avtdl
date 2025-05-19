@@ -117,6 +117,25 @@
     color: #79acf0;
 }
 
+.embed-container pre {
+    background-color: #555555;
+    color: #dceffd;
+    padding: 15px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 1.5em;
+    white-space: pre-wrap;
+    overflow: auto;
+}
+
+.embed-container code {
+    background-color: #555555;
+    color: #dceffd;
+    padding: 2px 2px;
+    border-radius: 1px;
+    font-family: monospace;
+}
+
 .embed-author {
     display: flex;
     align-items: center;
