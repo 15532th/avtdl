@@ -54,7 +54,7 @@ def html_to_text(html: str, base_url: Optional[str] = None, markdown: bool = Fal
 @dataclasses.dataclass
 class Context:
     plaintext: bool = False
-
+    #  currently inside the following tags:
     a: bool = False
     pre: bool = False
     code: bool = False
@@ -90,8 +90,12 @@ def html_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
                 after = f'\n{src}\n'
             else:
                 # render images as regular links, they should already be included in attachments
-                alt = elem.get('alt') or src
-                after = f'\n[{alt}]({src})\n'
+                # for regular links containing image, drop image link and only keep text
+                text = elem.get('alt') or elem.get('title') or src
+                if ctx.a:
+                    after = text
+                else:
+                    after = f'\n[{text}]({src})\n'
 
     children = children_to_text2(elem, ctx)
     nodes = [before, elem.text, *children, after, elem.tail]
