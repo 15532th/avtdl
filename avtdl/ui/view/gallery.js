@@ -1,26 +1,13 @@
-// /**
-//  * @param {string} text
-//  */
-// function renderTextContent(text) {
-//     const container = document.createElement('div');
-//     const lines = text.split('\n');
-//     lines.forEach((line) => {
-//         const lineElement = createElement('span', undefined, container);
-//         lineElement.innerText = line;
-//         createElement('br', undefined, container);
-//     });
-//     return container;
-// }
-
 /**
  * @param {string} text
  */
 function renderTextContent(text) {
-    const div = document.createElement('div');
+    const currentFragment = document.createDocumentFragment();
 
     // Define the mapping of regex patterns to handlers
     const patterns = [
         {
+            // multiple newlines for paragraph
             regex: /^([^\n]+)\n\n+/,
             handler: (match) => {
                 const p = document.createElement('p');
@@ -30,6 +17,7 @@ function renderTextContent(text) {
             },
         },
         {
+            // single newline for line break
             regex: /^\n/,
             handler: (match) => {
                 const fragment = document.createDocumentFragment();
@@ -39,13 +27,45 @@ function renderTextContent(text) {
             },
         },
         {
-            regex: /^\[([^\]]*)\]\(([^\)]+)\)/,
+            //  triple backticks for ```code```
+            regex: /^```((?:(?!```).)*)```/,
+            handler: (match) => {
+                const pre = document.createElement('pre');
+                const code = document.createElement('code');
+                code.innerText = match[1];
+                pre.appendChild(code);
+                return pre;
+            },
+        },
+        {
+            // singular backticks for inline `code`
+            regex: /^`(?!`)([^`]+)`(?!`)/,
+            handler: (match) => {
+                const code = document.createElement('code');
+                code.innerText = match[1];
+                return code;
+            },
+        },
+        {
+            // ![alt](src) for image link
+            regex: /^!\[([^\]]*)\]\(([^\)]+)\)/,
             handler: (match) => {
                 return renderLink(match[2], match[1]);
             },
         },
         {
-            // links wrapped in ()
+            // [text content](href) for link
+            regex: /^\[([^\]]*)\]\(([^\)]+)\)/,
+            handler: (match) => {
+                const content = renderTextContent(match[1]);
+                const link = renderLink(match[2], null);
+                link.textContent = '';
+                link.appendChild(content);
+                return link;
+            },
+        },
+        {
+            // link wrapped in ()
             regex: /^\((https?:\/\/[^\s]+)\)/,
             handler: (match) => {
                 const fragment = document.createDocumentFragment();
@@ -56,12 +76,14 @@ function renderTextContent(text) {
             },
         },
         {
+            // plaintext link
             regex: /^https?:\/\/[^\s]+/,
             handler: (match) => {
                 return renderLink(match[0], match[0]);
             },
         },
         {
+            // **bold**
             regex: /^\*\*(.*?)\*\*/,
             handler: (match) => {
                 const fragment = document.createDocumentFragment();
@@ -72,6 +94,7 @@ function renderTextContent(text) {
             },
         },
         {
+            // *italic*
             regex: /^\*(.*?)\*/,
             handler: (match) => {
                 const fragment = document.createDocumentFragment();
@@ -94,11 +117,11 @@ function renderTextContent(text) {
             if (match) {
                 // Append buffered text if any
                 if (buffer) {
-                    div.appendChild(document.createTextNode(buffer));
+                    currentFragment.appendChild(document.createTextNode(buffer));
                     buffer = ''; // Clear the buffer
                 }
                 const fragment = handler(match);
-                div.appendChild(fragment);
+                currentFragment.appendChild(fragment);
                 currentIndex += match[0].length;
                 matched = true;
                 break; // Exit the loop after a match
@@ -114,10 +137,10 @@ function renderTextContent(text) {
 
     // Append any remaining buffered text at the end
     if (buffer) {
-        div.appendChild(document.createTextNode(buffer));
+        currentFragment.appendChild(document.createTextNode(buffer));
     }
 
-    return div;
+    return currentFragment;
 }
 
 /**
@@ -197,9 +220,9 @@ function renderEmbed(embed) {
     const embedBody = createElement('div', 'embed-body', embedDiv);
 
     if (embed.description) {
+        const descriptionContainer = createElement('div', 'embed-description', embedBody);
         const description = renderTextContent(embed.description);
-        description.classList.add('embed-description');
-        embedBody.appendChild(description);
+        descriptionContainer.appendChild(description);
     }
 
     if (embed.image) {

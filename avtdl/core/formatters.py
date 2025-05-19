@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 import logging
 import re
@@ -46,28 +47,65 @@ def html_to_text(html: str, base_url: Optional[str] = None, markdown: bool = Fal
         root = html_from_string(html, base_url)
     except Exception:
         return html
-    # text_content() skips <img> content altogether
-    # walk tree manually and for images containing links
-    # add them to text representation
-    for elem in root.iter():
-        if elem.tag == 'br':
-            elem.text = '\n'
-        if elem.tag == 'a':
-            link = elem.get('href')
-            if link is not None:
-                if elem.text_content():
-                    if markdown:
-                        elem.text = f'[{elem.text_content()}]({link})'
-                    else:
-                        elem.text = f'{elem.text_content()} ({link})'
-                else:
-                    elem.text = f'{link}'
-        if elem.tag == 'img':
-            image_link = elem.get('src')
-            if image_link is not None:
-                elem.text = f'\n{image_link}\n'
-    text = root.text_content()
-    return text
+    text_nodes = html_to_text2(root, Context(plaintext = not markdown))
+    return ''.join(text_nodes)
+
+
+@dataclasses.dataclass
+class Context:
+    plaintext: bool = False
+
+    a: bool = False
+    pre: bool = False
+    code: bool = False
+
+def html_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
+    before = None
+    after = None
+
+    if elem.tag == 'pre':
+        if not ctx.plaintext and not ctx.code and not ctx.pre:
+            before = after = '```'
+        ctx = dataclasses.replace(ctx, pre=True)
+    if elem.tag == 'code':
+        if not ctx.plaintext and not ctx.pre and not ctx.code:
+            before = after = '`'
+        ctx = dataclasses.replace(ctx, code=True)
+    if elem.tag == 'p':
+        after = '\n\n'
+    if elem.tag == 'br':
+        after = '\n'
+    if elem.tag == 'a':
+        ctx = dataclasses.replace(ctx, a=True)
+        href = elem.get('href')
+        if href is not None:
+            if ctx.plaintext:
+                after = f' ({href})'
+            else:
+                before, after = '[', f']({href})'
+    if elem.tag == 'img':
+        src = elem.get('src')
+        if src is not None:
+            if ctx.plaintext:
+                after = f'\n{src}\n'
+            else:
+                # render images as regular links, they should already be included in attachments
+                alt = elem.get('alt') or src
+                after = f'\n[{alt}]({src})\n'
+
+    children = children_to_text2(elem, ctx)
+    nodes = [before, elem.text, *children, after, elem.tail]
+    real_nodes = [node for node in nodes if node is not None]
+
+    return real_nodes
+
+
+def children_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
+    nodes = []
+    for child in elem.iterchildren():
+        child_nodes = html_to_text2(child, ctx=ctx)
+        nodes.extend(child_nodes)
+    return nodes
 
 
 def html_images(html: str, base_url: Optional[str]) -> List[str]:
