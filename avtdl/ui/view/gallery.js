@@ -1,17 +1,27 @@
+class Context {
+    constructor(a = false) {
+        this.a = a;
+    }
+}
+
 /**
  * @param {string} text
+ * @param {Context?} ctx
  */
-function renderTextContent(text) {
+function renderTextContent(text, ctx = null) {
     const currentFragment = document.createDocumentFragment();
+    if (ctx === null) {
+        ctx = new Context();
+    }
 
     // Define the mapping of regex patterns to handlers
     const patterns = [
         {
             // multiple newlines for paragraph
             regex: /^([^\n]+)\n\n+/,
-            handler: (match) => {
+            handler: (match, ctx) => {
                 const p = document.createElement('p');
-                const content = renderTextContent(match[1]);
+                const content = renderTextContent(match[1], ctx);
                 p.appendChild(content);
                 return p;
             },
@@ -19,7 +29,7 @@ function renderTextContent(text) {
         {
             // single newline for line break
             regex: /^\n/,
-            handler: (match) => {
+            handler: (match, ctx) => {
                 const fragment = document.createDocumentFragment();
                 const br = document.createElement('br');
                 fragment.appendChild(br);
@@ -28,8 +38,8 @@ function renderTextContent(text) {
         },
         {
             //  triple backticks for ```code```
-            regex: /^```((?:(?!```).)*)```/,
-            handler: (match) => {
+            regex: /^```((?:(?!```).)*)```/m,
+            handler: (match, ctx) => {
                 const pre = document.createElement('pre');
                 const code = document.createElement('code');
                 code.innerText = match[1];
@@ -40,7 +50,7 @@ function renderTextContent(text) {
         {
             // singular backticks for inline `code`
             regex: /^`(?!`)([^`]+)`(?!`)/,
-            handler: (match) => {
+            handler: (match, ctx) => {
                 const code = document.createElement('code');
                 code.innerText = match[1];
                 return code;
@@ -49,15 +59,21 @@ function renderTextContent(text) {
         {
             // ![alt](src) for image link
             regex: /^!\[([^\]]*)\]\(([^\)]+)\)/,
-            handler: (match) => {
-                return renderLink(match[2], match[1]);
+            handler: (match, ctx) => {
+                if (ctx.a) {
+                    return document.createTextNode(match[1]);
+                } else {
+                    return renderLink(match[2], match[1]);
+                }
             },
         },
         {
             // [text content](href) for link
             regex: /^\[([^\]]*)\]\(([^\)]+)\)/,
-            handler: (match) => {
-                const content = renderTextContent(match[1]);
+            handler: (match, ctx) => {
+                ctx.a = true;
+                const content = renderTextContent(match[1], ctx);
+                ctx.a = false;
                 const link = renderLink(match[2], null);
                 link.textContent = '';
                 link.appendChild(content);
@@ -67,7 +83,7 @@ function renderTextContent(text) {
         {
             // link wrapped in ()
             regex: /^\((https?:\/\/[^\s]+)\)/,
-            handler: (match) => {
+            handler: (match, ctx) => {
                 const fragment = document.createDocumentFragment();
                 fragment.appendChild(document.createTextNode('('));
                 fragment.appendChild(renderLink(match[1], match[1]));
@@ -78,14 +94,18 @@ function renderTextContent(text) {
         {
             // plaintext link
             regex: /^https?:\/\/[^\s]+/,
-            handler: (match) => {
-                return renderLink(match[0], match[0]);
+            handler: (match, ctx) => {
+                if (ctx.a) {
+                    return document.createTextNode(match[0]);
+                } else {
+                    return renderLink(match[0], match[0]);
+                }
             },
         },
         {
             // **bold**
             regex: /^\*\*(.*?)\*\*/,
-            handler: (match) => {
+            handler: (match, ctx) => {
                 const fragment = document.createDocumentFragment();
                 const strong = document.createElement('strong');
                 strong.textContent = match[1];
@@ -96,7 +116,7 @@ function renderTextContent(text) {
         {
             // *italic*
             regex: /^\*(.*?)\*/,
-            handler: (match) => {
+            handler: (match, ctx) => {
                 const fragment = document.createDocumentFragment();
                 const em = document.createElement('em');
                 em.textContent = match[1];
@@ -120,7 +140,7 @@ function renderTextContent(text) {
                     currentFragment.appendChild(document.createTextNode(buffer));
                     buffer = ''; // Clear the buffer
                 }
-                const fragment = handler(match);
+                const fragment = handler(match, ctx);
                 currentFragment.appendChild(fragment);
                 currentIndex += match[0].length;
                 matched = true;
