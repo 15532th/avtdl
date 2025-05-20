@@ -157,9 +157,16 @@ class UserInfo(BaseModel):
         handle = legacy['screen_name']
         name = legacy['name']
         description = legacy['description']
-        avatar_url = legacy['profile_image_url_https'].replace('_normal', '')
+        if 'avatar' in result:
+            avatar_url = result['avatar']['image_url']
+        else:
+            avatar_url = legacy['profile_image_url_https']
+        avatar_url = avatar_url.replace('_normal', '')
         banner_url = legacy.get('profile_banner_url')
-        location = legacy['location']
+        if 'location' in result:
+            location = result['location']['location']
+        else:
+            location = legacy['location']
         return cls(rest_id=rest_id, handle=handle, name=name, description=description, avatar_url=avatar_url, banner_url=banner_url, location=location)
 
 
