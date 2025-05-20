@@ -102,10 +102,11 @@ function createDefinition(text, title) {
  * @param {string?} className
  * @param {HTMLElement?} parentElement
  */
-function createImage(src, className, parentElement=null) {
+function createImage(src, className, parentElement = null) {
     const img = document.createElement('img');
     img.src = src;
     img.alt = src;
+    img.referrerPolicy = 'no-referrer';
     if (className) {
         img.classList.add(className);
     }

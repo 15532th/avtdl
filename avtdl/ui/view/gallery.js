@@ -267,11 +267,7 @@ function renderEmbed(embed) {
     }
 
     if (embed.thumbnail && embed.thumbnail.url) {
-        const thumbnail = document.createElement('img');
-        thumbnail.classList.add('embed-thumbnail');
-        thumbnail.src = embed.thumbnail.url;
-        thumbnail.alt = embed.thumbnail.url;
-        embedBody.appendChild(thumbnail);
+        createImage(embed.thumbnail.src, 'embed-thumbnail', embedBody);
     }
 
     if (embed.fields && Array.isArray(embed.fields)) {
