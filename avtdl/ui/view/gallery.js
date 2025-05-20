@@ -485,6 +485,7 @@ class Pagination {
      */
     constructor(container) {
         this.container = container;
+        this.keyboardEventAdded = false;
     }
 
     /**
@@ -496,12 +497,15 @@ class Pagination {
         this.container.innerHTML = '';
 
         const onFirstPage = currentPage <= 1;
-        this.addPageLink('«', 1, baseUrl, onFirstPage);
-        this.addPageLink('‹', currentPage - 1, baseUrl, onFirstPage);
+        const previousPageUrl = this.getPageUrl(baseUrl, currentPage - 1);
+
+        this.addPageLink('«', this.getPageUrl(baseUrl, 1), onFirstPage);
+        this.addPageLink('‹', previousPageUrl, onFirstPage);
 
         const pageNumbers = this.getPageNumbers(currentPage, totalPages);
         pageNumbers.forEach((page) => {
-            const pageLink = this.createPageLink(page.toString(), page, baseUrl);
+            const pageUrl = this.getPageUrl(baseUrl, page);
+            const pageLink = this.createPageLink(page.toString(), pageUrl);
             if (page === currentPage) {
                 pageLink.classList.add('active');
             }
@@ -509,27 +513,49 @@ class Pagination {
         });
 
         const onLastPage = currentPage >= totalPages;
-        this.addPageLink('›', currentPage + 1, baseUrl, onLastPage);
-        this.addPageLink('»', totalPages, baseUrl, onLastPage);
+        const nextPageUrl = this.getPageUrl(baseUrl, currentPage + 1);
+
+        this.addPageLink('›', nextPageUrl, onLastPage);
+        this.addPageLink('»', this.getPageUrl(baseUrl, totalPages), onLastPage);
+
+        if (!this.keyboardEventAdded) {
+            this.addKeyboardNavigation(onFirstPage ? null : previousPageUrl, onLastPage ? null : nextPageUrl);
+            this.keyboardEventAdded = true;
+        }
+    }
+
+    /**
+     * @param {string | null} previousPageLink
+     * @param {string | null} nextPageLink
+     */
+    addKeyboardNavigation(previousPageLink, nextPageLink) {
+        document.addEventListener('keydown', (event) => {
+            if (event.ctrlKey) {
+                if (previousPageLink && event.key === 'ArrowLeft') {
+                    window.location.href = previousPageLink;
+                }
+                if (nextPageLink && event.key === 'ArrowRight') {
+                    window.location.href = nextPageLink;
+                }
+            }
+        });
     }
 
     /**
      * @param {string} text
-     * @param {number} page
-     * @param {string} baseUrl
+     * @param {string} url
      */
-    addPageLink(text, page, baseUrl, disabled = false) {
-        const link = this.createPageLink(text, page, baseUrl, disabled);
+    addPageLink(text, url, disabled = false) {
+        const link = this.createPageLink(text, url, disabled);
         this.container.appendChild(link);
     }
 
     /**
      * @param {string} text
-     * @param {number} page
-     * @param {string} baseUrl
+     * @param {string} url
      * @returns {HTMLElement}
      */
-    createPageLink(text, page, baseUrl, disabled = false) {
+    createPageLink(text, url, disabled = false) {
         if (disabled) {
             const span = document.createElement('span');
             span.textContent = text;
@@ -540,7 +566,7 @@ class Pagination {
             link.textContent = text;
             link.classList.add('pagination-link');
 
-            link.href = this.getPageUrl(baseUrl, page);
+            link.href = url;
             return link;
         }
     }
