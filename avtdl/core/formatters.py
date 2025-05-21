@@ -53,24 +53,25 @@ def html_to_text(html: str, base_url: Optional[str] = None, markdown: bool = Fal
 
 @dataclasses.dataclass
 class Context:
-    plaintext: bool = False
-    #  currently inside the following tags:
-    a: bool = False
-    pre: bool = False
-    code: bool = False
+    plaintext: bool = False # should be rendered in plaintext mode
+    a: bool = False # inside <a>
+    pre: bool = False # inside <pre>
+    code: bool = False # inside <code>
 
 def html_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
     before = None
     after = None
+    children = None
 
-    if elem.tag == 'pre':
+    if elem.tag == 'pre' or elem.tag == 'code':
         if not ctx.plaintext and not ctx.code and not ctx.pre:
-            before = after = '```'
-        ctx = dataclasses.replace(ctx, pre=True)
-    if elem.tag == 'code':
-        if not ctx.plaintext and not ctx.pre and not ctx.code:
-            before = after = '`'
-        ctx = dataclasses.replace(ctx, code=True)
+            ctx = dataclasses.replace(ctx, **{elem.tag: True})
+            children = children_to_text2(elem, ctx)
+            if is_multiline(elem, children):
+                before = after = '```'
+            else:
+                before = after = '`'
+        ctx = dataclasses.replace(ctx, **{elem.tag: True})
     if elem.tag == 'p':
         after = '\n\n'
     if elem.tag == 'br':
@@ -97,11 +98,27 @@ def html_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
                 else:
                     after = f'\n[{text}]({src})\n'
 
-    children = children_to_text2(elem, ctx)
+    if children is None:
+        children = children_to_text2(elem, ctx)
+    if not ctx.pre:
+        if elem.text is not None:
+            elem.text = re.sub(r'\n+$', '', elem.text)
+        if elem.tail is not None:
+            elem.tail = re.sub(r'\n+$', '', elem.tail)
+
     nodes = [before, elem.text, *children, after, elem.tail]
     real_nodes = [node for node in nodes if node is not None]
 
     return real_nodes
+
+
+def is_multiline(elem: lxml.html.HtmlElement, children: List[str]) -> bool:
+    if elem.text is not None and '\n' in elem.text:
+        return True
+    for text_node in children:
+        if '\n' in text_node:
+            return True
+    return False
 
 
 def children_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:

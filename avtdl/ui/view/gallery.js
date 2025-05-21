@@ -18,7 +18,7 @@ function renderTextContent(text, ctx = null) {
     const patterns = [
         {
             // multiple newlines for paragraph
-            regex: /^([^\n]+)\n\n+/,
+            regex: /^((?!\n\n).+)\n\n/,
             handler: (match, ctx) => {
                 const p = document.createElement('p');
                 const content = renderTextContent(match[1], ctx);
@@ -38,7 +38,7 @@ function renderTextContent(text, ctx = null) {
         },
         {
             //  triple backticks for ```code```
-            regex: /^```((?:(?!```).)*)```/m,
+            regex: /^```((?:(?!```).)*)```/s,
             handler: (match, ctx) => {
                 const pre = document.createElement('pre');
                 const code = document.createElement('code');
