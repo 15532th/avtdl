@@ -40,20 +40,21 @@ def html_from_string(html: str, base_url: Optional[str] = None) -> lxml.html.Htm
         raise
 
 
-def html_to_text(html: str, base_url: Optional[str] = None, markdown: bool = False) -> str:
+def html_to_text(html: str, base_url: Optional[str] = None, markdown: bool = False, strip_img: bool = False) -> str:
     """Take html fragment, try to parse it and convert to text using lxml
     Convert links to markdown representation if markdown is True"""
     try:
         root = html_from_string(html, base_url)
     except Exception:
         return html
-    text_nodes = html_to_text2(root, Context(plaintext = not markdown))
+    text_nodes = html_to_text2(root, Context(plaintext = not markdown, strip_img=strip_img))
     return ''.join(text_nodes)
 
 
 @dataclasses.dataclass
 class Context:
-    plaintext: bool = False # should be rendered in plaintext mode
+    plaintext: bool = False # element should be rendered in plaintext mode
+    strip_img: bool = False # all <img> should be dropped
     a: bool = False # inside <a>
     pre: bool = False # inside <pre>
     code: bool = False # inside <code>
@@ -80,23 +81,32 @@ def html_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
         ctx = dataclasses.replace(ctx, a=True)
         href = elem.get('href')
         if href is not None:
+            children = children_to_text2(elem, ctx)
+
+            text_is_empty = not elem.text and (not children or not any(children))
+            if text_is_empty: # link has no content, likely because it contained now stripped image
+                children = [href]
+
             if ctx.plaintext:
                 after = f' ({href})'
             else:
                 before, after = '[', f']({href})'
     if elem.tag == 'img':
-        src = elem.get('src')
-        if src is not None:
-            if ctx.plaintext:
-                after = f'\n{src}\n'
-            else:
-                # render images as regular links, they should already be included in attachments
-                # for regular links containing image, drop image link and only keep text
-                text = elem.get('alt') or elem.get('title') or src
-                if ctx.a:
-                    after = text
+        if ctx.strip_img:
+            elem.text = None
+        else:
+            src = elem.get('src')
+            if src is not None:
+                if ctx.plaintext:
+                    after = f'\n{src}\n'
                 else:
-                    after = f'\n[{text}]({src})\n'
+                    # render images as regular links, they should already be included in attachments
+                    # for regular links containing image, drop image link and only keep text
+                    text = elem.get('alt') or elem.get('title') or src
+                    if ctx.a:
+                        after = text
+                    else:
+                        after = f'\n[{text}]({src})\n'
 
     if children is None:
         children = children_to_text2(elem, ctx)

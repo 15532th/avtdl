@@ -54,14 +54,12 @@ class GenericRSSRecord(Record):
         """if "summary" field contains <img>, strip them and put links into "attachments" field"""
         if not self.attachments:
             self.attachments = html_images(self.summary, self.url)
-            for link in self.attachments:
-                self.summary = self.summary.replace(link, '')
         return self
 
     def as_embed(self) -> List[dict]:
         embed: Dict[str, Any] = {
             'title': self.title,
-            'description': html_to_text(self.summary, self.url, markdown=True),
+            'description': html_to_text(self.summary, self.url, markdown=True, strip_img=True),
             'url': self.url,
             'color': None,
             'author': {'name': self.author},
