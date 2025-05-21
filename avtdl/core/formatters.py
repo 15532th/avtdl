@@ -59,9 +59,12 @@ class Context:
     pre: bool = False # inside <pre>
     code: bool = False # inside <code>
 
+
 def html_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
     before = None
     after = None
+    text = elem.text
+    tail = elem.tail
     children = None
 
     if elem.tag == 'pre' or elem.tag == 'code':
@@ -92,9 +95,7 @@ def html_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
             else:
                 before, after = '[', f']({href})'
     if elem.tag == 'img':
-        if ctx.strip_img:
-            elem.text = None
-        else:
+        if not ctx.strip_img:
             src = elem.get('src')
             if src is not None:
                 if ctx.plaintext:
@@ -110,13 +111,18 @@ def html_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
 
     if children is None:
         children = children_to_text2(elem, ctx)
+    if not ctx.plaintext and not (ctx.pre or ctx.code or ctx.a):
+        if text is not None:
+            text = escape_markdown(text)
+        # if tail is not None:
+        #     tail = escape_markdown(tail)
     if not ctx.pre:
-        if elem.text is not None:
-            elem.text = re.sub(r'\n+$', '', elem.text)
-        if elem.tail is not None:
-            elem.tail = re.sub(r'\n+$', '', elem.tail)
+        if text is not None:
+            text = re.sub(r'\n+$', '', text)
+        if tail is not None:
+            tail = re.sub(r'\n+$', '', tail)
 
-    nodes = [before, elem.text, *children, after, elem.tail]
+    nodes = [before, text, *children, after, tail]
     real_nodes = [node for node in nodes if node is not None]
 
     return real_nodes
@@ -137,6 +143,12 @@ def children_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
         child_nodes = html_to_text2(child, ctx=ctx)
         nodes.extend(child_nodes)
     return nodes
+
+
+def escape_markdown(text: str) -> str:
+    """Escape markdown special characters"""
+    escaped = re.sub(r'([\\`*_{}\[\]()#+-.!])', r'\\\1', text)
+    return escaped
 
 
 def html_images(html: str, base_url: Optional[str]) -> List[str]:

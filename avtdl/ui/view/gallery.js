@@ -18,6 +18,13 @@ function renderTextContent(text, ctx = null) {
     // Define the mapping of regex patterns to handlers
     const patterns = [
         {
+            //escaped characters
+            regex: /^\\([\\`*_{}\[\]()#+-.!])/,
+            handler: (match, ctx) => {
+                return document.createTextNode(match[1]);
+            },
+        },
+        {
             // multiple newlines for paragraph
             regex: /^((?!\n\n).+)\n\n\n?/,
             handler: (match, ctx) => {
