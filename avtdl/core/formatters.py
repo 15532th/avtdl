@@ -68,7 +68,7 @@ def html_to_text2(elem: lxml.html.HtmlElement, ctx: Context) -> List[str]:
         if not ctx.plaintext and not ctx.code and not ctx.pre:
             ctx = dataclasses.replace(ctx, **{elem.tag: True})
             children = children_to_text2(elem, ctx)
-            if is_multiline(elem, children):
+            if elem.tag == 'pre' or is_multiline(elem, children):
                 before = after = '```'
             else:
                 before = after = '`'
