@@ -1,6 +1,7 @@
 class Context {
-    constructor(a = false) {
-        this.a = a;
+    constructor(a = false, newLine = false) {
+        this.a = a; // inside a link
+        this.newLine = newLine; // current position is a beginning of new line
     }
 }
 
@@ -103,6 +104,26 @@ function renderTextContent(text, ctx = null) {
             },
         },
         {
+            // >blockquote
+            regex: /^>(.*)\n/,
+            handler: (match, ctx) => {
+                if (ctx.a || !ctx.newLine) {
+                    // not actually a blockquote, render consumed text normally
+                    const contentWrapper = document.createDocumentFragment();
+                    contentWrapper.appendChild(document.createTextNode('>'));
+                    const content = renderTextContent(match[1], ctx);
+                    contentWrapper.appendChild(content);
+                    return contentWrapper;
+                } else {
+                    // actually a blockquote
+                    const blockquote = document.createElement('blockquote');
+                    const content = renderTextContent(match[1], ctx);
+                    blockquote.appendChild(content);
+                    return blockquote;
+                }
+            },
+        },
+        {
             // **bold**
             regex: /^\*\*(.*?)\*\*/,
             handler: (match, ctx) => {
@@ -140,6 +161,7 @@ function renderTextContent(text, ctx = null) {
                     currentFragment.appendChild(document.createTextNode(buffer));
                     buffer = ''; // Clear the buffer
                 }
+                ctx.newLine = currentIndex == 0 || (currentIndex > 0 && text[currentIndex - 1] == '\n');
                 const fragment = handler(match, ctx);
                 currentFragment.appendChild(fragment);
                 currentIndex += match[0].length;
