@@ -154,8 +154,12 @@ class UserInfo(BaseModel):
 
         legacy = result['legacy']
 
-        handle = legacy['screen_name']
-        name = legacy['name']
+        if 'core' in result:
+            handle = result['core']['screen_name']
+            name = result['core']['name']
+        else:
+            handle = legacy['screen_name']
+            name = legacy['name']
         description = legacy['description']
         if 'avatar' in result:
             avatar_url = result['avatar']['image_url']
