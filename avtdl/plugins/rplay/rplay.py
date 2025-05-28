@@ -503,33 +503,33 @@ class RplayUrl:
             'published', 'publishedClips', 'playlists', 'communityPosts', 'pinnedPost' - list of contentOid
         }
         """
-        url = f'https://api.rplay-cdn.com/live/play'
+        url = f'https://api.rplay.live/live/play'
         params = {'creatorOid': oid, 'key': key, 'lang': 'en', 'requestorOid': requestor_id or '6596e71c04a7ea2fd7c36ae7'}
         return RequestDetails(url=url, params=params)
 
     @staticmethod
     def getuser_by_oid(creator_oid: str) -> RequestDetails:
         """get user info and live status by userOid"""
-        url = f'https://api.rplay-cdn.com/account/getuser'
+        url = f'https://api.rplay.live/account/getuser'
         params = {'userOid': creator_oid, 'filter[]': ['_id', 'nickname', 'creatorTags'], 'lang': 'en'}
         return RequestDetails(url=url, params=params)
 
     @staticmethod
     def getuser_by_name(cursom_url: str) -> RequestDetails:
         """get user info and live status by custom channel url"""
-        url = f'https://api.rplay-cdn.com/account/getuser'
+        url = f'https://api.rplay.live/account/getuser'
         params = {'customUrl': cursom_url, 'filter[]': ['_id', 'nickname', 'creatorTags'], 'lang': 'en'}
         return RequestDetails(url=url, params=params)
 
     @staticmethod
     def subscriptions(oid: str) -> RequestDetails:
-        url = f'https://api.rplay-cdn.com/account/getuser'
+        url = f'https://api.rplay.live/account/getuser'
         params = {'userOid': oid, 'filter[]': ['_id', 'nickname', 'subscribingTo'], 'lang': 'en'}
         return RequestDetails(url=url, params=params)
 
     @staticmethod
     def bulkgetusers(oids: List[str]) -> RequestDetails:
-        url = f'https://api.rplay-cdn.com/account/bulkgetusers'
+        url = f'https://api.rplay.live/account/bulkgetusers'
         params = {'users': '|'.join(oids),
                   'toGrab': '|'.join(['_id', 'nickname', 'lastPubDate', 'creatorTags', 'isLive']), 'lang': 'en'}
         return RequestDetails(url=url, params=params)
@@ -550,21 +550,21 @@ class RplayUrl:
 
     @staticmethod
     def playlist(creator_oid: str, key: str = '', key2: str = '') -> RequestDetails:
-        url = 'https://api.rplay-cdn.com/live/stream/playlist.m3u8'
+        url = 'https://api.rplay.live/live/stream/playlist.m3u8'
         params = {'creatorOid': creator_oid, 'key': key, 'key2': key2}
         return RequestDetails(url=url, params=params)
 
     @staticmethod
     def key2(user: User) -> RequestDetails:
         """response is the key as a plaintext"""
-        url = f'https://api.rplay-cdn.com/live/key2'
+        url = f'https://api.rplay.live/live/key2'
         params = {'requestorOid': user.user_oid, 'loginType': 'plax'}
         headers = user.get_auth_header()
         return RequestDetails(url=url, params=params, headers=headers)
 
     @staticmethod
     def login(token: str) -> RequestDetails:
-        url = f'https://api.rplay-cdn.com/account/login'
+        url = f'https://api.rplay.live/account/login'
         data = {'checkAdmin': None, 'lang': 'en', 'loginType': None, 'token': token}
         headers = {'Content-Type': 'application/json'}
         return RequestDetails(url=url, method='POST', data=json.dumps(data), headers=headers)
