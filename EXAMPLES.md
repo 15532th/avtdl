@@ -4,6 +4,10 @@ This file provides examples of configurations file that are meant to achieve a c
 
 Every example is meant to be a valid configuration file, that can be used standalone or as part of a bigger config. See also [configuration file example](example.config.yml), that can be used as a starting point.
 
+Names and urls used in configuration does not have to point to existing channels for the configuration to be considered valid. On the other hand, the `cookies_file` parameter, if used, must point to existing file in [correct format](README.md#cookiesfile).
+
+When avtdl is running, it is possible to change current config in the [web interface](avtdl/ui/info/info.md) (restart required). Manually created configuration can be edited in the web ui and vice versa.
+
 ---
 
 <!-- TOC -->
@@ -718,9 +722,7 @@ The [rplay](PLUGINS.md#rplay---monitor-livestreams-on-rplay) monitor works by lo
 
 While yt-dlp does not support RPLAY yet, there is a [fork](https://github.com/c-basalt/yt-dlp/tree/rplay-native), that implements this functionality ([pull request](https://github.com/c-basalt/yt-dlp/tree/rplay-native) pending).
 
-One way to get a specific version of yt-dlp running would be to clone or download and unpack the [repo](https://github.com/c-basalt/yt-dlp/archive/refs/heads/rplay-native.zip), install requirements by running `pip3 install -r requirements.txt` in the project directory and use one of the `yt-dlp.sh`/`yt-dlp.cmd` scripts in place of yt-dlp executable.
-
-Note that, in order for it to work, Python and the yt-dlp dependencies must be installed (perhaps, by installing yt-dlp itself from PyPI).
+One way to get a specific version of yt-dlp running would be to clone or download and unpack the [repo](https://github.com/c-basalt/yt-dlp/archive/refs/heads/rplay-native.zip), install requirements by running `pip3 install -r requirements.txt` in the project directory (Python must be installed and added to `PATH` to run `pip`) and use one of the `yt-dlp.sh`/`yt-dlp.cmd` scripts in place of yt-dlp executable. 
 
 
 ```yaml
