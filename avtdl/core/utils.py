@@ -390,12 +390,15 @@ class SessionStorage:
         try:
             await asyncio.Future()
         except (asyncio.CancelledError, KeyboardInterrupt):
-            self.logger.debug('closing http sessions...')
-            for session_id, session in self.sessions.items():
-                if not session.closed:
-                    self.logger.debug(f'closing session "{session_id}"')
-                    await session.close()
-            self.logger.debug('done')
+            await self.close()
+
+    async def close(self) -> None:
+        self.logger.debug('closing http sessions...')
+        for session_id, session in self.sessions.items():
+            if not session.closed:
+                self.logger.debug(f'closing session "{session_id}"')
+                await session.close()
+        self.logger.debug('done')
 
 
 def strip_text(s: str, text: str) -> str:
