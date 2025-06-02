@@ -102,10 +102,11 @@ function createDefinition(text, title) {
  * @param {string?} className
  * @param {HTMLElement?} parentElement
  */
-function createImage(src, className, parentElement = null) {
+function createImage(src, className, parentElement = null, load = true) {
     const img = document.createElement('img');
-    img.src = src;
     img.alt = src;
+    img.setAttribute('data-src', src);
+    toggleImageState(img, load);
     img.referrerPolicy = 'no-referrer';
     if (className) {
         img.classList.add(className);
@@ -114,6 +115,18 @@ function createImage(src, className, parentElement = null) {
         parentElement.appendChild(img);
     }
     return img;
+}
+
+/**
+ * @param {HTMLImageElement} img
+ * @param {boolean} state
+ */
+function toggleImageState(img, state) {
+    if (!img.dataset.src) {
+        console.log('toggleImageState called on image without data-src set:', img);
+        return;
+    }
+    img.src = state ? img.dataset.src : 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 }
 
 /**
@@ -656,4 +669,92 @@ function renderModal(parent, onClose = () => {}) {
         }
     });
     return container;
+}
+
+class DataStorage {
+    /**
+     * Create storage object mapped to value stored in LocalStorage
+     * on a given key
+     * @param {string} key
+     */
+    constructor(key) {
+        this.key = `avtdl:${key}`;
+        this.data = this.loadFromLocalStorage(this.key) || {};
+    }
+
+    /**
+     * @param {string} key
+     * @returns {string?}
+     */
+    get(key) {
+        return this.data[key.toString()] || null;
+    }
+
+    /**
+     * @param {string} key
+     * @param {string} value
+     */
+    set(key, value) {
+        this.data[key.toString()] = value.toString();
+        this.storeInLocalStorage(this.key, this.data);
+    }
+
+    isLocalStorageAvailable() {
+        try {
+            localStorage.setItem('__test__', 'test');
+            localStorage.removeItem('__test__');
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * @param {string} key
+     */
+    localStorageHasKey(key) {
+        if (!this.isLocalStorageAvailable()) {
+            console.warn('localStorage is not available.');
+            return false;
+        }
+        return localStorage.getItem(key) !== null;
+    }
+
+    /**
+     * @param {string} key
+     * @returns {object?}
+     */
+    loadFromLocalStorage(key) {
+        if (!this.isLocalStorageAvailable()) {
+            console.warn('localStorage is not available.');
+            return null;
+        }
+        const jsonString = localStorage.getItem(key);
+        if (!jsonString) {
+            return null;
+        }
+        try {
+            return JSON.parse(jsonString);
+        } catch (error) {
+            console.error('Error loading JSON from localStorage:', error);
+            return null;
+        }
+    }
+
+    /**
+     * @param {string} key
+     * @param {object} jsonObject
+     */
+    storeInLocalStorage(key, jsonObject) {
+        if (!this.isLocalStorageAvailable()) {
+            console.warn('localStorage is not available.');
+            return;
+        }
+        try {
+            const jsonString = JSON.stringify(jsonObject);
+            localStorage.setItem(key, jsonString);
+        } catch (error) {
+            console.error('Error storing JSON in localStorage:', error);
+        }
+    }
 }

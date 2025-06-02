@@ -35,6 +35,61 @@ class Sidebar {
     }
 }
 
+class ViewState {
+    /**
+     * @param {string} actor
+     * @param {string?} view
+     * @param {string?} entity
+     */
+    constructor(actor, view, entity) {
+        this.defaultValue = true;
+        this.storage = new DataStorage(`view:${actor}:${view}:${entity}`);
+    }
+
+    /**
+     * @param {string} key
+     * @param {boolean} newValue
+     */
+    setBoolValue(key, newValue) {
+        this.storage.set(key, newValue ? '1' : '0');
+    }
+
+    /**
+     * @param {string} key
+     */
+    getBoolValue(key) {
+        const value = this.storage.get(key);
+        if (value === null) {
+            return this.defaultValue;
+        }
+        return value == '1';
+    }
+
+    get showImages() {
+        return this.getBoolValue('showImages');
+    }
+
+    set showImages(newValue) {
+        this.setBoolValue('showImages', newValue);
+    }
+
+    get gridView() {
+        return this.getBoolValue('gridView');
+    }
+
+    set gridView(newValue) {
+        this.setBoolValue('gridView', newValue);
+    }
+
+    get fullDescriptions() {
+        return this.getBoolValue('fullDescription');
+    }
+
+    set fullDescriptions(newValue) {
+        this.setBoolValue('fullDescription', newValue);
+    }
+}
+
 class RecordsView {
     /**
      * @param {HTMLElement} container
@@ -46,6 +101,8 @@ class RecordsView {
         this.originalPageTitle = document.title;
 
         this.container.innerHTML = '';
+
+        this.viewState = this.getViewState();
 
         const galleryContainer = createElement('div', 'gallery', this.container);
         this.gallery = new Gallery(galleryContainer);
@@ -62,47 +119,97 @@ class RecordsView {
         return await fetchJSON(path, messageArea);
     }
 
-    async render() {
+    params() {
         const params = new URLSearchParams(window.location.search);
         const actor = params.get('actor');
         const view = params.get('view');
         const entity = params.get('entity');
 
         const pageParam = params.get('page');
-        const page = pageParam ? parseInt(pageParam, 10) : null;
+        const pageValue = pageParam ? parseInt(pageParam, 10) : null;
+        const page = pageValue ? pageValue.toString() : null;
 
         const perPage = params.get('size');
 
+        return {
+            actor: actor,
+            view: view,
+            entity: entity,
+            page: page,
+            size: perPage,
+        };
+    }
+
+    /**
+     * @param {URL} url
+     * @param {{ [s: string]: string?; }} params
+     */
+    setUrlParams(url, params) {
+        for (const [key, value] of Object.entries(params)) {
+            if (value) {
+                url.searchParams.set(key, value);
+            }
+        }
+    }
+
+    getViewState() {
+        const params = this.params();
+        return new ViewState(params.actor || 'missing', params.view, params.entity);
+    }
+
+    async render() {
+        const params = this.params();
+
         document.title = this.originalPageTitle;
 
-        if (!actor) {
+        if (!params.actor) {
             this.container.innerText = 'Select plugin from menu on the left.';
             return;
         }
         const url = new URL('/records', window.location.origin);
-        url.searchParams.set('actor', actor);
-        if (view) {
-            url.searchParams.set('view', view);
-        }        if (entity) {
-            url.searchParams.set('entity', entity);
-        }
-        if (page) {
-            url.searchParams.set('page', page.toString());
-        }
-        if (perPage) {
-            url.searchParams.set('size', perPage);
-        }
+        this.setUrlParams(url, params);
 
         const data = await this.fetchJSON(url);
         if (data === null) {
             this.container.innerText = 'Select plugin from menu on the left.';
             return;
         }
-        this.gallery.render(data['records']);
+
+        this.gallery.render(
+            data['records'],
+            this.viewState.showImages,
+            this.viewState.gridView,
+            this.viewState.fullDescriptions
+        );
         this.pages.render(data['current'], data['total'], window.location.pathname + window.location.search);
 
-        document.title = `${view || entity} / ${actor} — avtdl`;
+        document.title = `${params.view || params.entity} / ${params.actor} — avtdl`;
     }
+}
+
+/**
+ * @param {Function} callback0
+ * @param {Function} callback1
+ * @param {string} text0
+ * @param {string} text1
+ * @param {string?} hint0
+ * @param {string?} hint1
+ * @param {boolean} initialState
+ */
+function renderToggleButton(callback0, callback1, text0, text1, hint0, hint1, initialState = false) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    let currentState = !initialState;
+    const toggle = () => {
+        currentState = !currentState;
+        button.innerText = currentState ? text1 : text0;
+        button.title = (currentState ? hint1 : hint0) || '';
+        const callback = currentState ? callback1 : callback0;
+        callback();
+    };
+    toggle();
+    button.onclick = toggle;
+    return button;
 }
 
 class ViewControls {
@@ -110,20 +217,64 @@ class ViewControls {
      * @param {HTMLElement} parent
      * @param {Gallery} gallery
      * @param {Pagination} pagination
+     * @param {ViewState} state
      */
-    constructor(parent, gallery, pagination) {
+    constructor(parent, gallery, pagination, state) {
         this.container = parent;
         this.gallery = gallery;
         this.pagination = pagination;
+        this.state = state;
 
         this.container = createElement('div', 'controls', parent);
     }
 
     render() {
         const viewGroup = this.createGroup([
-            this.gallery.makeToggleViewButton(),
-            this.gallery.makeToggleImagesButton(),
-            this.gallery.makeToggleDescriptionButton(),
+            renderToggleButton(
+                () => {
+                    this.gallery.toggleView(false);
+                    this.state.gridView = false;
+                },
+                () => {
+                    this.gallery.toggleView(true);
+                    this.state.gridView = true;
+                },
+                '▤',
+                '▦',
+                'List/Grid view',
+                'Grid/List view',
+                this.state.gridView
+            ),
+            renderToggleButton(
+                () => {
+                    this.gallery.toggleImages(false);
+                    this.state.showImages = false;
+                },
+                () => {
+                    this.gallery.toggleImages(true);
+                    this.state.showImages = true;
+                },
+                '🗎',
+                '🖺',
+                'Display/Hide images',
+                'Display/Hide images',
+                this.state.showImages
+            ),
+            renderToggleButton(
+                () => {
+                    this.gallery.toggleDescription(false);
+                    this.state.fullDescriptions = false;
+                },
+                () => {
+                    this.gallery.toggleDescription(true);
+                    this.state.fullDescriptions = true;
+                },
+                '⬒',
+                '☐',
+                'Hide/Expand descriptions',
+                'Expand/Hide descriptions',
+                this.state.fullDescriptions
+            ),
         ]);
         this.container.appendChild(viewGroup);
     }
@@ -157,6 +308,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const view = new RecordsView(outputDiv, messageArea);
     view.render();
 
-    const controls = new ViewControls(navigationAreaDiv, view.gallery, view.pages);
+    const controls = new ViewControls(navigationAreaDiv, view.gallery, view.pages, view.viewState);
     controls.render();
 });

@@ -238,8 +238,9 @@ function renderEmbedIcon(url) {
 
 /**
  * @param {object} embed
+ * @param {boolean} loadImages
  */
-function renderEmbed(embed) {
+function renderEmbed(embed, loadImages = true) {
     const embedDiv = document.createElement('div');
     embedDiv.classList.add('embed-container');
 
@@ -275,7 +276,7 @@ function renderEmbed(embed) {
     }
 
     if (embed.image) {
-        const image = createImage(embed.image.url, 'embed-image', embedBody);
+        const image = createImage(embed.image.url, 'embed-image', embedBody, loadImages);
         image.onclick = (event) => {
             const modal = renderModal(embedDiv);
             modal.classList.add('fullsize-image-container');
@@ -296,7 +297,7 @@ function renderEmbed(embed) {
     }
 
     if (embed.thumbnail && embed.thumbnail.url) {
-        createImage(embed.thumbnail.src, 'embed-thumbnail', embedBody);
+        createImage(embed.thumbnail.src, 'embed-thumbnail', embedBody, loadImages);
     }
 
     if (embed.fields && Array.isArray(embed.fields)) {
@@ -372,16 +373,29 @@ function renderMessageTimestamp(embeds) {
 }
 
 /**
+ * remove unnecessarily "url" field from embeds attaching additional images to the main one
+ * @param {object} embed
+ */
+function stripImageUrl(embed) {
+    const keys = Object.keys(embed);
+    if (keys.length === 2 && keys.includes('image') && keys.includes('url')) {
+        delete embed.url;
+    }
+}
+
+/**
  * @param {Object} message - The message object.
+ * @param {boolean} loadImages
  * @returns {HTMLElement} The rendered card as a div element.
  */
-function renderGalleryCard(message) {
+function renderGalleryCard(message, loadImages) {
     const card = document.createElement('div');
     card.classList.add('gallery-card');
 
     if (message.embeds && message.embeds.length > 0) {
         message.embeds.forEach((/** @type {any} */ embed) => {
-            const embedDiv = renderEmbed(embed);
+            stripImageUrl(embed);
+            const embedDiv = renderEmbed(embed, loadImages);
             card.appendChild(embedDiv);
         });
         card.appendChild(renderMessageTimestamp(message.embeds));
@@ -390,55 +404,20 @@ function renderGalleryCard(message) {
 }
 
 /**
- * @param {Function} callback0
- * @param {Function} callback1
- * @param {string} text0
- * @param {string} text1
- * @param {string?} hint0
- * @param {string?} hint1
- * @param {boolean} initialState
- */
-function renderToggleButton(callback0, callback1, text0, text1, hint0, hint1, initialState = false) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    let currentState = !initialState;
-    const toggle = () => {
-        currentState = !currentState;
-        button.innerText = currentState ? text1 : text0;
-        button.title = (currentState ? hint1 : hint0) || '';
-        const callback = currentState ? callback1 : callback0;
-        callback();
-    };
-    toggle();
-    button.onclick = toggle;
-    return button;
-}
-
-/**
+ * Toggle css class on element according to value
  * @param {HTMLElement} element
- * @param {string | null} className0
- * @param {string | null} className1
- * @param {string} text0
- * @param {string} text1
- * @param {string | null} hint0
- * @param {string | null} hint1
+ * @param {string | null} className0 set if value is false
+ * @param {string | null} className1 set if value is true
+ * @param {boolean} value
  */
-function renderStyleToggleButton(element, className0, className1, text0, text1, hint0, hint1, initialState = false) {
-    return renderToggleButton(
-        () => {
-            if (className1) element.classList.remove(className1);
-            if (className0) element.classList.add(className0);
-        },
-        () => {
-            if (className0) element.classList.remove(className0);
-            if (className1) element.classList.add(className1);
-        },
-        text0,
-        text1,
-        hint0,
-        hint1,
-        initialState
-    );
+function toggleClass(element, className0, className1, value) {
+    if (value) {
+        if (className0) element.classList.remove(className0);
+        if (className1) element.classList.add(className1);
+    } else {
+        if (className1) element.classList.remove(className1);
+        if (className0) element.classList.add(className0);
+    }
 }
 
 class Gallery {
@@ -455,56 +434,51 @@ class Gallery {
      *
      * @param {object[]} data
      */
-    render(data) {
+    render(data, showImg = true, gridView = true, fullDescriptions = true) {
         this.container.innerHTML = '';
         data.forEach((element) => {
-            const card = renderGalleryCard(element);
+            const card = renderGalleryCard(element, showImg);
             this.container.appendChild(card);
 
             if (element == this.lastElement) {
                 card.scrollIntoView();
             }
         });
-
         if (data && data.length > 0) {
             this.lastElement = data[data.length - 1];
         }
+        this.toggleImages(showImg);
+        this.toggleView(gridView);
+        this.toggleDescription(fullDescriptions);
     }
 
-    makeToggleViewButton() {
-        return renderStyleToggleButton(
-            this.container,
-            'gallery-container-grid',
-            'gallery-container-list',
-            '▦',
-            '▤',
-            'Grid/List view',
-            'List/Grid view'
-        );
+    /**
+     * load/unload images and thumbnails on all cards of the Gallery
+     * @param {boolean} show
+     */
+    toggleImages(show) {
+        toggleClass(this.container, 'gallery-container-hide-images', null, show);
+        this.container.querySelectorAll('.embed-image, .embed-thumbnail').forEach((img) => {
+            if (img instanceof HTMLImageElement) {
+                toggleImageState(img, show);
+            } else {
+                console.log('toggleImages selector returned element that is not an image: ', img);
+            }
+        });
     }
 
-    makeToggleImagesButton() {
-        return renderStyleToggleButton(
-            this.container,
-            null,
-            'gallery-container-hide-images',
-            '🖼',
-            '🖾',
-            'Display/Hide images',
-            'Display/Hide images'
-        );
+    /**
+     * @param {boolean} grid
+     */
+    toggleView(grid) {
+        toggleClass(this.container, 'gallery-container-list', 'gallery-container-grid', grid);
     }
 
-    makeToggleDescriptionButton() {
-        return renderStyleToggleButton(
-            this.container,
-            null,
-            'gallery-container-clamp-description',
-            '☐',
-            '⬒',
-            'Expand/Hide descriptions',
-            'Hide/Expand descriptions'
-        );
+    /**
+     * @param {boolean} full
+     */
+    toggleDescription(full) {
+        toggleClass(this.container, 'gallery-container-clamp-description', null, full);
     }
 }
 
