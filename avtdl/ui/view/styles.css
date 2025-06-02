@@ -321,7 +321,5 @@
 
 
 .controls-button:disabled {
-    background-color: #d0d0d0;
-    color: #686579;
     cursor: default;
 }

@@ -222,7 +222,12 @@ function renderToggleButton(callback0, callback1, img0, img1, hint0, hint1, init
     return button;
 }
 
-function renderNavigationButton(img, url) {
+/**
+ * @param {string} img
+ * @param {string} img_inactive
+ * @param {string?} url
+ */
+function renderNavigationButton(img, img_inactive, url) {
     const button = document.createElement('button');
     button.type = 'button';
     const image = document.createElement('img');
@@ -234,6 +239,7 @@ function renderNavigationButton(img, url) {
         };
     } else {
         button.disabled = true;
+        image.src = img_inactive;
     }
     return button;
 }
@@ -306,9 +312,9 @@ class ViewControls {
             ),
         ]);
         const navigationGroup = this.createGroup([
-            renderNavigationButton('/res/arrow-left.svg', this.pagination.previousPageUrl),
+            renderNavigationButton('/res/arrow-left.svg', '/res/arrow-left-stop.svg', this.pagination.previousPageUrl),
             createButton('🔄', this.refresh),
-            renderNavigationButton('/res/arrow-right.svg', this.pagination.nextPageUrl),
+            renderNavigationButton('/res/arrow-right.svg', '/res/arrow-right-stop.svg', this.pagination.nextPageUrl),
         ]);
         this.container.appendChild(viewGroup);
         this.container.appendChild(navigationGroup);
