@@ -29,9 +29,9 @@ function updateTooltip(showInfo, newMessage) {
 /**
  * @param {string} text
  * @param {((this: GlobalEventHandlers, ev: MouseEvent) => any) | null} onClick
- * @param {string} addClass
+ * @param {string?} addClass
  */
-function createButton(text, onClick, addClass) {
+function createButton(text, onClick, addClass=null) {
     const button = document.createElement('button');
     button.type = 'button';
     button.innerText = text;

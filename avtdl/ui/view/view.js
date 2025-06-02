@@ -95,8 +95,9 @@ class RecordsView {
      * @param {HTMLElement} container
      * @param {MessageArea} messageArea
      */
-    constructor(container, messageArea) {
+    constructor(container, controlsContainer, messageArea) {
         this.container = container;
+        this.controlsContainer = controlsContainer;
         this.messageArea = messageArea;
         this.originalPageTitle = document.title;
 
@@ -109,6 +110,10 @@ class RecordsView {
 
         const pageContainer = createElement('div', 'pagination', this.container);
         this.pages = new Pagination(pageContainer);
+
+        this.controls = new ViewControls(controlsContainer, this.gallery, this.pages, this.viewState, () => {
+            this.render();
+        });
     }
 
     /**
@@ -171,7 +176,7 @@ class RecordsView {
 
         const data = await this.fetchJSON(url);
         if (data === null) {
-            this.container.innerText = 'Select plugin from menu on the left.';
+            this.container.innerText = 'No data for current selection. Select plugin from menu on the left.';
             return;
         }
 
@@ -181,9 +186,12 @@ class RecordsView {
             this.viewState.gridView,
             this.viewState.fullDescriptions
         );
+
         this.pages.render(data['current'], data['total'], window.location.pathname + window.location.search);
 
-        document.title = `${params.view || params.entity} / ${params.actor} — avtdl`;
+        this.controls.render();
+
+        document.title = `${params.view || params.entity || ''} / ${params.actor} — avtdl`;
     }
 }
 
@@ -219,16 +227,18 @@ class ViewControls {
      * @param {Pagination} pagination
      * @param {ViewState} state
      */
-    constructor(parent, gallery, pagination, state) {
-        this.container = parent;
+    constructor(parent, gallery, pagination, state, refresh) {
+        this.parent = parent;
         this.gallery = gallery;
         this.pagination = pagination;
         this.state = state;
+        this.refresh = refresh;
 
         this.container = createElement('div', 'controls', parent);
     }
 
     render() {
+        this.container.innerHTML = '';
         const viewGroup = this.createGroup([
             renderToggleButton(
                 () => {
@@ -276,7 +286,9 @@ class ViewControls {
                 this.state.fullDescriptions
             ),
         ]);
+        const navigationGroup = this.createGroup([createButton('🔄', this.refresh)]);
         this.container.appendChild(viewGroup);
+        this.container.appendChild(navigationGroup);
     }
 
     /**
@@ -293,10 +305,10 @@ class ViewControls {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const outputDiv = document.getElementById('output');
+    const viewDiv = document.getElementById('output');
     const messageAreaDiv = document.getElementById('message-area');
     const navigationAreaDiv = document.getElementById('sidebar');
-    if (outputDiv == null || messageAreaDiv == null || navigationAreaDiv == null) {
+    if (viewDiv == null || messageAreaDiv == null || navigationAreaDiv == null) {
         console.log('missing page elements to mount on');
         return;
     }
@@ -305,9 +317,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const navbar = new Sidebar(navigationAreaDiv, messageArea);
     navbar.render();
 
-    const view = new RecordsView(outputDiv, messageArea);
+    const view = new RecordsView(viewDiv, navigationAreaDiv, messageArea);
     view.render();
-
-    const controls = new ViewControls(navigationAreaDiv, view.gallery, view.pages, view.viewState);
-    controls.render();
 });
