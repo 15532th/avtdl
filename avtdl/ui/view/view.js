@@ -198,19 +198,21 @@ class RecordsView {
 /**
  * @param {Function} callback0
  * @param {Function} callback1
- * @param {string} text0
- * @param {string} text1
+ * @param {string} img0
+ * @param {string} img1
  * @param {string?} hint0
  * @param {string?} hint1
  * @param {boolean} initialState
  */
-function renderToggleButton(callback0, callback1, text0, text1, hint0, hint1, initialState = false) {
+function renderToggleButton(callback0, callback1, img0, img1, hint0, hint1, initialState = false) {
     const button = document.createElement('button');
     button.type = 'button';
+    const image = document.createElement('img');
+    button.appendChild(image);
     let currentState = !initialState;
     const toggle = () => {
         currentState = !currentState;
-        button.innerText = currentState ? text1 : text0;
+        image.src = currentState ? img1 : img0;
         button.title = (currentState ? hint1 : hint0) || '';
         const callback = currentState ? callback1 : callback0;
         callback();
@@ -220,14 +222,17 @@ function renderToggleButton(callback0, callback1, text0, text1, hint0, hint1, in
     return button;
 }
 
-function renderNavigationButton(text, url) {
+function renderNavigationButton(img, url) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.innerText = text;
+    const image = document.createElement('img');
+    button.appendChild(image);
+    image.src = img;
     if (url) {
-        button.onclick = () => {window.location.href = url}
-    }    
-    else {
+        button.onclick = () => {
+            window.location.href = url;
+        };
+    } else {
         button.disabled = true;
     }
     return button;
@@ -263,8 +268,8 @@ class ViewControls {
                     this.gallery.toggleView(true);
                     this.state.gridView = true;
                 },
-                '▤',
-                '▦',
+                '/res/view-list.svg',
+                '/res/view-grid.svg',
                 'List/Grid view',
                 'Grid/List view',
                 this.state.gridView
@@ -278,8 +283,8 @@ class ViewControls {
                     this.gallery.toggleImages(true);
                     this.state.showImages = true;
                 },
-                '🗎',
-                '🖺',
+                '/res/img-hide.svg',
+                '/res/img-show.svg',
                 'Display/Hide images',
                 'Display/Hide images',
                 this.state.showImages
@@ -293,17 +298,17 @@ class ViewControls {
                     this.gallery.toggleDescription(true);
                     this.state.fullDescriptions = true;
                 },
-                '⬒',
-                '☐',
+                '/res/show-cut.svg',
+                '/res/show-full.svg',
                 'Hide/Expand descriptions',
                 'Expand/Hide descriptions',
                 this.state.fullDescriptions
             ),
         ]);
         const navigationGroup = this.createGroup([
-            renderNavigationButton('◀', this.pagination.previousPageUrl),
+            renderNavigationButton('/res/arrow-left.svg', this.pagination.previousPageUrl),
             createButton('🔄', this.refresh),
-            renderNavigationButton('▶', this.pagination.nextPageUrl),
+            renderNavigationButton('/res/arrow-right.svg', this.pagination.nextPageUrl),
         ]);
         this.container.appendChild(viewGroup);
         this.container.appendChild(navigationGroup);

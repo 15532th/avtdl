@@ -65,6 +65,7 @@
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 6;
+    overflow: hidden;
     overflow: clamp;
     text-overflow: ellipsis;
     line-clamp: 6;
@@ -312,12 +313,10 @@
 
 .controls-button:hover {
     background-color: #d0d0d0;
-    color: #0056b3;
 }
 
 .controls-button:active {
     background-color: #c0c0c0;
-    color: #004494;
 }
 
 

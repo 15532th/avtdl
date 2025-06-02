@@ -139,6 +139,7 @@ class WebUI:
 
         self.routes.append(web.get('/', self.index))
         self.routes.append(web.static('/ui', self.WEBROOT))
+        self.routes.append(web.static('/res', self.WEBROOT / 'misc'))
 
     async def favicon(self, request: web.Request) -> web.FileResponse:
         return web.FileResponse(self.WEBROOT / 'misc/favicon.svg')
