@@ -490,6 +490,8 @@ class Pagination {
     constructor(container) {
         this.container = container;
         this.keyboardEventAdded = false;
+        this._nextPageUrl = null;
+        this._previousPageUrl = null;
     }
 
     /**
@@ -502,6 +504,7 @@ class Pagination {
 
         const onFirstPage = currentPage <= 1;
         const previousPageUrl = this.getPageUrl(baseUrl, currentPage - 1);
+        this._previousPageUrl = onFirstPage ? null : previousPageUrl;
 
         this.addPageLink('«', this.getPageUrl(baseUrl, 1), onFirstPage);
         this.addPageLink('‹', previousPageUrl, onFirstPage);
@@ -518,6 +521,7 @@ class Pagination {
 
         const onLastPage = currentPage >= totalPages;
         const nextPageUrl = this.getPageUrl(baseUrl, currentPage + 1);
+        this._nextPageUrl = onLastPage ? null : nextPageUrl;
 
         this.addPageLink('›', nextPageUrl, onLastPage);
         this.addPageLink('»', this.getPageUrl(baseUrl, totalPages), onLastPage);
@@ -526,6 +530,14 @@ class Pagination {
             this.addKeyboardNavigation(onFirstPage ? null : previousPageUrl, onLastPage ? null : nextPageUrl);
             this.keyboardEventAdded = true;
         }
+    }
+
+    get nextPageUrl() {
+        return this._nextPageUrl;
+    }
+
+    get previousPageUrl() {
+        return this._previousPageUrl;
     }
 
     /**

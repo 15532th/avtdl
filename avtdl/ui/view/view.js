@@ -220,12 +220,26 @@ function renderToggleButton(callback0, callback1, text0, text1, hint0, hint1, in
     return button;
 }
 
+function renderNavigationButton(text, url) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.innerText = text;
+    if (url) {
+        button.onclick = () => {window.location.href = url}
+    }    
+    else {
+        button.disabled = true;
+    }
+    return button;
+}
+
 class ViewControls {
     /**
      * @param {HTMLElement} parent
      * @param {Gallery} gallery
      * @param {Pagination} pagination
      * @param {ViewState} state
+     * @param {() => void} refresh
      */
     constructor(parent, gallery, pagination, state, refresh) {
         this.parent = parent;
@@ -286,7 +300,11 @@ class ViewControls {
                 this.state.fullDescriptions
             ),
         ]);
-        const navigationGroup = this.createGroup([createButton('🔄', this.refresh)]);
+        const navigationGroup = this.createGroup([
+            renderNavigationButton('◀', this.pagination.previousPageUrl),
+            createButton('🔄', this.refresh),
+            renderNavigationButton('▶', this.pagination.nextPageUrl),
+        ]);
         this.container.appendChild(viewGroup);
         this.container.appendChild(navigationGroup);
     }
