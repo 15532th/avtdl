@@ -436,11 +436,12 @@ class Gallery {
      */
     render(data, showImg = true, gridView = true, fullDescriptions = true) {
         this.container.innerHTML = '';
+        const lastElementSerialized = JSON.stringify(this.lastElement);
         data.forEach((element) => {
             const card = renderGalleryCard(element, showImg);
             this.container.appendChild(card);
 
-            if (element == this.lastElement) {
+            if (this.lastElement && JSON.stringify(element) == lastElementSerialized) {
                 card.scrollIntoView();
             }
         });
