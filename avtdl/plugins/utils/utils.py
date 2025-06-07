@@ -181,7 +181,7 @@ class Replay(Monitor):
                     break
                 emitted += 1
                 self.on_record(entity, record)
-                info.set_status(f'{emitted}/{to_emit} records left to replay', record)
+                info.set_status(f'{emitted}/{to_emit} records replayed', record)
                 await asyncio.sleep(entity.emit_interval)
         self.logger.debug(f'[{entity.name}] done')
         info.clear()
