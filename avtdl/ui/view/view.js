@@ -257,9 +257,20 @@ class ViewControls {
         this.gallery = gallery;
         this.pagination = pagination;
         this.state = state;
-        this.refresh = refresh;
+        this.refreshEventAdded = false;
+        this._refresh = refresh;
+        this._refreshOngoing = false;
 
         this.container = createElement('div', 'controls', parent);
+    }
+
+    refresh() {
+        if (this._refreshOngoing) {
+            return;
+        }
+        this._refreshOngoing = true;
+        this._refresh();
+        this._refreshOngoing = false;
     }
 
     render() {
@@ -318,6 +329,20 @@ class ViewControls {
         ]);
         this.container.appendChild(viewGroup);
         this.container.appendChild(navigationGroup);
+        if (!this.refreshEventAdded) {
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'F5') {
+                    if (event.ctrlKey || event.shiftKey || event.altKey) {
+                        return;
+                    }
+                    event.preventDefault();
+                    if (!event.repeat) {
+                        this.refresh();
+                    }
+                }
+            });
+            this.refreshEventAdded = true;
+        }
     }
 
     /**
