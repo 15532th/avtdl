@@ -1,4 +1,7 @@
 import asyncio
+import json
+import logging
+import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
@@ -85,7 +88,15 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
     cookies_file: Optional[FilePath] = None
     """path to a text file containing cookies in Netscape format"""
     headers: Optional[Dict[str, str]] = {'Accept-Language': 'en-US,en;q=0.9'}
-    """custom HTTP headers as "key": value" pairs. "Set-Cookie" header will be ignored, use `cookies_file` option instead. "Etag" and "Last-Modified" are set automatically if available in server response. Plugin might also overwrite other headers required to make requests to a specific endpoint"""
+    """custom HTTP headers as "key": value" pairs. "Set-Cookie" header will be ignored,
+    use `cookies_file` option instead. "Etag" and "Last-Modified" are set automatically
+    if available in server response. Plugin might also overwrite other headers required
+    to make requests to a specific endpoint"""
+    headers_file: Optional[Path] = None
+    """path to a text file containing headers as "key": "value" pairs. Unlike `cookies_file`,
+    it gets read from disk on every request. Files with `.json` extension are parsed in
+    JSON format (must contain a single top-level object), other extensions are treated as 
+    plaintext and expected to have one `key: value` pair per line"""
 
     adjust_update_interval: bool = True
     """change delay before the next update based on response headers. This setting doesn't affect timeouts after failed requests"""
@@ -115,6 +126,40 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
         self.base_update_interval = self.update_interval
 
 
+def load_headers(path: Optional[Path], logger: logging.Logger) -> Optional[Dict[str, str]]:
+    """load HTTP headers from given file, either .json or plaintext"""
+    if path is None:
+        return None
+    try:
+        text = path.read_text()
+    except (OSError, UnicodeDecodeError) as e:
+        logger.warning(f'failed to load headers from "{path}": {e}')
+        return None
+    if path.suffix == '.json':
+        logger.debug(f'loading json headers from "{path}"')
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as e:
+            logger.warning(f'failed to parse headers in json file "{path}": {e}')
+            return None
+        if not isinstance(data, dict):
+            logger.warning(f'failed to parse headers in json file "{path}": file must contain top-level dictionary')
+            return None
+        headers = {str(k): str(v) for k, v in data.items()}
+    else:
+        logger.debug(f'loading plaintext headers from "{path}"')
+        headers = {}
+        for line in text.splitlines():
+            if not line or line.startswith('#'):
+                continue
+            if not ':' in line:
+                logger.warning(f'while parsing headers in "{path}" skipped malformed line "{line}": header name and value must be separated by semicolon')
+                continue
+            key, value = re.split(r': ?', line, 1)
+            headers[key] = value
+    return headers
+
+
 class HttpTaskMonitor(BaseTaskMonitor):
     '''Maintain and provide for records aiohttp.ClientSession objects
     grouped by HttpTaskMonitorEntity.cookies_path, which means entities that use
@@ -140,6 +185,10 @@ class HttpTaskMonitor(BaseTaskMonitor):
     async def request_raw(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[HttpResponse]:
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
         state = self.state_storage.get(url, method, params)
+        additional_headers = load_headers(entity.headers_file, with_prefix(self.logger, f'[{entity.name}]'))
+        if additional_headers is not None:
+            headers = {**(headers or {}), **additional_headers}
+
         response = await client.request(url, params, data, data_json, headers, method, state)
         if response is None:
             entity.update_interval = decide_on_update_interval(client.logger, url, None, None, entity.update_interval, entity.base_update_interval, entity.adjust_update_interval)

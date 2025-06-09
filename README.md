@@ -22,6 +22,7 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
         * [`update_interval`](#update_interval)
         * [`cookies_file`](#cookies_file)
         * [`headers`](#headers)
+        * [`headers_file`](#headers_file)
         * [`timezone`](#timezone)
         * [`fetch_until_the_end_of_feed_mode`](#fetch_until_the_end_of_feed_mode)
         * [`quiet_first_time` and `quiet_start`](#quiet_first_time-and-quiet_start)
@@ -531,6 +532,29 @@ actors:
           "Host": "example.local"
 ```
 
+##### `headers_file`
+
+Path to a file containing HTTP headers, that will be added to every update request. The file is reloaded on every request, making possible updating headers values without restarting the app.
+
+Headers can be provided in one of two distinct formats: as JSON, if a file has `.json` extension, or (for any other extension) as a plain text.
+
+In JSON format the file must contain a single top level object representing custom headers:
+
+```json
+{
+  "X-Csrf-Token": "i8XNjC4b8KVok4uw5RftR38Wgp2BFwql",
+  "X-Request-ID": "f058ebd6-02f7-4d3f-942e-904344e8cde5"
+}
+```
+
+Plaintext format is expected to have one semicolon separated `name: value` pair per line:
+
+```
+# lines starting with # are ignored
+
+X-Csrf-Token: i8XNjC4b8KVok4uw5RftR38Wgp2BFwql
+X-Request-ID: f058ebd6-02f7-4d3f-942e-904344e8cde5
+```
 
 ##### `timezone`
 
