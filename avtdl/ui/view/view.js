@@ -324,7 +324,7 @@ class ViewControls {
         ]);
         const navigationGroup = this.createGroup([
             renderNavigationButton('/res/arrow-left.svg', '/res/arrow-left-stop.svg', this.pagination.previousPageUrl),
-            createButton('🔄', this.refresh),
+            createButton('🔄', () => this.refresh()),
             renderNavigationButton('/res/arrow-right.svg', '/res/arrow-right-stop.svg', this.pagination.nextPageUrl),
         ]);
         this.container.appendChild(viewGroup);
