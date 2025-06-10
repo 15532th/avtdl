@@ -5,10 +5,9 @@ import enum
 import hashlib
 import hmac
 import json
-import urllib.parse
 from dataclasses import dataclass
 from textwrap import shorten
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence
 
 import dateutil.parser
 from pydantic import Field, FilePath, PositiveFloat, model_validator
@@ -17,7 +16,7 @@ from avtdl.core.config import Plugins
 from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import MAX_REPR_LEN, Record, RuntimeContext
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
-from avtdl.core.request import HttpClient, RetrySettings
+from avtdl.core.request import HttpClient, RequestDetails, RetrySettings
 
 
 @Plugins.register('rplay', Plugins.kind.ASSOCIATED_RECORD)
@@ -460,24 +459,6 @@ class User:
 
     def get_auth_header(self) -> Dict[str, str]:
         return {'Authorization': self.token}
-
-
-@dataclass
-class RequestDetails:
-    url: str
-    method: str = 'GET'
-    params: Optional[Dict[str, Any]] = None
-    data: Optional[Any] = None
-    headers: Optional[Dict[str, Any]] = None
-
-    @property
-    def url_with_query(self) -> str:
-        if self.params is None:
-            return self.url
-        parsed = urllib.parse.urlparse(self.url)
-        with_query = parsed._replace(query=urllib.parse.urlencode(self.params))
-        url = urllib.parse.urlunparse(with_query)
-        return url
 
 
 class RplayUrl:

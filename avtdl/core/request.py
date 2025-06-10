@@ -427,3 +427,22 @@ class HttpResponse:
     def next_update_interval(self, base: float, current: float, adjust_update_interval: bool = True) -> float:
         return decide_on_update_interval(self.logger, self.url, self.status, self.headers, current, base,
                                          adjust_update_interval)
+
+
+@dataclass
+class RequestDetails:
+    url: str
+    method: str = 'GET'
+    params: Optional[Dict[str, Any]] = None
+    data: Optional[Any] = None
+    headers: Optional[Dict[str, Any]] = None
+
+    @property
+    def url_with_query(self) -> str:
+        """url plus params"""
+        if self.params is None:
+            return self.url
+        parsed = urllib.parse.urlparse(self.url)
+        with_query = parsed._replace(query=urllib.parse.urlencode(self.params))
+        url = urllib.parse.urlunparse(with_query)
+        return url

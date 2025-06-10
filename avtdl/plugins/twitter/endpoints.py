@@ -12,13 +12,11 @@ import enum
 import json
 import logging
 import urllib.parse
-from dataclasses import dataclass
-from http.cookiejar import CookieJar
 from typing import Any, Dict, Optional, Union
 
 from multidict import CIMultiDictProxy
 
-from avtdl.core.request import HttpClient, HttpResponse, RateLimit, get_retry_after
+from avtdl.core.request import HttpClient, HttpResponse, RateLimit, RequestDetails, get_retry_after
 from avtdl.core.utils import find_all, find_one, get_cookie_value
 
 USER_FEATURES = '{"hidden_profile_likes_enabled":true,"hidden_profile_subscriptions_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true}'
@@ -36,18 +34,6 @@ class EndpointUrl:
     USER_BY_SCREEN_NAME = 'https://twitter.com/i/api/graphql/qW5u-DAuXpMEG0zA1F7UGQ/UserByScreenName'
     AUDIOSPACE_BY_ID = 'https://twitter.com/i/api/graphql/d03OdorPdZ_sH9V3D1_yWQ/AudioSpaceById'
     SEARCH_TIMELINE = 'https://twitter.com/i/api/graphql/U3QTLwGF8sZCHDuWIMSAmg/SearchTimeline'
-
-
-@dataclass
-class RequestDetails:
-    url: str
-    params: Dict[str, Any]
-    headers: Dict[str, Any]
-    cookies: CookieJar
-
-    def with_base_url(self, base_url: str) -> 'RequestDetails':
-        new_url = replace_url_host(self.url, base_url)
-        return RequestDetails(url=new_url, params=self.params, headers=self.headers, cookies=self.cookies)
 
 
 def replace_url_host(url: str, new_host: str) -> str:
@@ -131,7 +117,7 @@ class TwitterEndpoint(abc.ABC):
 
         headers = get_auth_headers(cookies)
 
-        details = RequestDetails(url=url, params=params, headers=headers, cookies=cookies)
+        details = RequestDetails(url=url, params=params, headers=headers)
         return details
 
     @classmethod
@@ -219,7 +205,7 @@ class LiveStreamEndpoint(TwitterEndpoint):
         params = {'client': 'web', 'use_syndication_guest_id': 'false', 'cookie_set_host': get_netloc(host)}
         headers = get_auth_headers(cookies)
 
-        details = RequestDetails(url=url, params=params, headers=headers, cookies=cookies)
+        details = RequestDetails(url=url, params=params, headers=headers)
         return details
 
 
