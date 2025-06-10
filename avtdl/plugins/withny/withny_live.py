@@ -181,9 +181,9 @@ class WithnyLiveConfig(BaseDbConfig):
 class WithnyLiveEntity(ActionEntity):
     cookies_file: FilePath
     """path to a text file containing cookies in Netscape format"""
-    poll_interval: PositiveInt = 30
+    poll_interval: PositiveInt = 60
     """how often live status of the stream that should have started by now is updated, in seconds"""
-    poll_attempts: PositiveInt = 120
+    poll_attempts: PositiveInt = 30
     """how many times live status of the stream that should have started by now is updated before giving up"""
 
     @field_validator('cookies_file')
