@@ -280,6 +280,9 @@ class WithnyLive(Action):
             maybe_data, update_interval = await self.request_json(url, base_update_interval, update_interval, client)
             maybe_record_data = find_stream_data(maybe_data, record.stream_id)
             updated_record = self.parse_record(maybe_record_data, parse_live_record)
+            if updated_record is not None:
+                if updated_record.schedule_id is not None or updated_record.scheduled is not None:
+                    self.logger.warning(f'record {updated_record} should be live but is scheduled: id={updated_record.schedule_id}, scheduled={updated_record.scheduled}')
 
         return updated_record, update_interval
 
