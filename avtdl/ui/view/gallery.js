@@ -437,12 +437,17 @@ class Gallery {
     render(data, showImg = true, gridView = true, fullDescriptions = true) {
         this.container.innerHTML = '';
         const lastElementSerialized = JSON.stringify(this.lastElement);
+        let gotNewCards = false;
         data.forEach((element) => {
             const card = renderGalleryCard(element, showImg);
             this.container.appendChild(card);
 
+            if (!gotNewCards) {
+                highlightBackground(card);
+            }
             if (this.lastElement && JSON.stringify(element) == lastElementSerialized) {
                 card.scrollIntoView();
+                gotNewCards = true;
             }
         });
         if (data && data.length > 0) {

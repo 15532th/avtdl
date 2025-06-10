@@ -323,3 +323,11 @@
 .controls-button:disabled {
     cursor: default;
 }
+
+.highlight {
+    transition: background-color 2s ease-out;
+}
+
+.bg-highlight {
+    background-color: #7d7d7d;
+}

@@ -31,7 +31,7 @@ function updateTooltip(showInfo, newMessage) {
  * @param {((this: GlobalEventHandlers, ev: MouseEvent) => any) | null} onClick
  * @param {string?} addClass
  */
-function createButton(text, onClick, addClass=null) {
+function createButton(text, onClick, addClass = null) {
     const button = document.createElement('button');
     button.type = 'button';
     button.innerText = text;
@@ -270,15 +270,18 @@ function scrollIntoView(targetElement) {
     openParentsDetails(targetElement);
     targetElement.scrollIntoView(true);
 
+    highlightBackground(targetElement);
+}
+
+/**
+ * @param {HTMLElement} targetElement
+ */
+function highlightBackground(targetElement) {
     if (!targetElement.classList.contains('highlight')) {
         targetElement.classList.add('bg-highlight');
-        targetElement.classList.add('highlight');
-        setTimeout(() => {
-            targetElement.classList.remove('bg-highlight');
-        }, 1000);
-        setTimeout(() => {
-            targetElement.classList.remove('highlight');
-        }, 3000);
+        setTimeout(() => targetElement.classList.add('highlight'), 0);
+        setTimeout(() => targetElement.classList.remove('bg-highlight'), 1000);
+        setTimeout(() => targetElement.classList.remove('highlight'), 3000);
     }
 }
 
