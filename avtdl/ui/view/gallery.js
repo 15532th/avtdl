@@ -442,7 +442,7 @@ class Gallery {
             const card = renderGalleryCard(element, showImg);
             this.container.appendChild(card);
 
-            if (!gotNewCards) {
+            if (gotNewCards) {
                 highlightBackground(card);
             }
             if (this.lastElement && JSON.stringify(element) == lastElementSerialized) {
