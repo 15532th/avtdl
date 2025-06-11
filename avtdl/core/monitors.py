@@ -12,7 +12,8 @@ from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_val
 
 from avtdl.core.db import BaseDbConfig, RecordDB, RecordDbView
 from avtdl.core.interfaces import AbstractRecordsStorage, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
-from avtdl.core.request import HttpClient, HttpResponse, StateStorage, decide_on_update_interval
+from avtdl.core.request import HttpClient, HttpResponse, NoRateLimit, RateLimit, RequestDetails, StateStorage, \
+    decide_on_update_interval
 from avtdl.core.utils import JSONType, SessionStorage, load_cookies, show_diff, with_prefix
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
@@ -181,6 +182,17 @@ class HttpTaskMonitor(BaseTaskMonitor):
         if response is None or response.no_content:
             return None
         return response.text
+
+    async def request_endpoint(self, entity: HttpTaskMonitorEntity,
+                               client: HttpClient,
+                               request_details: RequestDetails,
+                               rate_limit: RateLimit = NoRateLimit('')) -> Optional[HttpResponse]:
+
+        additional_headers = load_headers(entity.headers_file, with_prefix(self.logger, f'[{entity.name}]'))
+        if additional_headers is not None:
+            request_details.headers = {**(request_details.headers or {}), **additional_headers}
+        response = await client.request_endpoint(self.logger, request_details, rate_limit)
+        return response
 
     async def request_raw(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[HttpResponse]:
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''

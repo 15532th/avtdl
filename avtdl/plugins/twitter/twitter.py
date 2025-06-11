@@ -112,7 +112,7 @@ class TwitterHomeMonitor(TwitterMonitor):
     async def _get_page(self, entity: TwitterHomeMonitorEntity, client: HttpClient, continuation: Optional[str]) -> Optional[str]:
         endpoint = LatestTimelineEndpoint if entity.following else TimelineEndpoint
         request_details = endpoint.prepare(entity.url, client.cookie_jar, continuation)
-        response = await client.request_endpoint(self.logger, request_details, endpoint.rate_limit())
+        response = await self.request_endpoint(entity, client, request_details, SearchTimelineEndpoint.rate_limit())
         return response.text if response is not None else None
 
 @Plugins.register('twitter.user', Plugins.kind.ACTOR_ENTITY)
@@ -171,7 +171,7 @@ class TwitterUserMonitor(TwitterMonitor):
             return None
         endpoint = self._pick_endpoint(entity)
         request_details = endpoint.prepare(entity.url, client.cookie_jar, user_id, continuation)
-        response = await client.request_endpoint(self.logger, request_details, endpoint.rate_limit())
+        response = await self.request_endpoint(entity, client, request_details, SearchTimelineEndpoint.rate_limit())
         return response.text if response is not None else None
 
 
@@ -199,5 +199,5 @@ class TwitterSearchMonitor(TwitterMonitor):
 
     async def _get_page(self, entity: TwitterSearchEntity, client: HttpClient, continuation: Optional[str]) -> Optional[str]:
         request_details = SearchTimelineEndpoint.prepare(entity.url, client.cookie_jar, entity.query, entity.query_type, continuation)
-        response = await client.request_endpoint(self.logger, request_details, SearchTimelineEndpoint.rate_limit())
+        response = await self.request_endpoint(entity, client, request_details, SearchTimelineEndpoint.rate_limit())
         return response.text if response is not None else None
