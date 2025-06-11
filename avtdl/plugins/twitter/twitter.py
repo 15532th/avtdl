@@ -72,7 +72,12 @@ class TwitterMonitor(PagedFeedMonitor):
         """Retrieve raw response string from endpoint"""
 
     async def _parse_entries(self, page: str) -> Tuple[List[TwitterRecord], Optional[str]]:
-        raw_tweets, continuation = extract_contents(page)
+        try:
+            raw_tweets, continuation = extract_contents(page)
+        except Exception as e:
+            self.logger.exception(f'failed to extract tweets from page: {e}')
+            self.logger.debug(f'raw page: {page}')
+            return [], None
         await asyncio.sleep(0)
         records = []
         for tweet_result in raw_tweets:
