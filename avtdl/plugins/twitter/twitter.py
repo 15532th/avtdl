@@ -44,8 +44,6 @@ class TwitterMonitorEntity(PagedFeedMonitorEntity):
 class TwitterMonitor(PagedFeedMonitor):
     """Base class for concrete Twitter monitors"""
 
-    MIN_CONTINUATION_DELAY: int = 1
-
     async def handle_first_page(self, entity: TwitterMonitorEntity, client: HttpClient) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         raw_page = await self._get_page(entity, client, continuation=None)
         if raw_page is None:
@@ -108,8 +106,9 @@ class TwitterHomeMonitor(TwitterMonitor):
 
     async def _get_page(self, entity: TwitterHomeMonitorEntity, client: HttpClient, continuation: Optional[str]) -> Optional[str]:
         endpoint = LatestTimelineEndpoint if entity.following else TimelineEndpoint
-        data = await endpoint.request(self.logger, client, entity.url, client.cookie_jar, continuation)
-        return data
+        request_details = endpoint.prepare(entity.url, client.cookie_jar, continuation)
+        response = await client.request_endpoint(self.logger, request_details, endpoint.rate_limit())
+        return response.text if response is not None else None
 
 @Plugins.register('twitter.user', Plugins.kind.ACTOR_ENTITY)
 class TwitterUserMonitorEntity(TwitterMonitorEntity):
@@ -166,8 +165,9 @@ class TwitterUserMonitor(TwitterMonitor):
             self.logger.warning(f'failed to get user id from user handle for "{entity.user}", aborting update')
             return None
         endpoint = self._pick_endpoint(entity)
-        data = await endpoint.request(self.logger, client, entity.url, client.cookie_jar, user_id, continuation)
-        return data
+        request_details = endpoint.prepare(entity.url, client.cookie_jar, user_id, continuation)
+        response = await client.request_endpoint(self.logger, request_details, endpoint.rate_limit())
+        return response.text if response is not None else None
 
 
 @Plugins.register('twitter.search', Plugins.kind.ACTOR_ENTITY)
@@ -193,5 +193,6 @@ class TwitterSearchMonitor(TwitterMonitor):
     """
 
     async def _get_page(self, entity: TwitterSearchEntity, client: HttpClient, continuation: Optional[str]) -> Optional[str]:
-        data = await SearchTimelineEndpoint.request(self.logger, client, entity.url, client.cookie_jar, entity.query, entity.query_type, continuation)
-        return data
+        request_details = SearchTimelineEndpoint.prepare(entity.url, client.cookie_jar, entity.query, entity.query_type, continuation)
+        response = await client.request_endpoint(self.logger, request_details, SearchTimelineEndpoint.rate_limit())
+        return response.text if response is not None else None
