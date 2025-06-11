@@ -238,6 +238,36 @@ class RateLimit:
         self._submit_headers(headers, logger)
 
 
+class NoRateLimit(RateLimit):
+
+    def __init__(self, name: str, logger: Optional[logging.Logger] = None) -> None:
+        logger = logging.getLogger('noop')
+        logger.setLevel(logging.CRITICAL)
+        super().__init__(name, logger)
+
+    def _submit_headers(self, headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: logging.Logger):
+        pass
+
+
+@dataclass
+class RequestDetails:
+    url: str
+    method: str = 'GET'
+    params: Optional[Dict[str, Any]] = None
+    data: Optional[Any] = None
+    headers: Optional[Dict[str, Any]] = None
+
+    @property
+    def url_with_query(self) -> str:
+        """url plus params"""
+        if self.params is None:
+            return self.url
+        parsed = urllib.parse.urlparse(self.url)
+        with_query = parsed._replace(query=urllib.parse.urlencode(self.params))
+        url = urllib.parse.urlunparse(with_query)
+        return url
+
+
 def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional[int],
                               headers: Optional[CIMultiDictProxy[str]], current_update_interval: float,
                               base_update_interval: float, adjust_update_interval: bool = True) -> float:
@@ -273,6 +303,55 @@ def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional
             update_interval = base_update_interval
 
     return update_interval
+
+
+@dataclass
+class HttpResponse:
+    logger: logging.Logger
+    text: str
+    url: str
+    ok: bool
+    no_content: bool
+    status: int
+    reason: str
+    headers: CIMultiDictProxy[str]
+    request_headers: CIMultiDictProxy[str]
+    cookies: SimpleCookie
+    endpoint_state: EndpointState
+    content_encoding: str
+
+    @classmethod
+    def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
+        response = cls(
+            logger,
+            text,
+            str(response.url),
+            response.ok,
+            response.status < 200 or response.status >= 300,
+            response.status,
+            response.reason or 'No reason',
+            response.headers,
+            response.request_info.headers,
+            response.cookies,
+            state,
+            response.get_encoding()
+        )
+        return response
+
+    def json(self, raise_errors: bool = False) -> Optional[JSONType]:
+        try:
+            parsed = json.loads(self.text)
+            return parsed
+        except json.JSONDecodeError as e:
+            self.logger.debug(f'error parsing response from {self.url}: {e}. Raw response data: "{self.text}"')
+            if raise_errors:
+                raise
+            else:
+                return None
+
+    def next_update_interval(self, base: float, current: float, adjust_update_interval: bool = True) -> float:
+        return decide_on_update_interval(self.logger, self.url, self.status, self.headers, current, base,
+                                         adjust_update_interval)
 
 
 class HttpClient:
@@ -379,70 +458,15 @@ class HttpClient:
             return None
         return response.json()
 
-
-@dataclass
-class HttpResponse:
-    logger: logging.Logger
-    text: str
-    url: str
-    ok: bool
-    no_content: bool
-    status: int
-    reason: str
-    headers: CIMultiDictProxy[str]
-    request_headers: CIMultiDictProxy[str]
-    cookies: SimpleCookie
-    endpoint_state: EndpointState
-    content_encoding: str
-
-    @classmethod
-    def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
-        response = cls(
-            logger,
-            text,
-            str(response.url),
-            response.ok,
-            response.status < 200 or response.status >= 300,
-            response.status,
-            response.reason or 'No reason',
-            response.headers,
-            response.request_info.headers,
-            response.cookies,
-            state,
-            response.get_encoding()
-        )
+    async def request_endpoint(self, logger: logging.Logger,
+                               details: RequestDetails,
+                               rate_limit: RateLimit = NoRateLimit('')) -> Optional[HttpResponse]:
+        async with rate_limit:
+            response = await self.request(url=details.url,
+                                          params=details.params,
+                                          data=details.data,
+                                          headers=details.headers,
+                                          method=details.method)
+            if response is not None:
+                rate_limit.submit_headers(response.headers, logger)
         return response
-
-    def json(self, raise_errors: bool = False) -> Optional[JSONType]:
-        try:
-            parsed = json.loads(self.text)
-            return parsed
-        except json.JSONDecodeError as e:
-            self.logger.debug(f'error parsing response from {self.url}: {e}. Raw response data: "{self.text}"')
-            if raise_errors:
-                raise
-            else:
-                return None
-
-    def next_update_interval(self, base: float, current: float, adjust_update_interval: bool = True) -> float:
-        return decide_on_update_interval(self.logger, self.url, self.status, self.headers, current, base,
-                                         adjust_update_interval)
-
-
-@dataclass
-class RequestDetails:
-    url: str
-    method: str = 'GET'
-    params: Optional[Dict[str, Any]] = None
-    data: Optional[Any] = None
-    headers: Optional[Dict[str, Any]] = None
-
-    @property
-    def url_with_query(self) -> str:
-        """url plus params"""
-        if self.params is None:
-            return self.url
-        parsed = urllib.parse.urlparse(self.url)
-        with_query = parsed._replace(query=urllib.parse.urlencode(self.params))
-        url = urllib.parse.urlunparse(with_query)
-        return url
