@@ -192,6 +192,10 @@ class HttpTaskMonitor(BaseTaskMonitor):
         if additional_headers is not None:
             request_details.headers = {**(request_details.headers or {}), **additional_headers}
         response = await client.request_endpoint(self.logger, request_details, rate_limit)
+        if response is None:
+            entity.update_interval = decide_on_update_interval(client.logger, request_details.url, None, None, entity.update_interval, entity.base_update_interval, entity.adjust_update_interval)
+        else:
+            entity.update_interval = response.next_update_interval(entity.base_update_interval, entity.update_interval, entity.adjust_update_interval)
         return response
 
     async def request_raw(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[HttpResponse]:
