@@ -30,12 +30,6 @@ class DiscordRateLimit(RateLimit):
         return headers.get('X-RateLimit-Bucket')
 
 
-class NoRateLimit(DiscordRateLimit):
-
-    def _submit_headers(self, headers: Union[Dict[str, str], multidict.CIMultiDictProxy[str]], logger: logging.Logger):
-        pass
-
-
 @Plugins.register('discord.hook', Plugins.kind.ACTOR_CONFIG)
 class DiscordHookConfig(ActorConfig):
     pass
@@ -71,7 +65,7 @@ class DiscordHook(Action):
         self.sessions: SessionStorage = SessionStorage(self.logger)
         self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
         self.buckets: Dict[Optional[str], DiscordRateLimit] = {}
-        self.buckets[None] = NoRateLimit('fallback bucket')
+        self.buckets[None] = DiscordRateLimit('fallback bucket')
 
     def handle(self, entity: DiscordHookEntity, record: Record):
         if not entity.name in self.queues:
