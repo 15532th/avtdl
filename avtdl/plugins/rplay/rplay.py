@@ -484,7 +484,7 @@ class RplayUrl:
             'published', 'publishedClips', 'playlists', 'communityPosts', 'pinnedPost' - list of contentOid
         }
         """
-        url = f'https://api.rplay.live/live/play'
+        url = f'https://api.rplay-cdn.com/live/play'
         params = {'creatorOid': oid, 'key': key, 'lang': 'en', 'requestorOid': requestor_id or '6596e71c04a7ea2fd7c36ae7'}
         return RequestDetails(url=url, params=params)
 
@@ -510,7 +510,7 @@ class RplayUrl:
 
     @staticmethod
     def bulkgetusers(oids: List[str]) -> RequestDetails:
-        url = f'https://api.rplay.live/account/bulkgetusers'
+        url = f'https://api.rplay-cdn.com/account/bulkgetusers'
         params = {'users': '|'.join(oids),
                   'toGrab': '|'.join(['_id', 'nickname', 'lastPubDate', 'creatorTags', 'isLive']), 'lang': 'en'}
         return RequestDetails(url=url, params=params)
