@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import json
 import logging
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import multidict
 
@@ -15,7 +15,8 @@ from avtdl.core.utils import SessionStorage
 
 class DiscordRateLimit(RateLimit):
 
-    def _submit_headers(self, headers: Union[Dict[str, str], multidict.CIMultiDictProxy[str]], logger: logging.Logger):
+    def _submit_response(self, response: HttpResponse, logger: logging.Logger):
+        headers = response.headers
         try:
             self.limit_total = int(headers.get('X-RateLimit-Limit', -1))
             self.limit_remaining = int(headers.get('X-RateLimit-Remaining', -1))
@@ -129,7 +130,7 @@ class DiscordHook(Action):
             bucket = DiscordRateLimit.get_bucket(response.headers)
             if not bucket in self.buckets:
                 self.buckets[bucket] = DiscordRateLimit(f'{bucket}', self.logger)
-            self.buckets[bucket].submit_headers(response.headers, self.logger)
+            self.buckets[bucket].submit_response(response, self.logger)
 
             # if message got send successfully discard records except these that didn't fit into message
             if pending_records:

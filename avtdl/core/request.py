@@ -152,14 +152,65 @@ def get_retry_after(headers: Union[Dict[str, str], multidict.CIMultiDictProxy[st
     return None
 
 
+@dataclass
+class HttpResponse:
+    logger: logging.Logger
+    text: str
+    url: str
+    ok: bool
+    no_content: bool
+    status: int
+    reason: str
+    headers: CIMultiDictProxy[str]
+    request_headers: CIMultiDictProxy[str]
+    cookies: SimpleCookie
+    endpoint_state: EndpointState
+    content_encoding: str
+    _json: Optional[JSONType] = None
+
+    @classmethod
+    def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
+        response = cls(
+            logger,
+            text,
+            str(response.url),
+            response.ok,
+            response.status < 200 or response.status >= 300,
+            response.status,
+            response.reason or 'No reason',
+            response.headers,
+            response.request_info.headers,
+            response.cookies,
+            state,
+            response.get_encoding()
+        )
+        return response
+
+    def has_json(self) -> bool:
+        try:
+            _ = self.json()
+            return True
+        except json.JSONDecodeError:
+            return False
+
+    def json(self) -> JSONType:
+        if self._json is None:
+            self._json = json.loads(self.text)
+        return self._json
+
+    def next_update_interval(self, base: float, current: float, adjust_update_interval: bool = True) -> float:
+        return decide_on_update_interval(self.logger, self.url, self.status, self.headers, current, base,
+                                         adjust_update_interval)
+
+
 class RateLimit:
     """
-    Encapsulate state of rate limits for "bucket of tokens" type of endpoint
+    Encapsulate state of rate limits for endpoint
 
     >>> async def endpoint_request(url: str, client: HttpClient):
     >>>     async with RateLimit('endpoint name') as rate_limit:
     >>>         response = await client.request(url)
-    >>>         rate_limit.submit_headers(response.headers)
+    >>>         rate_limit.submit_response(response)
     >>>
 
     Request itself, with error handling, is done by the endpoint class,
@@ -212,13 +263,12 @@ class RateLimit:
         return 0
 
     @abc.abstractmethod
-    def _submit_headers(self, headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: logging.Logger):
-        """parse response headers and update self.limit_total, self.limit_remaining and self.reset_at"""
+    def _submit_response(self, response: HttpResponse, logger: logging.Logger):
+        """parse response and update self.reset_at"""
 
-    def submit_headers(self, headers: Union[Dict[str, str], CIMultiDictProxy[str]],
-                       logger: Optional[logging.Logger] = None):
+    def submit_response(self, response: HttpResponse, logger: Optional[logging.Logger] = None):
         """
-        Update limits values and reset time using data from headers.
+        Update limits values and reset time using data from response.
 
         Client code should call it after completing request. Client code might
         provide a custom Logger instance to help with identifying debug output
@@ -226,7 +276,7 @@ class RateLimit:
         """
         logger = logger or self.logger
 
-        retry_after = get_retry_after(headers)
+        retry_after = get_retry_after(response.headers)
         if retry_after is not None:
             self.limit_remaining = 0
             self.reset_at = int(
@@ -235,7 +285,7 @@ class RateLimit:
                 f'[{self.name}] Retry-After is present and set to {retry_after}, setting reset_at to {self.reset_at}')
             return
 
-        self._submit_headers(headers, logger)
+        self._submit_response(response, logger)
 
 
 class NoRateLimit(RateLimit):
@@ -245,7 +295,7 @@ class NoRateLimit(RateLimit):
         logger.setLevel(logging.CRITICAL)
         super().__init__(name, logger)
 
-    def _submit_headers(self, headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: logging.Logger):
+    def _submit_response(self, response: HttpResponse, logger: logging.Logger):
         pass
 
 
@@ -303,57 +353,6 @@ def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional
             update_interval = base_update_interval
 
     return update_interval
-
-
-@dataclass
-class HttpResponse:
-    logger: logging.Logger
-    text: str
-    url: str
-    ok: bool
-    no_content: bool
-    status: int
-    reason: str
-    headers: CIMultiDictProxy[str]
-    request_headers: CIMultiDictProxy[str]
-    cookies: SimpleCookie
-    endpoint_state: EndpointState
-    content_encoding: str
-    _json: Optional[JSONType] = None
-
-    @classmethod
-    def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
-        response = cls(
-            logger,
-            text,
-            str(response.url),
-            response.ok,
-            response.status < 200 or response.status >= 300,
-            response.status,
-            response.reason or 'No reason',
-            response.headers,
-            response.request_info.headers,
-            response.cookies,
-            state,
-            response.get_encoding()
-        )
-        return response
-
-    def has_json(self) -> bool:
-        try:
-            _ = self.json()
-            return True
-        except json.JSONDecodeError:
-            return False
-
-    def json(self) -> JSONType:
-        if self._json is None:
-            self._json = json.loads(self.text)
-        return self._json
-
-    def next_update_interval(self, base: float, current: float, adjust_update_interval: bool = True) -> float:
-        return decide_on_update_interval(self.logger, self.url, self.status, self.headers, current, base,
-                                         adjust_update_interval)
 
 
 class HttpClient:
@@ -470,5 +469,5 @@ class HttpClient:
                                           headers=details.headers,
                                           method=details.method)
             if response is not None:
-                rate_limit.submit_headers(response.headers, logger)
+                rate_limit.submit_response(response, logger)
         return response

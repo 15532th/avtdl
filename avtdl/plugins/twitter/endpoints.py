@@ -60,7 +60,8 @@ def get_auth_headers(cookies) -> dict[str, Any]:
 
 class TwitterRateLimit(RateLimit):
 
-    def _submit_headers(self, headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: logging.Logger):
+    def _submit_response(self, response: HttpResponse, logger: logging.Logger):
+        headers = response.headers
         try:
             self.limit_total = int(headers.get('x-rate-limit-limit', -1))
             self.limit_remaining = int(headers.get('x-rate-limit-remaining', -1))
@@ -136,11 +137,11 @@ class TwitterEndpoint(abc.ABC):
                 logger.debug(f'network error while fetching {r.url}')
                 return None
             elif not response.ok:
-                rate_limit.submit_headers(response.headers, logger)
+                rate_limit.submit_response(response, logger)
                 logger.debug(f' got code {response.status} ({response.reason}) while fetching {r.url}')
                 return None
             else:
-                rate_limit.submit_headers(response.headers, logger)
+                rate_limit.submit_response(response, logger)
                 return response
 
     @classmethod
