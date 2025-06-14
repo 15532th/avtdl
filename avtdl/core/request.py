@@ -319,6 +319,7 @@ class HttpResponse:
     cookies: SimpleCookie
     endpoint_state: EndpointState
     content_encoding: str
+    _json: Optional[JSONType] = None
 
     @classmethod
     def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
@@ -338,16 +339,17 @@ class HttpResponse:
         )
         return response
 
-    def json(self, raise_errors: bool = False) -> Optional[JSONType]:
+    def has_json(self) -> bool:
         try:
-            parsed = json.loads(self.text)
-            return parsed
-        except json.JSONDecodeError as e:
-            self.logger.debug(f'error parsing response from {self.url}: {e}. Raw response data: "{self.text}"')
-            if raise_errors:
-                raise
-            else:
-                return None
+            _ = self.json()
+            return True
+        except json.JSONDecodeError:
+            return False
+
+    def json(self) -> JSONType:
+        if self._json is None:
+            self._json = json.loads(self.text)
+        return self._json
 
     def next_update_interval(self, base: float, current: float, adjust_update_interval: bool = True) -> float:
         return decide_on_update_interval(self.logger, self.url, self.status, self.headers, current, base,

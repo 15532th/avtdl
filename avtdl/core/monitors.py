@@ -175,7 +175,12 @@ class HttpTaskMonitor(BaseTaskMonitor):
         response = await self.request_raw(url, entity, client, method, headers, params, data, data_json)
         if response is None or response.no_content:
             return None
-        return response.json()
+        try:
+            return response.json()
+        except json.JSONDecodeError as e:
+            self.logger.warning(f'error parsing response from {url}: {e}')
+            self.logger.debug(f'Raw response data: "{response.text}"')
+            return None
 
     async def request(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[str]:
         response = await self.request_raw(url, entity, client, method, headers, params, data, data_json)

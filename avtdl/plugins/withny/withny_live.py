@@ -244,7 +244,7 @@ class WithnyLive(Action):
             data = None
         else:
             update_interval = response.next_update_interval(base_update_interval, current_update_interval, True)
-            if response.no_content:
+            if response.no_content or not response.has_json():
                 data = None
             else:
                 data = response.json()
