@@ -18,7 +18,7 @@ import multidict
 from aiohttp.abc import AbstractCookieJar
 from multidict import CIMultiDictProxy
 
-from avtdl.core.utils import JSONType, timeit
+from avtdl.core.utils import JSONType, timeit, utcnow
 
 HIGHEST_UPDATE_INTERVAL: float = 4000
 
@@ -207,21 +207,19 @@ class RateLimit:
     """
     Encapsulate state of rate limits for endpoint
 
-    >>> async def endpoint_request(url: str, client: HttpClient):
-    >>>     async with RateLimit('endpoint name') as rate_limit:
+    >>> async def endpoint_request(url: str, client: HttpClient, rate_limit: RateLimit):
+    >>>     async with rate_limit:
     >>>         response = await client.request(url)
     >>>         rate_limit.submit_response(response)
     >>>
 
-    Request itself, with error handling, is done by the endpoint class,
-    which then should then call RateLimit.submit_headers with response headers
-    to update the limit values and expiration time.
+    Base rate limit, taking into account response status and RetryAfter header
     """
 
-    def __init__(self, name: str, logger: Optional[logging.Logger] = None) -> None:
-        self.limit_total: int = 50
-        self.limit_remaining: int = 10
-        self.reset_at: int = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
+    def __init__(self, name: str, logger: Optional[logging.Logger] = None, base_delay: int = 10) -> None:
+        self.ready_at: datetime.datetime = utcnow()
+        self.base_delay = base_delay
+        self.current_delay = base_delay
 
         self.name = name
         self.logger = logger or logging.getLogger().getChild('rate_limit')
@@ -232,7 +230,7 @@ class RateLimit:
         with timeit() as t:
             await self.lock.acquire()
         self.perf_lock_acquired_at = t.end
-        if self.limit_remaining <= 1:
+        if self.delay > 0:
             self.logger.debug(
                 f'[{self.name}] lock acquired in {t.timedelta}, {self.delay} seconds until rate limit reset')
             await asyncio.sleep(self.delay)
@@ -247,24 +245,15 @@ class RateLimit:
         return False
 
     @property
-    def reset_at_date(self) -> datetime.datetime:
-        return datetime.datetime.fromtimestamp(self.reset_at, tz=datetime.timezone.utc)
-
-    @property
-    def reset_after(self) -> int:
-        now = int(datetime.datetime.now().timestamp())
-        reset_after = max(0, self.reset_at - now)
+    def delay(self) -> int:
+        """seconds left until next request can be made"""
+        delay = int((self.ready_at - utcnow()).total_seconds()) + 1
+        reset_after = max(0, delay)
         return reset_after
 
-    @property
-    def delay(self) -> int:
-        if self.limit_remaining <= 1:
-            return self.reset_after + 1
-        return 0
-
     @abc.abstractmethod
-    def _submit_response(self, response: HttpResponse, logger: logging.Logger):
-        """parse response and update self.reset_at"""
+    def _submit_response(self, response: HttpResponse, logger: logging.Logger) -> int:
+        """parse response and return minimum delay until the next request, in seconds"""
 
     def submit_response(self, response: HttpResponse, logger: Optional[logging.Logger] = None):
         """
@@ -276,16 +265,36 @@ class RateLimit:
         """
         logger = logger or self.logger
 
-        retry_after = get_retry_after(response.headers)
-        if retry_after is not None:
-            self.limit_remaining = 0
-            self.reset_at = int(
-                (datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=retry_after)).timestamp())
-            logger.debug(
-                f'[{self.name}] Retry-After is present and set to {retry_after}, setting reset_at to {self.reset_at}')
-            return
+        calculated_delay = int(decide_on_update_interval(logger, response.url, response.status, response.headers, self.current_delay, self.base_delay))
+        suggested_delay = self._submit_response(response, logger)
+        self.current_delay = max(calculated_delay, suggested_delay)
+        self.ready_at = (datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=self.current_delay))
+        return
 
-        self._submit_response(response, logger)
+
+
+class BucketRateLimit(RateLimit):
+    """Rate limit for token bucket type of endpoint"""
+
+    def __init__(self, name: str, logger: Optional[logging.Logger] = None) -> None:
+        super().__init__(name, logger)
+        self.limit_total: int = 50
+        self.limit_remaining: int = 10
+        self.reset_at: int = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
+
+    @abc.abstractmethod
+    def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
+        """parse response headers and update self.limit_total, self.limit_remaining and self.reset_at"""
+
+    def _submit_response(self, response: HttpResponse, logger: logging.Logger) -> int:
+        logger = logger or self.logger
+
+        self._submit_headers(response, logger)
+        if self.limit_remaining >= 1:
+            return 0
+        reset_after = max(0, self.reset_at - int(utcnow().timestamp()))
+        return reset_after
+
 
 
 class NoRateLimit(RateLimit):
@@ -294,6 +303,9 @@ class NoRateLimit(RateLimit):
         logger = logging.getLogger('noop')
         logger.setLevel(logging.CRITICAL)
         super().__init__(name, logger)
+
+    def submit_response(self, response: HttpResponse, logger: Optional[logging.Logger] = None):
+        pass
 
     def _submit_response(self, response: HttpResponse, logger: logging.Logger):
         pass

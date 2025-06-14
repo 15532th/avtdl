@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Union
 
 from multidict import CIMultiDictProxy
 
-from avtdl.core.request import HttpClient, HttpResponse, RateLimit, RequestDetails, get_retry_after
+from avtdl.core.request import BucketRateLimit, HttpClient, HttpResponse, RequestDetails, get_retry_after
 from avtdl.core.utils import find_all, find_one, get_cookie_value
 
 USER_FEATURES = '{"hidden_profile_likes_enabled":true,"hidden_profile_subscriptions_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true}'
@@ -58,9 +58,9 @@ def get_auth_headers(cookies) -> dict[str, Any]:
     return headers
 
 
-class TwitterRateLimit(RateLimit):
+class TwitterRateLimit(BucketRateLimit):
 
-    def _submit_response(self, response: HttpResponse, logger: logging.Logger):
+    def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
         headers = response.headers
         try:
             self.limit_total = int(headers.get('x-rate-limit-limit', -1))
@@ -69,7 +69,7 @@ class TwitterRateLimit(RateLimit):
         except ValueError:
             logger.warning(f'[{self.name}] error parsing rate limit headers: "{headers}"')
         else:
-            logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.reset_after)}')
+            logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.delay)}')
 
 
 class TwitterEndpoint(abc.ABC):

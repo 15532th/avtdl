@@ -9,13 +9,13 @@ import multidict
 from avtdl.core.formatters import DiscordEmbedLimits, MessageFormatter
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import HttpClient, HttpResponse, RateLimit
+from avtdl.core.request import BucketRateLimit, HttpClient, HttpResponse
 from avtdl.core.utils import SessionStorage
 
 
-class DiscordRateLimit(RateLimit):
+class DiscordRateLimit(BucketRateLimit):
 
-    def _submit_response(self, response: HttpResponse, logger: logging.Logger):
+    def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
         headers = response.headers
         try:
             self.limit_total = int(headers.get('X-RateLimit-Limit', -1))
@@ -24,7 +24,7 @@ class DiscordRateLimit(RateLimit):
         except ValueError:
             logger.warning(f'[{self.name}] error parsing rate limit headers: "{headers}"')
         else:
-            logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.reset_after)}')
+            logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.delay)}')
 
     @staticmethod
     def get_bucket(headers: multidict.CIMultiDictProxy[str]) -> Optional[str]:
