@@ -10,7 +10,7 @@ from pydantic import Field, FilePath, PositiveFloat
 from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import HttpClient
+from avtdl.core.request import DataResponse, HttpClient
 from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, SearchQueryType, SearchTimelineEndpoint, \
     TimelineEndpoint, TwitterEndpoint, \
     UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint
@@ -155,13 +155,14 @@ class TwitterUserMonitor(TwitterMonitor):
 
     async def _get_user_id(self, entity: TwitterUserMonitorEntity, client: HttpClient) -> Optional[str]:
         if entity.user_id is None:
-            text = await UserIDEndpoint.request(self.logger, client, entity.url, client.cookie_jar, entity.user)
-            if text is None:
+            request_details = UserIDEndpoint.prepare(entity.url, client.cookie_jar, entity.user)
+            response = await client.request_endpoint(self.logger, request_details, UserIDEndpoint.rate_limit())
+            if not isinstance(response, DataResponse):
                 return None
             try:
-                data = json.loads(text)
+                data = json.loads(response.text)
             except json.JSONDecodeError as e:
-                self.logger.warning(f'[{entity.name}] failed to parse user_id for @{entity.user}: {e}. Raw response: {text}')
+                self.logger.warning(f'[{entity.name}] failed to parse user_id for @{entity.user}: {e}. Raw response: {response.text}')
                 return None
             user_id = UserIDEndpoint.get_user_id(data)
             entity.user_id = user_id

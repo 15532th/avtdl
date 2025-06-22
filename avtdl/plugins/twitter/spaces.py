@@ -10,7 +10,7 @@ from pydantic import FilePath
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import Delay, HttpClient, NoResponse
+from avtdl.core.request import DataResponse, Delay, HttpClient, NoResponse
 from avtdl.core.utils import SessionStorage, find_matching_field_value
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
 from avtdl.plugins.twitter.extractors import TwitterSpaceRecord, find_space_id, parse_media_url, parse_space, \
@@ -249,14 +249,15 @@ class TwitterSpace(Action):
 
     async def fetch_space(self, client: HttpClient, entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
         self.logger.debug(f'[{entity.name}] fetching metadata for space {space_url_by_id(space_id)}')
-        text = await AudioSpaceEndpoint.request(self.logger, client, entity.url, client.cookie_jar, space_id)
-        if text is None:
+        request_details = AudioSpaceEndpoint.prepare(entity.url, client.cookie_jar, space_id)
+        response = await client.request_endpoint(self.logger, request_details, AudioSpaceEndpoint.rate_limit())
+        if not isinstance(response, DataResponse):
             self.logger.warning(f'[{entity.name}] failed to retrieve metadata for {space_url_by_id(space_id)}')
             return None
         try:
-            data = json.loads(text)
+            data = response.json()
         except json.JSONDecodeError as e:
-            self.logger.warning(f'[{entity.name}] failed to parse space {space_url_by_id(space_id)}: {e}. Raw response: {text}')
+            self.logger.warning(f'[{entity.name}] failed to parse space {space_url_by_id(space_id)}: {e}. Raw response: {response.text}')
             return None
         try:
             space = parse_space(data)

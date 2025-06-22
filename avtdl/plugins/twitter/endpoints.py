@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Union
 
 from multidict import CIMultiDictProxy
 
-from avtdl.core.request import BucketRateLimit, HttpClient, HttpResponse, MaybeHttpResponse, NoResponse, RequestDetails, \
+from avtdl.core.request import BucketRateLimit, HttpResponse, RequestDetails, \
     get_retry_after
 from avtdl.core.utils import find_one, get_cookie_value
 
@@ -126,33 +126,6 @@ class TwitterEndpoint(abc.ABC):
     @abc.abstractmethod
     def prepare(cls, *args, **kwargs) -> RequestDetails:
         """Prepare a RequestDetails object based on passed arguments"""
-
-    @classmethod
-    async def request_raw(cls, logger: logging.Logger, client: HttpClient, *args, **kwargs) -> Optional[MaybeHttpResponse]:
-        r = cls.prepare(*args, **kwargs)
-        if r is None:
-            return None
-        async with cls.rate_limit() as rate_limit:
-            response = await client.request(r.url, params=r.params, headers=r.headers)
-            if isinstance(response, NoResponse):
-                logger.debug(f'network error while fetching {r.url}')
-                return None
-            elif not response.ok:
-                rate_limit.submit_response(response, logger)
-                logger.debug(f' got code {response.status} ({response.reason}) while fetching {r.url}')
-                return None
-            else:
-                rate_limit.submit_response(response, logger)
-                return response
-
-    @classmethod
-    async def request(cls, logger: logging.Logger, client: HttpClient, *args, **kwargs) -> Optional[str]:
-        response = await cls.request_raw(logger, client, *args, **kwargs)
-        if response is None:
-            return None
-        if not response.has_content:
-            return None
-        return response.text
 
 
 class UserIDEndpoint(TwitterEndpoint):
