@@ -16,8 +16,9 @@ from typing import Any, Dict, Optional, Union
 
 from multidict import CIMultiDictProxy
 
-from avtdl.core.request import BucketRateLimit, HttpClient, HttpResponse, RequestDetails, get_retry_after
-from avtdl.core.utils import find_all, find_one, get_cookie_value
+from avtdl.core.request import BucketRateLimit, HttpClient, HttpResponse, MaybeHttpResponse, NoResponse, RequestDetails, \
+    get_retry_after
+from avtdl.core.utils import find_one, get_cookie_value
 
 USER_FEATURES = '{"hidden_profile_likes_enabled":true,"hidden_profile_subscriptions_enabled":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"subscriptions_verification_info_is_identity_verified_enabled":true,"subscriptions_verification_info_verified_since_enabled":true,"highlights_tweets_tab_ui_enabled":true,"responsive_web_twitter_article_notes_tab_enabled":true,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"responsive_web_graphql_timeline_navigation_enabled":true}'
 TWEETS_FEATURES = '{"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"tweetypie_unmention_optimization_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_enhance_cards_enabled":false}'
@@ -127,13 +128,13 @@ class TwitterEndpoint(abc.ABC):
         """Prepare a RequestDetails object based on passed arguments"""
 
     @classmethod
-    async def request_raw(cls, logger: logging.Logger, client: HttpClient, *args, **kwargs) -> Optional[HttpResponse]:
+    async def request_raw(cls, logger: logging.Logger, client: HttpClient, *args, **kwargs) -> Optional[MaybeHttpResponse]:
         r = cls.prepare(*args, **kwargs)
         if r is None:
             return None
         async with cls.rate_limit() as rate_limit:
             response = await client.request(r.url, params=r.params, headers=r.headers)
-            if response is None:
+            if isinstance(response, NoResponse):
                 logger.debug(f'network error while fetching {r.url}')
                 return None
             elif not response.ok:
@@ -302,9 +303,3 @@ def get_rate_limit_delay(headers: Union[Dict[str, str], CIMultiDictProxy[str]], 
     if limit_remaining <= 1:
         return reset_after + 1
     return 0
-
-
-def get_continuation(data: dict) -> Optional[str]:
-    entries = find_all(data, '$..instructions..entries..content,itemContent')
-    continuation = entries[-1]['value']
-    return continuation

@@ -9,7 +9,7 @@ import multidict
 from avtdl.core.formatters import DiscordEmbedLimits, MessageFormatter
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import BucketRateLimit, HttpClient, HttpResponse
+from avtdl.core.request import BucketRateLimit, HttpClient, HttpResponse, NoResponse
 from avtdl.core.utils import SessionStorage
 
 
@@ -114,7 +114,7 @@ class DiscordHook(Action):
             async with self.buckets[bucket] as _:
                 response = await client.request(entity.url, data_json=message, method='POST')
 
-            if response is None:
+            if isinstance(response, NoResponse):
                 self.logger.warning(f'[{entity.name}] network error while sending message with Discord webhook, saving for the next try')
                 until_next_try = 60
                 continue  # implicitly saving messages in to_be_sent until the next try

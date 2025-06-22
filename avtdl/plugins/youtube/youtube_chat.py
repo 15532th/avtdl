@@ -228,7 +228,7 @@ class YoutubeChatMonitor(BaseFeedMonitor):
             return None
         _, headers, post_body = prepare_next_page_request(entity.context.innertube_context,
                                                           entity.context.continuation_token)
-        page = await client.request(entity.context.continuation_url, method='POST',
+        page = await client.request_text(entity.context.continuation_url, method='POST',
                                     data_json=post_body, headers=headers,
                                     settings=RetrySettings(retry_times=3, retry_delay=5, retry_multiplier=2))
         if page is None:
@@ -238,7 +238,7 @@ class YoutubeChatMonitor(BaseFeedMonitor):
                 entity.context.done = True
                 self.logger.info(f'[{entity.name}] giving up on downloading chat replay for {entity.url}')
             return None
-        actions, continuation, _ = self._get_actions(page.text)
+        actions, continuation, _ = self._get_actions(page)
         entity.context.continuation_token = continuation
         if continuation is None and entity.context.is_replay:
             self.logger.info(f'[{entity.name}] finished downloading chat replay')

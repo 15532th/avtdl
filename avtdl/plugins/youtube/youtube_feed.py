@@ -177,12 +177,12 @@ class VideosMonitor(PagedFeedMonitor):
             return [], None
 
         url, headers, post_body = prepare_next_page_request(context.innertube_context, context.continuation_token, cookies=client.cookie_jar)
-        raw_page = await client.request(url, method='POST', data_json=post_body, headers=headers,
+        raw_page = await client.request_text(url, method='POST', data_json=post_body, headers=headers,
                                         settings=RetrySettings(retry_times=3, retry_delay=5, retry_multiplier=2))
         if raw_page is None:
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
-        video_renderers, continuation_token, page = get_video_renderers(raw_page.text, anchor='')
+        video_renderers, continuation_token, page = get_video_renderers(raw_page, anchor='')
 
         if not video_renderers:
             self.logger.debug(f'[{entity.name}] found no videos when parsing continuation of {entity.url}')

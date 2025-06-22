@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 from http.cookies import SimpleCookie
 from math import log2
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import aiohttp
 import multidict
@@ -153,6 +153,27 @@ def get_retry_after(headers: Union[Dict[str, str], multidict.CIMultiDictProxy[st
 
 
 @dataclass
+class NoResponse:
+    logger: logging.Logger
+    e: Exception
+    url: str
+    text: None = None
+    completed: bool = False
+    ok: bool = False
+    no_content: bool = True
+    status: int = 0
+    headers: None = None
+
+    def has_json(self) -> bool:
+        return False
+
+    def json(self) -> JSONType:
+        return None
+
+    def next_update_interval(self, base: float, current: float, adjust_update_interval: bool = True) -> float:
+        return decide_on_update_interval(self.logger, self.url, None, None, current, base, adjust_update_interval)
+
+@dataclass
 class HttpResponse:
     logger: logging.Logger
     text: str
@@ -166,16 +187,27 @@ class HttpResponse:
     cookies: SimpleCookie
     endpoint_state: EndpointState
     content_encoding: str
+    completed: bool = True
     _json: Optional[JSONType] = None
 
     @classmethod
     def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
-        response = cls(
+        no_content = response.status < 200 or response.status >= 300
+        factory: type[HttpResponse]
+        if not no_content:
+            factory = DataResponse
+        elif response.ok:
+            factory = GoodResponse
+        elif not response.ok:
+            factory = BadResponse
+        else:
+            factory = cls
+        response = factory(
             logger,
             text,
             str(response.url),
             response.ok,
-            response.status < 200 or response.status >= 300,
+            no_content,
             response.status,
             response.reason or 'No reason',
             response.headers,
@@ -201,6 +233,24 @@ class HttpResponse:
     def next_update_interval(self, base: float, current: float, adjust_update_interval: bool = True) -> float:
         return decide_on_update_interval(self.logger, self.url, self.status, self.headers, current, base,
                                          adjust_update_interval)
+
+
+MaybeHttpResponse = Union[NoResponse, HttpResponse]
+
+
+class BadResponse(HttpResponse):
+    """HttpResponse that completed with error (status >= 400)"""
+    ok: Literal[False] = False
+
+
+class GoodResponse(HttpResponse):
+    """HttpResponse that completed successfully (status < 400)"""
+    ok: Literal[True] = True
+
+
+class DataResponse(GoodResponse):
+    """HttpResponse that completed successfully"""
+    no_content: Literal[False] = False
 
 
 class RateLimit:
@@ -252,10 +302,10 @@ class RateLimit:
         return reset_after
 
     @abc.abstractmethod
-    def _submit_response(self, response: HttpResponse, logger: logging.Logger) -> int:
+    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
         """parse response and return minimum delay until the next request, in seconds"""
 
-    def submit_response(self, response: HttpResponse, logger: Optional[logging.Logger] = None):
+    def submit_response(self, response: MaybeHttpResponse, logger: Optional[logging.Logger] = None):
         """
         Update limits values and reset time using data from response.
 
@@ -286,8 +336,10 @@ class BucketRateLimit(RateLimit):
     def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
         """parse response headers and update self.limit_total, self.limit_remaining and self.reset_at"""
 
-    def _submit_response(self, response: HttpResponse, logger: logging.Logger) -> int:
+    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
         logger = logger or self.logger
+        if isinstance(response, NoResponse):
+            return self.base_delay
 
         self._submit_headers(response, logger)
         if self.limit_remaining >= 1:
@@ -304,10 +356,10 @@ class NoRateLimit(RateLimit):
         logger.setLevel(logging.CRITICAL)
         super().__init__(name, logger)
 
-    def submit_response(self, response: HttpResponse, logger: Optional[logging.Logger] = None):
+    def submit_response(self, response: MaybeHttpResponse, logger: Optional[logging.Logger] = None):
         pass
 
-    def _submit_response(self, response: HttpResponse, logger: logging.Logger):
+    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger):
         pass
 
 
@@ -384,8 +436,8 @@ class HttpClient:
                       headers: Optional[Dict[str, Any]] = None,
                       method: str = 'GET',
                       state: EndpointState = EndpointState(),
-                      settings: RetrySettings = RetrySettings()) -> Optional['HttpResponse']:
-        response = None
+                      settings: RetrySettings = RetrySettings()) -> 'MaybeHttpResponse':
+        response: MaybeHttpResponse = NoResponse(self.logger, Exception('request_once was never called'), url)
         next_try_delay = settings.retry_delay
         for attempt in range(settings.retry_times):
             response = await self.request_once(url, params, data, data_json, headers, method, state)
@@ -401,7 +453,7 @@ class HttpClient:
                            headers: Optional[Dict[str, Any]] = None,
                            method: str = 'GET',
                            state: EndpointState = EndpointState(),
-                           ) -> Optional['HttpResponse']:
+                           ) -> 'MaybeHttpResponse':
         logger = self.logger
 
         request_headers: Dict[str, Any] = headers or {}
@@ -421,7 +473,7 @@ class HttpClient:
                 text = await client_response.text()
         except Exception as e:
             logger.warning(f'error while fetching {url}: {e.__class__.__name__} {e}')
-            return None
+            return NoResponse(logger, e, url)
 
         if not client_response.ok:
             logger.warning(
@@ -450,11 +502,9 @@ class HttpClient:
                            state: EndpointState = EndpointState(),
                            settings: RetrySettings = RetrySettings()) -> Optional[str]:
         response = await self.request(url, params, data, data_json, headers, method, state, settings)
-        if response is None:
-            return None
-        if response.no_content:
-            return None
-        return response.text
+        if isinstance(response, DataResponse):
+            return response.text
+        return None
 
     async def request_json(self, url: str,
                            params: Optional[Dict[str, str]] = None,
@@ -465,21 +515,18 @@ class HttpClient:
                            state: EndpointState = EndpointState(),
                            settings: RetrySettings = RetrySettings()) -> Optional[JSONType]:
         response = await self.request(url, params, data, data_json, headers, method, state, settings)
-        if response is None:
-            return None
-        if response.no_content:
-            return None
-        return response.json()
+        if response.has_json():
+            return response.json()
+        return None
 
     async def request_endpoint(self, logger: logging.Logger,
                                details: RequestDetails,
-                               rate_limit: RateLimit = NoRateLimit('')) -> Optional[HttpResponse]:
+                               rate_limit: RateLimit = NoRateLimit('')) -> MaybeHttpResponse:
         async with rate_limit:
             response = await self.request(url=details.url,
                                           params=details.params,
                                           data=details.data,
                                           headers=details.headers,
                                           method=details.method)
-            if response is not None:
-                rate_limit.submit_response(response, logger)
+            rate_limit.submit_response(response, logger)
         return response

@@ -12,7 +12,7 @@ from pydantic import Field, FilePath, PositiveInt, SerializeAsAny, field_validat
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Event, EventType, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import Delay, HttpClient, RetrySettings, StateStorage
+from avtdl.core.request import HttpClient, RetrySettings, StateStorage
 from avtdl.core.utils import CookieStoreError, JSONType, SessionStorage, get_cookie_value, jwt_decode, load_cookies, \
     save_cookies, utcnow
 from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
@@ -239,15 +239,11 @@ class WithnyLive(Action):
         '''Helper method to make http request to a json endpoint'''
         state = self.state_storage.get(url, method, params)
         response = await client.request(url, params, data, data_json, headers, method, state)
-        if response is None:
-            update_interval = Delay.get_next(current_update_interval)
-            data = None
+        update_interval = response.next_update_interval(base_update_interval, current_update_interval, True)
+        if response.has_json():
+            data = response.json()
         else:
-            update_interval = response.next_update_interval(base_update_interval, current_update_interval, True)
-            if response.no_content or not response.has_json():
-                data = None
-            else:
-                data = response.json()
+            data = None
         return data, update_interval
 
     def parse_record(self, data: Optional[JSONType], parser: Callable) -> Optional[WithnyRecord]:

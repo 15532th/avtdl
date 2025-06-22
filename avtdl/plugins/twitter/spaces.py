@@ -10,7 +10,7 @@ from pydantic import FilePath
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Action, ActionEntity, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import Delay, HttpClient
+from avtdl.core.request import Delay, HttpClient, NoResponse
 from avtdl.core.utils import SessionStorage, find_matching_field_value
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
 from avtdl.plugins.twitter.extractors import TwitterSpaceRecord, find_space_id, parse_media_url, parse_space, \
@@ -273,7 +273,7 @@ class TwitterSpace(Action):
         self.logger.debug(f'[{entity.name}] fetch media url for space {space.url}')
         r = LiveStreamEndpoint.prepare(entity.url, client.cookie_jar, space.media_key)
         response = await client.request(r.url, params=r.params, headers=r.headers)
-        if response is None:
+        if isinstance(response, NoResponse):
             self.logger.debug(f'[{entity.name}] failed to retrieve media url for {space.url}')
             return None
         elif not response.ok or response.no_content:

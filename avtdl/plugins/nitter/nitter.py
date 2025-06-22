@@ -11,7 +11,7 @@ from pydantic import ConfigDict, PositiveFloat
 from avtdl.core.interfaces import Filter, FilterEntity, MAX_REPR_LEN, Record, RuntimeContext
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import HttpClient, RetrySettings
+from avtdl.core.request import DataResponse, HttpClient, RetrySettings
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 
 
@@ -191,7 +191,7 @@ class NitterMonitor(PagedFeedMonitor):
             return None, None
         retry_settings = RetrySettings(retry_times=3, retry_delay=5, retry_multiplier=2)
         response = await client.request(next_page_url, headers=self.HEADERS, settings=retry_settings)
-        if response is None or response.no_content:
+        if not isinstance(response, DataResponse):
             return None, None
         page = self._parse_html(response.text, entity.url)
         records = self._parse_entries(page)
