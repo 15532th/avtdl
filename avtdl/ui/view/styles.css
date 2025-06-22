@@ -40,6 +40,10 @@
     pointer-events: none;
 }
 
+.pagination-link-edge {
+    text-decoration: underline;
+}
+
 .gallery-container {
     gap: 16px;
 }
@@ -318,7 +322,6 @@
 .controls-button:active {
     background-color: #c0c0c0;
 }
-
 
 .controls-button:disabled {
     cursor: default;

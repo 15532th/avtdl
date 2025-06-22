@@ -521,6 +521,9 @@ class Pagination {
             if (page === currentPage) {
                 pageLink.classList.add('active');
             }
+            if (page == totalPages || page == 1) {
+                pageLink.classList.add('pagination-link-edge');
+            }
             this.container.appendChild(pageLink);
         });
 
