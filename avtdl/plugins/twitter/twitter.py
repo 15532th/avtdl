@@ -89,6 +89,9 @@ class TwitterMonitor(PagedFeedMonitor):
                 self.logger.debug(f'raw tweet_result: {tweet_result}')
             else:
                 records.append(record)
+        if not records:
+            self.logger.warning(f'no records on page')
+            self.logger.debug(f'raw page: {page}')
         return records, continuation
 
 
