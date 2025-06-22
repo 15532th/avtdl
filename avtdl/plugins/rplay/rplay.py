@@ -277,11 +277,10 @@ class RplayUserMonitor(BaseFeedMonitor):
             return None
         r = RplayUrl.key2(own_user)
         retry_settings = RetrySettings(retry_times=3, retry_multiplier=3)
-        response = await client.request(r.url, method=r.method, params=r.params, data=r.data, headers=r.headers,
+        raw_key2 = await client.request_text(r.url, method=r.method, params=r.params, data=r.data, headers=r.headers,
                                         settings=retry_settings)
-        if response is None:
+        if raw_key2 is None:
             return None
-        raw_key2 = response.text
         try:
             key2 = json.loads(raw_key2)['authKey']
         except (TypeError, KeyError, json.JSONDecodeError) as e:
