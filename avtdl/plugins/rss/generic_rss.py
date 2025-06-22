@@ -9,7 +9,7 @@ from avtdl.core.formatters import Fmt, html_images, html_to_text, make_datetime
 from avtdl.core.interfaces import MAX_REPR_LEN, Record, TextRecord
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import HttpClient
+from avtdl.core.request import DataResponse, HttpClient
 
 
 @Plugins.register('generic_rss', Plugins.kind.ASSOCIATED_RECORD)
@@ -114,7 +114,7 @@ class GenericRSSMonitor(BaseFeedMonitor):
 
     async def _get_feed(self, entity: BaseFeedMonitorEntity, client: HttpClient) -> Optional[feedparser.FeedParserDict]:
         response = await self.request_raw(entity.url, entity, client)
-        if response is None or response.no_content:
+        if not isinstance(response, DataResponse):
             return None
         raw_text = response.text
 

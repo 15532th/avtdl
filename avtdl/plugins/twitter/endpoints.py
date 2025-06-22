@@ -150,7 +150,7 @@ class TwitterEndpoint(abc.ABC):
         response = await cls.request_raw(logger, client, *args, **kwargs)
         if response is None:
             return None
-        if response.no_content:
+        if not response.has_content:
             return None
         return response.text
 

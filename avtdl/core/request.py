@@ -160,7 +160,7 @@ class NoResponse:
     text: None = None
     completed: bool = False
     ok: bool = False
-    no_content: bool = True
+    has_content: bool = False
     status: int = 0
     headers: None = None
 
@@ -179,7 +179,7 @@ class HttpResponse:
     text: str
     url: str
     ok: bool
-    no_content: bool
+    has_content: bool
     status: int
     reason: str
     headers: CIMultiDictProxy[str]
@@ -192,9 +192,9 @@ class HttpResponse:
 
     @classmethod
     def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
-        no_content = response.status < 200 or response.status >= 300
+        has_content = 200 <= response.status < 300
         factory: type[HttpResponse]
-        if not no_content:
+        if has_content:
             factory = DataResponse
         elif response.ok:
             factory = GoodResponse
@@ -207,7 +207,7 @@ class HttpResponse:
             text,
             str(response.url),
             response.ok,
-            no_content,
+            has_content,
             response.status,
             response.reason or 'No reason',
             response.headers,
@@ -250,7 +250,7 @@ class GoodResponse(HttpResponse):
 
 class DataResponse(GoodResponse):
     """HttpResponse that completed successfully"""
-    no_content: Literal[False] = False
+    has_content: Literal[True] = True
 
 
 class RateLimit:

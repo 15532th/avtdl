@@ -172,7 +172,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
     async def request_json(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[JSONType]:
         response = await self.request_raw(url, entity, client, method, headers, params, data, data_json)
-        if response.no_content:
+        if not response.has_content:
             return None
         try:
             return response.json()
@@ -183,7 +183,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
     async def request(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[str]:
         response = await self.request_raw(url, entity, client, method, headers, params, data, data_json)
-        if not response.no_content:
+        if response.has_content:
             return response.text
         return None
 

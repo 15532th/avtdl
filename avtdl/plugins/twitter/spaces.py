@@ -276,7 +276,7 @@ class TwitterSpace(Action):
         if isinstance(response, NoResponse):
             self.logger.debug(f'[{entity.name}] failed to retrieve media url for {space.url}')
             return None
-        elif not response.ok or response.no_content:
+        elif not response.ok or  not response.has_content:
             if response.status == 404:
                 self.logger.debug(f'[{entity.name}] no media url for {space.url}: {response.status} ({response.reason})')
                 return ''
