@@ -348,7 +348,6 @@ class BucketRateLimit(RateLimit):
         return reset_after
 
 
-
 class NoRateLimit(RateLimit):
 
     def __init__(self, name: str, logger: Optional[logging.Logger] = None) -> None:
@@ -356,11 +355,8 @@ class NoRateLimit(RateLimit):
         logger.setLevel(logging.CRITICAL)
         super().__init__(name, logger)
 
-    def submit_response(self, response: MaybeHttpResponse, logger: Optional[logging.Logger] = None):
-        pass
-
-    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger):
-        pass
+    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> float:
+        return 0
 
 
 @dataclass
