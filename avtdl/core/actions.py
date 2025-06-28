@@ -142,23 +142,23 @@ class TaskAction(HttpAction):
         name = f'{self.conf.name}:{entity.name} {record_id}'
         info = TaskStatus(self.conf.name, entity.name, record=record)
         client = self.get_client(entity)
-        task = self.controller.create_task(self._handle_record_task(logger, client, entity, record), name=name, _info=info)
+        task = self.controller.create_task(self._handle_record_task(logger, client, entity, record, info), name=name, _info=info)
         task.add_done_callback(lambda _: self.tasks.pop(record_id))
         self.tasks[record_id] = task
 
     async def _handle_record_task(self, logger: logging.Logger, client: HttpClient,
-                                  entity: TaskActionEntity, record: Record) -> None:
+                                  entity: TaskActionEntity, record: Record, info: TaskStatus) -> None:
         async with self.start_token:
             # ideally delay should be applied after the task creation, but it means adding yet another create_task()
             await asyncio.sleep(self.conf.consumption_delay)
         try:
-            await self.handle_record_task(logger, client, entity, record)
+            await self.handle_record_task(logger, client, entity, record, info)
         except Exception as e:
             logger.exception(f'unexpected exception while processing record {record!r}')
 
     @abstractmethod
     async def handle_record_task(self, logger: logging.Logger, client: HttpClient,
-                                 entity: TaskActionEntity, record: Record) -> None:
+                                 entity: TaskActionEntity, record: Record, info: TaskStatus) -> None:
         """Scheduled as task for each record to be processed"""
 
     async def run(self) -> None:

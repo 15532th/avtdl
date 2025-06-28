@@ -9,11 +9,12 @@ from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 from aiohttp.abc import AbstractCookieJar
 from pydantic import Field, FilePath, PositiveInt, SerializeAsAny, field_validator
 
+from avtdl.core.actions import TaskAction, TaskActionConfig, TaskActionEntity
 from avtdl.core.db import BaseDbConfig, RecordDB
-from avtdl.core.interfaces import Action, ActionEntity, Event, EventType, Record, RuntimeContext, TaskStatus
+from avtdl.core.interfaces import Event, EventType, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient, RetrySettings, StateStorage
-from avtdl.core.utils import CookieStoreError, JSONType, SessionStorage, get_cookie_value, jwt_decode, load_cookies, \
+from avtdl.core.utils import CookieStoreError, JSONType, get_cookie_value, jwt_decode, load_cookies, \
     save_cookies, utcnow
 from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
 
@@ -173,12 +174,12 @@ Plugins.register('withny.live', Plugins.kind.ASSOCIATED_RECORD)(WithnyRecord)
 
 
 @Plugins.register('withny.live', Plugins.kind.ACTOR_CONFIG)
-class WithnyLiveConfig(BaseDbConfig):
+class WithnyLiveConfig(TaskActionConfig, BaseDbConfig):
     pass
 
 
 @Plugins.register('withny.live', Plugins.kind.ACTOR_ENTITY)
-class WithnyLiveEntity(ActionEntity):
+class WithnyLiveEntity(TaskActionEntity):
     cookies_file: FilePath
     """path to a text file containing cookies in Netscape format"""
     poll_interval: PositiveInt = 60
@@ -197,7 +198,7 @@ class WithnyLiveEntity(ActionEntity):
 
 
 @Plugins.register('withny.live', Plugins.kind.ACTOR)
-class WithnyLive(Action):
+class WithnyLive(TaskAction):
     """
     Wait for livestream on Withny
 
@@ -207,26 +208,11 @@ class WithnyLive(Action):
 
     Requires cookies from a logged in account to work.
     """
-
     def __init__(self, conf: WithnyLiveConfig, entities: Sequence[WithnyLiveEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
         self.conf: WithnyLiveConfig
-        self.sessions = SessionStorage(self.logger)
         self.state_storage = StateStorage()
-        self.tasks: Dict[str, asyncio.Task] = {}
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
-
-    def handle(self, entity: WithnyLiveEntity, record: Record):
-        if isinstance(record, WithnyRecord):
-            stream_id = record.stream_id
-            if record.stream_id in self.tasks:
-                self.logger.debug(f'[{entity.name}] task for stream {stream_id} is already running')
-                return
-            name = f'{self.conf.name}:{entity.name} {stream_id}'
-            info = TaskStatus(self.conf.name, entity.name, 'starting', record)
-            task = self.controller.create_task(self.handle_stream(entity, record, info), name=name, _info=info)
-            task.add_done_callback(lambda _: self.tasks.pop(stream_id))
-            self.tasks[stream_id] = task
 
     async def request_json(self, url: str,
                            base_update_interval: float,
@@ -308,9 +294,10 @@ class WithnyLive(Action):
                 self.logger.warning(f'[{entity.name}] {e}')
             return new_auth
 
-    async def handle_stream(self, entity: WithnyLiveEntity, record: WithnyRecord, info: TaskStatus):
-        session = self.sessions.get_session(entity.cookies_file, name=entity.name)
-        client = HttpClient(self.logger, session)
+    async def handle_record_task(self, logger: logging.Logger, client: HttpClient, entity: WithnyLiveEntity,
+                                 record: Record, info: TaskStatus) -> None:
+        if not isinstance(record, WithnyRecord):
+            return
 
         # wait for the stream to go live, return if there is no point waiting anymore
         update_interval = float(entity.poll_interval)
