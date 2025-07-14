@@ -81,6 +81,9 @@ class TwitterMonitor(PagedFeedMonitor):
         await asyncio.sleep(0)
         records = []
         for tweet_result in raw_tweets:
+            if not tweet_result:
+                self.logger.warning(f'error parsing tweet: tweet result is empty')
+                continue
             try:
                 record = parse_tweet(tweet_result)
             except Exception as e:
