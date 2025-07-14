@@ -343,7 +343,7 @@ class BucketRateLimit(RateLimit):
     def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
         logger = logger or self.logger
         if isinstance(response, NoResponse):
-            return self.base_delay
+            return int(response.next_update_interval(self.base_delay, self.current_delay, True))
 
         self._submit_headers(response, logger)
         if self.limit_remaining >= 1:
