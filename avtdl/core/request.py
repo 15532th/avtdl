@@ -369,6 +369,7 @@ class RequestDetails:
     method: str = 'GET'
     params: Optional[Dict[str, Any]] = None
     data: Optional[Any] = None
+    data_json: Optional[JSONType] = None
     headers: Optional[Dict[str, Any]] = None
 
 
@@ -516,6 +517,7 @@ class HttpClient:
             response = await self.request(url=details.url,
                                           params=details.params,
                                           data=details.data,
+                                          data_json=details.data_json,
                                           headers=details.headers,
                                           method=details.method)
             rate_limit.submit_response(response, logger)
