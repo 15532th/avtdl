@@ -377,12 +377,17 @@ class NoRateLimit(RateLimit):
 
 @dataclass
 class RequestDetails:
+    """Represents parameters of a request to be made to specific endpoint"""
     url: str
     method: str = 'GET'
     params: Optional[Dict[str, Any]] = None
     data: Optional[Any] = None
     data_json: Optional[JSONType] = None
     headers: Optional[Dict[str, Any]] = None
+    rate_limit: RateLimit = NoRateLimit('default')
+    endpoint_state: EndpointState = EndpointState()
+    retry_settings: RetrySettings = RetrySettings(retry_times=0)
+
 
 class Endpoint(abc.ABC):
     """
@@ -534,14 +539,15 @@ class HttpClient:
         return None
 
     async def request_endpoint(self, logger: logging.Logger,
-                               details: RequestDetails,
-                               rate_limit: RateLimit = NoRateLimit('')) -> MaybeHttpResponse:
-        async with rate_limit:
+                               details: RequestDetails) -> MaybeHttpResponse:
+        async with details.rate_limit:
             response = await self.request(url=details.url,
                                           params=details.params,
                                           data=details.data,
                                           data_json=details.data_json,
                                           headers=details.headers,
-                                          method=details.method)
-            rate_limit.submit_response(response, logger)
+                                          method=details.method,
+                                          state=details.endpoint_state,
+                                          settings=details.retry_settings)
+            details.rate_limit.submit_response(response, logger)
         return response

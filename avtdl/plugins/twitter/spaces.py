@@ -250,7 +250,7 @@ class TwitterSpace(Action):
     async def fetch_space(self, client: HttpClient, entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
         self.logger.debug(f'[{entity.name}] fetching metadata for space {space_url_by_id(space_id)}')
         request_details = AudioSpaceEndpoint.prepare(entity.url, client.cookie_jar, space_id)
-        response = await client.request_endpoint(self.logger, request_details, AudioSpaceEndpoint.rate_limit())
+        response = await client.request_endpoint(self.logger, request_details)
         if not isinstance(response, DataResponse):
             self.logger.warning(f'[{entity.name}] failed to retrieve metadata for {space_url_by_id(space_id)}')
             return None

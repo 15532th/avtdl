@@ -12,7 +12,7 @@ from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_val
 
 from avtdl.core.db import BaseDbConfig, RecordDB, RecordDbView
 from avtdl.core.interfaces import AbstractRecordsStorage, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
-from avtdl.core.request import HttpClient, MaybeHttpResponse, NoRateLimit, RateLimit, RequestDetails, StateStorage
+from avtdl.core.request import HttpClient, MaybeHttpResponse, RequestDetails, StateStorage
 from avtdl.core.utils import JSONType, SessionStorage, load_cookies, show_diff, with_prefix
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600
@@ -189,13 +189,12 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
     async def request_endpoint(self, entity: HttpTaskMonitorEntity,
                                client: HttpClient,
-                               request_details: RequestDetails,
-                               rate_limit: RateLimit = NoRateLimit('')) -> Optional[MaybeHttpResponse]:
+                               request_details: RequestDetails) -> Optional[MaybeHttpResponse]:
 
         additional_headers = load_headers(entity.headers_file, with_prefix(self.logger, f'[{entity.name}]'))
         if additional_headers is not None:
             request_details.headers = {**(request_details.headers or {}), **additional_headers}
-        response = await client.request_endpoint(self.logger, request_details, rate_limit)
+        response = await client.request_endpoint(self.logger, request_details)
         entity.update_interval = response.next_update_interval(entity.base_update_interval, entity.update_interval, entity.adjust_update_interval)
         return response
 

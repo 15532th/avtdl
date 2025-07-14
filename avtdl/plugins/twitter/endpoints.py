@@ -116,7 +116,7 @@ class TwitterEndpoint(Endpoint):
 
         headers = get_auth_headers(cookies)
 
-        details = RequestDetails(url=url, params=params, headers=headers)
+        details = RequestDetails(url=url, params=params, headers=headers, rate_limit=cls.rate_limit())
         return details
 
     @classmethod
@@ -177,7 +177,7 @@ class LiveStreamEndpoint(TwitterEndpoint):
         params = {'client': 'web', 'use_syndication_guest_id': 'false', 'cookie_set_host': get_netloc(host)}
         headers = get_auth_headers(cookies)
 
-        details = RequestDetails(url=url, params=params, headers=headers)
+        details = RequestDetails(url=url, params=params, headers=headers, rate_limit=cls.rate_limit())
         return details
 
 
