@@ -326,6 +326,11 @@ class RateLimit:
         return
 
 
+class HttpRateLimit(RateLimit):
+
+    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> float:
+        return response.next_update_interval(self.base_delay, self.current_delay, True)
+
 
 class BucketRateLimit(RateLimit):
     """Rate limit for token bucket type of endpoint"""
