@@ -200,6 +200,9 @@ class NitterMonitor(PagedFeedMonitor):
 
     async def _get_user_page(self, entity: NitterMonitorEntity, client: HttpClient) -> Optional[str]:
         text = await self.request(entity.url, entity, client, headers=self.HEADERS)
+        if not text:
+            self.logger.warning(f'[{entity.name}] got empty page at {entity.url}')
+            return None
         return text
 
     def _parse_entries(self, page: lxml.html.HtmlElement) -> List[NitterRecord]:
