@@ -38,6 +38,10 @@ class EndpointState:
     etag: Optional[str] = None
     last_modified: Optional[str] = None
 
+    def update(self, headers: Union[CIMultiDictProxy, Dict[str, str]]):
+        self.last_modified = headers.get('Last-Modified', None)
+        self.etag = headers.get('Etag', None)
+
 
 class StateStorage:
     """
@@ -478,8 +482,7 @@ class HttpClient:
                 logger.debug(f'response body: "{text}"')
         elif client_response.status != 304:
             # some servers do not have cache headers in 304 response, so only updating on 200
-            state.last_modified = client_response.headers.get('Last-Modified', None)
-            state.etag = client_response.headers.get('Etag', None)
+            state.update(client_response.headers)
 
             cache_control = client_response.headers.get('Cache-control')
             logger.debug(
