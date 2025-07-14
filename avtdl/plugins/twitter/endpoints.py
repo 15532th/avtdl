@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Union
 
 from multidict import CIMultiDictProxy
 
-from avtdl.core.request import BucketRateLimit, HttpResponse, RequestDetails, \
+from avtdl.core.request import BucketRateLimit, Endpoint, HttpResponse, RequestDetails, \
     get_retry_after
 from avtdl.core.utils import find_one, get_cookie_value
 
@@ -73,12 +73,9 @@ class TwitterRateLimit(BucketRateLimit):
             logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.delay)}')
 
 
-class TwitterEndpoint(abc.ABC):
+class TwitterEndpoint(Endpoint):
     """
-    Superclass providing utility methods for concrete Endpoints
-
-    Concrete Endpoints must implement prepare() method taking arbitrary
-    arguments, that returns RequestDetails instance.
+    Base class providing common features for Twitter endpoints
 
     They might use methods provided by this class for convenience,
     however, implementing them is not required.

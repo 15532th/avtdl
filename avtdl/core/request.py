@@ -372,6 +372,17 @@ class RequestDetails:
     data_json: Optional[JSONType] = None
     headers: Optional[Dict[str, Any]] = None
 
+class Endpoint(abc.ABC):
+    """
+    Superclass providing utility methods for concrete Endpoints
+
+    Concrete Endpoints must implement prepare() method taking arbitrary
+    arguments, that returns RequestDetails instance.
+    """
+
+    @abc.abstractmethod
+    def prepare(self, *args, **kwargs) -> RequestDetails:
+        """Prepare a RequestDetails object based on passed arguments"""
 
 
 def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional[int],
