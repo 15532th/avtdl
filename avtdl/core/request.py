@@ -181,16 +181,23 @@ class NoResponse:
 class HttpResponse:
     logger: logging.Logger
     text: str
+    """response body in plaintext"""
     url: str
+    """request url"""
     ok: bool
+    """status is not 4xx or 5xx"""
     has_content: bool
+    """status is 2xx"""
     status: int
     reason: str
-    headers: CIMultiDictProxy[str]
-    request_headers: CIMultiDictProxy[str]
+    headers: Union[CIMultiDictProxy[str], Dict[str, str]]
+    """response headers"""
+    request_headers: Union[CIMultiDictProxy[str], Dict[str, str]]
     cookies: SimpleCookie
+    """response cookies"""
     endpoint_state: EndpointState
     content_encoding: str
+    """detected response content encoding"""
     completed: bool = True
     _json: Optional[JSONType] = None
 
