@@ -371,15 +371,6 @@ class RequestDetails:
     data: Optional[Any] = None
     headers: Optional[Dict[str, Any]] = None
 
-    @property
-    def url_with_query(self) -> str:
-        """url plus params"""
-        if self.params is None:
-            return self.url
-        parsed = urllib.parse.urlparse(self.url)
-        with_query = parsed._replace(query=urllib.parse.urlencode(self.params))
-        url = urllib.parse.urlunparse(with_query)
-        return url
 
 
 def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional[int],

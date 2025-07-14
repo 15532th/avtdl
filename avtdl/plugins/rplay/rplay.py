@@ -5,6 +5,7 @@ import enum
 import hashlib
 import hmac
 import json
+import urllib.parse
 from dataclasses import dataclass
 from textwrap import shorten
 from typing import Dict, List, Mapping, Optional, Sequence
@@ -269,7 +270,7 @@ class RplayUserMonitor(BaseFeedMonitor):
             return None
         key2 = await self.get_key2(client) or ''
         r = RplayUrl.playlist(record.creator_id, key2=key2)
-        return r.url_with_query
+        return url_with_query(r)
 
     async def get_key2(self, client: HttpClient) -> Optional[str]:
         own_user = await self.get_own_user(client)
@@ -458,6 +459,16 @@ class User:
 
     def get_auth_header(self) -> Dict[str, str]:
         return {'Authorization': self.token}
+
+
+def url_with_query(r: RequestDetails) -> str:
+    """url plus params"""
+    if r.params is None:
+        return r.url
+    parsed = urllib.parse.urlparse(r.url)
+    with_query = parsed._replace(query=urllib.parse.urlencode(r.params))
+    url = urllib.parse.urlunparse(with_query)
+    return url
 
 
 class RplayUrl:
