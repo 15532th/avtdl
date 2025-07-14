@@ -25,12 +25,16 @@ HIGHEST_UPDATE_INTERVAL: float = 4000
 
 @dataclass
 class RetrySettings:
-    retry_times: int = 1
+    retry_times: int = 0
     """transparent retrying: number of attempts"""
     retry_delay: float = 1
     """transparent retrying: delay before first retry attempt"""
     retry_multiplier: float = 1.2
     """transparent retrying: factor to increase retry delay compared to the previous attempt"""
+
+    def __post_init__(self):
+        if self.retry_times < 0:
+            raise ValueError(f'retry_times must be positive, got "{self.retry_times}"')
 
 
 @dataclass
@@ -386,7 +390,7 @@ class RequestDetails:
     headers: Optional[Dict[str, Any]] = None
     rate_limit: RateLimit = NoRateLimit('default')
     endpoint_state: EndpointState = EndpointState()
-    retry_settings: RetrySettings = RetrySettings(retry_times=0)
+    retry_settings: RetrySettings = RetrySettings()
 
 
 class Endpoint(abc.ABC):
@@ -459,7 +463,7 @@ class HttpClient:
                       settings: RetrySettings = RetrySettings()) -> 'MaybeHttpResponse':
         response: MaybeHttpResponse = NoResponse(self.logger, Exception('request_once was never called'), url)
         next_try_delay = settings.retry_delay
-        for attempt in range(settings.retry_times):
+        for attempt in range(settings.retry_times + 1):
             response = await self.request_once(url, params, data, data_json, headers, method, state)
             if response is not None and response.ok:
                 break
