@@ -2,18 +2,23 @@ import asyncio
 import datetime
 import json
 import logging
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import multidict
 
 from avtdl.core.formatters import DiscordEmbedLimits, MessageFormatter
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import BucketRateLimit, HttpClient, HttpResponse, NoResponse
+from avtdl.core.request import BucketRateLimit, Endpoint, HttpClient, HttpResponse, NoResponse, RequestDetails
 from avtdl.core.utils import SessionStorage
 
 
 class DiscordRateLimit(BucketRateLimit):
+
+    def __init__(self, name: str, on_submit: Callable[[HttpResponse], None] = lambda _: None):
+        self.on_submit = on_submit
+        self.bucket: Optional[str] = None
+        super().__init__(name)
 
     def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
         headers = response.headers
@@ -21,14 +26,38 @@ class DiscordRateLimit(BucketRateLimit):
             self.limit_total = int(headers.get('X-RateLimit-Limit', -1))
             self.limit_remaining = int(headers.get('X-RateLimit-Remaining', -1))
             self.reset_at = int(headers.get('X-RateLimit-Reset', -1))
+            self.bucket = headers.get('X-RateLimit-Bucket', None)
         except ValueError:
             logger.warning(f'[{self.name}] error parsing rate limit headers: "{headers}"')
-        else:
-            logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.delay)}')
+        logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.delay)}')
+        self.on_submit(response)
 
     @staticmethod
     def get_bucket(headers: multidict.CIMultiDictProxy[str]) -> Optional[str]:
         return headers.get('X-RateLimit-Bucket')
+
+
+class WebhookEndpoint(Endpoint):
+
+    def __init__(self) -> None:
+        self.buckets: Dict[Optional[str], DiscordRateLimit] = {}
+        self.buckets[None] = DiscordRateLimit('fallback bucket', on_submit=self.on_submit)
+        self.urls_buckets: Dict[str, Optional[str]] = {}
+
+    def on_submit(self, response: HttpResponse):
+        bucket = DiscordRateLimit.get_bucket(response.headers)
+        self.urls_buckets[response.url] = bucket
+        if bucket not in self.buckets:
+            name = bucket or 'fallback bucket'
+            self.buckets[bucket] = DiscordRateLimit(name, on_submit=self.on_submit)
+
+    def prepare(self, url, message: dict) -> RequestDetails:
+        bucket = self.urls_buckets.get(url, None)
+        rate_limit = self.buckets.get(bucket)
+        if rate_limit is None:
+            rate_limit = self.buckets[None]
+            rate_limit.logger.warning(f'bucket "{bucket}" is associated with url "{url}" but does not have RateLimit')
+        return RequestDetails(url, 'POST', data_json=message, rate_limit=rate_limit)
 
 
 @Plugins.register('discord.hook', Plugins.kind.ACTOR_CONFIG)
@@ -65,8 +94,7 @@ class DiscordHook(Action):
         super().__init__(conf, entities, ctx)
         self.sessions: SessionStorage = SessionStorage(self.logger)
         self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
-        self.buckets: Dict[Optional[str], DiscordRateLimit] = {}
-        self.buckets[None] = DiscordRateLimit('fallback bucket')
+        self.endpoint = WebhookEndpoint()
 
     def handle(self, entity: DiscordHookEntity, record: Record):
         if not entity.name in self.queues:
@@ -111,8 +139,8 @@ class DiscordHook(Action):
                 to_be_sent = pending_records
                 continue
 
-            async with self.buckets[bucket] as _:
-                response = await client.request(entity.url, data_json=message, method='POST')
+            request_details = self.endpoint.prepare(entity.url, message)
+            response = await client.request_endpoint(self.logger, request_details)
 
             if isinstance(response, NoResponse):
                 self.logger.warning(f'[{entity.name}] network error while sending message with Discord webhook, saving for the next try')
@@ -126,11 +154,6 @@ class DiscordHook(Action):
                 continue
             if self._has_fatal_error(response, entity, message):
                 break
-
-            bucket = DiscordRateLimit.get_bucket(response.headers)
-            if not bucket in self.buckets:
-                self.buckets[bucket] = DiscordRateLimit(f'{bucket}', self.logger)
-            self.buckets[bucket].submit_response(response, self.logger)
 
             # if message got send successfully discard records except these that didn't fit into message
             if pending_records:
