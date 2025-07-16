@@ -279,7 +279,9 @@ class RateLimit:
     Base rate limit, taking into account response status and RetryAfter header
     """
 
-    def __init__(self, name: str, logger: Optional[logging.Logger] = None, base_delay: int = 10) -> None:
+    DEFAULT_DELAY = 10
+
+    def __init__(self, name: str, logger: Optional[logging.Logger] = None, base_delay: int = DEFAULT_DELAY) -> None:
         self.ready_at: datetime.datetime = utcnow()
         self.base_delay = base_delay
         self.current_delay = base_delay
