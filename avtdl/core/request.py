@@ -179,6 +179,7 @@ class NoResponse:
     def next_update_interval(self, base: float, current: float, adjust_update_interval: bool = True) -> float:
         return decide_on_update_interval(self.logger, self.url, None, None, current, base, adjust_update_interval)
 
+
 @dataclass
 class HttpResponse:
     logger: logging.Logger
@@ -330,7 +331,9 @@ class RateLimit:
         """
         logger = logger or self.logger
 
-        calculated_delay = int(decide_on_update_interval(logger, response.url, response.status, response.headers, self.current_delay, self.base_delay))
+        calculated_delay = int(
+            decide_on_update_interval(logger, response.url, response.status, response.headers, self.current_delay,
+                                      self.base_delay))
         suggested_delay = self._submit_response(response, logger)
         self.current_delay = max(calculated_delay, suggested_delay)
         self.ready_at = (
