@@ -105,18 +105,27 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
     """
 
     def get_expires_from_cache_control(headers: multidict.CIMultiDictProxy) -> Optional[datetime.datetime]:
+        cache_control = headers.get('Cache-Control', '')
+        if 'must-revalidate' in cache_control.lower():
+            return None
         try:
-            cache_control = headers.get('Cache-Control', '')
             [max_age] = re.findall('max-age=(\d+)', cache_control, re.IGNORECASE)
             max_age_value = datetime.timedelta(seconds=int(max_age))
-
-            last_modified = headers.get('Last-Modified', '')
-            last_modified_value = parsedate_to_datetime(last_modified)
-
-            expires = last_modified_value + max_age_value
-            return expires
-        except (TypeError, ValueError, IndexError):
+        except (IndexError, TypeError, ValueError):
             return None
+
+        try:
+            date_value = parsedate_to_datetime(headers.get('Date', ''))
+        except ValueError:
+            date_value = None
+        try:
+            last_modified_value = parsedate_to_datetime(headers.get('Last-Modified', ''))
+        except ValueError:
+            last_modified_value = None
+
+        calculated_update_date = date_value or last_modified_value or utcnow()
+        expires = calculated_update_date + max_age_value
+        return expires
 
     def get_expires_from_expires_header(headers: multidict.CIMultiDictProxy) -> Optional[datetime.datetime]:
         try:
