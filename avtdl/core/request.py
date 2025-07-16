@@ -116,11 +116,11 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
 
         try:
             date_value = parsedate_to_datetime(headers.get('Date', ''))
-        except ValueError:
+        except (TypeError, ValueError):
             date_value = None
         try:
             last_modified_value = parsedate_to_datetime(headers.get('Last-Modified', ''))
-        except ValueError:
+        except (TypeError, ValueError):
             last_modified_value = None
 
         calculated_update_date = date_value or last_modified_value or utcnow()
