@@ -132,8 +132,7 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
     if expires is None:
         return None
 
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
-    delta = (expires - now).total_seconds()
+    delta = (expires - utcnow()).total_seconds()
     if delta < 0:
         return None
 
@@ -151,8 +150,7 @@ def get_retry_after(headers: Union[Dict[str, str], multidict.CIMultiDictProxy[st
         pass
     try:
         retry_at = parsedate_to_datetime(retry_after)
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
-        delay = int((retry_at - now).total_seconds())
+        delay = int((retry_at - utcnow()).total_seconds())
         if delay > 0:
             return delay
     except (TypeError, ValueError):
@@ -333,7 +331,8 @@ class RateLimit:
         calculated_delay = int(decide_on_update_interval(logger, response.url, response.status, response.headers, self.current_delay, self.base_delay))
         suggested_delay = self._submit_response(response, logger)
         self.current_delay = max(calculated_delay, suggested_delay)
-        self.ready_at = (datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=self.current_delay))
+        self.ready_at = (
+                    utcnow() + datetime.timedelta(seconds=self.current_delay))
         return
 
 
@@ -350,7 +349,7 @@ class BucketRateLimit(RateLimit):
         super().__init__(name, logger)
         self.limit_total: int = 50
         self.limit_remaining: int = 10
-        self.reset_at: int = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
+        self.reset_at: int = int(utcnow().timestamp())
 
     @abc.abstractmethod
     def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
