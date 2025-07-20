@@ -425,7 +425,7 @@ def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional
     update_interval: float
 
     if status is None or headers is None:  # response hasn't completed due to network error
-        update_interval = Delay.get_next(current_update_interval)
+        update_interval = max(Delay.get_next(current_update_interval), current_update_interval)
         logger.warning(f'update interval set to {update_interval} seconds for {url}')
         return update_interval
 
