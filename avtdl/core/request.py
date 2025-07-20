@@ -429,8 +429,9 @@ def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional
         raw_header = headers.get("Retry-After")
         logger.debug(f'got Retry-After header with value {raw_header}')
         update_interval = min(float(retry_after), HIGHEST_UPDATE_INTERVAL)
-        logger.warning(
-            f'update interval set to {update_interval} seconds for {url} as requested by response headers')
+        if update_interval < base_update_interval:
+            update_interval = base_update_interval
+        logger.warning(f'update interval set to {update_interval} seconds for {url} as requested by Retry-After')
     elif status >= 400:
         update_interval = max(Delay.get_next(current_update_interval), current_update_interval)
         logger.warning(f'update interval set to {update_interval} seconds for {url}')
