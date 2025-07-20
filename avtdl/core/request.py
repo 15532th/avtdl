@@ -326,10 +326,6 @@ class RateLimit:
         reset_after = max(0, delay)
         return reset_after
 
-    @abc.abstractmethod
-    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
-        """parse response and return minimum delay until the next request, in seconds"""
-
     def submit_response(self, response: MaybeHttpResponse, logger: Optional[logging.Logger] = None):
         """
         Update limits values and reset time using data from response.
@@ -339,21 +335,19 @@ class RateLimit:
         from specific request.
         """
         logger = logger or self.logger
+        self.current_delay = self._submit_response(response, logger)
+        self.ready_at = (utcnow() + datetime.timedelta(seconds=self.current_delay))
 
-        calculated_delay = int(
-            decide_on_update_interval(logger, response.url, response.status, response.headers, self.current_delay,
-                                      self.base_delay))
-        suggested_delay = self._submit_response(response, logger)
-        self.current_delay = max(calculated_delay, suggested_delay)
-        self.ready_at = (
-                    utcnow() + datetime.timedelta(seconds=self.current_delay))
-        return
+    @abc.abstractmethod
+    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
+        """parse response and return minimum delay until the next request, in seconds"""
+        return int(response.next_update_interval(self.base_delay, self.current_delay))
 
 
 class HttpRateLimit(RateLimit):
 
-    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> float:
-        return response.next_update_interval(self.base_delay, self.current_delay, True)
+    def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
+        return super()._submit_response(response, logger)
 
 
 class BucketRateLimit(RateLimit):
@@ -365,20 +359,21 @@ class BucketRateLimit(RateLimit):
         self.limit_remaining: int = 10
         self.reset_at: int = int(utcnow().timestamp())
 
-    @abc.abstractmethod
-    def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
-        """parse response headers and update self.limit_total, self.limit_remaining and self.reset_at"""
-
     def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
         logger = logger or self.logger
+        calculated_delay = super()._submit_response(response, logger)
         if isinstance(response, NoResponse):
-            return int(response.next_update_interval(self.base_delay, self.current_delay, True))
+            return calculated_delay
 
         self._submit_headers(response, logger)
         if self.limit_remaining >= 1:
             return 0
         reset_after = max(0, self.reset_at - int(utcnow().timestamp()))
         return reset_after
+
+    @abc.abstractmethod
+    def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
+        """parse response headers and update self.limit_total, self.limit_remaining and self.reset_at"""
 
 
 class NoRateLimit(RateLimit):
