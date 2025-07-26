@@ -20,17 +20,21 @@ class DiscordRateLimit(BucketRateLimit):
         self.bucket: Optional[str] = None
         super().__init__(name)
 
-    def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
+    def _submit_headers(self, response: HttpResponse, logger: logging.Logger) -> bool:
         headers = response.headers
         try:
-            self.limit_total = int(headers.get('X-RateLimit-Limit', -1))
-            self.limit_remaining = int(headers.get('X-RateLimit-Remaining', -1))
-            self.reset_at = int(headers.get('X-RateLimit-Reset', -1))
+            # "default" argument is set to 'NaN' to trigger ValueError, since None is disliked by typechecker
+            self.limit_total = int(headers.get('X-RateLimit-Limit', 'NaN'))
+            self.limit_remaining = int(headers.get('X-RateLimit-Remaining', 'NaN'))
+            self.reset_at = int(headers.get('X-RateLimit-Reset', 'NaN'))
             self.bucket = headers.get('X-RateLimit-Bucket', None)
+            ok = True
         except ValueError:
             logger.warning(f'[{self.name}] error parsing rate limit headers: "{headers}"')
+            ok = False
         logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.delay)}')
         self.on_submit(response)
+        return ok
 
     @staticmethod
     def get_bucket(headers: multidict.CIMultiDictProxy[str]) -> Optional[str]:

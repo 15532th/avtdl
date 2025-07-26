@@ -361,19 +361,25 @@ class BucketRateLimit(RateLimit):
 
     def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
         logger = logger or self.logger
-        calculated_delay = super()._submit_response(response, logger)
+        fallback_reset_delay = super()._submit_response(response, logger)
         if isinstance(response, NoResponse):
-            return calculated_delay
-
-        self._submit_headers(response, logger)
+            return fallback_reset_delay
+        parsed_successfully = self._submit_headers(response, logger)
+        if not parsed_successfully:
+            return fallback_reset_delay
         if self.limit_remaining >= 1:
-            return 0
+            if response.ok:
+                return 0
+            return fallback_reset_delay
         reset_after = max(0, self.reset_at - int(utcnow().timestamp()))
         return reset_after
 
     @abc.abstractmethod
-    def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
-        """parse response headers and update self.limit_total, self.limit_remaining and self.reset_at"""
+    def _submit_headers(self, response: HttpResponse, logger: logging.Logger) -> bool:
+        """
+        Parse response headers and update self.limit_total, self.limit_remaining and self.reset_at,
+        returns True if headers are present and successfully parsed
+        """
 
 
 class NoRateLimit(RateLimit):

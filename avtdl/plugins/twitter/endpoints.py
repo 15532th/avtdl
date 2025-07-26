@@ -61,16 +61,19 @@ def get_auth_headers(cookies) -> dict[str, Any]:
 
 class TwitterRateLimit(BucketRateLimit):
 
-    def _submit_headers(self, response: HttpResponse, logger: logging.Logger):
+    def _submit_headers(self, response: HttpResponse, logger: logging.Logger) -> bool:
         headers = response.headers
         try:
-            self.limit_total = int(headers.get('x-rate-limit-limit', -1))
-            self.limit_remaining = int(headers.get('x-rate-limit-remaining', -1))
-            self.reset_at = int(headers.get('x-rate-limit-reset', -1))
+            # "default" argument is set to 'NaN' to trigger ValueError, since None is disliked by typechecker
+            self.limit_total = int(headers.get('x-rate-limit-limit', 'NaN'))
+            self.limit_remaining = int(headers.get('x-rate-limit-remaining', 'NaN'))
+            self.reset_at = int(headers.get('x-rate-limit-reset', 'NaN'))
         except ValueError:
             logger.warning(f'[{self.name}] error parsing rate limit headers: "{headers}"')
+            return False
         else:
             logger.debug(f'[{self.name}] rate limit {self.limit_remaining}/{self.limit_total}, resets after {datetime.timedelta(seconds=self.delay)}')
+            return True
 
 
 class TwitterEndpoint(Endpoint):
