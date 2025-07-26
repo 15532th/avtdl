@@ -9,8 +9,8 @@ import multidict
 from avtdl.core.formatters import DiscordEmbedLimits, MessageFormatter
 from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext, TaskStatus
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import BucketRateLimit, Endpoint, HttpClient, HttpResponse, NoResponse, RequestDetails
-from avtdl.core.utils import SessionStorage
+from avtdl.core.request import BucketRateLimit, Endpoint, HttpClient, HttpResponse, NoResponse, RequestDetails, \
+    SessionStorage
 
 
 class DiscordRateLimit(BucketRateLimit):
