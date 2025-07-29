@@ -342,13 +342,12 @@ class RateLimit:
     @abc.abstractmethod
     def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
         """parse response and return minimum delay until the next request, in seconds"""
-        return int(response.next_update_interval(self.base_delay, self.current_delay))
 
 
 class HttpRateLimit(RateLimit):
 
     def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
-        return super()._submit_response(response, logger)
+        return int(response.next_update_interval(self.base_delay, self.current_delay))
 
 
 class BucketRateLimit(RateLimit):
@@ -360,18 +359,21 @@ class BucketRateLimit(RateLimit):
         self.limit_remaining: int = 10
         self.reset_at: int = int(utcnow().timestamp())
 
+    def _fallback_delay(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
+        return int(response.next_update_interval(self.base_delay, self.current_delay, True))
+
     def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
         logger = logger or self.logger
-        fallback_reset_delay = super()._submit_response(response, logger)
+
         if isinstance(response, NoResponse):
-            return fallback_reset_delay
+            return self._fallback_delay(response, logger)
         parsed_successfully = self._submit_headers(response, logger)
         if not parsed_successfully:
-            return fallback_reset_delay
+            return self._fallback_delay(response, logger)
         if self.limit_remaining >= 1:
             if response.ok:
                 return 0
-            return fallback_reset_delay
+            return self._fallback_delay(response, logger)
         reset_after = max(0, self.reset_at - int(utcnow().timestamp()))
         return reset_after
 
