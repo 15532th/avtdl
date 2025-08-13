@@ -180,11 +180,15 @@ class RplayMonitor(BaseFeedMonitor):
         if not creator_oids:
             return
         r = RplayUrl.bulkgetusers(creator_oids)
-        data = await client.request_json(r.url, headers=r.headers, params=r.params)
-        if data is None:
-            self.logger.warning(f'[{entity.name}] failed to update nickname cache: failed to get users info')
+        response = await client.request(r.url, headers=r.headers, params=r.params)
+        if not response.has_json():
+            self.logger.warning(f'[{entity.name}] failed to update nickname cache: failed to get users info. Raw response: {response!r}')
             return
         try:
+            data = response.json()
+            if not isinstance(data, dict):
+                self.logger.warning(f'[{entity.name}] failed to update nickname cache: unexpected response "{data}"')
+                return
             for oid, info in data.items():
                 if 'nickname' in info:
                     self.nickname_cache[oid] = info['nickname']
