@@ -72,6 +72,9 @@ class TwitterMonitor(PagedFeedMonitor):
         """Retrieve raw response string from endpoint"""
 
     async def _parse_entries(self, page: str) -> Tuple[List[TwitterRecord], Optional[str]]:
+        if not page:
+            self.logger.exception(f'failed to extract tweets from page: page is empty, no data to parse')
+            return [], None
         try:
             raw_tweets, continuation = extract_contents(page)
         except Exception as e:

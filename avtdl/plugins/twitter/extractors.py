@@ -152,6 +152,8 @@ class UserInfo(BaseModel):
             raise ValueError(f'failed to parse result into {cls.__name__}: __typename is "{typename}, expected "User"')
         rest_id = result['rest_id']
 
+        if not 'legacy' in result:
+            raise ValueError(f'no "legacy" in user_results')
         legacy = result['legacy']
 
         if 'core' in result:
@@ -233,7 +235,7 @@ def parse_tweet(tweet_results: dict) -> TwitterRecord:
     try:
         user = UserInfo.from_result(user_result)
     except Exception as e:
-        raise ValueError(f'failed to parse tweet: {e}')
+        raise ValueError(f'failed to parse tweet user info: {e}')
     url = tweet_url_by_id(user.handle, rest_id)
 
     legacy = tweet_result.get('legacy')
