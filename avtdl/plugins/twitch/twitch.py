@@ -83,13 +83,8 @@ class TwitchMonitor(HttpTaskMonitor):
         response = await self._get_channel_status(entity, client)
         if response is None:
             return None
-        if not isinstance(response, dict):
-            self.logger.warning(f'[{entity.name}] unexpected response format')
-            self.logger.debug(f'[{entity.name}] raw response: {response}')
-            return None
-
         try:
-            info = response[0]['data']['user']
+            info: dict = response[0]['data']['user'] # type: ignore
             avatar_url = info['profileImageURL']
             title = info['lastBroadcast']['title']
             stream_info = info['stream']
