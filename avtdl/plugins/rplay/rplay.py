@@ -147,6 +147,10 @@ class RplayMonitor(BaseFeedMonitor):
         data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
         if data is None:
             return
+        if not isinstance(data, List):
+            self.logger.warning(
+                f'unexpected response from /livestreams endpoint, not a list of records. Raw response: {data}')
+            return
         records = self.parse_livestreams(data)
 
         # nickname field in data from /livestreams endpoint is empty,
@@ -160,11 +164,7 @@ class RplayMonitor(BaseFeedMonitor):
                 if creators is None or record.creator_id in creators:
                     await queue.put(record)
 
-    def parse_livestreams(self, data: List[dict]):
-        if not isinstance(data, List):
-            self.logger.warning(
-                f'unexpected response from /livestreams endpoint, not a list of records. Raw response: {data}')
-            return []
+    def parse_livestreams(self, data: list) -> List[RplayRecord]:
         records = []
         for live in data:
             try:
@@ -259,6 +259,9 @@ class RplayUserMonitor(BaseFeedMonitor):
         data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
         if data is None:
             return []
+        if not isinstance(data, dict):
+            self.logger.warning(f'failed to parse record: unexpected format. Raw data: "{data}"')
+            return []
         try:
             record = parse_play(data)
         except Exception as e:
@@ -307,6 +310,9 @@ class RplayUserMonitor(BaseFeedMonitor):
                                                       headers=r.headers)
                 if user_info is None:
                     self.logger.debug(f'failed to log in')
+                    return None
+                if not isinstance(user_info, dict):
+                    self.logger.debug(f'unexpected user_info format: {user_info}')
                     return None
                 if not 'oid' in user_info:
                     self.logger.debug(f'user oid is absent in login response. Raw response: {user_info}')

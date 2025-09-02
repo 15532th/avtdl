@@ -69,6 +69,8 @@ def video_url(video_id: str) -> str:
 
 def get_continuation_token(data: Union[dict, list]) -> Optional[str]:
     token = find_one(data, '$..continuationCommand.token')
+    if not isinstance(token, str):
+        return None
     return token
 
 
@@ -173,6 +175,8 @@ def parse_navigation_endpoint(run: dict) -> str:
     url = find_one(run, '$..url')
     if url is None:
         raise ValueError(f'no url in navigationEndpoint "{run}"')
+    if not isinstance(url, str):
+        raise ValueError(f'unexpected url format: "{url}"')
     if url.startswith('https://www.youtube.com/redirect'):
         parsed_url = urlparse(url)
         redirect_url = parse_qs(parsed_url.query)['q'][0]
@@ -190,7 +194,7 @@ async def submit_consent(url: str, client: HttpClient, logger: logging.Logger) -
     if consent_page is None:
         logger.debug(f'requesting personalization settings url {url} failed')
         return None
-    root = lxml.html.fromstring(consent_page)
+    root: lxml.html.HtmlElement = lxml.html.fromstring(consent_page)
     root.make_links_absolute(url)
     [form] = root.xpath("//form[button[@value='false']]") or [None]
     if not isinstance(form, lxml.html.FormElement):
@@ -228,6 +232,8 @@ def find_consent_url(page: str) -> Optional[str]:
     try:
         initial_data = get_initial_data(page)
         url = find_one(initial_data, '$..feedNudgeRenderer..primaryButton..url')
+        if not isinstance(url, str):
+            return None
         return url
     except ValueError:
         CONSENT_URL_PATTERN = r'"(https://consent\.youtube\.com/dl\?continue[^"]+)"'

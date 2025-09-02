@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import json
 import logging
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import multidict
 
@@ -37,7 +37,7 @@ class DiscordRateLimit(BucketRateLimit):
         return ok
 
     @staticmethod
-    def get_bucket(headers: multidict.CIMultiDictProxy[str]) -> Optional[str]:
+    def get_bucket(headers: Union[multidict.CIMultiDictProxy[str], Dict[str, str]]) -> Optional[str]:
         return headers.get('X-RateLimit-Bucket')
 
 

@@ -208,8 +208,10 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         message = find_one(initial_page,
                            '$..conversationBar.conversationBarRenderer.availabilityMessage.messageRenderer.text')
         if message is not None:
-            text = Parser.runs_to_text(message)
-            self.logger.info(f'[{entity.name}] {text}')
+            if isinstance(message, dict):
+                text = Parser.runs_to_text(message)
+            else: text = str(message)
+            self.logger.warning(f'[{entity.name}] {text}')
 
         if continuation is None:
             self.logger.warning(
@@ -271,6 +273,8 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         actions, data = extract_keys(page, keys, anchor=anchor)
         continuation = find_one(data,
                                 '$..invalidationContinuationData,timedContinuationData,liveChatReplayContinuationData,reloadContinuationData..continuation')
+        if continuation is not None:
+            continuation = str(continuation)
         return actions, continuation, data
 
 
@@ -345,29 +349,33 @@ class Parser:
         header_text = self.runs_to_text(header) if header else None
         sticker = find_one(renderer, '$.sticker.accessibility..label')
         color_text = find_one(renderer, '$.headerBackgroundColor,backgroundColor') or 0
-        color = self.parse_color(color_text)
-        record = YoutubeChatRecord(uid=uid,
+        color = self.parse_color(color_text) if isinstance(color_text, int) else None
+        record = YoutubeChatRecord(uid=uid,  # type: ignore
                                    action=action_type,
                                    renderer=renderer_type,
                                    author=author,
                                    channel=channel,
                                    timestamp=timestamp,
-                                   badges=badges,
+                                   badges=badges,  # type: ignore
                                    text=text,
                                    amount=amount,
                                    message_header=header_text,
-                                   sticker=sticker,
+                                   sticker=sticker,  # type: ignore
                                    color=color
                                    )
         return record
 
     def parse_banner(self, action_type: str, renderer_type: str, renderer: dict) -> YoutubeChatRecord:
         header = find_one(renderer, '$..liveChatBannerHeaderRenderer.text') or {}
+        if not isinstance(header, dict):
+            raise ValueError(f'unexpected banner header format: {header}')
         header_text = self.runs_to_text(header)
         message = find_one(renderer, '$..liveChatTextMessageRenderer')
         if message is None:
-            self.logger.debug(
-                f'[{action_type}.{renderer_type}] failed to parse banner message, unsupported renderer: {renderer}')
+            raise ValueError(f'unsupported renderer: {renderer}')
+        if not isinstance(message, dict):
+            raise ValueError(f'unexpected banner message format: {message}')
+
         record = self.parse_chat_renderer(action_type, renderer_type, message)
         record.banner_header = header_text
         return record
@@ -382,14 +390,16 @@ class Parser:
         author = find_one(renderer, '$..authorName.simpleText') or '[no author]'
         badges = find_all(renderer, '$..authorBadges..label')
         header = find_one(renderer, '$.primaryText')
+        if not isinstance(header, dict):
+            raise ValueError(f'unexpected gift header format: {header}')
         header_text = self.runs_to_text(header) if header else None
-        record = YoutubeChatRecord(uid=uid,
+        record = YoutubeChatRecord(uid=uid,  # type: ignore
                                    action=action_type,
                                    renderer=renderer_type,
-                                   author=author,
+                                   author=author,  # type: ignore
                                    channel=channel,
                                    timestamp=timestamp,
-                                   badges=badges,
+                                   badges=badges,  # type: ignore
                                    message_header=header_text,
                                    )
         return record
@@ -475,6 +485,7 @@ def get_actions(page: str, first_page=False) -> Tuple[Dict[str, list], dict]:
     try:
         actions, data = extract_keys(page, keys, anchor=anchor)
     except Exception as e:
+        logging.getLogger().warning(f'failed to extract actions from page: {e}')
         return {}, {}
     return actions, data
 

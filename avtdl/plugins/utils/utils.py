@@ -55,7 +55,10 @@ class QuitAction(Action):
         self.check_global_counter(entity)
 
     def check_global_counter(self, entity: QuitActionEntity):
-        counters = [entity.global_counter for entity in self.entities.values() if entity.global_counter >= 0]
+        counters = []
+        for entity in self.entities.values():  # type: ignore
+            if entity.global_counter >= 0:
+                counters.append(entity.global_counter)
         if all(c == 0 for c in counters):
             self.quit(entity)
 

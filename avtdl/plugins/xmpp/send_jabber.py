@@ -8,7 +8,7 @@ try:
     from avtdl.plugins.xmpp.msg2jbr_slixmpp import MSG2JBR
 except ImportError:
     try:
-        from avtdl.plugins.xmpp.msg2jbr_aioxmpp import MSG2JBR
+        from avtdl.plugins.xmpp.msg2jbr_aioxmpp import MSG2JBR  # type: ignore
     except ImportError:
         msg = f'No supported Jabber library installed or ImportError happened. Supported libraries are slixmpp and aioxmpp'
         logging.error(msg)

@@ -1,6 +1,6 @@
 import datetime
 import re
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -37,7 +37,7 @@ def get_video_renderers(page: str, anchor: str = 'var ytInitialData = ') -> Tupl
     return renderers, continuation_token, data
 
 
-def parse_scheduled(timestamp: Optional[str]) -> Optional[datetime.datetime]:
+def parse_scheduled(timestamp: Optional[Any]) -> Optional[datetime.datetime]:
     if timestamp is None:
         return None
     try:
@@ -52,7 +52,9 @@ def get_author_fallback(item: dict) -> Optional[str]:
     full_text = find_one(item, '$.title.accessibility..label')
     title_part = find_one(item, '$.title.runs..text')
     views_part = find_one(item, '$.viewCountText.simpleText')
-    views_part_fallback = re.search('\d+\D+$', full_text) if full_text else None
+    if not isinstance(full_text, str) or not isinstance(title_part, str) or not isinstance(views_part, str):
+        return None
+    views_part_fallback = re.search('\d+\D+$', full_text) if full_text is not None else None
     if not all((full_text, title_part, views_part or views_part_fallback)):
         return None
     start = full_text.find(title_part)
@@ -97,7 +99,7 @@ def parse_author(video_render: dict) -> Optional[AuthorInfo]:
     channel_id = find_one(author_info, '$..browseEndpoint.browseId')
     avatar_url = find_one(video_render, '$.channelThumbnailSupportedRenderers..thumbnails.[::-1].url')
     try:
-        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url)
+        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url) # type: ignore
     except ValidationError:
         return None
 
@@ -115,7 +117,7 @@ def parse_owner_from_metadata(page: dict) -> Optional[AuthorInfo]:
     channel_id = find_one(metadata, '$.externalId')
     avatar_url = find_one(metadata, '$.avatar.thumbnails.[::-1].url')
     try:
-        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url)
+        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url) # type: ignore
     except ValidationError:
         return None
 
@@ -128,7 +130,7 @@ def parse_owner_from_header(page: dict) -> Optional[AuthorInfo]:
     channel_id = find_one(owner_info_data, '$.channelId')
     avatar_url = find_one(owner_info_data, '$.avatar.thumbnails.[::-1].url')
     try:
-        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url)
+        return AuthorInfo(name=author, channel=channel_link, channel_id=channel_id, avatar_url=avatar_url) # type: ignore
     except ValidationError:
         return None
 
@@ -163,18 +165,18 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_
     is_upcoming = scheduled is not None
 
     try:
-        info = VideoRendererInfo(video_id=video_id,
+        info = VideoRendererInfo(video_id=video_id,  # type: ignore
                                  url=url,
-                                 title=title,
-                                 summary=summary,
+                                 title=title,  # type: ignore
+                                 summary=summary,  # type: ignore
                                  scheduled=scheduled,
                                  author=author_name,
                                  avatar_url=avatar_url,
                                  thumbnail_url=thumbnail,
                                  channel_link=channel_link,
                                  channel_id=channel_id,
-                                 published_text=published_text,
-                                 length=length,
+                                 published_text=published_text,  # type: ignore
+                                 length=length,  # type: ignore
                                  is_live=is_live,
                                  is_upcoming=is_upcoming,
                                  is_member_only=is_member_only)

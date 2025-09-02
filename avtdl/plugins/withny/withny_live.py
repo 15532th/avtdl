@@ -86,7 +86,7 @@ class AuthToken:
 
     @classmethod
     def from_cookies(cls, jar: AbstractCookieJar) -> 'AuthToken':
-        data = {data_key: get_cookie_value(jar, cookie_key) for data_key, cookie_key in cls.local_names.items()}
+        data: Dict[str, Any] = {data_key: get_cookie_value(jar, cookie_key) for data_key, cookie_key in cls.local_names.items()}
         for k, v in data.items():
             if v is None:
                 raise ValueError(f'{k} value is missing from the jar')

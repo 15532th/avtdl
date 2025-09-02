@@ -8,7 +8,7 @@ from typing import Callable, Dict, List, Optional
 
 import dateutil.zoneinfo
 from aiohttp import web
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from avtdl.core import formatters, info
 from avtdl.core.cache import FileCache
@@ -141,17 +141,17 @@ class WebUI:
         self.routes.append(web.static('/ui', self.WEBROOT, append_version=True))
         self.routes.append(web.static('/res', self.WEBROOT / 'misc', append_version=True))
 
-    async def favicon(self, request: web.Request) -> web.FileResponse:
+    async def favicon(self, _: web.Request) -> web.FileResponse:
         return web.FileResponse(self.WEBROOT / 'misc/favicon.svg')
 
     async def index(self, request):
         raise web.HTTPFound('/ui/conf/config.html')
 
-    async def timezones(self, request: web.Request) -> web.Response:
+    async def timezones(self, _: web.Request) -> web.Response:
         zones = list(dateutil.zoneinfo.get_zonefile_instance().zones.keys())
         return web.json_response(zones)
 
-    async def show_chains(self, request: web.Request) -> web.Response:
+    async def show_chains(self, _: web.Request) -> web.Response:
         data = {name: chain.conf.model_dump() for name, chain in self.chains.items()}
         return web.json_response(data)
 
@@ -168,15 +168,15 @@ class WebUI:
             ).model_dump()
         return data
 
-    async def actors_models(self, request: web.Request) -> web.Response:
+    async def actors_models(self, _: web.Request) -> web.Response:
         return web.json_response(self._actors_models, dumps=json_dumps)
 
-    async def settings_schema(self, request: web.Request) -> web.Response:
+    async def settings_schema(self, _: web.Request) -> web.Response:
         schema = self.settings.model_json_schema(mode='serialization')
         render_descriptions(schema)
         return web.json_response(schema, dumps=json_dumps)
 
-    async def show_config(self, request: web.Request):
+    async def show_config(self, _: web.Request):
         data = serialize_config(self.settings, self.actors, self.chains)
         return web.Response(text=data)
 
@@ -212,10 +212,12 @@ class WebUI:
         except ConfigurationError as e:
             if e.__cause__ is None:
                 raise web.HTTPBadRequest(text=f'Malformed configuration error {type(e)}: {e}')
+            if not isinstance(e.__cause__, ValidationError):
+                raise web.HTTPBadRequest(text=f'Configuration error is {type(e)}, expected ValidationError: {e}')
             data = e.__cause__.errors()
             for error in data:
                 if 'url' in error:
-                    error.pop('url')
+                    error.pop('url', None)  # type: ignore
                 if 'ctx' in error:
                     error.pop('ctx')
                 if 'msg' in error:
@@ -226,9 +228,8 @@ class WebUI:
             raise
         except Exception as e:
             raise web.HTTPBadRequest(text=f'{type(e)}: {e}')
-        raise web.HTTPFound(location=request.path, reason='Config OK')
 
-    async def motd(self, request: web.Request) -> web.Response:
+    async def motd(self, _: web.Request) -> web.Response:
         if self.restart_pending:
             raise web.HTTPServiceUnavailable(headers={'Retry-After': str(self.RESTART_DELAY)})
         motd = f'''
@@ -238,7 +239,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         data = {'motd': motd}
         return web.json_response(data, dumps=json_dumps)
 
-    async def info_webui(self, request: web.Request) -> web.Response:
+    async def info_webui(self, _: web.Request) -> web.Response:
 
         template_path = self.WEBROOT / 'info/info.html'
         template = template_path.read_text(encoding='utf8')
@@ -306,7 +307,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         data = self.render_status_data(status_list, show_empty)
         return web.json_response(data, dumps=json_dumps)
 
-    async def viewable_plugins(self, request: web.Request) -> web.Response:
+    async def viewable_plugins(self, _: web.Request) -> web.Response:
         internal: Dict[str, Dict[str, Dict[str, Dict[str, str]]]] = defaultdict(dict)
         viewable: Dict[str, Dict[str, str]] = defaultdict(dict)
         for actor_name, actor in self.actors.items():
@@ -353,7 +354,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
                 return None
             try:
                 relative = image_file.relative_to(self.cache.cache_directory)
-            except Exception as e:
+            except Exception:
                 msg = f'cached file "{image_file}" for url "{image_url}" is not relative to "{self.cache.cache_directory}"'
                 self.logger.warning(msg)
                 return None

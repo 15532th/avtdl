@@ -345,7 +345,7 @@ class FormatEventFilter(Filter):
 
 @Plugins.register('filter.deduplicate', Plugins.kind.ACTOR_CONFIG)
 class DeduplicateFilterConfig(ActorConfig):
-    history_dir: Optional[Path] = Field(default='cache/deduplicate/', validate_default=True)
+    history_dir: Optional[Path] = Field(default='cache/deduplicate/', validate_default=True)  # type: ignore
     """directory to store entities history between restarts"""
 
     @field_validator('history_dir')

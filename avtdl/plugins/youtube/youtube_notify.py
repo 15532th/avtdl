@@ -59,7 +59,7 @@ class ChannelNotifyFilter(Filter):
             if entity.include_ongoing and record.is_live:
                 scheduled = datetime.datetime.now(datetime.timezone.utc)
         else:
-            scheduled = getattr(record, 'scheduled', ...)
+            scheduled = getattr(record, 'scheduled', ...)  # type: ignore
         if scheduled is ...:
             self.logger.debug(f'[{entity.name}] record has no "scheduled" field, dropping: {record!r}')
             return

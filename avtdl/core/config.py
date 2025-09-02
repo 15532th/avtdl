@@ -45,7 +45,7 @@ def try_parsing(func):
 class SettingsSection(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
-    log_directory: Path = Field(default='logs', validate_default=True)
+    log_directory: Path = Field(default='logs', validate_default=True)  # type: ignore
     """path to a directory where application will write log file"""
     logfile_size: int = Field(gt=0, default=1000000)
     """size of a single log file in bytes. After reaching this size the file will be replaced by a new one. Only last 10 files are kept inside the log directory"""
@@ -60,7 +60,7 @@ class SettingsSection(BaseModel):
     """web-interface host, typically "127.0.0.1", "0.0.0.0" or the machine external IP"""
     encoding: Optional[str] = None
     """configuration file encoding. Leave empty to use system-wide default. Note, that webui will forcibly overwrite empty value with "utf8" when saving new configuration"""
-    cache_directory: Path = Field(default='cache/cache/', validate_default=True)
+    cache_directory: Path = Field(default='cache/cache/', validate_default=True)  # type: ignore
     """directory used for storing pre-downloaded images and other resources, used to display records in the web-interface.
     Send records through the "cache" plugin to download and store resources it references"""
 
@@ -121,7 +121,7 @@ class ActorParser:
         actors_models: Dict[str, Any] = {}
         for name, section in actor_section.items():
             _, ConfigFactory, EntityFactory = Plugins.get_actor_factories(name)
-            model = SpecificActorConfigSection[ConfigFactory, EntityFactory]
+            model = SpecificActorConfigSection[ConfigFactory, EntityFactory]  # type: ignore
             actors_models[name] = (model, ...)
         actors_section_model = create_model('SpecificActors', **actors_models)
         return actors_section_model

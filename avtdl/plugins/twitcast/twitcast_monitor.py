@@ -118,6 +118,9 @@ class TwitcastMonitor(HttpTaskMonitor):
         latest_movie_info = await self.request_json(url, entity, client)
         if latest_movie_info is None:
             return None
+        if not isinstance(latest_movie_info, dict):
+            self.logger.warning(f'[{entity.name}] unexpected latest_movie_info format: "{latest_movie_info}"')
+            return None
         try:
             movie_id = str(latest_movie_info['movie']['id'])
             return movie_id

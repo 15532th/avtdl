@@ -296,7 +296,7 @@ class TOC:
         md = markdown.Markdown(output_format='html',
                                extensions=['md_in_html', TocExtension(toc_depth=toc_depth, slugify=cls.slugify)])
         _ = md.convert(text)
-        tokens = [TOCToken.model_validate(token) for token in md.toc_tokens]
+        tokens = [TOCToken.model_validate(token) for token in md.toc_tokens]  # type: ignore
         return tokens
 
     @staticmethod

@@ -352,7 +352,7 @@ class MessageFormatter:
             if not isinstance(field, dict):
                 continue
             image_url = field.get(subfield_name, None)
-            if is_url(image_url):
+            if image_url is not None and is_url(image_url):
                 new_url = rewriter(image_url)
                 if new_url is not None:
                     embed[field_name][subfield_name] = new_url

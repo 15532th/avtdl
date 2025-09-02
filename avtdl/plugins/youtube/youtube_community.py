@@ -202,6 +202,10 @@ class CommunityPostsMonitor(PagedFeedMonitor):
         if current_page is None:
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
+        if not isinstance(current_page, dict):
+            self.logger.warning(f'[{entity.name}] failed to parse next page: not a dict')
+            self.logger.debug(f'[{entity.name}] raw page: {current_page}')
+            return None, None
         current_page_records = self._parse_entries(current_page) or []
         context.continuation_token = get_continuation_token(current_page)
         if context.continuation_token is None:

@@ -56,4 +56,4 @@ include = ["avtdl*"]
 show_error_codes = true
 warn_unused_ignores = true
 allow_redefinition = true
-disable_error_code = ["override"]
+disable_error_code = ["override", "import"]

@@ -10,6 +10,7 @@ from avtdl.core.config import Plugins
 from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 from avtdl.core.request import HttpClient
+from avtdl.core.utils import JSONType
 
 
 @Plugins.register('twitch', Plugins.kind.ASSOCIATED_RECORD)
@@ -82,6 +83,11 @@ class TwitchMonitor(HttpTaskMonitor):
         response = await self._get_channel_status(entity, client)
         if response is None:
             return None
+        if not isinstance(response, dict):
+            self.logger.warning(f'[{entity.name}] unexpected response format')
+            self.logger.debug(f'[{entity.name}] raw response: {response}')
+            return None
+
         try:
             info = response[0]['data']['user']
             avatar_url = info['profileImageURL']
@@ -96,7 +102,8 @@ class TwitchMonitor(HttpTaskMonitor):
             game_info = stream_info.get('game') or {}
             game = game_info.get('name', None)
         except (TypeError, IndexError, KeyError) as e:
-            self.logger.debug(f'[{entity.name}] failed to parse response: {type(e)} {e}. Raw response: {response}')
+            self.logger.warning(f'[{entity.name}] failed to parse response: {type(e)} {e}')
+            self.logger.debug(f'[{entity.name}] raw response: {response}')
             return None
         if stream_id == entity.most_recent_stream:
             self.logger.debug(f'[{entity.name}] user {entity.username} is live with stream {entity.most_recent_stream}, but record was already created')
@@ -122,7 +129,7 @@ class TwitchMonitor(HttpTaskMonitor):
         }]
         return json.dumps(body)
 
-    async def _get_channel_status(self, entity: TwitchMonitorEntity, client: HttpClient) -> Optional[dict]:
+    async def _get_channel_status(self, entity: TwitchMonitorEntity, client: HttpClient) -> Optional[JSONType]:
         api_url = 'https://gql.twitch.tv/gql'
         headers = {'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko', 'Content-Type': 'application/json'}
         body = self._prepare_body(entity.username)

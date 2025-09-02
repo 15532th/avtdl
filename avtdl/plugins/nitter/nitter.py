@@ -4,6 +4,7 @@ from textwrap import shorten
 from typing import Any, List, Optional, Sequence, Tuple
 from urllib import parse as urllibparse
 
+import lxml.etree
 import lxml.html
 from dateutil import parser
 from pydantic import ConfigDict, PositiveFloat
@@ -224,7 +225,7 @@ class NitterMonitor(PagedFeedMonitor):
 
     @staticmethod
     def _parse_html(raw_page: str, base_url: str) -> lxml.html.HtmlElement:
-        root = lxml.html.fromstring(raw_page, base_url=base_url)
+        root: lxml.html.HtmlElement = lxml.html.fromstring(raw_page, base_url=base_url)
         root.make_links_absolute(base_url)
         return root
 

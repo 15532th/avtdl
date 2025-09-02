@@ -161,7 +161,7 @@ class FeedMonitor(GenericRSSMonitor):
 
     async def get_records(self, entity: FeedMonitorEntity, client: HttpClient) -> Sequence[YoutubeFeedRecord]:
         records = await super().get_records(entity, client)
-        return records
+        return records  # type: ignore
 
     async def get_new_records(self, entity: FeedMonitorEntity, client: HttpClient) -> Sequence[YoutubeFeedRecord]:
         records = await self.get_records(entity, client)
@@ -193,7 +193,7 @@ class FeedMonitor(GenericRSSMonitor):
                     rescheduled_records.append(record)
 
         new_records = self.filter_new_records(records, entity)
-        rescheduled_records.extend(new_records)
+        rescheduled_records.extend(new_records)  # type: ignore
         return rescheduled_records
 
     def record_got_updated(self, record: YoutubeFeedRecord, entity: FeedMonitorEntity) -> bool:

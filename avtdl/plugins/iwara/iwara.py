@@ -77,7 +77,7 @@ class IwaraMonitorConfig(PagedFeedMonitorConfig):
 
 @Plugins.register('iwr', Plugins.kind.ACTOR_ENTITY)
 class IwaraMonitorEntity(PagedFeedMonitorEntity):
-    url: str = Field(default=None, exclude=True)
+    url: str = Field(default='', exclude=True)
     """url field is unused"""
     update_interval: PositiveFloat = 3600
     """how often update should happen, in seconds"""

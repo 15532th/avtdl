@@ -98,14 +98,14 @@ class Delay:
         return next_delay
 
 
-def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
+def get_cache_ttl(headers: Union[multidict.CIMultiDictProxy, Dict[str, str]]) -> Optional[int]:
     """
     check for Expires and Cache-Control headers, return integer representing
     how many seconds is left until resource is outdated, if they are present
     and was parsed successfully
     """
 
-    def get_expires_from_cache_control(headers: multidict.CIMultiDictProxy) -> Optional[datetime.datetime]:
+    def get_expires_from_cache_control(headers: Union[multidict.CIMultiDictProxy, Dict[str, str]]) -> Optional[datetime.datetime]:
         cache_control = headers.get('Cache-Control', '')
         if 'must-revalidate' in cache_control.lower():
             return None
@@ -128,7 +128,7 @@ def get_cache_ttl(headers: multidict.CIMultiDictProxy) -> Optional[int]:
         expires = calculated_update_date + max_age_value
         return expires
 
-    def get_expires_from_expires_header(headers: multidict.CIMultiDictProxy) -> Optional[datetime.datetime]:
+    def get_expires_from_expires_header(headers: Union[multidict.CIMultiDictProxy, Dict[str, str]]) -> Optional[datetime.datetime]:
         try:
             expires_header = headers.get('Expires')
             if expires_header is None or expires_header == '0':
@@ -424,8 +424,9 @@ class Endpoint(abc.ABC):
 
 
 def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional[int],
-                              headers: Optional[CIMultiDictProxy[str]], current_update_interval: float,
-                              base_update_interval: float, adjust_update_interval: bool = True) -> float:
+                              headers: Union[CIMultiDictProxy[str], Dict[str, str], None],
+                              current_update_interval: float, base_update_interval: float,
+                              adjust_update_interval: bool = True) -> float:
     update_interval: float
 
     if status is None or headers is None:  # response hasn't completed due to network error

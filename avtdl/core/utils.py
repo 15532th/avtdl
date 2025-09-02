@@ -15,7 +15,7 @@ from http.cookiejar import CookieJar
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter
-from typing import Any, Dict, Hashable, List, Mapping, MutableMapping, Optional, Tuple, Union
+from typing import Any, Dict, Hashable, List, Mapping, MutableMapping, Optional, Tuple, Type, TypeVar, Union
 
 import aiohttp
 import dateutil.parser
@@ -378,3 +378,16 @@ def is_url(maybe_url: Optional[str]) -> bool:
         return True
     except ValidationError:
         return False
+
+
+T = TypeVar('T')
+
+
+def getitem(container: Dict[str, Any], key: str, expected_type: Type[T]) ->T:
+    """
+    return container.get(key), raise ValueError if result type doesn't match expected_type
+    """
+    item = container.get(key)
+    if not isinstance(item, expected_type):
+        raise ValueError(f'unexpected {key} format: expected {expected_type.__name__}, got {type(item).__name__}')
+    return item

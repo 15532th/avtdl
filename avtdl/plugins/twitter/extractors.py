@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError
 from avtdl.core.config import format_validation_error
 from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
-from avtdl.core.utils import find_one
+from avtdl.core.utils import JSONType, find_one, utcnow
 
 local_logger = logging.getLogger().getChild('twitter_extractors')
 
@@ -146,7 +146,9 @@ class UserInfo(BaseModel):
         return cls.from_result(result)
 
     @classmethod
-    def from_result(cls, result: dict) -> 'UserInfo':
+    def from_result(cls, result: JSONType) -> 'UserInfo':
+        if not isinstance(result, dict):
+            raise ValueError(f'unexpected result info structure, expected a dict, got {type(result)}')
         typename = result.get('__typename')
         if typename != 'User':
             raise ValueError(f'failed to parse result into {cls.__name__}: __typename is "{typename}, expected "User"')
@@ -439,7 +441,9 @@ def tweet_url_by_id(handle: str, rest_id: str) -> str:
     return f'https://twitter.com/{handle}/status/{rest_id}'
 
 
-def parse_space(data: dict) -> 'TwitterSpaceRecord':
+def parse_space(data: JSONType) -> 'TwitterSpaceRecord':
+    if not isinstance(data, dict):
+        raise ValueError(f'failed to parse space: top level data structure is not dictionary')
     metadata = find_one(data, '$..metadata')
     if metadata is None:
         raise ValueError(f'failed to parse space: no metadata found')
@@ -455,16 +459,17 @@ def parse_space(data: dict) -> 'TwitterSpaceRecord':
         raise ValueError(f'failed to parse space author details: {err}')
     try:
         uid = metadata.get('rest_id')
+        published = maybe_date(metadata.get('created_at')) or maybe_date(metadata.get('started_at')) or utcnow()
         record = TwitterSpaceRecord(
-            uid=uid,
-            url=space_url_by_id(uid),
-            state=metadata.get('state'),
-            media_key=metadata.get('media_key'),
+            uid=uid,  # type: ignore
+            url=space_url_by_id(str(uid)),
+            state=metadata.get('state'),  # type: ignore
+            media_key=metadata.get('media_key'),  # type: ignore
             title=metadata.get('title', ''),
             author=user.name,
             username=user.handle,
             avatar_url=user.avatar_url,
-            published=maybe_date(metadata.get('created_at')) or maybe_date(metadata.get('started_at')) or datetime.datetime.now(tz=datetime.timezone.utc),
+            published=published,
             scheduled=maybe_date(metadata.get('scheduled_start')),
             started=maybe_date(metadata.get('started_at')),
             ended=maybe_date(metadata.get('ended_at')),

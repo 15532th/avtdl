@@ -199,6 +199,7 @@ class VideosMonitor(PagedFeedMonitor):
         for item in video_renderers:
             try:
                 info = parse_video_renderer(item, owner_info, raise_on_error=True)
+                assert info is not None, 'parse_video_render didn\'t raise'
                 record = YoutubeVideoRecord.model_validate(info.model_dump())
                 records.append(record)
             except (AttributeError, ValueError, JSONDecodeError, ValidationError) as e:

@@ -141,7 +141,8 @@ class UserIDEndpoint(TwitterEndpoint):
 
     @staticmethod
     def get_user_id(data: dict) -> Optional[str]:
-        return find_one(data, '$.data.user.result.rest_id')
+        user_id = find_one(data, '$.data.user.result.rest_id')
+        return str(user_id) if user_id is not None else None
 
 
 class TweetDetailEndpoint(TwitterEndpoint):

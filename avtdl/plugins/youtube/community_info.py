@@ -1,6 +1,6 @@
 from typing import List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl, ValidationError
 
 from avtdl.core.utils import find_all, find_one
 from avtdl.plugins.youtube.common import parse_navigation_endpoint, thumbnail_url
@@ -33,23 +33,36 @@ class CommunityPostInfo(BaseModel):
         published_text = find_one(post_renderer, '$.publishedTimeText..text')
 
         text_runs = find_one(post_renderer, '$.contentText.runs') or []
+        assert isinstance(text_runs, list), f'unexpected text_runs format: {text_runs}'
         full_text = render_full_text(text_runs)
 
-        attachments = find_all(post_renderer, '$.backstageAttachment..backstageImageRenderer.image.thumbnails.[-1:].url')
-        attachments = [link.split('=', 1)[0] + '=s0?imgmax=0' if 'fcrop' in link else link for link in attachments]
+        raw_attachments = find_all(post_renderer, '$.backstageAttachment..backstageImageRenderer.image.thumbnails.[-1:].url')
+        attachments = []
+        for link in raw_attachments:
+            link = str(link)
+            try:
+                HttpUrl(link)
+            except ValidationError:
+                raise ValueError(f'invalid thumbnail url: {link}')
+            attachments.append(link.split('=', 1)[0] + '=s0?imgmax=0' if 'fcrop' in link else link)
+
         video_id = find_one(post_renderer, '$.backstageAttachment..videoRenderer.videoId')
-        video_thumbnail =  thumbnail_url(video_id) if video_id else find_one(post_renderer, '$.backstageAttachment..videoRenderer.thumbnail.url')
+        assert isinstance(video_id, str), f'video_id is not a string: {video_id}'
+        if not video_id:
+            video_thumbnail = find_one(post_renderer, '$.backstageAttachment..videoRenderer.thumbnail.url')
+        else:
+            video_thumbnail = thumbnail_url(video_id)
         if video_thumbnail is not None:
-            attachments.append(video_thumbnail)
+            attachments.append(video_thumbnail)  # type: ignore
 
         post = CommunityPostInfo(
-            author=author,
-            channel_id=channel_id,
-            post_id=post_id,
-            avatar_url=avatar_url,
-            vote_count=vote_count,
+            author=author,  # type: ignore
+            channel_id=channel_id,  # type: ignore
+            post_id=post_id,  # type: ignore
+            avatar_url=avatar_url,  # type: ignore
+            vote_count=vote_count,  # type: ignore
             sponsor_only=sponsor_only,
-            published_text=published_text,
+            published_text=published_text,  # type: ignore
             full_text=full_text,
             attachments=attachments,
             video_id=video_id
@@ -78,17 +91,19 @@ class SharedCommunityPostInfo(BaseModel):
         published_text = find_one(post_renderer, '$.publishedTimeText..text')
 
         text_runs = find_one(post_renderer, '$.content.runs') or []
+        assert isinstance(text_runs, list), f'unexpected text_runs format: {text_runs}'
         full_text = render_full_text(text_runs)
 
         original_post_render = find_one(post_renderer, '$.originalPost.backstagePostRenderer')
+        assert isinstance(original_post_render, dict), f'unexpected original_post_render format: {original_post_render}'
         original_post = CommunityPostInfo.from_post_renderer(original_post_render)
 
         post = SharedCommunityPostInfo(
-            author=author,
-            channel_id=channel_id,
-            post_id=post_id,
-            avatar_url=avatar_url,
-            published_text=published_text,
+            author=author,  # type: ignore
+            channel_id=channel_id,  # type: ignore
+            post_id=post_id,  # type: ignore
+            avatar_url=avatar_url,  # type: ignore
+            published_text=published_text,  # type: ignore
             full_text=full_text,
             original_post=original_post
         )
@@ -99,7 +114,7 @@ def render_full_text(runs: list) -> str:
     return ''.join(render_text_item(item) for item in runs)
 
 
-def render_text_item(item):
+def render_text_item(item: dict) -> str:
     if 'watchEndpoint' in item:
         video_template = 'https://www.youtube.com/watch?v={}'
         video_id = item['watchEndpoint']['videoId']

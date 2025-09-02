@@ -263,6 +263,7 @@ class TwitterSpace(Action):
             space = parse_space(data)
         except ValueError as e:
             self.logger.warning(f'[{entity.name}] failed to parse Space metadata for "{space_url_by_id(space_id)}": {e}')
+            self.logger.debug(f'[{entity.name}] raw metadata: {data}')
             return None
         return space
 

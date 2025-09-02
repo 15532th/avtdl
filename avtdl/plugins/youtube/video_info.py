@@ -98,10 +98,9 @@ def get_initial_response_slow(page: str) -> dict:
             response = json.loads(raw_data)
             return response
         position_match = re_parenthesses.search(page, position + 1)
-        try:
-            position = position_match.start()
-        except AttributeError:
+        if position_match is None:
             raise ValueError(f'Failed to find matching set of parentheses after ytInitialPlayerResponse')
+        position = position_match.start()
 
 
 def get_embedded_player_response(page: str) -> dict:
