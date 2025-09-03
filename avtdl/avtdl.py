@@ -12,7 +12,7 @@ from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection, config_sancheck
 from avtdl.core.info import generate_plugins_description, generate_version_string
 from avtdl.core.interfaces import Actor, RuntimeContext, TerminatedAction
-from avtdl.core.loggers import set_logging_format, silence_library_loggers
+from avtdl.core.loggers import setup_console_logger, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
 from avtdl.core.utils import read_file, write_file
 from avtdl.core.yaml import yaml_load
@@ -158,7 +158,7 @@ def main() -> None:
     else:
         log_level = logging.INFO
 
-    set_logging_format(log_level)
+    setup_console_logger(log_level)
     silence_library_loggers()
 
     try:

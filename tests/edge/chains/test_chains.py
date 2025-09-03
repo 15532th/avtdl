@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from avtdl.avtdl import parse_config
 from avtdl.core.config import config_sancheck
 from avtdl.core.interfaces import Actor, Record, RuntimeContext, TextRecord
-from avtdl.core.loggers import set_logging_format, silence_library_loggers
+from avtdl.core.loggers import setup_console_logger, silence_library_loggers
 from avtdl.core.yaml import yaml_load
 from avtdl.plugins.utils.utils import Consumer, Producer
 
@@ -56,7 +56,7 @@ class _Testcases(BaseModel):
 
 async def run(config: str):
     silence_library_loggers()
-    set_logging_format('WARNING')
+    setup_console_logger('WARNING')
 
     conf: dict = yaml_load(config)
     senders, receivers = _Testcases.load(conf.pop('testcases'))

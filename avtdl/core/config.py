@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, c
 from avtdl.core import utils
 from avtdl.core.chain import Chain, ChainConfigSection
 from avtdl.core.interfaces import Actor, RuntimeContext
-from avtdl.core.loggers import LogLevel, override_loglevel, set_file_logger
+from avtdl.core.loggers import LogLevel, override_loglevel, setup_file_logger, setup_webserver_logger
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import strip_text
 
@@ -76,7 +76,8 @@ class SettingsSection(BaseModel):
 
 def configure_loggers(settings: SettingsSection):
     override_loglevel(settings.loglevel_override)
-    set_file_logger(path=settings.log_directory, max_size=settings.logfile_size, level=settings.logfile_level)
+    setup_file_logger(path=settings.log_directory, max_size=settings.logfile_size, level=settings.logfile_level)
+    setup_webserver_logger(path=settings.log_directory, max_size=settings.logfile_size, level=settings.logfile_level)
 
 
 class ActorConfigSection(BaseModel):
