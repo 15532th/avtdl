@@ -7,7 +7,7 @@ import re
 import time
 import urllib.parse
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email.utils import parsedate_to_datetime
 from http.cookies import SimpleCookie
 from math import log2
@@ -405,9 +405,9 @@ class RequestDetails:
     data: Optional[Any] = None
     data_json: Optional[JSONType] = None
     headers: Optional[Dict[str, Any]] = None
-    rate_limit: RateLimit = NoRateLimit('default')
-    endpoint_state: EndpointState = EndpointState()
-    retry_settings: RetrySettings = RetrySettings()
+    rate_limit: RateLimit = field(default_factory=lambda: NoRateLimit('default'))
+    endpoint_state: EndpointState = field(default_factory=EndpointState)
+    retry_settings: RetrySettings = field(default_factory=RetrySettings)
 
 
 class Endpoint(abc.ABC):
