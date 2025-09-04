@@ -1,10 +1,12 @@
 import datetime
+import logging
 import re
 from typing import Any, Optional, Tuple
 
+import dateutil.parser
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from avtdl.core.utils import find_all, find_one
+from avtdl.core.utils import JSONType, find_all, find_one
 from avtdl.plugins.youtube.common import extract_keys, get_continuation_token, thumbnail_url
 
 
@@ -27,14 +29,19 @@ class VideoRendererInfo(BaseModel):
     is_member_only: bool
 
 
-def get_video_renderers(page: str, anchor: str = 'var ytInitialData = ') -> Tuple[list, Optional[str], dict]:
-    keys = ['gridVideoRenderer', 'videoRenderer', 'playlistVideoRenderer', 'continuationEndpoint']
+def get_video_renderers(page: str, anchor: str = 'var ytInitialData = ') -> Tuple[list, list, Optional[str], dict]:
+    keys = [
+        'gridVideoRenderer', 'videoRenderer', 'playlistVideoRenderer',
+        'lockupViewModel',
+        'continuationEndpoint'
+    ]
     items, data = extract_keys(page, keys, anchor)
     continuation_token = get_continuation_token(items.pop('continuationEndpoint', {}))
+    lockup_views = items.pop('lockupViewModel', [])
     renderers = []
     for item in items.values():
         renderers.extend(item)
-    return renderers, continuation_token, data
+    return renderers, lockup_views, continuation_token, data
 
 
 def parse_scheduled(timestamp: Optional[Any]) -> Optional[datetime.datetime]:
@@ -135,8 +142,7 @@ def parse_owner_from_header(page: dict) -> Optional[AuthorInfo]:
         return None
 
 
-def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_error: bool = False) -> Optional[
-    VideoRendererInfo]:
+def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo]) -> VideoRendererInfo:
     video_id = item.get('videoId')
     url = f'https://www.youtube.com/watch?v={video_id}'
     title = find_one(item, '$.title..text,simpleText')
@@ -164,31 +170,92 @@ def parse_video_renderer(item: dict, owner_info: Optional[AuthorInfo], raise_on_
     is_live = 'BADGE_STYLE_TYPE_LIVE_NOW' in badges
     is_upcoming = scheduled is not None
 
+    info = VideoRendererInfo(video_id=video_id,  # type: ignore
+                             url=url,
+                             title=title,  # type: ignore
+                             summary=summary,  # type: ignore
+                             scheduled=scheduled,
+                             author=author_name,
+                             avatar_url=avatar_url,
+                             thumbnail_url=thumbnail,
+                             channel_link=channel_link,
+                             channel_id=channel_id,
+                             published_text=published_text,  # type: ignore
+                             length=length,  # type: ignore
+                             is_live=is_live,
+                             is_upcoming=is_upcoming,
+                             is_member_only=is_member_only)
+    return info
+
+
+class ContentTypeNotSupportedException(Exception):
+    """Raised when contentType is not video"""
+
+
+def parse_upcoming_timestamp(text: JSONType) -> Optional[datetime.datetime]:
+    if not isinstance(text, str):
+        return None
     try:
-        info = VideoRendererInfo(video_id=video_id,  # type: ignore
-                                 url=url,
-                                 title=title,  # type: ignore
-                                 summary=summary,  # type: ignore
-                                 scheduled=scheduled,
-                                 author=author_name,
-                                 avatar_url=avatar_url,
-                                 thumbnail_url=thumbnail,
-                                 channel_link=channel_link,
-                                 channel_id=channel_id,
-                                 published_text=published_text,  # type: ignore
-                                 length=length,  # type: ignore
-                                 is_live=is_live,
-                                 is_upcoming=is_upcoming,
-                                 is_member_only=is_member_only)
-        return info
-    except ValidationError:
-        if raise_on_error:
-            raise
+        [clean_text] = re.findall(r'\d.*$', text)
+        timestamp = dateutil.parser.parse(clean_text)
+        timestamp_utc = timestamp.astimezone(datetime.timezone.utc)
+        return timestamp_utc
+    except Exception as e:
+        logging.getLogger('parse_upcoming_timestamp').warning(f'failed to parse upcoming time "{text}": {e}')
         return None
 
 
-def handle_page(page: str) -> list:
-    items, continuation, data = get_video_renderers(page)
-    owner_info = parse_owner_info(data)
-    info = [parse_video_renderer(x, owner_info) for x in items]
+
+def parse_lockup_view(item: dict, owner_info: Optional[AuthorInfo], try_unknown_type: bool = False) -> VideoRendererInfo:
+    content_type = item['contentType']
+    if not content_type == 'LOCKUP_CONTENT_TYPE_VIDEO' and not try_unknown_type:
+        raise ContentTypeNotSupportedException(f'{content_type}')
+    video_id = item.get('contentId')
+    url = f'https://www.youtube.com/watch?v={video_id}'
+    title = find_one(item, '$.metadata.lockupMetadataViewModel.title.content')
+    thumbnail = thumbnail_url(str(video_id)) or None
+
+    metadata_parts = find_all(item, '$..metadata.lockupMetadataViewModel.metadata.contentMetadataViewModel.metadataRows[*].metadataParts[*].text.content')
+    author_info = parse_author(item) or owner_info
+    if author_info is None:
+        author_name = metadata_parts[0] if metadata_parts else None
+        avatar_view_model = find_one(item, '$.metadata.lockupMetadataViewModel')
+        channel_link = find_one(item, '$.image..rendererContext..innertubeCommand.browseEndpoint.canonicalBaseUrl') or find_one(item, '$.metadata.lockupMetadataViewModel.metadata.contentMetadataViewModel..innertubeCommand.browseEndpoint.canonicalBaseUrl')
+        channel_id = find_one(item, '$.metadata.lockupMetadataViewModel.metadata.contentMetadataViewModel..innertubeCommand.browseEndpoint.browseId')
+        avatar_url = find_one(avatar_view_model, '$.image..avatar..image..url')
+    else:
+        author_name = author_info.name
+        channel_link = author_info.channel
+        channel_id = author_info.channel_id
+        avatar_url = author_info.avatar_url
+
+    published_text = metadata_parts[-1] if metadata_parts else None
+    length = find_one(item, '$.contentImage.thumbnailViewModel..thumbnailOverlayBadgeViewModel.thumbnailBadges..thumbnailBadgeViewModel.text')
+
+    is_upcoming = find_one(item, 'attachmentSlot.lockupAttachmentsViewModel..toggleButtonViewModel..innertubeCommand.addUpcomingEventReminderEndpoint') is not None
+    if is_upcoming:
+        scheduled = parse_upcoming_timestamp(published_text)
+    else:
+        scheduled = None
+
+    badges_texts = find_all(item, '$..thumbnailBadges..text')
+    badges = find_all(item, '$..badgeStyle')
+    is_member_only = 'THUMBNAIL_OVERLAY_BADGE_STYLE_MEMBERS_ONLY' in badges
+    is_live = 'THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE' in badges
+
+    info = VideoRendererInfo(video_id=video_id,  # type: ignore
+                             url=url,
+                             title=title,  # type: ignore
+                             summary=None,
+                             scheduled=scheduled,
+                             author=author_name, # type: ignore
+                             avatar_url=avatar_url, # type: ignore
+                             thumbnail_url=thumbnail,
+                             channel_link=channel_link, # type: ignore
+                             channel_id=channel_id, # type: ignore
+                             published_text=published_text,  # type: ignore
+                             length=length,  # type: ignore
+                             is_live=is_live,
+                             is_upcoming=is_upcoming,
+                             is_member_only=is_member_only)
     return info

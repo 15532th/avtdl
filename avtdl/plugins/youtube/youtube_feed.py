@@ -1,6 +1,6 @@
 import datetime
 from json import JSONDecodeError
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from pydantic import Field, PositiveFloat, ValidationError
 
@@ -11,7 +11,9 @@ from avtdl.core.request import HttpClient, RetrySettings
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 from avtdl.plugins.youtube.common import NextPageContext, get_innertube_context, get_session_index, handle_consent, \
     prepare_next_page_request
-from avtdl.plugins.youtube.feed_info import AuthorInfo, VideoRendererInfo, get_video_renderers, parse_owner_info, \
+from avtdl.plugins.youtube.feed_info import AuthorInfo, ContentTypeNotSupportedException, VideoRendererInfo, \
+    get_video_renderers, parse_lockup_view, \
+    parse_owner_info, \
     parse_video_renderer
 
 
@@ -160,11 +162,11 @@ class VideosMonitor(PagedFeedMonitor):
         if raw_page_text is None:
             return None, None
         raw_page_text = await handle_consent(raw_page_text, entity.url, client, self.logger)
-        video_renderers, continuation_token, page = get_video_renderers(raw_page_text)
-        if not video_renderers:
-            self.logger.debug(f'[{entity.name}] found no videos on first page of {entity.url}')
+        video_renderers, lockup_views, continuation_token, page = get_video_renderers(raw_page_text)
+        if not video_renderers and not lockup_views:
+            self.logger.warning(f'[{entity.name}] found no videos on first page of {entity.url}')
         owner_info = parse_owner_info(page)
-        current_page_records = self._parse_entries(owner_info, video_renderers, entity)
+        current_page_records = self._parse_records(owner_info, video_renderers, lockup_views, entity)
         innertube_context = get_innertube_context(raw_page_text)
         session_index = get_session_index(page)
         context = FeedPageContext(innertube_context=innertube_context, session_index=session_index, continuation_token=continuation_token, owner_info=owner_info)
@@ -182,11 +184,11 @@ class VideosMonitor(PagedFeedMonitor):
         if raw_page is None:
             self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
             return None, None
-        video_renderers, continuation_token, page = get_video_renderers(raw_page, anchor='')
+        video_renderers, lockup_views, continuation_token, page = get_video_renderers(raw_page, anchor='')
 
-        if not video_renderers:
+        if not video_renderers and not lockup_views:
             self.logger.debug(f'[{entity.name}] found no videos when parsing continuation of {entity.url}')
-        current_page_records = self._parse_entries(context.owner_info, video_renderers, entity)
+        current_page_records = self._parse_records(context.owner_info, video_renderers, lockup_views, entity)
 
         if continuation_token is not None:
             context.continuation_token = continuation_token
@@ -194,19 +196,34 @@ class VideosMonitor(PagedFeedMonitor):
             context = None
         return current_page_records, context
 
-    def _parse_entries(self, owner_info: Optional[AuthorInfo], video_renderers: List[dict], entity: PagedFeedMonitorEntity) -> List[YoutubeVideoRecord]:
+    def _parse_records(self,
+                       owner_info: Optional[AuthorInfo],
+                       video_renderers: List[dict],
+                       lockup_views: List[dict],
+                       entity: PagedFeedMonitorEntity) -> List[YoutubeVideoRecord]:
         records: List[YoutubeVideoRecord] = []
-        for item in video_renderers:
+        records.extend(self._parse_entries(video_renderers, parse_video_renderer, owner_info, entity))
+        records.extend(self._parse_entries(lockup_views, parse_lockup_view, owner_info, entity))
+        records = records[::-1] # records are ordered from old to new on page, reorder in chronological order
+        return records
+
+    def _parse_entries(self, items: List[dict],
+                       parser: Callable,
+                       owner_info: Optional[AuthorInfo],
+                       entity: PagedFeedMonitorEntity) -> List[YoutubeVideoRecord]:
+        records: List[YoutubeVideoRecord] = []
+        for item in items:
             try:
-                info = parse_video_renderer(item, owner_info, raise_on_error=True)
-                assert info is not None, 'parse_video_render didn\'t raise'
+                info = parser(item, owner_info)
                 record = YoutubeVideoRecord.model_validate(info.model_dump())
                 records.append(record)
+            except ContentTypeNotSupportedException as e:
+                self.logger.debug(f'skipping unsupported content type: {e}')
+                continue
             except (AttributeError, ValueError, JSONDecodeError, ValidationError) as e:
                 self.logger.warning(f'[{entity.name}] failed to parse video renderer on "{entity.url}": {type(e)}: {e}')
                 self.logger.debug(f'[{entity.name}] raw video renderer:\n{item}')
                 continue
-        records = records[::-1] # records are ordered from old to new on page, reorder in chronological order
         return records
 
     def record_got_updated(self, record: YoutubeVideoRecord, entity: VideosMonitorEntity) -> bool:
