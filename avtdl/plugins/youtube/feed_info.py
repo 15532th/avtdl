@@ -235,19 +235,22 @@ def parse_lockup_view(item: dict, owner_info: Optional[AuthorInfo], try_unknown_
         channel_id = author_info.channel_id
         avatar_url = author_info.avatar_url
 
+    badges_texts = find_all(item, '$..thumbnailBadges..text')
+    badges = find_all(item, '$..badgeStyle')
+    is_member_only = 'THUMBNAIL_OVERLAY_BADGE_STYLE_MEMBERS_ONLY' in badges
+    is_live = 'THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE' in badges
+
     published_text = metadata_parts[-1] if metadata_parts else None
     length = find_one(item, '$.contentImage.thumbnailViewModel..thumbnailOverlayBadgeViewModel.thumbnailBadges..thumbnailBadgeViewModel.text')
+    if is_live:
+        published_text = None
+        length = None
 
     is_upcoming = find_one(item, 'attachmentSlot.lockupAttachmentsViewModel..toggleButtonViewModel..innertubeCommand.addUpcomingEventReminderEndpoint') is not None
     if is_upcoming:
         scheduled = parse_upcoming_timestamp(published_text)
     else:
         scheduled = None
-
-    badges_texts = find_all(item, '$..thumbnailBadges..text')
-    badges = find_all(item, '$..badgeStyle')
-    is_member_only = 'THUMBNAIL_OVERLAY_BADGE_STYLE_MEMBERS_ONLY' in badges
-    is_live = 'THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE' in badges
 
     info = VideoRendererInfo(video_id=video_id,  # type: ignore
                              url=url,
