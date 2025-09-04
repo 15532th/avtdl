@@ -82,6 +82,13 @@ def get_author_fallback(item: dict) -> Optional[str]:
     return author_text
 
 
+def prime_channel_link(channel: str) -> str:
+    if channel.startswith('/'):
+        return 'https://www.youtube.com' + channel
+    else:
+        return channel
+
+
 class AuthorInfo(BaseModel):
     name: str
     channel: str
@@ -91,10 +98,7 @@ class AuthorInfo(BaseModel):
     @field_validator('channel')
     @classmethod
     def add_prefix(cls, channel: str) -> str:
-        if channel.startswith('/'):
-            return 'https://www.youtube.com' + channel
-        else:
-            return channel
+        return prime_channel_link(channel)
 
 
 def parse_author(video_render: dict) -> Optional[AuthorInfo]:
@@ -221,6 +225,8 @@ def parse_lockup_view(item: dict, owner_info: Optional[AuthorInfo], try_unknown_
         author_name = metadata_parts[0] if metadata_parts else None
         avatar_view_model = find_one(item, '$.metadata.lockupMetadataViewModel')
         channel_link = find_one(item, '$.image..rendererContext..innertubeCommand.browseEndpoint.canonicalBaseUrl') or find_one(item, '$.metadata.lockupMetadataViewModel.metadata.contentMetadataViewModel..innertubeCommand.browseEndpoint.canonicalBaseUrl')
+        if isinstance(channel_link, str):
+            channel_link = prime_channel_link(channel_link)
         channel_id = find_one(item, '$.metadata.lockupMetadataViewModel.metadata.contentMetadataViewModel..innertubeCommand.browseEndpoint.browseId')
         avatar_url = find_one(avatar_view_model, '$.image..avatar..image..url')
     else:
