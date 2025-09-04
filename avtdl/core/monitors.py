@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import logging
 import re
@@ -11,7 +12,8 @@ import aiohttp
 from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_validator
 
 from avtdl.core.db import BaseDbConfig, RecordDB, RecordDbView
-from avtdl.core.interfaces import AbstractRecordsStorage, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext
+from avtdl.core.interfaces import AbstractRecordsStorage, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext, \
+    TaskStatus
 from avtdl.core.request import HttpClient, MaybeHttpResponse, RequestDetails, SessionStorage, StateStorage
 from avtdl.core.utils import JSONType, load_cookies, show_diff, with_prefix
 
@@ -50,13 +52,37 @@ class BaseTaskMonitor(Monitor):
             return
         names = ', '.join([f'{self.conf.name}.{entity.name}' for entity in entities])
         logger.info(f'will start {len(entities)} tasks with {entities[0].update_interval:.1f} update interval and {interval:.1f} offset for {names}')
+        current_task_delay = 0.0
         for entity in entities:
-            logger.debug(f'starting task {entity.name} with {entity.update_interval} update interval')
-            _ = self.controller.create_task(self.run_for(entity), name=f'{self.conf.name}:{entity.name}')
-            if entity == entities[-1]: # skip sleeping after last
-                continue
-            await asyncio.sleep(interval)
-        logger.info(f'done starting tasks for {names}')
+            logger.debug(f'starting task {entity.name} with {entity.update_interval} update interval in {current_task_delay}')
+            info = TaskStatus(self.conf.name, entity.name)
+            self.controller.create_task(
+                self.start_task(
+                    entity,
+                    delay=current_task_delay,
+                    info=info
+                ),
+                _info=info
+            )
+            current_task_delay += interval
+
+    async def start_task(self, entity: TaskMonitorEntity, delay: float, info: TaskStatus) -> None:
+        name = f'{self.conf.name}:{entity.name}'
+        self.logger.debug(f'task "{name}" to be started after {delay}')
+        step = 10.0
+        while delay:
+            if delay > step:
+                current_step_delay = step
+                delay -= step
+            else:
+                current_step_delay = delay
+                delay = 0
+            info.set_status(f'starting in {datetime.timedelta(seconds=delay)}')
+            await asyncio.sleep(current_step_delay)
+        info.clear()
+        self.logger.info(f'starting task for {info.actor}.{info.entity}')
+        coro = self.run_for(entity)
+        self.controller.create_task(coro, name=name, _info=info)
 
     @abstractmethod
     async def run_for(self, entity: TaskMonitorEntity):
