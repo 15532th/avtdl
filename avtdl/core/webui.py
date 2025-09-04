@@ -288,8 +288,9 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             if not include_empty and status.is_empty():
                 continue
             record = record_preview(status.record) if status.record else ''
+            actor_type = get_plugin_type(status.actor or 'other') or 'Other'
             row = [status.actor, status.entity, status.status, record]
-            data[status.actor]['rows'].append(row)
+            data[actor_type]['rows'].append(row)
         return data
 
     async def tasks(self, request: web.Request) -> web.Response:
