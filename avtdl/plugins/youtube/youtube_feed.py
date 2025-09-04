@@ -1,8 +1,7 @@
 import datetime
-from json import JSONDecodeError
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-from pydantic import Field, PositiveFloat, ValidationError
+from pydantic import Field, PositiveFloat
 
 from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
@@ -220,7 +219,7 @@ class VideosMonitor(PagedFeedMonitor):
             except ContentTypeNotSupportedException as e:
                 self.logger.debug(f'skipping unsupported content type: {e}')
                 continue
-            except (AttributeError, ValueError, JSONDecodeError, ValidationError) as e:
+            except Exception as e:
                 self.logger.warning(f'[{entity.name}] failed to parse video renderer on "{entity.url}": {type(e)}: {e}')
                 self.logger.debug(f'[{entity.name}] raw video renderer:\n{item}')
                 continue
