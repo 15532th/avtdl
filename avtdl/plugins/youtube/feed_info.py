@@ -209,9 +209,13 @@ def parse_upcoming_timestamp(text: JSONType) -> Optional[datetime.datetime]:
         return None
 
 
-
 def parse_lockup_view(item: dict, owner_info: Optional[AuthorInfo], try_unknown_type: bool = False) -> VideoRendererInfo:
-    content_type = item['contentType']
+    content_type = item.get('contentType')
+    if content_type is None:
+        if find_one(item, '$.metadata.feedAdMetadataViewModel.headline'):
+            raise ContentTypeNotSupportedException('feedAdMetadataViewModel')
+        else:
+            raise ValueError('contentType is missing')
     if not content_type == 'LOCKUP_CONTENT_TYPE_VIDEO' and not try_unknown_type:
         raise ContentTypeNotSupportedException(f'{content_type}')
     video_id = item.get('contentId')
