@@ -167,8 +167,8 @@ class CommunityPostsMonitor(PagedFeedMonitor):
 
     Examples of supported url:
 
-    - `https://www.youtube.com/@ChannelName/community`
-    - `https://www.youtube.com/channel/UCK0V3b23uJyU4N8eR_BR0QA/community`
+    - `https://www.youtube.com/@ChannelName/posts`
+    - `https://www.youtube.com/channel/UCK0V3b23uJyU4N8eR_BR0QA/posts`
     """
 
     async def handle_first_page(self, entity: PagedFeedMonitorEntity, client: HttpClient) -> Tuple[Optional[Sequence[Record]], Optional[NextPageContext]]:

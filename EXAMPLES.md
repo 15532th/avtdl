@@ -323,10 +323,10 @@ actors:
   community:
     entities:
       - name: "ChannelName"
-        url: "https://www.youtube.com/@ChannelName/community"
+        url: "https://www.youtube.com/@ChannelName/posts"
         cookies_file: cookies.txt
       - name: "AnotherChannelName"
-        url: "https://www.youtube.com/@AnotherChannelName/community"
+        url: "https://www.youtube.com/@AnotherChannelName/posts"
         cookies_file: cookies.txt
 
   to_file:
@@ -370,7 +370,7 @@ actors:
   community:
     entities:
       - name: "ChannelName"
-        url: "https://www.youtube.com/@ChannelName/community"
+        url: "https://www.youtube.com/@ChannelName/posts"
         cookies_file: cookies.txt
         # delete the following two lines after archiving of old records is completed
         fetch_until_the_end_of_feed_mode: true

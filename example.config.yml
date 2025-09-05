@@ -33,7 +33,7 @@ actors:
   community: # plugin for monitoring Youtube community posts
     entities:
       - name: "ChannelName"
-        url: "https://www.youtube.com/@ChannelName/community"
+        url: "https://www.youtube.com/@ChannelName/posts"
         cookies_file: "cookies.txt"
 
 # Filters, filter or transform data
