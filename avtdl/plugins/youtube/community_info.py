@@ -47,11 +47,10 @@ class CommunityPostInfo(BaseModel):
             attachments.append(link.split('=', 1)[0] + '=s0?imgmax=0' if 'fcrop' in link else link)
 
         video_id = find_one(post_renderer, '$.backstageAttachment..videoRenderer.videoId')
-        assert isinstance(video_id, str), f'video_id is not a string: {video_id}'
         if not video_id:
             video_thumbnail = find_one(post_renderer, '$.backstageAttachment..videoRenderer.thumbnail.url')
         else:
-            video_thumbnail = thumbnail_url(video_id)
+            video_thumbnail = thumbnail_url(video_id)  # type: ignore
         if video_thumbnail is not None:
             attachments.append(video_thumbnail)  # type: ignore
 
@@ -65,7 +64,7 @@ class CommunityPostInfo(BaseModel):
             published_text=published_text,  # type: ignore
             full_text=full_text,
             attachments=attachments,
-            video_id=video_id
+            video_id=video_id  # type: ignore
         )
         return post
 

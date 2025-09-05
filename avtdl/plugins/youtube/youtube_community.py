@@ -182,6 +182,8 @@ class CommunityPostsMonitor(PagedFeedMonitor):
             self.logger.exception(f'[{entity.name}] failed to get initial data from {entity.url}: {e}')
             return None, None
         records = self._parse_entries(initial_page)
+        if not records:
+            self.logger.warning(f'[{entity.name}] found no posts on first page of {entity.url}')
 
         continuation_token = get_continuation_token(initial_page)
         innertube_context = get_innertube_context(raw_page_text)
@@ -207,6 +209,8 @@ class CommunityPostsMonitor(PagedFeedMonitor):
             self.logger.debug(f'[{entity.name}] raw page: {current_page}')
             return None, None
         current_page_records = self._parse_entries(current_page) or []
+        if not current_page_records:
+            self.logger.debug(f'[{entity.name}] no posts on continuation page of {entity.url}')
         context.continuation_token = get_continuation_token(current_page)
         if context.continuation_token is None:
             context = None
