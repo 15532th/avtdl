@@ -56,7 +56,7 @@ class BaseTaskMonitor(Monitor):
         for entity in entities:
             logger.debug(f'starting task {entity.name} with {entity.update_interval} update interval in {current_task_delay}')
             info = TaskStatus(self.conf.name, entity.name)
-            self.controller.create_task(
+            _ = self.controller.create_task(
                 self.start_task(
                     entity,
                     delay=current_task_delay,
@@ -82,7 +82,7 @@ class BaseTaskMonitor(Monitor):
         info.clear()
         self.logger.info(f'starting task for {info.actor}.{info.entity}')
         coro = self.run_for(entity)
-        self.controller.create_task(coro, name=name, _info=info)
+        _ = self.controller.create_task(coro, name=name, _info=info)
 
     @abstractmethod
     async def run_for(self, entity: TaskMonitorEntity):
