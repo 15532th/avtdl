@@ -13,7 +13,7 @@ from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_val
 
 from avtdl.core.db import BaseDbConfig, RecordDB, RecordDbView
 from avtdl.core.interfaces import AbstractRecordsStorage, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext, \
-    TaskStatus
+    TaskStatus, utcnow
 from avtdl.core.request import HttpClient, MaybeHttpResponse, RequestDetails, SessionStorage, StateStorage
 from avtdl.core.utils import JSONType, load_cookies, show_diff, with_prefix
 
@@ -81,17 +81,17 @@ class BaseTaskMonitor(Monitor):
             await asyncio.sleep(current_step_delay)
         info.clear()
         self.logger.info(f'starting task for {info.actor}.{info.entity}')
-        coro = self.run_for(entity)
+        coro = self.run_for(entity, info=info)
         _ = self.controller.create_task(coro, name=name, _info=info)
 
     @abstractmethod
-    async def run_for(self, entity: TaskMonitorEntity):
+    async def run_for(self, entity: TaskMonitorEntity, info: TaskStatus):
         '''Task for a specific entity that should check for new records based on update_interval and call self.on_record() for each'''
 
 
 class TaskMonitor(BaseTaskMonitor):
 
-    async def run_for(self, entity: TaskMonitorEntity):
+    async def run_for(self, entity: TaskMonitorEntity, info: TaskStatus):
         while True:
             try:
                 await self.run_once(entity)
@@ -249,7 +249,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
         _ = self.controller.create_task(self.sessions.ensure_closed(), name=name)
         await super().run()
 
-    async def run_for(self, entity: HttpTaskMonitorEntity):
+    async def run_for(self, entity: HttpTaskMonitorEntity, info: TaskStatus):
         try:
             session = self._get_session(entity)
             if self.logger.parent is not None:
@@ -259,15 +259,26 @@ class HttpTaskMonitor(BaseTaskMonitor):
             logger = with_prefix(logger, f'[{entity.name}]')
             client = HttpClient(logger, session)
             while True:
-                await self.run_once(entity, client)
+                await self.run_once(entity, client, info)
                 await asyncio.sleep(entity.update_interval)
         except Exception:
             self.logger.exception(f'unexpected error in task for entity {entity.name}, task terminated')
 
-    async def run_once(self, entity: TaskMonitorEntity, client: HttpClient):
+    async def run_once(self, entity: TaskMonitorEntity, client: HttpClient, info: TaskStatus):
         records = await self.get_new_records(entity, client)
         for record in records:
             self.on_record(entity, record)
+        self.set_status(entity, records, info)
+
+    @staticmethod
+    def set_status(entity: TaskMonitorEntity, records: Sequence[Record], info: TaskStatus):
+        status = 'last update {} with {} new record{}, update interval {}'
+        info.set_status(status.format(
+            utcnow().isoformat(sep=" ", timespec="seconds"),
+            len(records),
+            '' if len(records) == 1 else 's',
+            datetime.timedelta(seconds=entity.update_interval)
+        ))
 
     @abstractmethod
     async def get_new_records(self, entity: TaskMonitorEntity, client: HttpClient) -> Sequence[Record]:
