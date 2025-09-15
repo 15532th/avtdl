@@ -291,6 +291,8 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
             actor_type = get_plugin_type(status.actor or 'other') or 'Other'
             row = [status.actor, status.entity, status.status, record]
             data[actor_type]['rows'].append(row)
+            sorted_data = sorted(((k, v) for k, v in data.items()), key=lambda x: x[0])
+            data = {k: v for k, v in sorted_data}
         return data
 
     async def tasks(self, request: web.Request) -> web.Response:
