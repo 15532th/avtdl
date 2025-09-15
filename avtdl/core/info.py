@@ -1,7 +1,11 @@
 import datetime
+import json
+import logging
 import re
 import textwrap
+from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Dict, List, Optional, Type, Union
 
 import markdown
@@ -12,6 +16,7 @@ from pydantic_core import PydanticUndefined
 
 from avtdl.core.interfaces import Action, Filter, Monitor
 from avtdl.core.plugins import Plugins
+from avtdl.core.yaml import yaml_load
 
 # plugins names starting with this are excluded from docs
 INTERNAL_PLUGINS_PATTERN = 'utils'
@@ -345,3 +350,43 @@ def get_known_plugins() -> List[str]:
     for plugin_list in plugins_by_type.values():
         plugins.extend(plugin_list)
     return plugins
+
+
+@dataclass
+class ConfigExample:
+    title: str
+    """name of the example"""
+    description: str
+    """brief description and comments, rendered as html"""
+    text_yaml: str
+    """example as yaml"""
+    text_json: str
+    """example as json"""
+
+    @classmethod
+    def make(cls, title, description, example) -> 'ConfigExample':
+        rendered_description = render_markdown(description)
+        config = yaml_load(example)
+        text_json = json.dumps(config, indent=4, ensure_ascii=False)
+        return cls(title=title,
+                   description=rendered_description,
+                   text_yaml=example,
+                   text_json=text_json
+        )
+
+
+def load_examples(file: Path = Path(__file__).parent.parent.parent / 'EXAMPLES.md') -> List[ConfigExample]:
+    """
+    Load and parse example configurations from EXAMPLES.md
+    """
+    try:
+        text = file.read_text(encoding='utf8')
+    except Exception as e:
+        logger = logging.getLogger()
+        logger.warning(f'[load_examples] failed to load examples from "{file}": {e}')
+        return []
+
+    pattern = re.compile(r'^#{1,6} ([^\n]*)$\n\n([^#]*?)^```yaml\n?(.*?)\n?```', re.DOTALL | re.MULTILINE)
+    results = re.findall(pattern, text)
+    examples = [ConfigExample.make(*result) for result in results]
+    return examples
