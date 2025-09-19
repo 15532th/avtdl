@@ -283,17 +283,18 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         if not status_list:
             return {}
         headers = ['Actor', 'Entity', 'Info', 'Record']
-        data: dict = defaultdict(lambda: {'headers': headers, 'rows': []})
+        unsorted_data: dict = defaultdict(lambda: {'headers': headers, 'rows': []})
         for status in status_list:
             if not include_empty and status.is_empty():
                 continue
             record = record_preview(status.record) if status.record else ''
             actor_type = get_plugin_type(status.actor or 'other') or 'Other'
             row = [status.actor, status.entity, status.status, record]
-            data[actor_type]['rows'].append(row)
-        sorted_data = sorted(((k, v) for k, v in data.items()), key=lambda x: x[0])
-        data = {k: v for k, v in sorted_data}
-        return data
+            unsorted_data[actor_type]['rows'].append(row)
+        sorted_data = sorted(((k, v) for k, v in unsorted_data.items()), key=lambda x: x[0])
+        data: dict = defaultdict(lambda: {'headers': headers, 'rows': []})
+        data.update({k: v for k, v in sorted_data})
+        return unsorted_data
 
     async def tasks(self, request: web.Request) -> web.Response:
         show_empty = request.query.get('empty') is not None
