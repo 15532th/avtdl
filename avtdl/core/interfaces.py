@@ -354,9 +354,16 @@ class RuntimeContext:
         self._sigterm_handler = signal.getsignal(signal.SIGINT)
 
     def set_extra(self, name: str, value: Any):
+        """
+        Store extra object in RuntimeContext
+
+        Used to add objects that doesn't exist when RuntimeContext is initialized
+        (namely Settings instance)
+        """
         self.extra[name] = value
 
     def get_extra(self, name: str) -> Optional[Any]:
+        """Retrieve object stored by `set_extra`"""
         return self.extra.get(name)
 
     def _get_handler(self) -> Callable:
