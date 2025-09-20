@@ -1,7 +1,9 @@
 from typing import Optional, Sequence
 
-from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
+from avtdl.core.actors import Filter, FilterEntity
+from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 from avtdl.plugins.twitter.extractors import TwitterRecord
 

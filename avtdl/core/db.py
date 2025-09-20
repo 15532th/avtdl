@@ -9,7 +9,8 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from pydantic import Field, field_validator, model_validator
 
-from avtdl.core.interfaces import AbstractRecordsStorage, ActorConfig, Record
+from avtdl.core.actors import ActorConfig
+from avtdl.core.interfaces import AbstractRecordsStorage, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.utils import check_dir
 

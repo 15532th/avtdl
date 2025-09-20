@@ -3,9 +3,11 @@ from typing import Optional, Sequence, Union
 
 from pydantic import Field, field_validator, model_validator
 
+from avtdl.core.actors import Action, ActionEntity, ActorConfig
 from avtdl.core.db import RecordDB, RecordDbView, validate_db_path
-from avtdl.core.interfaces import AbstractRecordsStorage, Action, ActionEntity, ActorConfig, Record, RuntimeContext
+from avtdl.core.interfaces import AbstractRecordsStorage, Record
 from avtdl.core.plugins import Plugins
+from avtdl.core.runtime import RuntimeContext
 
 Plugins.register('view', Plugins.kind.ASSOCIATED_RECORD)(Record)
 

@@ -3,7 +3,9 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from avtdl.core.interfaces import ActorConfig, RuntimeContext, TextRecord
+from avtdl.core.actors import ActorConfig
+from avtdl.core.interfaces import TextRecord
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.file.text_file import FileAction, FileActionEntity
 
 

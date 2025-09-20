@@ -8,8 +8,8 @@ import pytest
 
 from avtdl.avtdl import load_config, parse_config
 from avtdl.core.config import config_sancheck
-from avtdl.core.interfaces import RuntimeContext
 from avtdl.core.loggers import silence_library_loggers
+from avtdl.core.runtime import RuntimeContext
 
 
 def read_file(path: str) -> str:

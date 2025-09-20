@@ -13,9 +13,10 @@ from avtdl.core.cache import FileCache, find_free_suffix, find_with_suffix
 from avtdl.core.config import SettingsSection
 from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
 from avtdl.core.formatters import Fmt, sanitize_filename
-from avtdl.core.interfaces import Record, RuntimeContext
+from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient
+from avtdl.core.runtime import RuntimeContext
 from avtdl.core.utils import check_dir, is_url, sha1
 
 

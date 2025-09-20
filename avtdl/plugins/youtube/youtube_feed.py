@@ -3,10 +3,12 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from pydantic import Field, PositiveFloat
 
-from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
+from avtdl.core.actors import Filter, FilterEntity
+from avtdl.core.interfaces import Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient, RetrySettings
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 from avtdl.plugins.youtube.common import NextPageContext, get_innertube_context, get_session_index, handle_consent, \
     prepare_next_page_request

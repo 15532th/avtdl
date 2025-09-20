@@ -5,8 +5,10 @@ from typing import Dict, Optional, Sequence
 
 from pydantic import FilePath, NonNegativeFloat
 
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext, TaskStatus
+from avtdl.core.actors import Action, ActionEntity, ActorConfig
+from avtdl.core.interfaces import Record
 from avtdl.core.request import HttpClient, SessionStorage
+from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.utils import with_prefix
 
 

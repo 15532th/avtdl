@@ -6,10 +6,11 @@ from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, create_model, field_validator
 
 from avtdl.core import utils
+from avtdl.core.actors import Actor
 from avtdl.core.chain import Chain, ChainConfigSection
-from avtdl.core.interfaces import Actor, RuntimeContext
 from avtdl.core.loggers import LogLevel, override_loglevel, setup_file_logger, setup_webserver_logger
 from avtdl.core.plugins import Plugins
+from avtdl.core.runtime import RuntimeContext
 from avtdl.core.utils import strip_text
 
 

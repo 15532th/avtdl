@@ -11,10 +11,11 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import aiohttp
 from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_validator
 
+from avtdl.core.actors import ActorConfig, Monitor, MonitorEntity
 from avtdl.core.db import BaseDbConfig, RecordDB, RecordDbView
-from avtdl.core.interfaces import AbstractRecordsStorage, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext, \
-    TaskStatus, utcnow
+from avtdl.core.interfaces import AbstractRecordsStorage, Record, utcnow
 from avtdl.core.request import HttpClient, MaybeHttpResponse, RequestDetails, SessionStorage, StateStorage
+from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.utils import JSONType, load_cookies, show_diff, with_prefix
 
 HIGHEST_UPDATE_INTERVAL = 4 * 3600

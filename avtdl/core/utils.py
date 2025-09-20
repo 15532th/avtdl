@@ -19,6 +19,7 @@ from typing import Any, Dict, Hashable, List, Mapping, MutableMapping, Optional,
 
 import aiohttp
 import dateutil.parser
+import dateutil.tz
 from aiohttp.abc import AbstractCookieJar
 from jsonpath import JSONPath
 from pydantic import AnyHttpUrl, ValidationError
@@ -391,3 +392,26 @@ def getitem(container: Dict[str, Any], key: str, expected_type: Type[T]) ->T:
     if not isinstance(item, expected_type):
         raise ValueError(f'unexpected {key} format: expected {expected_type.__name__}, got {type(item).__name__}')
     return item
+
+
+class Timezone:
+    known: Dict[str, Any] = {}
+
+    @classmethod
+    def get_tz(cls, name: Optional[str]) -> Optional[datetime.tzinfo]:
+        if name is None:
+            return None
+        tz = dateutil.tz.gettz(name)
+        if tz is None:
+            raise ValueError(f'Unknown timezone: {name}')
+        cls.known[name] = tz
+        return tz
+
+    @classmethod
+    def get_name(cls, tz: Optional[datetime.tzinfo]) -> Optional[str]:
+        if tz is None:
+            return None
+        for name, timezone in cls.known.items():
+            if tz == timezone:
+                return name
+        return tz.tzname(datetime.datetime.now())

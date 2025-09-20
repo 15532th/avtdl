@@ -10,8 +10,9 @@ from pydantic import ConfigDict, PositiveFloat
 
 import avtdl.core.formatters
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import Record, RuntimeContext
+from avtdl.core.interfaces import Record
 from avtdl.core.request import HttpClient
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.rss.generic_rss import GenericRSSMonitor, GenericRSSMonitorConfig, GenericRSSMonitorEntity
 from avtdl.plugins.youtube.common import thumbnail_url
 from avtdl.plugins.youtube.video_info import VideoInfoError, parse_video_page

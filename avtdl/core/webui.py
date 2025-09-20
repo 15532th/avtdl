@@ -11,12 +11,14 @@ from aiohttp import web
 from pydantic import BaseModel, ValidationError
 
 from avtdl.core import formatters, info
+from avtdl.core.actors import Actor
 from avtdl.core.cache import FileCache
 from avtdl.core.chain import Chain
 from avtdl.core.config import ConfigParser, ConfigurationError, SettingsSection
 from avtdl.core.info import get_known_plugins, get_plugin_type, render_markdown
-from avtdl.core.interfaces import AbstractRecordsStorage, Actor, Record, RuntimeContext, TaskStatus, TerminatedAction
+from avtdl.core.interfaces import AbstractRecordsStorage, Record
 from avtdl.core.plugins import Plugins
+from avtdl.core.runtime import RuntimeContext, TaskStatus, TerminatedAction
 from avtdl.core.utils import JSONType, strip_text, write_file
 from avtdl.core.yaml import merge_data, yaml_dump
 

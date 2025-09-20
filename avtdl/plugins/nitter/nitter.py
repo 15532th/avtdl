@@ -9,10 +9,12 @@ import lxml.html
 from dateutil import parser
 from pydantic import ConfigDict, PositiveFloat
 
-from avtdl.core.interfaces import Filter, FilterEntity, MAX_REPR_LEN, Record, RuntimeContext
+from avtdl.core.actors import Filter, FilterEntity
+from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import DataResponse, HttpClient, RetrySettings
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 
 

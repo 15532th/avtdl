@@ -6,10 +6,11 @@ from typing import Callable, Dict, List, Optional, Sequence
 
 from pydantic import FilePath, NonNegativeFloat, field_validator
 
+from avtdl.core.actors import Action, ActionEntity, ActorConfig, Monitor, MonitorEntity
 from avtdl.core.db import RecordDB
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Monitor, MonitorEntity, Record, RuntimeContext, \
-    TaskStatus
+from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
+from avtdl.core.runtime import RuntimeContext, TaskStatus
 
 
 class QuitMode(str, Enum):

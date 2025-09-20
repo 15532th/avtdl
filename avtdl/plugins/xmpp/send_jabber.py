@@ -1,8 +1,10 @@
 import logging
 from typing import Sequence
 
+from avtdl.core.actors import Action, ActionEntity, ActorConfig
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Record, RuntimeContext
+from avtdl.core.interfaces import Record
+from avtdl.core.runtime import RuntimeContext
 
 try:
     from avtdl.plugins.xmpp.msg2jbr_slixmpp import MSG2JBR

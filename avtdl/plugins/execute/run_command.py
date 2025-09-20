@@ -9,10 +9,11 @@ from typing import Callable, Dict, List, Optional, Sequence
 from pydantic import field_validator
 
 from avtdl.core import utils
+from avtdl.core.actors import Action, ActionEntity, ActorConfig
 from avtdl.core.config import Plugins
 from avtdl.core.formatters import Fmt, sanitize_filename
-from avtdl.core.interfaces import Action, ActionEntity, ActorConfig, Event, EventType, Record, RuntimeContext, \
-    TaskStatus
+from avtdl.core.interfaces import Event, EventType, Record
+from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.utils import check_dir
 
 Plugins.register('execute', Plugins.kind.ASSOCIATED_RECORD)(Event)

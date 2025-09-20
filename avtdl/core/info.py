@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from avtdl.core.interfaces import Action, Filter, Monitor
+from avtdl.core.actors import Action, Filter, Monitor
 from avtdl.core.plugins import Plugins
 from avtdl.core.yaml import yaml_load
 

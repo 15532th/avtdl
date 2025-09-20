@@ -5,7 +5,8 @@ from typing import Optional
 
 import pytest
 
-from avtdl.core.interfaces import ActorConfig, RuntimeContext
+from avtdl.core.actors import ActorConfig
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.file.text_file import FileMonitor, FileMonitorEntity
 
 

@@ -7,9 +7,10 @@ from typing import Optional, Sequence
 import pydantic
 from pydantic import Field, PositiveFloat
 
+from avtdl.core.actors import ActorConfig
 from avtdl.core.config import Plugins
 from avtdl.core.formatters import Fmt
-from avtdl.core.interfaces import ActorConfig, MAX_REPR_LEN, Record
+from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 from avtdl.core.request import HttpClient
 from avtdl.core.utils import parse_timestamp_ms

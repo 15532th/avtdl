@@ -2,7 +2,8 @@ import datetime
 
 import pytest
 
-from avtdl.core.interfaces import RuntimeContext, TextRecord
+from avtdl.core.interfaces import TextRecord
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.twitter.extractors import TwitterRecord
 from avtdl.plugins.twitter.filters import TwitterFilter, TwitterFilterConfig, TwitterFilterEntity
 

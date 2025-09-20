@@ -15,9 +15,10 @@ from pydantic import Field, FilePath, PositiveFloat, model_validator
 
 from avtdl.core.config import Plugins
 from avtdl.core.formatters import Fmt
-from avtdl.core.interfaces import MAX_REPR_LEN, Record, RuntimeContext
+from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.request import HttpClient, RequestDetails, RetrySettings
+from avtdl.core.runtime import RuntimeContext
 
 
 @Plugins.register('rplay', Plugins.kind.ASSOCIATED_RECORD)

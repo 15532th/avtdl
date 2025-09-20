@@ -5,9 +5,11 @@ import pytest
 from pydantic import BaseModel
 
 from avtdl.avtdl import parse_config
+from avtdl.core.actors import Actor
 from avtdl.core.config import config_sancheck
-from avtdl.core.interfaces import Actor, Record, RuntimeContext, TextRecord
+from avtdl.core.interfaces import Record, TextRecord
 from avtdl.core.loggers import setup_console_logger, silence_library_loggers
+from avtdl.core.runtime import RuntimeContext
 from avtdl.core.yaml import yaml_load
 from avtdl.plugins.utils.utils import Consumer, Producer
 

@@ -4,8 +4,9 @@ from typing import Optional, Sequence
 
 from pydantic import Field
 
+from avtdl.core.actors import ActorConfig
 from avtdl.core.config import Plugins
-from avtdl.core.interfaces import ActorConfig, TextRecord
+from avtdl.core.interfaces import TextRecord
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 from avtdl.core.request import HttpClient
 

@@ -4,7 +4,8 @@ from typing import Callable, List, OrderedDict
 
 from pydantic import RootModel, field_validator
 
-from avtdl.core.interfaces import Record, RuntimeContext
+from avtdl.core.interfaces import Record
+from avtdl.core.runtime import RuntimeContext
 
 
 class CardSection(RootModel):

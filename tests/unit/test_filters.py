@@ -3,8 +3,10 @@ from typing import List
 
 import pytest
 
-from avtdl.core.interfaces import Event, EventType, RuntimeContext, TextRecord
-from avtdl.plugins.filters.filters import EmptyFilterConfig, EmptyFilterEntity, EventCauseFilter, FormatEventFilter, FormatEventFilterEntity, MatchFilter, MatchFilterEntity
+from avtdl.core.interfaces import Event, EventType, TextRecord
+from avtdl.core.runtime import RuntimeContext
+from avtdl.plugins.filters.filters import EmptyFilterConfig, EmptyFilterEntity, EventCauseFilter, FormatEventFilter, \
+    FormatEventFilterEntity, MatchFilter, MatchFilterEntity
 from avtdl.plugins.twitch.twitch import TwitchRecord
 
 

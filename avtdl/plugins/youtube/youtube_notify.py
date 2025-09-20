@@ -4,8 +4,10 @@ from typing import Sequence, Union
 
 from pydantic import field_serializer, field_validator
 
-from avtdl.core.interfaces import Filter, FilterEntity, Record, RuntimeContext
+from avtdl.core.actors import Filter, FilterEntity
+from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.filters.filters import EmptyFilterConfig
 from avtdl.plugins.youtube.youtube_feed import YoutubeVideoRecord
 from avtdl.plugins.youtube.youtube_rss import YoutubeFeedRecord

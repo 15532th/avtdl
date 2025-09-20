@@ -3,7 +3,8 @@ from typing import Optional
 
 import pytest
 
-from avtdl.core.interfaces import RuntimeContext, TextRecord
+from avtdl.core.interfaces import TextRecord
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.filters.filters import EmptyFilterConfig, FormatFilter, FormatFilterEntity
 
 

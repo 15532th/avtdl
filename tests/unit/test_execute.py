@@ -5,7 +5,8 @@ from typing import List, Optional
 
 import pytest
 
-from avtdl.core.interfaces import Record, RuntimeContext, TextRecord
+from avtdl.core.interfaces import Record, TextRecord
+from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.execute.run_command import Command, CommandConfig, CommandEntity
 from avtdl.plugins.rss.generic_rss import GenericRSSRecord
 
