@@ -294,7 +294,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
         sorted_data = sorted(((k, v) for k, v in unsorted_data.items()), key=lambda x: x[0])
         data: dict = defaultdict(lambda: {'headers': headers, 'rows': []})
         data.update({k: v for k, v in sorted_data})
-        return unsorted_data
+        return data
 
     async def tasks(self, request: web.Request) -> web.Response:
         show_empty = request.query.get('empty') is not None
