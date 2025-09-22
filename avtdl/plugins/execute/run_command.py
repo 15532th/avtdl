@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 import shlex
 from asyncio.subprocess import Process
 from hashlib import sha1
@@ -9,10 +10,11 @@ from typing import Callable, Dict, List, Optional, Sequence
 from pydantic import field_validator
 
 from avtdl.core import utils
-from avtdl.core.actors import Action, ActionEntity, ActorConfig
+from avtdl.core.actions import TaskAction, TaskActionConfig, TaskActionEntity
 from avtdl.core.config import Plugins
 from avtdl.core.formatters import Fmt, sanitize_filename
 from avtdl.core.interfaces import Event, EventType, Record
+from avtdl.core.request import HttpClient
 from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.utils import check_dir
 
@@ -20,11 +22,11 @@ Plugins.register('execute', Plugins.kind.ASSOCIATED_RECORD)(Event)
 
 
 @Plugins.register('execute', Plugins.kind.ACTOR_CONFIG)
-class CommandConfig(ActorConfig):
+class CommandConfig(TaskActionConfig):
     pass
 
 @Plugins.register('execute', Plugins.kind.ACTOR_ENTITY)
-class CommandEntity(ActionEntity):
+class CommandEntity(TaskActionEntity):
     command: str
     """shell command to be executed on every received record. Supports placeholders that will be replaced with currently processed record fields values"""
     working_dir: Optional[Path] = None
@@ -63,7 +65,7 @@ class CommandEntity(ActionEntity):
 
 
 @Plugins.register('execute', Plugins.kind.ACTOR)
-class Command(Action):
+class Command(TaskAction):
     """
     Run pre-defined shell command
 
@@ -106,11 +108,7 @@ class Command(Action):
 
     def __init__(self, conf: CommandConfig, entities: Sequence[CommandEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
-        self.running_commands: Dict[str, asyncio.Task] = {}
         self.done_callbacks: List[Callable[[Process, CommandEntity, Record], None]] = []
-
-    def handle(self, entity: CommandEntity, record: Record):
-        self.add(entity, record)
 
     def args_for(self, entity: CommandEntity, record: Record):
         '''
@@ -138,71 +136,58 @@ class Command(Action):
     def shell_for(args: List[str]) -> str:
         return shlex.join(args)
 
-    def _generate_task_id(self, entity: CommandEntity, record: Record, command_line: str) -> str:
+    @staticmethod
+    def _generate_task_id(entity: CommandEntity, record: Record, command_line: str) -> str:
         record_hash = record.hash()
         task_id = f'Task for {entity.name}: on record {record!r} ({record_hash}) executing "{command_line}"'
         return task_id
 
-    def add(self, entity: CommandEntity, record: Record):
-        args = self.args_for(entity, record)
-        if entity.working_dir is None:
-            working_dir = Path.cwd()
-            self.logger.info(f'[{entity.name}] working directory is not specified, using current directory instead: {working_dir}')
-        else:
-            working_dir = Fmt.format_path(entity.working_dir, record, tz=entity.timezone)
-            ok = check_dir(working_dir)
-            if not ok:
-                self.logger.warning(f'[{entity.name}] check if working directory "{working_dir}" exists and is a writeable directory')
-
-        command_line = self.shell_for(args)
-        task_id = self._generate_task_id(entity, record, command_line)
-        if task_id in self.running_commands:
-            msg = f'[{entity.name}] command "{command_line}" for record {record!r} is already running, will not call again'
-            self.logger.info(msg)
-            return
-        self.logger.debug(f'[{entity.name}] executing command "{command_line}" for record {record!r}')
-        task = self.run_subprocess(args, task_id, working_dir, entity, record)
-        name = f'{self.conf.name}:{entity.name}:{task_id}'
-        info = TaskStatus(self.conf.name, entity.name, command_line, record)
-        self.running_commands[task_id] = self.controller.create_task(task, name=name, _info=info)
-
-        self._check_running_commands()
-
-    def _check_running_commands(self):
-        for name, task in self.running_commands.items():
-            if task.done() and task.exception() is not None:
-                self.logger.error(f'[{name}] task {task.get_name()} has terminated with exception', exc_info=task.exception())
-
-    def _get_output_file(self, entity: CommandEntity, record: Record, task_id: str) -> Optional[Path]:
+    @staticmethod
+    def _get_output_file(entity: CommandEntity, record: Record, task_id: str, logger: logging.Logger) -> Optional[Path]:
         if entity.log_dir is None:
             return None
         ok = check_dir(entity.log_dir)
         if not ok:
-            self.logger.warning(f'[{entity.name}] check if directory specified in "output_dir" value "{entity.log_dir}" exists and is a writeable directory')
-            self.logger.warning(f'[{entity.name}] output of running command will be redirected to stdout')
+            logger.warning(f'check if "output_dir" parameter points to writeable directory: "{entity.log_dir}"')
+            logger.warning(f'output of running command will be redirected to stdout instead')
             return None
         if entity.log_filename is not None:
             filename = Fmt.format(entity.log_filename, record, tz=entity.timezone)
         else:
             timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')
-            command_pre_hash = sha1(task_id.encode())
-            command_hash = command_pre_hash.hexdigest()
+            command_hash = sha1(task_id.encode()).hexdigest()
             filename = f'command_{entity.name}_{timestamp}_{command_hash[:6]}_stdout.log'
         filename = sanitize_filename(filename)
         return entity.log_dir / filename
 
-    async def run_subprocess(self, args: List[str], task_id: str, working_dir: Path, entity: CommandEntity, record: Record):
+    async def handle_record_task(self, logger: logging.Logger, client: HttpClient,
+                           entity: CommandEntity, record: Record, info: TaskStatus):
+        args = self.args_for(entity, record)
+        if entity.working_dir is None:
+            working_dir = Path.cwd()
+            logger.info(f'working directory is not specified, using current directory instead: {working_dir}')
+        else:
+            working_dir = Fmt.format_path(entity.working_dir, record, tz=entity.timezone)
+            ok = check_dir(working_dir)
+            if not ok:
+                logger.warning(f'check if working directory "{working_dir}" exists and is a writeable directory')
+
         command_line = self.shell_for(args)
-        self.logger.info(f'[{entity.name}] executing command {command_line}')
+        task_id = self._generate_task_id(entity, record, command_line)
+        logger.debug(f'executing command "{command_line}" for record {record!r}')
+        info.set_status(f'{command_line}', record)
+
         if entity.report_started:
             event = Event(event_type=EventType.started, text=f'Running command: {command_line}', record=record)
             self.on_record(entity, event)
-        stdout_path = self._get_output_file(entity, record, task_id)
+
+        stdout_path = self._get_output_file(entity, record, task_id, logger)
         try:
             stdout = open(stdout_path, 'at', encoding='utf8') if stdout_path is not None else None
         except OSError as e:
-            self.logger.warning(f'[{entity.name}] failed to open file {stdout_path}: {e}. Command output will not be written')
+            logger.warning(f'failed to open file {stdout_path}: {e}. Command output will be written to stdout instead')
             stdout = None
+
         try:
             if stdout is None:
                 process = await asyncio.create_subprocess_exec(*args, cwd=working_dir)
@@ -212,7 +197,7 @@ class Command(Action):
                     stdout.flush()
                     process = await asyncio.create_subprocess_exec(*args, cwd=working_dir, stdout=stdout, stderr=stdout)
         except Exception as e:
-            self.logger.exception(f'[{entity.name}] failed to execute command "{command_line}": {e}')
+            logger.exception(f'failed to execute command "{command_line}": {e}')
             if entity.report_failed:
                 text = f'[{entity.name}] failed to execute command: {command_line}'
                 event = Event(event_type=EventType.error, text=text, record=record)
@@ -223,12 +208,11 @@ class Command(Action):
         try:
             await process.wait()
         except (KeyboardInterrupt, asyncio.CancelledError):
-            self.logger.warning(f'[{entity.name}] application is terminating before running command has completed. Check on it and restart manually if needed. Process PID: {process.pid}. Exact command line:\n{command_line}')
+            logger.warning(f'application is terminating before running command has completed. Check on it and restart manually if needed. Process PID: {process.pid}. Exact command line:\n{command_line}')
             raise
 
-        self.running_commands.pop(task_id)
-
-        self.logger.debug(f'[{entity.name}] subprocess for {command_line} finished with exit code {process.returncode}')
+        logger.debug(f'subprocess for "{command_line}" finished with exit code {process.returncode}')
+        info.set_status(f'[finished with exit code {process.returncode}]\n{command_line}', record)
 
         if process.returncode == 0:
             if entity.report_finished:
