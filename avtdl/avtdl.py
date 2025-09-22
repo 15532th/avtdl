@@ -15,7 +15,7 @@ from avtdl.core.info import generate_plugins_description, generate_version_strin
 from avtdl.core.loggers import setup_console_logger, silence_library_loggers
 from avtdl.core.plugins import UnknownPluginError
 from avtdl.core.runtime import RuntimeContext, TerminatedAction
-from avtdl.core.utils import read_file, write_file
+from avtdl.core.utils import StateSerializer, read_file, write_file
 from avtdl.core.yaml import yaml_load
 
 DEFAULT_CONFIG_PATH = Path('config.yml')
@@ -111,12 +111,18 @@ async def run(config_path: Path, host: Optional[str], port: Optional[int]) -> No
             if port is not None:
                 settings.port = port
 
+            serializer =  StateSerializer(settings.cache_directory)
+            serializer.restore(ctx.bus)
+
             controller = ctx.controller
             for runnable in actors.values():
                 _ = controller.create_task(runnable.run(), name=f'{runnable!r}.{hash(runnable)}')
             _ = controller.create_task(webui.run(config_path, config, ctx, settings, actors, chains), name='webui')
 
             action = await controller.run_until_termination()
+
+            serializer.dump(ctx.bus)
+
             if action == TerminatedAction.EXIT:
                 logging.info('terminating...')
                 break

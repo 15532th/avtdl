@@ -1,10 +1,13 @@
 import asyncio
+import base64
 import logging
+import pickle
 import signal
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Coroutine, Deque, Dict, List, Literal, Optional, Tuple
+from pathlib import Path
+from typing import Any, Callable, Coroutine, Dict, List, Literal, Optional, Tuple
 
 from avtdl.core.interfaces import Record
 
@@ -22,7 +25,7 @@ class MessageBus:
     def __init__(self) -> None:
         self.subscriptions: SubscriptionsMapping = defaultdict(list)
         self.logger = logging.getLogger('bus')
-        self.history: Dict[str, Deque[Record]] = defaultdict(lambda: deque(maxlen=self.HISTORY_SIZE))
+        self.history: Dict[str, deque[Record]] = defaultdict(lambda: deque(maxlen=self.HISTORY_SIZE))
 
     def sub(self, topic: str, callback: Subscription):
         self.logger.debug(f'subscription on topic {topic} by {callback!r}')
@@ -110,6 +113,27 @@ class MessageBus:
 
     def clear_subscriptions(self):
         self.subscriptions.clear()
+
+    @staticmethod
+    def state_path() -> Path:
+        return Path('bus/history.dat')
+
+    def dump_state(self) -> str:
+        history = {}
+        history.update(self.history)
+        raw = pickle.dumps(history)
+        encoded = base64.b64encode(raw)
+        return encoded.decode('utf8')
+
+    def apply_state(self, state: str):
+        decoded = base64.b64decode(state.encode('utf8'))
+        stored_history = pickle.loads(decoded)
+        for topic, stored_topic_history in stored_history.items():
+            active_topic_history = self.history[topic]
+            for record in reversed(stored_topic_history):
+                if len(active_topic_history) >= (active_topic_history.maxlen or 100500):
+                    break
+                active_topic_history.appendleft(record)
 
 
 class TerminatedAction(int, Enum):

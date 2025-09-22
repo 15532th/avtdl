@@ -15,7 +15,7 @@ from http.cookiejar import CookieJar
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter
-from typing import Any, Dict, Hashable, List, Mapping, MutableMapping, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Hashable, List, Mapping, MutableMapping, Optional, Protocol, Tuple, Type, TypeVar, Union
 
 import aiohttp
 import dateutil.parser
@@ -415,3 +415,72 @@ class Timezone:
             if tz == timezone:
                 return name
         return tz.tzname(datetime.datetime.now())
+
+
+class StateSerializable(Protocol):
+    """Protocol to allow storing and restoring object state on disk"""
+
+    def state_path(self) -> Path:
+        """
+        Return a filename to store state under and load from
+        The return value must be a relative path pointing to a file.
+        """
+
+    def dump_state(self) -> str:
+        """Serialize the current state"""
+
+    def apply_state(self, data: str):
+        """Apply serialized state to the object"""
+
+
+class StateSerializer:
+    """Handle storing and loading state of StateSerializable instances"""
+
+    def __init__(self, cache_dir: Path):
+        self.cache_dir = cache_dir /  'serializer/'
+        self.logger = logging.getLogger().getChild('state_storage')
+
+    def _get_path(self, obj: StateSerializable) -> Optional[Path]:
+        try:
+            return self.cache_dir / obj.state_path()
+        except Exception:
+            self.logger.exception(f'received invalid path "{obj.state_path()}" from "{obj}"')
+            return None
+
+    def dump(self, obj: StateSerializable):
+        """Store state to file"""
+        path = self._get_path(obj)
+        if path is None:
+            return
+        self.logger.info(f'storing runtime state to {path}')
+        try:
+            data = obj.dump_state()
+        except Exception as e:
+            self.logger.warning(f'failed to serialize state to "{path}": {e}')
+            self.logger.debug(f'object that failed to serialize: {obj}', exc_info=True)
+            return
+        try:
+            check_dir(path.parent)
+            path.write_text(data, encoding='utf8')
+        except OSError as e:
+            self.logger.warning(f'failed to store state to "{path}": {e}')
+
+    def restore(self, obj: StateSerializable):
+        """Load state from file and apply to the object"""
+        path = self._get_path(obj)
+        if path is None:
+            return
+        if not path.exists():
+            return
+        self.logger.info(f'restoring runtime state from {path}')
+        try:
+            data = path.read_text(encoding='utf8')
+        except (OSError, UnicodeDecodeError) as e:
+            self.logger.warning(f'failed to read state from "{path}": {e}')
+            return
+        try:
+            obj.apply_state(data)
+        except Exception as e:
+            self.logger.warning(f'error restoring state from "{path}": {e}')
+            self.logger.debug(f'object that failed to deserialize: {data}', exc_info=True)
+
