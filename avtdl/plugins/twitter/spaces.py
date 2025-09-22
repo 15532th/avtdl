@@ -1,13 +1,14 @@
 import asyncio
 import datetime
 import json
+import logging
 import urllib.parse
 from enum import Enum
-from typing import Callable, Dict, Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 from pydantic import FilePath
 
-from avtdl.core.actors import Action, ActionEntity
+from avtdl.core.actions import TaskAction, TaskActionConfig, TaskActionEntity
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
@@ -24,12 +25,12 @@ SPACE_URL_PATTERN = '/i/spaces/'
 
 
 @Plugins.register('twitter.space', Plugins.kind.ACTOR_CONFIG)
-class TwitterSpaceConfig(BaseDbConfig):
+class TwitterSpaceConfig(TaskActionConfig, BaseDbConfig):
     pass
 
 
 @Plugins.register('twitter.space', Plugins.kind.ACTOR_ENTITY)
-class TwitterSpaceEntity(ActionEntity):
+class TwitterSpaceEntity(TaskActionEntity):
     cookies_file: FilePath
     """path to a text file containing cookies in Netscape format"""
     url: str = 'https://twitter.com'
@@ -46,7 +47,7 @@ class TwitterSpaceEntity(ActionEntity):
 
 
 @Plugins.register('twitter.space', Plugins.kind.ACTOR)
-class TwitterSpace(Action):
+class TwitterSpace(TaskAction):
     """
     Retrieve Twitter Space metadata from tweet
 
@@ -72,26 +73,21 @@ class TwitterSpace(Action):
     def __init__(self, conf: TwitterSpaceConfig, entities: Sequence[TwitterSpaceEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
         self.sessions = SessionStorage(self.logger)
-        self.tasks: Dict[str, asyncio.Task] = {}
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
-    def handle(self, entity: TwitterSpaceEntity, record: Record):
+    async def handle_record_task(self, logger: logging.Logger, client: HttpClient,
+                                 entity: TwitterSpaceEntity, record: Record, info: TaskStatus):
         space_id = get_space_id(record)
         if space_id is None:
             return
-        if space_id in self.tasks:
-            self.logger.debug(f'[{entity.name}] task for space {space_id} is already running')
-            return
-        name = f'{self.conf.name}:{entity.name} {space_id}'
         info = TaskStatus(self.conf.name, entity.name, 'starting', record)
-        task = self.controller.create_task(self.handle_space(entity, space_id, record, info), name=name, _info=info)
-        task.add_done_callback(lambda _: self.tasks.pop(space_id))
-        self.tasks[space_id] = task
+        await self.handle_space(entity, space_id, record, client, logger, info)
 
     async def run(self) -> None:
         await self.sessions.ensure_closed()
 
-    async def handle_space(self, entity: TwitterSpaceEntity, space_id: str, source_record: Record, info: TaskStatus):
+    async def handle_space(self, entity: TwitterSpaceEntity, space_id: str, source_record: Record,
+                           client: HttpClient, logger: logging.Logger, info: TaskStatus):
         should_emit_something: bool = entity.emit_immediately
         should_emit_live_url: bool = entity.emit_on_live
         should_emit_replay_url: bool = entity.emit_on_archive
@@ -115,45 +111,43 @@ class TwitterSpace(Action):
                     should_emit_on_end = False
                     should_emit_live_url = False
                     should_emit_something = False
-                    self.logger.debug(f'[{entity.name}] task emit_on_archive successfully completed for {space.url}')
+                    logger.debug(f'task emit_on_archive successfully completed for {space.url}')
                 elif not space.recording_enabled:
                     should_emit_replay_url = False
-                    self.logger.debug(f'[{entity.name}] task emit_on_archive for {space.url} is cancelled: recording is disabled')
+                    logger.debug(f'task emit_on_archive for {space.url} is cancelled: recording is disabled')
             if should_emit_on_end:
                 if space.ended is not None:
                     self.on_record(entity, space)
                     should_emit_on_end = False
                     should_emit_live_url = False
                     should_emit_something = False
-                    self.logger.debug(f'[{entity.name}] task emit_on_end successfully completed for {space.url}')
+                    logger.debug(f'task emit_on_end successfully completed for {space.url}')
             if should_emit_live_url:
                 if space.media_url is not None and StreamUrlType.is_live(space.media_url):
                     self.on_record(entity, space)
                     should_emit_live_url = False
                     should_emit_something = False
-                    self.logger.debug(f'[{entity.name}] task emit_on_live successfully completed for {space.url}')
+                    logger.debug(f'task emit_on_live successfully completed for {space.url}')
                 elif space.ended is not None:
                     should_emit_live_url = False
-                    self.logger.debug(f'[{entity.name}] task emit_on_live for {space.url} is cancelled: space ended')
+                    logger.debug(f'task emit_on_live for {space.url} is cancelled: space ended')
             if should_emit_something:
                 self.on_record(entity, space)
                 should_emit_something = False
-                self.logger.debug(f'[{entity.name}] task emit_immediately completed for {space.url}')
+                logger.debug(f'task emit_immediately completed for {space.url}')
             done = not (should_emit_something or should_emit_live_url or should_emit_on_end or should_emit_replay_url)
             if done:
-                self.logger.debug(f'[{entity.name}] all tasks completed for {space.url}')
+                logger.debug(f'all tasks completed for {space.url}')
             return done
 
-        session = self.sessions.get_session(entity.cookies_file)
-        client = HttpClient(self.logger, session)
-        space = await self.fetch_space(client, entity, space_id)
+        space = await self.fetch_space(logger, client, entity, space_id)
         if space is None:
             return
         if self.db.record_exists(space, entity.name):
-            self.logger.debug(f'[{entity.name}] space {space_id} has already been processed')
+            logger.debug(f'space {space_id} has already been processed')
             return
         info.set_status('initial update', space)
-        space.media_url = await self.wait_for_any_url(client, entity, space) or None
+        space.media_url = await self.wait_for_any_url(logger, client, entity, space) or None
         self.db.store_records([space], entity.name)
 
         done = handle_update_result(space)
@@ -163,25 +157,25 @@ class TwitterSpace(Action):
         while True:
             if SpaceState.is_upcoming(space):
                 info.set_status('waiting for space to start', space)
-                media_url = await self.wait_for_live(client, entity, space)
+                media_url = await self.wait_for_live(logger, client, entity, space)
             elif SpaceState.is_ongoing(space):
                 info.set_status('waiting for space to end', space)
-                media_url = await self.wait_for_replay(client, entity, space)
+                media_url = await self.wait_for_replay(logger, client, entity, space)
                 if media_url == '':
-                    self.logger.debug(f'[{entity.name}] media url unavailable for running space {space.url}, updating space metadata to see if it ended')
+                    logger.debug(f'media url unavailable for running space {space.url}, updating space metadata to see if it ended')
             elif SpaceState.has_ended(space):
                 info.set_status('handling ended space', space)
-                media_url = await self.wait_for_any_url(client, entity, space)
+                media_url = await self.wait_for_any_url(logger, client, entity, space)
                 if media_url == '':
-                    self.logger.debug(f'[{entity.name}] space {space.url} has ended at {space.ended} and media url is unavailable. The space likely does not have archive at this point')
+                    logger.debug(f'space {space.url} has ended at {space.ended} and media url is unavailable. The space likely does not have archive at this point')
                     break
             else:
-                self.logger.warning(f'[{entity.name}] space {space.url} state is unknown, aborting. {space.model_dump()}')
+                logger.warning(f'space {space.url} state is unknown, aborting. {space.model_dump()}')
                 break
 
             info.set_status('updating space status', space)
             old_media_url = space.media_url
-            space = await self.fetch_space(client, entity, space_id) or space
+            space = await self.fetch_space(logger, client, entity, space_id) or space
 
             if media_url:
                 space.media_url = media_url
@@ -194,26 +188,27 @@ class TwitterSpace(Action):
                 info.set_status(f'all done', space)
                 break
 
-    async def wait_for_live(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
+    async def wait_for_live(self, logger: logging.Logger, client: HttpClient,
+                            entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
         assert space.scheduled is not None, f'upcoming space has no scheduled: {space.model_dump()}'
         while True:  # waiting until start
             delay = (space.scheduled - datetime.datetime.now(tz=datetime.timezone.utc))
             delay_seconds = delay.total_seconds()
             if delay_seconds < self.CHECK_UPCOMING_DELAY:
                 break
-            self.logger.debug(f'[{entity.name}] space {space.url} starts at {space.scheduled}, sleeping for {delay}')
+            logger.debug(f'space {space.url} starts at {space.scheduled}, sleeping for {delay}')
             await asyncio.sleep(delay_seconds)
             return None
 
-        self.logger.debug(f'[{entity.name}] space {space.url} should start now, fetching media_url')
+        logger.debug(f'space {space.url} should start now, fetching media_url')
 
         def is_done(media_url: str) -> bool:
             return media_url != ''
 
-        return await self.wait_for_media_url(client, entity, space, self.CHECK_UPCOMING_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
+        return await self.wait_for_media_url(logger, client, entity, space, self.CHECK_UPCOMING_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
 
-    async def wait_for_replay(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
-        self.logger.debug(f'[{entity.name}] space {space.url} is ongoing since {space.started}, fetching live media_url')
+    async def wait_for_replay(self, logger: logging.Logger, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
+        logger.debug(f'space {space.url} is ongoing since {space.started}, fetching live media_url')
 
         def is_done(media_url: str) -> bool:
             if media_url == '':
@@ -223,81 +218,90 @@ class TwitterSpace(Action):
             elif StreamUrlType.is_replay(media_url):
                 return True
             else:
-                self.logger.debug(f'[{entity.name}] space {space.url} got media_url with unknown type: {media_url}')
+                logger.debug(f'space {space.url} got media_url with unknown type: {media_url}')
                 return True
 
-        return await self.wait_for_media_url(client, entity, space, self.CHECK_LIVE_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
+        return await self.wait_for_media_url(logger, client,
+                                             entity, space,
+                                             self.CHECK_LIVE_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
 
-    async def wait_for_any_url(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
-        return await self.wait_for_media_url(client, entity, space, self.CHECK_ENDED_DELAY, self.MAX_SEQUENTIAL_CHECKS, lambda _: True)
+    async def wait_for_any_url(self, logger: logging.Logger, client: HttpClient,
+                               entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
+        return await self.wait_for_media_url(logger, client,
+                                             entity, space,
+                                             self.CHECK_ENDED_DELAY, self.MAX_SEQUENTIAL_CHECKS, lambda _: True)
 
-    async def wait_for_media_url(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord,
+    async def wait_for_media_url(self, logger: logging.Logger, client: HttpClient,
+                                 entity: TwitterSpaceEntity, space: TwitterSpaceRecord,
                                  retry_delay: float, max_attempts: int, is_done: Callable[[str], bool]) -> Optional[str]:
         base_retry_delay = retry_delay
         for attempt in range(max_attempts):
-            media_url = await self.fetch_media_url(client, entity, space)
+            media_url = await self.fetch_media_url(logger, client, entity, space)
             if media_url is None:
                 retry_delay = Delay.get_next(retry_delay)
-                self.logger.debug(f'[{entity.name}] {space.url} got no media_url on {attempt} attempt, retry after {retry_delay}')
+                logger.debug(f'{space.url} got no media_url on {attempt} attempt, retry after {retry_delay}')
             elif is_done(media_url):
                 return media_url
             else:
                 retry_delay = base_retry_delay
-                self.logger.debug(f'[{entity.name}] {space.url} got no media_url of expected type on {attempt} attempt, retry after {retry_delay}')
+                logger.debug(f'{space.url} got no media_url of expected type on {attempt} attempt, retry after {retry_delay}')
             await asyncio.sleep(retry_delay)
 
-        self.logger.debug(f'[{entity.name}] failed to fetch media_url of expected type after {max_attempts} attempts for {space.url}')
+        logger.debug(f'failed to fetch media_url of expected type after {max_attempts} attempts for {space.url}')
         return None
 
-    async def fetch_space(self, client: HttpClient, entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
-        self.logger.debug(f'[{entity.name}] fetching metadata for space {space_url_by_id(space_id)}')
+    async def fetch_space(self, logger: logging.Logger, client: HttpClient,
+                          entity: TwitterSpaceEntity, space_id: str) -> Optional[TwitterSpaceRecord]:
+        logger.debug(f'fetching metadata for space {space_url_by_id(space_id)}')
         request_details = AudioSpaceEndpoint.prepare(entity.url, client.cookie_jar, space_id)
         response = await client.request_endpoint(self.logger, request_details)
         if not isinstance(response, DataResponse):
-            self.logger.warning(f'[{entity.name}] failed to retrieve metadata for {space_url_by_id(space_id)}')
+            logger.warning(f'failed to retrieve metadata for {space_url_by_id(space_id)}')
             return None
         try:
             data = response.json()
         except json.JSONDecodeError as e:
-            self.logger.warning(f'[{entity.name}] failed to parse space {space_url_by_id(space_id)}: {e}. Raw response: {response.text}')
+            logger.warning(f'failed to parse space {space_url_by_id(space_id)}: {e}. Raw response: {response.text}')
             return None
         try:
             space = parse_space(data)
         except ValueError as e:
-            self.logger.warning(f'[{entity.name}] failed to parse Space metadata for "{space_url_by_id(space_id)}": {e}')
-            self.logger.debug(f'[{entity.name}] raw metadata: {data}')
+            logger.warning(f'failed to parse Space metadata for "{space_url_by_id(space_id)}": {e}')
+            logger.debug(f'raw metadata: {data}')
             return None
         return space
 
-    async def fetch_media_url(self, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
+    @staticmethod
+    async def fetch_media_url(logger: logging.Logger, client: HttpClient,
+                              entity: TwitterSpaceEntity, space: TwitterSpaceRecord) -> Optional[str]:
         """
         fetch and parse data from media_url endpoint for given space.media_key
         return the url on success, empty string on 404 response, None on any other error
         """
-        self.logger.debug(f'[{entity.name}] fetch media url for space {space.url}')
+        logger.debug(f'fetch media url for space {space.url}')
         r = LiveStreamEndpoint.prepare(entity.url, client.cookie_jar, space.media_key)
         response = await client.request(r.url, params=r.params, headers=r.headers)
         if isinstance(response, NoResponse):
-            self.logger.debug(f'[{entity.name}] failed to retrieve media url for {space.url}')
+            logger.debug(f'failed to retrieve media url for {space.url}')
             return None
         elif not response.ok or  not response.has_content:
             if response.status == 404:
-                self.logger.debug(f'[{entity.name}] no media url for {space.url}: {response.status} ({response.reason})')
+                logger.debug(f'no media url for {space.url}: {response.status} ({response.reason})')
                 return ''
             else:
-                self.logger.debug(
-                    f'[{entity.name}]  got code {response.status} ({response.reason}) while fetching media_url for {response.url}')
+                logger.debug(
+                    f'got code {response.status} ({response.reason}) while fetching media_url for {response.url}')
                 return None
         else:
             text = response.text
         try:
             data = json.loads(text)
         except json.JSONDecodeError as e:
-            self.logger.warning(f'[{entity.name}] failed to decode json response for media_url: {e}. Raw text: "{text}"')
+            logger.warning(f'failed to decode json response for media_url: {e}. Raw text: "{text}"')
             return None
         media_url = parse_media_url(data)
         if media_url is None:
-            self.logger.debug(f'[{entity.name}] failed to parse media url for {space.url}. Raw data: "{data}"')
+            logger.debug(f'failed to parse media url for {space.url}. Raw data: "{data}"')
             return None
         return media_url
 
