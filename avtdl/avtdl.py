@@ -111,7 +111,7 @@ async def run(config_path: Path, host: Optional[str], port: Optional[int]) -> No
             if port is not None:
                 settings.port = port
 
-            serializer =  StateSerializer(settings.cache_directory)
+            serializer =  StateSerializer(settings.state_directory)
             serializer.restore(ctx.bus)
 
             controller = ctx.controller
