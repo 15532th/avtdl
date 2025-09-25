@@ -12,7 +12,7 @@ from avtdl.core.actions import TaskAction, TaskActionConfig, TaskActionEntity
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import DataResponse, Delay, HttpClient, NoResponse, SessionStorage
+from avtdl.core.request import DataResponse, Delay, HttpClient, NoResponse
 from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.utils import find_matching_field_value
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
@@ -72,7 +72,6 @@ class TwitterSpace(TaskAction):
 
     def __init__(self, conf: TwitterSpaceConfig, entities: Sequence[TwitterSpaceEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
-        self.sessions = SessionStorage(self.logger)
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
 
     async def handle_record_task(self, logger: logging.Logger, client: HttpClient,
@@ -82,9 +81,6 @@ class TwitterSpace(TaskAction):
             return
         info = TaskStatus(self.conf.name, entity.name, 'starting', record)
         await self.handle_space(entity, space_id, record, client, logger, info)
-
-    async def run(self) -> None:
-        await self.sessions.ensure_closed()
 
     async def handle_space(self, entity: TwitterSpaceEntity, space_id: str, source_record: Record,
                            client: HttpClient, logger: logging.Logger, info: TaskStatus):
