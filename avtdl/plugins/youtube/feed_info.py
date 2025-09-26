@@ -241,7 +241,7 @@ def parse_lockup_view(item: dict, owner_info: Optional[AuthorInfo], try_unknown_
 
     badges_texts = find_all(item, '$..thumbnailBadges..text')
     badges = find_all(item, '$..badgeStyle')
-    is_member_only = 'THUMBNAIL_OVERLAY_BADGE_STYLE_MEMBERS_ONLY' in badges
+    is_member_only = 'BADGE_MEMBERS_ONLY' in badges
     is_live = 'THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE' in badges
 
     published_text = metadata_parts[-1] if metadata_parts else None
