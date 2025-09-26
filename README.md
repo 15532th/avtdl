@@ -699,6 +699,8 @@ Ongoing livestreams also can be downloaded with [yt-dlp](https://github.com/yt-d
 
 Another tool for downloading livestreams is [TwcLazer](https://github.com/HoloArchivists/TwcLazer). It uses different download method compared to yt-dlp, so one might serve as alternative to another when something breaks due to changes on server side.
 
+    /path/to/TwcLazer/TwcLazer.py -u c:username
+
 #### FC2
 
 [fc2-live-dl](https://github.com/HoloArchivists/fc2-live-dl) can be used for downloading ongoing FC2 streams. Default options are good for most cases:

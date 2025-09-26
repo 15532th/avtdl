@@ -4,7 +4,7 @@ This file provides examples of configurations file that are meant to achieve a c
 
 Every example is meant to be a valid configuration file, that can be used standalone or as part of a bigger config. See also [configuration file example](example.config.yml), that can be used as a starting point.
 
-Names and urls used in configuration does not have to point to existing channels for the configuration to be considered valid. On the other hand, the `cookies_file` parameter, if used, must point to existing file in [correct format](README.md#cookiesfile).
+Names and urls used in configuration does not have to point to existing channels for the configuration to be considered valid. On the other hand, the `cookies_file` parameter, if used, must point to existing file in [correct format](README.md#cookiesfile). Note, that the `command` parameter of the [execute](PLUGINS.md#execute---run-pre-defined-shell-command) plugin, including possible "--cookies" argument, is not subject to validity checks and is executed as is.
 
 When avtdl is running, it is possible to change current config in the [web interface](avtdl/ui/info/info.md) (restart required). Manually created configuration can be edited in the web ui and vice versa.
 
@@ -35,7 +35,7 @@ When avtdl is running, it is possible to change current config in the [web inter
 
 #### Download livestreams from Youtube channel
 
-Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with default update interval of 15 minutes and send new publications urls to `ytarchive`, executed in dedicated directories (specified by template in `working_dir`) for each channel. Every new upload, be it a video or a scheduled livestream, is sent to `ytarchive`, relying on it only processing livestreams.
+Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with default update interval of 15 minutes and send new publications urls to `ytarchive`, executed in dedicated directories (specified by template in `working_dir`) for each channel. Every new upload, be it a video or a scheduled livestream, is sent to ytarchive, relying on it only processing livestreams.
 
 ```yaml
 actors:
@@ -66,7 +66,7 @@ chains:
 
 #### Download member-only livestreams from subscription feed
 
-Check subscription feed of Youtube account using cookies from `cookies.txt` and send all uploads marked as "Member Only" to `execute` plugin running ytarchive. Again, template in `working_dir` is used to ensure files from different channels gets stored in different directories.
+Check subscription feed of Youtube account using cookies from `cookies.txt` and send all uploads marked as "Member Only" to `execute` plugin running ytarchive. Again, template in `working_dir` is used to ensure files from different channels gets stored in different directories. Note, that working directory ytarchive is executed in depends on channel's name, so unlike in the `cookies_file` parameter, the "--cookies" argument passed to ytarchive uses absolute path.
 
 ```yaml
 actors:
@@ -86,7 +86,7 @@ actors:
   execute:
     entities:
       - name: "archive"
-        command: "ytarchive --threads 3 --wait --cookies cookies.txt {url} best"
+        command: "ytarchive --threads 3 --wait --cookies '/path/to/cookies.txt' {url} best"
         working_dir: "archive/livestreams/{author} (member-only)/"
 
 
@@ -116,8 +116,6 @@ actors:
         url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC3In1x9H3jC4JzsIaocebWg"
 
   channel:
-    default:
-      cookies_file: "cookies.txt"
     entities:
       - name: "ChannelName"
         url: "https://www.youtube.com/@ChannelName"
@@ -164,7 +162,9 @@ chains:
 
 Channels of users `c:user` and `c:another-user` are checked for being live every 60 seconds. When a channel goes live, the url gets passed to `execute` plugin entity that will start yt-dlp. Path to output directory uses template to ensure download process for each user runs in dedicated subdirectory.
 
-Some streams might have limited visibility. In order to download them, a cookies file from an account that has appropriate permissions should be provided to the monitor (with `cookies_file` setting) and to yt-dlp in the command line.
+Some streams might have limited visibility. In order to download them, a cookies file from an account that has appropriate permissions should be provided to the monitor (with `cookies_file` setting) and to yt-dlp in the command line. Note how `working_dir` is different for every user channel, so command line is using absolute path to the cookies files passed to yt-dlp.
+
+It is possible to make avtdl run different tool for downloading by adjusting `command` parameter as shown by the "twitcasting-alt" entity. See [this](README.md#twitcasting) section for more information on download methods.
 
 ```yaml
 actors:
@@ -182,7 +182,10 @@ actors:
   execute:
     entities:
       - name: "twitcasting"
-        command: "yt-dlp --cookies cookies.txt -f 220k/best {url}"
+        command: "yt-dlp --cookies '/path/to/cookies.txt' -f 220k/best {url}"
+        working_dir: "archive/twitcasting/{user_id}/"
+      - name: "twitcasting-alt"
+        command: "/path/to/TwcLazer/TwcLazer.py --cookies '/path/to/cookies.txt' --user {user_id}"
         working_dir: "archive/twitcasting/{user_id}/"
 
 
@@ -194,6 +197,7 @@ chains:
       - "another-user"
     - execute:
       - "twitcasting"
+
 ```
 
 #### Download FC2 streams using fc2-live-dl
