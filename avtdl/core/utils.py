@@ -6,6 +6,7 @@ import http.cookies
 import json
 import logging
 import os
+import pickle
 import re
 import urllib.parse
 from collections import OrderedDict
@@ -22,7 +23,7 @@ import dateutil.parser
 import dateutil.tz
 from aiohttp.abc import AbstractCookieJar
 from jsonpath import JSONPath
-from pydantic import AnyHttpUrl, ValidationError
+from pydantic import AnyHttpUrl, BaseModel, ValidationError
 
 from avtdl.core.interfaces import Record
 
@@ -418,43 +419,45 @@ class Timezone:
 
 
 class StateSerializable(Protocol):
-    """Protocol to allow storing and restoring object state on disk"""
+    """
+    Protocol to allow storing and restoring object state on disk
 
-    def state_path(self) -> Path:
-        """
-        Return a filename to store state under and load from
-        The return value must be a relative path pointing to a file.
-        """
+    The directory argument provides path to the directory used to
+    store data, leaving the filename to be decided by the implementations.
 
-    def dump_state(self) -> str:
-        """Serialize the current state"""
+    Implementations must not raise errors related to file storing,
+    reading and parsing, but may warn user about it.
+    """
 
-    def apply_state(self, data: str):
-        """Apply serialized state to the object"""
+    def dump_state(self, directory: Path):
+        """Serialize the current state and write it to directory"""
+
+    def apply_state(self, directory: Path):
+        """Load serialized state from directory and apply it to the object"""
+
+
+DataType = TypeVar('DataType', bound=BaseModel)
 
 
 class StateSerializer:
-    """Handle storing and loading state of StateSerializable instances"""
+    """Utility class for handling storing and loading state"""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir /  'serializer/'
         self.logger = logging.getLogger().getChild('state_storage')
 
-    def _get_path(self, obj: StateSerializable) -> Optional[Path]:
-        try:
-            return self.cache_dir / obj.state_path()
-        except Exception:
-            self.logger.exception(f'received invalid path "{obj.state_path()}" from "{obj}"')
-            return None
+    @staticmethod
+    def serialize(obj: object) -> str:
+        raw = pickle.dumps(obj)
+        encoded = base64.b64encode(raw)
+        return encoded.decode('utf8')
 
-    def dump(self, obj: StateSerializable):
+    def dump(self, obj: DataType, path: Path):
         """Store state to file"""
-        path = self._get_path(obj)
-        if path is None:
-            return
-        self.logger.info(f'storing runtime state to {path}')
         try:
-            data = obj.dump_state()
+            path = self.cache_dir / path
+            self.logger.info(f'storing runtime state to {path}')
+            data = self.serialize(obj)
         except Exception as e:
             self.logger.warning(f'failed to serialize state to "{path}": {e}')
             self.logger.debug(f'object that failed to serialize: {obj}', exc_info=True)
@@ -465,22 +468,28 @@ class StateSerializer:
         except OSError as e:
             self.logger.warning(f'failed to store state to "{path}": {e}')
 
-    def restore(self, obj: StateSerializable):
+    @staticmethod
+    def deserialize(raw_data):
+        data = raw_data.encode('utf8')
+        decoded = base64.b64decode(data)
+        return pickle.loads(decoded)
+
+    def restore(self, path: Path, Model: Type[DataType]) -> Optional[DataType]:
         """Load state from file and apply to the object"""
-        path = self._get_path(obj)
-        if path is None:
-            return
+        path = self.cache_dir / path
         if not path.exists():
-            return
+            self.logger.debug(f'skipping restore: "{path}" does not exist')
+            return None
         self.logger.info(f'restoring runtime state from {path}')
         try:
-            data = path.read_text(encoding='utf8')
+            raw_data = path.read_text(encoding='utf8')
         except (OSError, UnicodeDecodeError) as e:
             self.logger.warning(f'failed to read state from "{path}": {e}')
-            return
+            return None
         try:
-            obj.apply_state(data)
+            obj = self.deserialize(raw_data)
+            return Model.model_validate(obj)
         except Exception as e:
             self.logger.warning(f'error restoring state from "{path}": {e}')
-            self.logger.debug(f'object that failed to deserialize: {data}', exc_info=True)
-
+            self.logger.debug(f'object that failed to deserialize: "{raw_data}"', exc_info=True)
+            return None

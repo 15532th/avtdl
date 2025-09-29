@@ -1,7 +1,5 @@
 import asyncio
-import base64
 import logging
-import pickle
 import signal
 from collections import defaultdict, deque
 from dataclasses import dataclass
@@ -9,10 +7,32 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Dict, List, Literal, Optional, Tuple
 
+from pydantic import Field, RootModel
+
 from avtdl.core.interfaces import Record
+from avtdl.core.utils import StateSerializer
 
 Subscription = Callable[[str, Record], None]
 SubscriptionsMapping = Dict[str, List[Subscription]]
+
+HISTORY_SIZE = 20
+
+
+def deque_factory() -> deque:
+    return deque(maxlen=HISTORY_SIZE)
+
+
+class MessageHistory(RootModel):
+    root: Dict[str, deque[Record]] = Field(default_factory=lambda: defaultdict(deque_factory))
+
+    def __getitem__(self, key: str) -> deque[Record]:
+        return self.root[key]
+
+    def __setitem__(self, key: str, value: deque[Record]):
+        self.root[key] = value
+
+    def items(self):
+        return self.root.items()
 
 
 class MessageBus:
@@ -20,12 +40,12 @@ class MessageBus:
     PREFIX_OUT = 'output'
     SEPARATOR = '/'
 
-    HISTORY_SIZE = 20
+    PERSISTENCE_FILE = Path('bus/history.dat')
 
     def __init__(self) -> None:
         self.subscriptions: SubscriptionsMapping = defaultdict(list)
         self.logger = logging.getLogger('bus')
-        self.history: Dict[str, deque[Record]] = defaultdict(lambda: deque(maxlen=self.HISTORY_SIZE))
+        self.history: MessageHistory = MessageHistory()
 
     def sub(self, topic: str, callback: Subscription):
         self.logger.debug(f'subscription on topic {topic} by {callback!r}')
@@ -114,20 +134,17 @@ class MessageBus:
     def clear_subscriptions(self):
         self.subscriptions.clear()
 
-    @staticmethod
-    def state_path() -> Path:
-        return Path('bus/history.dat')
 
-    def dump_state(self) -> str:
-        history = {}
-        history.update(self.history)
-        raw = pickle.dumps(history)
-        encoded = base64.b64encode(raw)
-        return encoded.decode('utf8')
+    def dump_state(self, directory: Path):
+        serializer = StateSerializer(directory)
+        serializer.dump(self.history, self.PERSISTENCE_FILE)
 
-    def apply_state(self, state: str):
-        decoded = base64.b64decode(state.encode('utf8'))
-        stored_history = pickle.loads(decoded)
+
+    def apply_state(self, directory: Path):
+        serializer = StateSerializer(directory)
+        stored_history = serializer.restore(self.PERSISTENCE_FILE, MessageHistory)
+        if stored_history is None:
+            return
         for topic, stored_topic_history in stored_history.items():
             active_topic_history = self.history[topic]
             for record in reversed(stored_topic_history):
