@@ -134,15 +134,11 @@ class MessageBus:
     def clear_subscriptions(self):
         self.subscriptions.clear()
 
-
     def dump_state(self, directory: Path):
-        serializer = StateSerializer(directory)
-        serializer.dump(self.history, self.PERSISTENCE_FILE)
-
+        StateSerializer.dump(self.history, directory, self.PERSISTENCE_FILE)
 
     def apply_state(self, directory: Path):
-        serializer = StateSerializer(directory)
-        stored_history = serializer.restore(self.PERSISTENCE_FILE, MessageHistory)
+        stored_history = StateSerializer.restore(MessageHistory, directory, self.PERSISTENCE_FILE)
         if stored_history is None:
             return
         for topic, stored_topic_history in stored_history.items():

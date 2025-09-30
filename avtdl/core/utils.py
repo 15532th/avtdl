@@ -345,12 +345,6 @@ def find_one(data: JSONType, jsonpath: str) -> Optional[JSONType]:
     return result[0] if result else None
 
 
-def strip_text(s: str, text: str) -> str:
-    if s.startswith(text):
-        return s[len(text):]
-    return s
-
-
 def jwt_decode(token: str) -> dict:
     """Decode JWT token and return payload. Signature is not validated"""
     header, payload, signature = token.split('.')
@@ -441,55 +435,74 @@ DataType = TypeVar('DataType', bound=BaseModel)
 
 class StateSerializer:
     """Utility class for handling storing and loading state"""
-
-    def __init__(self, cache_dir: Path):
-        self.cache_dir = cache_dir /  'serializer/'
-        self.logger = logging.getLogger().getChild('state_storage')
+    logger = logging.getLogger().getChild('state_storage')
 
     @staticmethod
-    def serialize(obj: object) -> str:
-        raw = pickle.dumps(obj)
-        encoded = base64.b64encode(raw)
-        return encoded.decode('utf8')
+    def serialize(obj: object) -> bytes:
+        return pickle.dumps(obj)
 
-    def dump(self, obj: DataType, path: Path):
+    @classmethod
+    def dump(cls, obj: DataType, directory: Path, path: Path):
         """Store state to file"""
         try:
-            path = self.cache_dir / path
-            self.logger.info(f'storing runtime state to {path}')
-            data = self.serialize(obj)
+            path = directory / path
+            cls.logger.info(f'storing runtime state to {path}')
+            data = cls.serialize(obj)
         except Exception as e:
-            self.logger.warning(f'failed to serialize state to "{path}": {e}')
-            self.logger.debug(f'object that failed to serialize: {obj}', exc_info=True)
+            cls.logger.warning(f'failed to serialize state to "{path}": {e}')
+            cls.logger.debug(f'object that failed to serialize: {obj}', exc_info=True)
             return
         try:
             check_dir(path.parent)
-            path.write_text(data, encoding='utf8')
+            path.write_bytes(data)
         except OSError as e:
-            self.logger.warning(f'failed to store state to "{path}": {e}')
+            cls.logger.warning(f'failed to store state to "{path}": {e}')
 
     @staticmethod
-    def deserialize(raw_data):
-        data = raw_data.encode('utf8')
-        decoded = base64.b64decode(data)
-        return pickle.loads(decoded)
+    def deserialize(data: bytes):
+        return pickle.loads(data)
 
-    def restore(self, path: Path, Model: Type[DataType]) -> Optional[DataType]:
+    @classmethod
+    def restore(cls, Model: Type[DataType], directory: Path, path: Path) -> Optional[DataType]:
         """Load state from file and apply to the object"""
-        path = self.cache_dir / path
+        path = directory / path
         if not path.exists():
-            self.logger.debug(f'skipping restore: "{path}" does not exist')
+            cls.logger.debug(f'skipping restore: "{path}" does not exist')
             return None
-        self.logger.info(f'restoring runtime state from {path}')
+        cls.logger.info(f'restoring runtime state from {path}')
         try:
-            raw_data = path.read_text(encoding='utf8')
+            raw_data = path.read_bytes()
         except (OSError, UnicodeDecodeError) as e:
-            self.logger.warning(f'failed to read state from "{path}": {e}')
+            cls.logger.warning(f'failed to read state from "{path}": {e}')
             return None
         try:
-            obj = self.deserialize(raw_data)
+            obj = cls.deserialize(raw_data)
             return Model.model_validate(obj)
-        except Exception as e:
-            self.logger.warning(f'error restoring state from "{path}": {e}')
-            self.logger.debug(f'object that failed to deserialize: "{raw_data}"', exc_info=True)
+        except pickle.UnpicklingError as e:
+            cls.logger.warning(f'failed to load state from "{path}": {e}')
             return None
+        except ValidationError as e:
+            msg = f'failed to parse state from "{path}": '
+            cls.logger.warning(format_validation_error(e, msg))
+            return None
+        except Exception as e:
+            cls.logger.warning(f'error restoring state from "{path}": {e}')
+            return None
+
+
+def strip_text(s: str, text: str) -> str:
+    if s.startswith(text):
+        return s[len(text):]
+    return s
+
+
+def format_validation_error(e: ValidationError, msg: str) -> str:
+    errors = []
+    for err in e.errors():
+        user_input = str(err['input'])
+        user_input = user_input if len(user_input) < 85 else user_input[:50] + ' [...] ' + user_input[-30:]
+        location = ': '.join(str(l) for l in err['loc'])
+        error_message = strip_text(err['msg'], 'Value error, ')
+        error = 'error parsing "{}" in config section {}: {}'
+        errors.append(error.format(user_input, location, error_message))
+    return '\n    '.join([msg] + errors)

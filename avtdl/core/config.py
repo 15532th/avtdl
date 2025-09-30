@@ -11,24 +11,11 @@ from avtdl.core.chain import Chain, ChainConfigSection
 from avtdl.core.loggers import LogLevel, override_loglevel, setup_file_logger, setup_webserver_logger
 from avtdl.core.plugins import Plugins
 from avtdl.core.runtime import RuntimeContext
-from avtdl.core.utils import strip_text
+from avtdl.core.utils import format_validation_error
 
 
 class ConfigurationError(Exception):
     """Generic exception raised if parsing config failed"""
-
-
-def format_validation_error(e: ValidationError) -> str:
-    msg = 'Failed to process configuration file, following errors occurred: '
-    errors = []
-    for err in e.errors():
-        user_input = str(err['input'])
-        user_input = user_input if len(user_input) < 85 else user_input[:50] + ' [...] ' + user_input[-30:]
-        location = ': '.join(str(l) for l in err['loc'])
-        error_message = strip_text(err['msg'], 'Value error, ')
-        error = 'error parsing "{}" in config section {}: {}'
-        errors.append(error.format(user_input, location, error_message))
-    return '\n    '.join([msg] + errors)
 
 
 def try_parsing(func):
@@ -37,7 +24,8 @@ def try_parsing(func):
         try:
             return func(*args, **kwargs)
         except ValidationError as e:
-            error = format_validation_error(e)
+            msg = 'Failed to process configuration file, following errors occurred: '
+            error = format_validation_error(e, msg)
             raise ConfigurationError(error) from e
 
     return wrapper

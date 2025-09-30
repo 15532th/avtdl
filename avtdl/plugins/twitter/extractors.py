@@ -8,10 +8,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import dateutil.parser
 from pydantic import BaseModel, ValidationError
 
-from avtdl.core.config import format_validation_error
 from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
-from avtdl.core.utils import JSONType, find_one, utcnow
+from avtdl.core.utils import JSONType, find_one, format_validation_error, utcnow
 
 local_logger = logging.getLogger().getChild('twitter_extractors')
 
@@ -455,8 +454,9 @@ def parse_space(data: JSONType) -> 'TwitterSpaceRecord':
     except (KeyError, TypeError):
         raise ValueError(f'failed to parse space: no creator_result found')
     except ValidationError as e:
-        err = format_validation_error(e)
-        raise ValueError(f'failed to parse space author details: {err}')
+        msg = 'failed to parse space author details: '
+        err = format_validation_error(e, msg)
+        raise ValueError(err)
     try:
         uid = metadata.get('rest_id')
         published = maybe_date(metadata.get('created_at')) or maybe_date(metadata.get('started_at')) or utcnow()
@@ -477,8 +477,8 @@ def parse_space(data: JSONType) -> 'TwitterSpaceRecord':
             recording_enabled=metadata.get('is_space_available_for_replay', False)
         )
     except ValidationError as e:
-        err = format_validation_error(e)
-        raise ValueError(f'failed to parse space: {err}')
+        err = format_validation_error(e, 'failed to parse space: ')
+        raise ValueError(err)
     return record
 
 
