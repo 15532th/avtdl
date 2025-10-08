@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
@@ -8,10 +9,11 @@ from pydantic import FilePath, NonNegativeFloat
 
 from avtdl.core.actors import Action, ActionEntity, ActorConfig
 from avtdl.core.config import SettingsSection
+from avtdl.core.formatters import sanitize_filename
 from avtdl.core.interfaces import Record
 from avtdl.core.request import HttpClient, SessionStorage
 from avtdl.core.runtime import RuntimeContext, TaskStatus
-from avtdl.core.utils import DictRootModel, StateSerializer, with_prefix
+from avtdl.core.utils import ListRootModel, StateSerializer, with_prefix
 
 
 class HttpActionConfig(ActorConfig):
@@ -67,36 +69,36 @@ class QueueAction(HttpAction):
 
         self.conf: QueueActionConfig
         self.entities: Mapping[str, QueueActionEntity]  # type: ignore
-        self.queues: Dict[str, asyncio.Queue] = self.initialize_queues(self.entities.values())
+        self.queues: Dict[str, asyncio.Queue] = defaultdict(lambda: asyncio.Queue())
         self.info: Dict[str, TaskStatus] = {entity.name: TaskStatus(self.conf.name, entity.name) for entity in entities}
 
-    def persistence_file(self) -> Path:
-        return Path(f'{self.conf.name}/queues.dat')
+    def persistence_file(self, entity_name: str) -> Path:
+        filename = sanitize_filename(entity_name)
+        file = f'{self.conf.name}/{filename}.dat'
+        return Path(file)
 
-    def initialize_queues(self, entities: Sequence[QueueActionEntity]) -> Dict[str, asyncio.Queue]:
-        unprocessed = StateSerializer.restore(QueuesSerialized, self.state_directory, self.persistence_file())
-        if unprocessed is None:
-            unprocessed  = QueuesSerialized()
-        queues = {}
-        for entity in entities:
-            if entity.restartable:
-                queue = unprocessed.retrieve(entity.name) or asyncio.Queue()
-                self.logger.debug(f'[{entity.name}] ...')
-            else:
-                queue = asyncio.Queue()
-            queues[entity.name] = queue
-        return queues
+    def load_queue(self, entity: QueueActionEntity):
+        if not entity.restartable:
+            return
+        persistence_path = self.state_directory / self.persistence_file(entity.name)
+        serialized = StateSerializer.restore(QueueSerialized, persistence_path)
+        if serialized is None:
+            return
+        queue = serialized.to_queue()
+        self.queues[entity.name] = queue
+        self.logger.debug(f'[{entity.name}] restored {queue.qsize()} unprocessed records from the previous run')
 
-    def dump_queues(self):
-        queues = {}
-        for name, queue in self.queues.items():
-            queues[name] = []
-            while True:
-                try:
-                    queues[name].append(queue.get_nowait())
-                except asyncio.QueueEmpty:
-                    break
-        StateSerializer.dump(QueuesSerialized(**queues), self.state_directory, self.persistence_file())
+    def dump_queue(self, entity: QueueActionEntity):
+        if not entity.restartable:
+            return
+        queue = self.queues[entity.name]
+        if queue.qsize() == 0:
+            return
+        serialized = QueueSerialized.from_queue(queue)
+        persistence_path = self.state_directory / self.persistence_file(entity.name)
+        ok = StateSerializer.dump(serialized, persistence_path)
+        if ok:
+            self.logger.debug(f'[{entity.name}] stored {len(serialized)} unprocessed records until the next run')
 
     def handle(self, entity: ActionEntity, record: Record):
         try:
@@ -111,6 +113,7 @@ class QueueAction(HttpAction):
     async def run_for(self, entity: QueueActionEntity):
         logger = with_prefix(self.logger, f'[{entity.name}] ')
         client = self.get_client(entity)
+        self.load_queue(entity)
         queue = self.queues[entity.name]
         try:
             while True:
@@ -121,6 +124,9 @@ class QueueAction(HttpAction):
                 self.update_info(entity, record)
         except Exception:
             logger.exception(f'unexpected error in background task, terminating')
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            self.dump_queue(entity)
+            raise
 
     def update_info(self, entity: QueueActionEntity, record: Record):
         info = self.info.get(entity.name)
@@ -138,12 +144,7 @@ class QueueAction(HttpAction):
             name = f'{self.conf.name}:{entity.name}'
             info = self.info.get(entity.name)
             _ = self.controller.create_task(self.run_for(entity), name=name, _info=info)
-        try:
-            await super().run()
-            await asyncio.Future()
-        except (KeyboardInterrupt, asyncio.CancelledError):
-            self.dump_queues()
-            raise
+        await super().run()
 
     @abstractmethod
     async def handle_single_record(self, logger: logging.Logger, client: HttpClient,
@@ -151,19 +152,27 @@ class QueueAction(HttpAction):
         """Called for each record waiting in specific entity's queue"""
 
 
-class QueuesSerialized(DictRootModel):
-    root: Dict[str, List[Record]] = {}
+class QueueSerialized(ListRootModel):
+    root: List[Record] = []
 
-    def retrieve(self, key) -> Optional[asyncio.Queue]:
-        if not key in self.root:
-            return None
+    def to_queue(self) -> asyncio.Queue:
         queue: asyncio.Queue = asyncio.Queue()
-        for item in reversed(self.root[key]):
+        for item in reversed(self.root):
             try:
                 queue.put_nowait(item)
             except asyncio.QueueFull:
                 break
         return queue
+
+    @classmethod
+    def from_queue(cls, queue: asyncio.Queue):
+        records = []
+        while True:
+            try:
+                records.append(queue.get_nowait())
+            except asyncio.QueueEmpty:
+                break
+        return cls(root=records)
 
 
 class TaskActionConfig(HttpActionConfig):

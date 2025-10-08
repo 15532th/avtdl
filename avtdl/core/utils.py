@@ -442,30 +442,30 @@ class StateSerializer:
         return pickle.dumps(obj)
 
     @classmethod
-    def dump(cls, obj: DataType, directory: Path, path: Path):
+    def dump(cls, obj: DataType, path: Path) -> bool:
         """Store state to file"""
         try:
-            path = directory / path
-            cls.logger.info(f'storing runtime state to {path}')
+            cls.logger.debug(f'storing runtime state to {path}')
             data = cls.serialize(obj)
         except Exception as e:
             cls.logger.warning(f'failed to serialize state to "{path}": {e}')
             cls.logger.debug(f'object that failed to serialize: {obj}', exc_info=True)
-            return
+            return False
         try:
             check_dir(path.parent)
             path.write_bytes(data)
+            return True
         except OSError as e:
             cls.logger.warning(f'failed to store state to "{path}": {e}')
+            return False
 
     @staticmethod
     def deserialize(data: bytes):
         return pickle.loads(data)
 
     @classmethod
-    def restore(cls, Model: Type[DataType], directory: Path, path: Path) -> Optional[DataType]:
+    def restore(cls, Model: Type[DataType], path: Path) -> Optional[DataType]:
         """Load state from file and apply to the object"""
-        path = directory / path
         if not path.exists():
             cls.logger.debug(f'skipping restore: "{path}" does not exist')
             return None
@@ -508,6 +508,23 @@ class DictRootModel(RootModel):
 
     def items(self):
         return self.root.items()
+
+
+class ListRootModel(RootModel):
+    """Helper class implementing indexing and iteration list-based root models"""
+    root: list
+
+    def __getitem__(self, index: int):
+        return self.root[index]
+
+    def __len__(self) -> int:
+        return len(self.root)
+
+    def __iter__(self):
+        return iter(self.root)
+
+    def __contains__(self, item) -> bool:
+        return item in self.root
 
 
 def strip_text(s: str, text: str) -> str:
