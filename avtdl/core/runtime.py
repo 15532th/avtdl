@@ -7,10 +7,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Dict, List, Literal, Optional, Tuple
 
-from pydantic import Field, RootModel
+from pydantic import Field
 
 from avtdl.core.interfaces import Record
-from avtdl.core.utils import StateSerializer
+from avtdl.core.utils import DictRootModel, StateSerializer
 
 Subscription = Callable[[str, Record], None]
 SubscriptionsMapping = Dict[str, List[Subscription]]
@@ -22,17 +22,8 @@ def deque_factory() -> deque:
     return deque(maxlen=HISTORY_SIZE)
 
 
-class MessageHistory(RootModel):
+class MessageHistory(DictRootModel):
     root: Dict[str, deque[Record]] = Field(default_factory=lambda: defaultdict(deque_factory))
-
-    def __getitem__(self, key: str) -> deque[Record]:
-        return self.root[key]
-
-    def __setitem__(self, key: str, value: deque[Record]):
-        self.root[key] = value
-
-    def items(self):
-        return self.root.items()
 
 
 class MessageBus:

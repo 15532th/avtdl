@@ -23,7 +23,7 @@ import dateutil.parser
 import dateutil.tz
 from aiohttp.abc import AbstractCookieJar
 from jsonpath import JSONPath
-from pydantic import AnyHttpUrl, BaseModel, ValidationError
+from pydantic import AnyHttpUrl, BaseModel, RootModel, ValidationError
 
 from avtdl.core.interfaces import Record
 
@@ -488,6 +488,26 @@ class StateSerializer:
         except Exception as e:
             cls.logger.warning(f'error restoring state from "{path}": {e}')
             return None
+
+
+class DictRootModel(RootModel):
+    """Helper class implementing dict methods for dict-based root models"""
+    root: dict
+
+    def __getitem__(self, key):
+        return self.root[key]
+
+    def __setitem__(self, key, value):
+        self.root[key] = value
+
+    def keys(self):
+        return self.root.keys()
+
+    def values(self):
+        return self.root.values()
+
+    def items(self):
+        return self.root.items()
 
 
 def strip_text(s: str, text: str) -> str:
