@@ -1,15 +1,17 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Sequence
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence
 
 from pydantic import FilePath, NonNegativeFloat
 
 from avtdl.core.actors import Action, ActionEntity, ActorConfig
+from avtdl.core.config import SettingsSection
 from avtdl.core.interfaces import Record
 from avtdl.core.request import HttpClient, SessionStorage
 from avtdl.core.runtime import RuntimeContext, TaskStatus
-from avtdl.core.utils import with_prefix
+from avtdl.core.utils import DictRootModel, StateSerializer, with_prefix
 
 
 class HttpActionConfig(ActorConfig):
@@ -36,7 +38,6 @@ class HttpAction(Action, ABC):
         _ = self.controller.create_task(self.sessions.ensure_closed(), name=name)
         await super().run()
 
-    @abstractmethod
     def get_client(self, entity: HttpActionEntity) -> HttpClient:
         """provide  HttpClient instance for entity task to make network requests"""
         session = self.sessions.get_session(entity.cookies_file, entity.headers)
@@ -51,20 +52,51 @@ class QueueActionConfig(HttpActionConfig):
 
 
 class QueueActionEntity(HttpActionEntity):
-    pass
+    restartable: bool = True
+    """Attempt to store unprocessed records on disk at shutdown and process them on the next startup"""
 
 
 class QueueAction(HttpAction):
 
     def __init__(self, conf: QueueActionConfig, entities: Sequence[QueueActionEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
+        settings: Optional[SettingsSection] = ctx.get_extra('settings')
+        if settings is None:
+            raise RuntimeError(f'runtime context is missing Settings instance. This is a bug, please report it')
+        self.state_directory = settings.state_directory
+
         self.conf: QueueActionConfig
         self.entities: Mapping[str, QueueActionEntity]  # type: ignore
-        self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
+        self.queues: Dict[str, asyncio.Queue] = self.initialize_queues(self.entities.values())
         self.info: Dict[str, TaskStatus] = {entity.name: TaskStatus(self.conf.name, entity.name) for entity in entities}
 
-    def get_client(self, entity: QueueActionEntity) -> HttpClient:
-        return super().get_client(entity)
+    def persistence_file(self) -> Path:
+        return Path(f'{self.conf.name}/queues.dat')
+
+    def initialize_queues(self, entities: Sequence[QueueActionEntity]) -> Dict[str, asyncio.Queue]:
+        unprocessed = StateSerializer.restore(QueuesSerialized, self.state_directory, self.persistence_file())
+        if unprocessed is None:
+            unprocessed  = QueuesSerialized()
+        queues = {}
+        for entity in entities:
+            if entity.restartable:
+                queue = unprocessed.retrieve(entity.name) or asyncio.Queue()
+                self.logger.debug(f'[{entity.name}] ...')
+            else:
+                queue = asyncio.Queue()
+            queues[entity.name] = queue
+        return queues
+
+    def dump_queues(self):
+        queues = {}
+        for name, queue in self.queues.items():
+            queues[name] = []
+            while True:
+                try:
+                    queues[name].append(queue.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
+        StateSerializer.dump(QueuesSerialized(**queues), self.state_directory, self.persistence_file())
 
     def handle(self, entity: ActionEntity, record: Record):
         try:
@@ -106,12 +138,32 @@ class QueueAction(HttpAction):
             name = f'{self.conf.name}:{entity.name}'
             info = self.info.get(entity.name)
             _ = self.controller.create_task(self.run_for(entity), name=name, _info=info)
-        await super().run()
+        try:
+            await super().run()
+            await asyncio.Future()
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            self.dump_queues()
+            raise
 
     @abstractmethod
     async def handle_single_record(self, logger: logging.Logger, client: HttpClient,
                                    entity: QueueActionEntity, record: Record) -> None:
         """Called for each record waiting in specific entity's queue"""
+
+
+class QueuesSerialized(DictRootModel):
+    root: Dict[str, List[Record]] = {}
+
+    def retrieve(self, key) -> Optional[asyncio.Queue]:
+        if not key in self.root:
+            return None
+        queue: asyncio.Queue = asyncio.Queue()
+        for item in reversed(self.root[key]):
+            try:
+                queue.put_nowait(item)
+            except asyncio.QueueFull:
+                break
+        return queue
 
 
 class TaskActionConfig(HttpActionConfig):
@@ -131,9 +183,6 @@ class TaskAction(HttpAction):
         self.entities: Mapping[str, TaskActionEntity]  # type: ignore
         self.tasks: Dict[str, asyncio.Task] = {}
         self.start_token = asyncio.Lock()
-
-    def get_client(self, entity: TaskActionEntity) -> HttpClient:
-        return super().get_client(entity)
 
     def handle(self, entity: TaskActionEntity, record: Record):
         logger = with_prefix(self.logger, f'[{entity.name}]')
