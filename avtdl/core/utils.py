@@ -16,7 +16,8 @@ from http.cookiejar import CookieJar
 from pathlib import Path
 from textwrap import shorten
 from time import perf_counter
-from typing import Any, Dict, Hashable, List, Mapping, MutableMapping, Optional, Protocol, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Hashable, Iterable, Iterator, List, Mapping, MutableMapping, Optional, Protocol, Tuple, \
+    Type, TypeVar, Union
 
 import aiohttp
 import dateutil.parser
@@ -520,11 +521,17 @@ class ListRootModel(RootModel):
     def __len__(self) -> int:
         return len(self.root)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         return iter(self.root)
 
     def __contains__(self, item) -> bool:
         return item in self.root
+
+    def append(self, item):
+        self.root.append(item)
+
+    def extend(self, items: Iterable):
+        self.root.extend(items)
 
 
 def strip_text(s: str, text: str) -> str:

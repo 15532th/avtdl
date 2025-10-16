@@ -251,6 +251,11 @@ class TasksController:
     def get_status(self) -> List[TaskStatus]:
         return [status for status in self._info.values() if status is not None]
 
+    def get_task_status(self, task_name: str) -> Optional[TaskStatus]:
+        for task, task_info in self._info.items():
+            if task.get_name() == task_name:
+                return task_info
+        return None
 
 class RuntimeContext:
     def __init__(self, bus: MessageBus, controller: TasksController):
