@@ -45,6 +45,8 @@ class CommandEntity(TaskActionEntity):
     """emit Event with type "finished" if the subprocess returned zero as exit code"""
     report_started: bool = False
     """emit Event with type "started" before starting a subprocess"""
+    restartable: bool = False
+    """restart commands interrupted by shutdown after the next startup"""
 
     @field_validator('log_dir')
     @classmethod

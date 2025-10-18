@@ -182,7 +182,7 @@ class TaskActionConfig(HttpActionConfig):
 
 class TaskActionEntity(HttpActionEntity):
     restartable: bool = True
-    """Attempt to store unprocessed records on disk at shutdown and process them on the next startup"""
+    """Attempt to store unprocessed records on disk at shutdown and restart tasks to process them on the next startup"""
 
 
 class TaskAction(HttpAction):
