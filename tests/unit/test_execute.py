@@ -5,6 +5,7 @@ from typing import List, Optional
 
 import pytest
 
+from avtdl.core.config import SettingsSection
 from avtdl.core.interfaces import Record, TextRecord
 from avtdl.core.runtime import RuntimeContext
 from avtdl.plugins.execute.run_command import Command, CommandConfig, CommandEntity
@@ -16,8 +17,14 @@ def text_record():
     return TextRecord(text='record1')
 
 
-async def run_command(entity: CommandEntity, record: Record) -> Process:
+def create_runtime_context() -> RuntimeContext:
     ctx = RuntimeContext.create()
+    ctx.set_extra('settings', SettingsSection())
+    return ctx
+
+
+async def run_command(entity: CommandEntity, record: Record) -> Process:
+    ctx = create_runtime_context()
     config = CommandConfig(name='test')
     actor = Command(config, [entity], ctx)
 
@@ -69,7 +76,7 @@ class TestCommandArgs:
 
     @staticmethod
     def args_for(entity: CommandEntity, record: Record) -> List[str]:
-        ctx = RuntimeContext.create()
+        ctx = create_runtime_context()
         config = CommandConfig(name='test')
         actor = Command(config, [entity], ctx)
         args = actor.args_for(entity, record)
