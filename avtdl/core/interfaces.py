@@ -6,7 +6,7 @@ from hashlib import sha1
 from textwrap import shorten
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator
 
 MAX_REPR_LEN = 60
 
@@ -27,6 +27,18 @@ class Record(BaseModel):
     Empty string means it was just produced and should go to every subscriber"""
     created_at: datetime.datetime = Field(default_factory=utcnow, exclude=True)
     """record creation timestamp"""
+    class_name: str = Field(default='', validate_default=True, exclude=True)
+    """class name of specific Record implementation, used for deserialization"""
+
+    @field_validator('class_name')
+    @classmethod
+    def set_class_name(cls, _: str) -> str:
+        return cls.__name__
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        all_known_record_types[cls.__name__] = cls
+
     @abstractmethod
     def __str__(self) -> str:
         '''Text representation of the record to be sent in a message, written to a file etc.'''
@@ -75,6 +87,14 @@ class Record(BaseModel):
         return record_hash.hexdigest()
 
 
+all_known_record_types: Dict[str, type[Record]] = {}
+
+
+def get_record_type(name: str) -> Optional[type[Record]]:
+    """return Record descendant class with given class name"""
+    return all_known_record_types.get(name)
+
+
 class TextRecord(Record):
     """
     Simplest record, containing only a single text field
@@ -120,6 +140,17 @@ class Event(Record):
         if self.record is not None:
             self.origin = self.record.origin
             self.chain = self.record.chain
+
+
+class OpaqueRecord(Record):
+    """Record without predefined fields and structure"""
+
+    def __str__(self) -> str:
+        return self.model_dump_json(indent=4)
+
+    def __repr__(self) -> str:
+        fields = ', '.join((f'{field}={value}' for field, value in dict(self).items()))
+        return f'{self.__class__.__name__}({fields})'
 
 
 class AbstractRecordsStorage(abc.ABC):

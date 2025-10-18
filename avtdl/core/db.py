@@ -8,8 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 from pydantic import Field, field_validator, model_validator
 
 from avtdl.core.actors import ActorConfig
-from avtdl.core.interfaces import AbstractRecordsStorage, Record
-from avtdl.core.plugins import Plugins
+from avtdl.core.interfaces import AbstractRecordsStorage, Record, get_record_type
 from avtdl.core.utils import check_dir
 
 
@@ -181,7 +180,7 @@ class RecordDB(BaseRecordDB):
 
     def parse_record(self, row: sqlite3.Row) -> Optional[Record]:
         type_name = row['class_name']
-        record_type = Plugins.record_types().get(type_name)
+        record_type = get_record_type(type_name)
         if record_type is None:
             self.logger.warning(f'failed to restore record: unsupported record type "{record_type}')
             row_content = {k: row[k] for k in row.keys()}
