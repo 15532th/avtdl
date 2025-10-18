@@ -13,7 +13,8 @@ from avtdl.core.formatters import sanitize_filename
 from avtdl.core.interfaces import Record
 from avtdl.core.request import HttpClient, SessionStorage
 from avtdl.core.runtime import RuntimeContext, TaskStatus
-from avtdl.core.utils import ListRootModel, StateSerializer, with_prefix
+from avtdl.core.state import StateSerializer
+from avtdl.core.utils import ListRootModel, with_prefix
 
 
 class HttpActionConfig(ActorConfig):

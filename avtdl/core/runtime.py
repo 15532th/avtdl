@@ -10,7 +10,8 @@ from typing import Any, Callable, Coroutine, Dict, List, Literal, Optional, Tupl
 from pydantic import Field
 
 from avtdl.core.interfaces import Record
-from avtdl.core.utils import DictRootModel, StateSerializer
+from avtdl.core.state import StateSerializer
+from avtdl.core.utils import DictRootModel
 
 Subscription = Callable[[str, Record], None]
 SubscriptionsMapping = Dict[str, List[Subscription]]
