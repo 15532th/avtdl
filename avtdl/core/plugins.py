@@ -1,8 +1,12 @@
 import importlib.util
+import itertools
 import logging
 from enum import Enum
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict
+
+from avtdl.core.interfaces import Record
 
 
 class UnknownPluginError(KeyError):
@@ -49,6 +53,13 @@ class Plugins:
             return cls._get(name, cls.kind.ASSOCIATED_RECORD)
         except KeyError:
             return []
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def record_types(cls) -> Dict[str, type[Record]]:
+        """Return mapping name: type for all record types registered in plugins"""
+        associated_records = cls.known[Plugins.kind.ASSOCIATED_RECORD]
+        return {t.__name__: t for t in itertools.chain(*associated_records.values())}
 
     @classmethod
     def register(cls, name: str, kind: kind):

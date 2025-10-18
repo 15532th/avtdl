@@ -1,9 +1,7 @@
 import datetime
-import itertools
 import logging
 import math
 import sqlite3
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
@@ -109,13 +107,6 @@ class BaseRecordDB:
         return self.cursor.fetchall()
 
 
-@lru_cache(maxsize=1)
-def record_types() -> Dict[str, type[Record]]:
-    """Return mapping name: type for all record types registered in plugins"""
-    associated_records = Plugins.known[Plugins.kind.ASSOCIATED_RECORD]
-    return {t.__name__: t for t in itertools.chain(*associated_records.values())}
-
-
 def calculate_offset(page: Optional[int], per_page: int, total_rows: int) -> Tuple[int, int]:
     if total_rows == 0 or per_page == 0:
         return 0, 0
@@ -190,7 +181,7 @@ class RecordDB(BaseRecordDB):
 
     def parse_record(self, row: sqlite3.Row) -> Optional[Record]:
         type_name = row['class_name']
-        record_type = record_types().get(type_name)
+        record_type = Plugins.record_types().get(type_name)
         if record_type is None:
             self.logger.warning(f'failed to restore record: unsupported record type "{record_type}')
             row_content = {k: row[k] for k in row.keys()}
