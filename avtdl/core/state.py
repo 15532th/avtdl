@@ -1,10 +1,12 @@
+import json
 import logging
 import pickle
 from pathlib import Path
-from typing import Optional, Protocol, Type, TypeVar
+from typing import Optional, Protocol, Type, TypeVar, Union
 
 from pydantic import BaseModel, ValidationError
 
+from avtdl.core.interfaces import Record, get_record_type
 from avtdl.core.utils import check_dir, format_validation_error
 
 
@@ -84,3 +86,39 @@ class StateSerializer:
         except Exception as e:
             cls.logger.warning(f'error restoring state from "{path}": {e}')
             return None
+
+
+class RecordSerializer:
+
+    @staticmethod
+    def dump(record: Record, indent: Union[int, str, None] = None) -> str:
+        fields = dict(record)
+        class_name = fields.get('class_name')
+        if class_name is None:
+            raise ValueError(f'record is missing "class_name" field: {record}')
+        if get_record_type(class_name) is None:
+            raise ValueError(f'record {record} has unknown record type "{class_name}"')
+        for k, v in fields.items():
+            if isinstance(v, Record):
+                raise ValueError(f'field "{k}" is "{type(v)}". Recursive serialization is currently not supported')
+        try:
+            return json.dumps(fields, ensure_ascii=False, indent=indent)
+        except Exception as e:
+            raise ValueError(f'failed to serialize record {record}: {e}') from e
+
+    @staticmethod
+    def load(data: str) -> Record:
+        try:
+            fields = json.loads(data)
+        except Exception as e:
+            raise ValueError(f'failed to parse serialized data "{data}" as json: {data}') from e
+        class_name = fields.get('class_name')
+        if class_name is None:
+            raise ValueError(f'"class_name" field is missing from serialized data: {data}')
+        factory = get_record_type(fields)
+        if factory is None:
+            raise ValueError(f'serialized data has unknown record type "{class_name}": {data}')
+        try:
+            return factory.model_validate(fields)
+        except ValidationError as e:
+            raise ValueError(f'serialized data failed to validate as "{class_name}": {data}') from e
