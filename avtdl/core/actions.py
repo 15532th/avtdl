@@ -14,7 +14,7 @@ from avtdl.core.interfaces import Record
 from avtdl.core.request import HttpClient, SessionStorage
 from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.state import StateSerializer
-from avtdl.core.utils import ListRootModel, with_prefix
+from avtdl.core.utils import ListRootModel, check_dir, with_prefix
 
 
 class HttpActionConfig(ActorConfig):
@@ -243,7 +243,14 @@ class TaskAction(HttpAction):
         return self.persistence_directory() / f'{name}.dat'
 
     def load_tasks(self) -> None:
-        for file in self.persistence_directory().iterdir():
+        if not check_dir(self.persistence_directory(), False):
+            return
+        try:
+            files = list(self.persistence_directory().iterdir())
+        except OSError as e:
+            self.logger.warning(f'failed to list files in "{self.persistence_directory()}": {e}')
+            return
+        for file in files:
             task_to_restore = StateSerializer.restore(TaskSerialized, file)
             if task_to_restore is None:
                 continue
