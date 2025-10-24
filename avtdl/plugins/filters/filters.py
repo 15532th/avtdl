@@ -295,9 +295,9 @@ Plugins.register('filter.format.event', Plugins.kind.ASSOCIATED_RECORD)(Event)
 @Plugins.register('filter.format.event', Plugins.kind.ACTOR_ENTITY)
 class FormatEventFilterEntity(FilterEntity):
     type_template: str
-    """template string with placeholders that will be filled with corresponding values from current record"""
+    """template string with placeholders used to format "event_type" field of the produced event with corresponding values from current record"""
     text_template: str
-    """template string with placeholders that will be filled with corresponding values from current record"""
+    """template string with placeholders used to format "text" field of the produced event with corresponding values from current record"""
     missing: Optional[str] = None
     """if specified, will be used to fill template placeholders that do not have corresponding fields in current record"""
     timezone: Optional[datetime.tzinfo] = None
