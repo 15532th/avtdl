@@ -29,11 +29,13 @@ from avtdl.core.utils import Timezone, find_matching_field
 class EmptyFilterConfig(ActorConfig):
     pass
 
+
 @Plugins.register('filter.noop', Plugins.kind.ACTOR_ENTITY)
 @Plugins.register('filter.void', Plugins.kind.ACTOR_ENTITY)
 @Plugins.register('filter.event.cause', Plugins.kind.ACTOR_ENTITY)
 class EmptyFilterEntity(FilterEntity):
     pass
+
 
 @Plugins.register('filter.noop', Plugins.kind.ACTOR)
 class NoopFilter(Filter):
@@ -77,6 +79,7 @@ class MatchFilterEntity(FilterEntity):
     fields: Optional[List[str]] = None
     """field names to search the patterns in. If not specified, all fields are checked"""
 
+
 @Plugins.register('filter.match', Plugins.kind.ACTOR)
 class MatchFilter(Filter):
     """
@@ -93,9 +96,11 @@ class MatchFilter(Filter):
         for pattern in entity.patterns:
             field = find_matching_field(record, pattern, entity.fields)
             if field is not None:
-                self.logger.debug(f'[{entity.name}] found pattern "{pattern}" in the field "{field}" of record "{record!r}", letting through')
+                self.logger.debug(
+                    f'[{entity.name}] found pattern "{pattern}" in the field "{field}" of record "{record!r}", letting through')
                 return record
         return None
+
 
 @Plugins.register('filter.exclude', Plugins.kind.ACTOR)
 class ExcludeFilter(Filter):
@@ -113,17 +118,20 @@ class ExcludeFilter(Filter):
         for pattern in entity.patterns:
             field = find_matching_field(record, pattern, entity.fields)
             if field is not None:
-                self.logger.debug(f'[{entity.name}] found pattern "{pattern}" in the field "{field}" of record "{record!r}", dropping')
+                self.logger.debug(
+                    f'[{entity.name}] found pattern "{pattern}" in the field "{field}" of record "{record!r}", dropping')
                 return None
         return record
 
 
 Plugins.register('filter.event', Plugins.kind.ASSOCIATED_RECORD)(Event)
 
+
 @Plugins.register('filter.event', Plugins.kind.ACTOR_ENTITY)
 class EventFilterEntity(FilterEntity):
     event_types: Optional[List[str]] = None
     """list of event types. See descriptions of plugins producing events for possible values"""
+
 
 @Plugins.register('filter.event', Plugins.kind.ACTOR)
 class EventFilter(Filter):
@@ -179,6 +187,7 @@ class TypeFilterEntity(FilterEntity):
     exact_match: bool = False
     """whether match should check for exact record type or look in entire records hierarchy up to Record"""
 
+
 @Plugins.register('filter.type', Plugins.kind.ACTOR)
 class TypeFilter(Filter):
     """
@@ -203,13 +212,14 @@ class TypeFilter(Filter):
         return None
 
 
-
 Plugins.register('filter.json', Plugins.kind.ASSOCIATED_RECORD)(TextRecord)
+
 
 @Plugins.register('filter.json', Plugins.kind.ACTOR_ENTITY)
 class JsonFilterEntity(FilterEntity):
     prettify: bool = False
     """whether output should be multiline and indented or a single line"""
+
 
 @Plugins.register('filter.json', Plugins.kind.ACTOR)
 class JsonFilter(Filter):
@@ -260,7 +270,6 @@ class FormatFilterEntity(FilterEntity):
     @classmethod
     def serialize_timezone(cls, timezone: Optional[datetime.tzinfo]) -> Optional[str]:
         return Timezone.get_name(timezone)
-
 
 
 @Plugins.register('filter.format', Plugins.kind.ACTOR)
@@ -408,12 +417,13 @@ class DeduplicateFilter(Filter):
             try:
                 value = field()
             except TypeError:
-                self.logger.debug(f'[{entity.name}] unsupported "field" value {entity.field}. Should be a property or a method that takes no arguments. All records will be dropped on this filter')
+                self.logger.debug(
+                    f'[{entity.name}] unsupported "field" value {entity.field}. Should be a property or a method that takes no arguments. All records will be dropped on this filter')
                 return None
         else:
             value = field
 
-        value = str(value) # support non-hashable fields
+        value = str(value)  # support non-hashable fields
 
         if value in entity.history:
             self.logger.debug(f'[{entity.name}] record with {entity.field}={value} has already been seen, dropping')
@@ -438,7 +448,8 @@ class DeduplicateFilter(Filter):
                     with open(filename, 'rt', encoding='utf8') as fp:
                         history = json.load(fp)
                         entity.history.update(history)
-                        self.logger.info(f'[{entity.name}] history ({len(entity.history)} items) successfully loaded from {filename}')
+                        self.logger.info(
+                            f'[{entity.name}] history ({len(entity.history)} items) successfully loaded from {filename}')
             except Exception as e:
                 self.logger.info(f'[{entity.name}] failed to load history from "{filename}": {e}')
 
@@ -452,7 +463,8 @@ class DeduplicateFilter(Filter):
                 try:
                     with open(filename, 'wt', encoding='utf8') as fp:
                         json.dump(entity.history, fp, ensure_ascii=False, indent=4)
-                        self.logger.info(f'[{entity.name}] history ({len(entity.history)} items) successfully stored at {filename}')
+                        self.logger.info(
+                            f'[{entity.name}] history ({len(entity.history)} items) successfully stored at {filename}')
                 except Exception as e:
                     self.logger.info(f'[{entity.name}] failed to store history to "{filename}": {e}')
             raise
