@@ -1,12 +1,14 @@
 import datetime
-from typing import List
+from typing import List, Tuple
 
 import pytest
 
-from avtdl.core.interfaces import Event, EventType, TextRecord
+from avtdl.core.interfaces import Event, EventType, OpaqueRecord, TextRecord
 from avtdl.core.runtime import RuntimeContext
-from avtdl.plugins.filters.filters import EmptyFilterConfig, EmptyFilterEntity, EventCauseFilter, FormatEventFilter, \
-    FormatEventFilterEntity, MatchFilter, MatchFilterEntity
+from avtdl.plugins.filters.filters import EmptyFilterConfig, EmptyFilterEntity, EventCauseFilter, MatchFilter, \
+    MatchFilterEntity
+from avtdl.plugins.filters.format import FormatEventFilter, FormatEventFilterEntity, FormatOpaqueFilter, \
+    FormatOpaqueFilterEntity
 from avtdl.plugins.twitch.twitch import TwitchRecord
 
 
@@ -87,3 +89,24 @@ class TestMatchFilter:
 
         result = match_filter.match(entity, record)
         assert result == record
+
+
+class TestFormatOpaque:
+
+    @staticmethod
+    def prepare_filter() -> Tuple[FormatOpaqueFilter, FormatOpaqueFilterEntity]:
+        empty_config = EmptyFilterConfig(name='test')
+        entity = FormatOpaqueFilterEntity(name='test', fields_templates={'field1': 'field1: {text}', 'field2': 'field2: {text}'})
+        ctx = RuntimeContext.create()
+        return FormatOpaqueFilter(config=empty_config, entities=[entity], ctx=ctx), entity
+
+    def test_match(self, text_record: TextRecord):
+        filter_instance, entity = self.prepare_filter()
+        result = filter_instance.match(entity, text_record)
+
+        assert isinstance(result, OpaqueRecord)
+        assert result.class_name == 'OpaqueRecord'
+        assert result.chain == ''
+
+        assert getattr(result, 'field1') == 'field1: test'
+        assert getattr(result, 'field2') == 'field2: test'

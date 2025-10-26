@@ -1,12 +1,13 @@
 import abc
 import datetime
 import json
+import logging
 from abc import abstractmethod
 from hashlib import sha1
 from textwrap import shorten
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator, model_validator
 
 MAX_REPR_LEN = 60
 
@@ -144,12 +145,23 @@ class Event(Record):
 
 class OpaqueRecord(Record):
     """Record without predefined fields and structure"""
+    model_config = ConfigDict(extra='allow')
+
+    @model_validator(mode='before')
+    @classmethod
+    def check_fields_overwrite(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            for name, value in data.items():
+                if name in cls.model_fields:
+                    logger = logging.getLogger('OpaqueRecord')
+                    logger.warning(f'internal field "{name}" was overwritten by user-defined value "{value}"')
+        return data
 
     def __str__(self) -> str:
         return self.model_dump_json(indent=4)
 
     def __repr__(self) -> str:
-        fields = ', '.join((f'{field}={value}' for field, value in dict(self).items()))
+        fields = ', '.join((f'{field}={value}' for field, value in self.model_dump().items()))
         return f'{self.__class__.__name__}({fields})'
 
 
@@ -159,10 +171,12 @@ class AbstractRecordsStorage(abc.ABC):
     @abstractmethod
     def feeds(self) -> List[Tuple[str, int]]:
         """return names and number of records of distinct feeds storage currently has"""
+
     @abstractmethod
     def page_count(self, per_page: int, feed: Optional[str] = None) -> int:
         """return total number of pages"""
 
     @abstractmethod
-    def load_page(self, page: Optional[int], per_page: int, desc: bool = True, feed: Optional[str] = None) -> List[Record]:
+    def load_page(self, page: Optional[int], per_page: int, desc: bool = True, feed: Optional[str] = None) -> List[
+        Record]:
         """return content of specific page as a list of Record instances"""

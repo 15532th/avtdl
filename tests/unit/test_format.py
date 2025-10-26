@@ -5,7 +5,8 @@ import pytest
 
 from avtdl.core.interfaces import TextRecord
 from avtdl.core.runtime import RuntimeContext
-from avtdl.plugins.filters.filters import EmptyFilterConfig, FormatFilter, FormatFilterEntity
+from avtdl.plugins.filters.filters import EmptyFilterConfig
+from avtdl.plugins.filters.format import FormatFilter, FormatFilterEntity
 
 
 class TestFormatFilter:
