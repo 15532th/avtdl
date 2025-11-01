@@ -472,23 +472,6 @@ class HttpClient:
     def cookie_jar(self) -> AbstractCookieJar:
         return self.session.cookie_jar
 
-    async def request(self, url: str,
-                      params: Optional[Dict[str, str]] = None,
-                      data: Optional[Any] = None,
-                      data_json: Optional[Any] = None,
-                      headers: Optional[Dict[str, Any]] = None,
-                      method: str = 'GET',
-                      state: EndpointState = EndpointState(),
-                      settings: RetrySettings = RetrySettings()) -> 'MaybeHttpResponse':
-        response: MaybeHttpResponse = NoResponse(self.logger, Exception('request_once was never called'), url)
-        next_try_delay = settings.retry_delay
-        for attempt in range(settings.retry_times + 1):
-            response = await self.request_once(url, params, data, data_json, headers, method, state)
-            if response is not None and response.ok:
-                break
-            next_try_delay *= settings.retry_multiplier
-        return response
-
     async def request_once(self, url: str,
                            params: Optional[Dict[str, str]] = None,
                            data: Optional[Any] = None,
@@ -532,7 +515,23 @@ class HttpClient:
                 f'Last-Modified={state.last_modified or "absent"}, ETAG={state.etag or "absent"}, Cache-control="{cache_control or "absent"}" for {client_response.real_url}')
 
         response = HttpResponse.from_response(client_response, text, state, logger)
+        return response
 
+    async def request(self, url: str,
+                      params: Optional[Dict[str, str]] = None,
+                      data: Optional[Any] = None,
+                      data_json: Optional[Any] = None,
+                      headers: Optional[Dict[str, Any]] = None,
+                      method: str = 'GET',
+                      state: EndpointState = EndpointState(),
+                      settings: RetrySettings = RetrySettings()) -> 'MaybeHttpResponse':
+        response: MaybeHttpResponse = NoResponse(self.logger, Exception('request_once was never called'), url)
+        next_try_delay = settings.retry_delay
+        for attempt in range(settings.retry_times + 1):
+            response = await self.request_once(url, params, data, data_json, headers, method, state)
+            if response is not None and response.ok:
+                break
+            next_try_delay *= settings.retry_multiplier
         return response
 
     async def request_text(self, url: str,
@@ -561,8 +560,7 @@ class HttpClient:
             return response.json()
         return None
 
-    async def request_endpoint(self, logger: logging.Logger,
-                               details: RequestDetails) -> MaybeHttpResponse:
+    async def request_endpoint(self, logger: logging.Logger, details: RequestDetails) -> MaybeHttpResponse:
         async with details.rate_limit:
             response = await self.request(url=details.url,
                                           params=details.params,
