@@ -104,7 +104,8 @@ class UrlMonitor(BaseFeedMonitor):
             if record.text_hash != stored_record.text_hash:
                 self.store_records([record], entity)
                 new_records.append(record)
-                self.logger.debug(f'[{entity.name}] storing new version of record "{record.get_uid()}" (hash: {record.hash()[:5]})')
+                self.logger.debug(
+                    f'[{entity.name}] storing new version of record "{record.get_uid()}" (hash: {record.hash()[:5]})')
             if not stored_record.ok:
                 if stored_record.status == 0:
                     if entity.report_network_error:
@@ -149,6 +150,7 @@ class UrlMonitor(BaseFeedMonitor):
         def make_event(condition: bool, msg: str) -> Callable[[UrlStatusRecord, UrlStatusRecord], Sequence[Event]]:
             def event_factory(*_) -> Sequence[Event]:
                 return [Event(event_type='status', text=msg)] if condition else []
+
             return event_factory
 
         class UrlStatus(str, Enum):
@@ -175,7 +177,8 @@ class UrlMonitor(BaseFeedMonitor):
         status = f'{record.status} {record.reason}'
         stored_status = f'{stored_record.status} {stored_record.reason}'
         # mapping of record state to stored_record state pairs to actions to be taken
-        actions: Dict[UrlStatus, Dict[UrlStatus, List[Callable[[UrlStatusRecord, UrlStatusRecord], Sequence[Record]]]]] = {
+        actions: Dict[
+            UrlStatus, Dict[UrlStatus, List[Callable[[UrlStatusRecord, UrlStatusRecord], Sequence[Record]]]]] = {
             UrlStatus.ok: {
                 UrlStatus.ok: [store_new],
                 UrlStatus.bad: [
@@ -226,4 +229,76 @@ class UrlMonitor(BaseFeedMonitor):
         new_records: List[Record] = []
         for action in action_sequence:
             new_records.extend(action(record, stored_record))
+        return new_records
+
+    def filter_single_record_b(self, record: UrlStatusRecord, entity: UrlMonitorEntity) -> Sequence[Record]:
+        new_records: List[Record] = []
+        stored_record = self.load_record(record, entity)
+        if stored_record is None:
+            self.logger.debug(
+                f'[{entity.name}] fetched record is new: "{record.get_uid()}" (hash: {record.hash()[:5]})')
+            return [record]
+        if not isinstance(stored_record, UrlStatusRecord):
+            self.logger.warning(f'[{entity.name} loaded record has unexpected type: {stored_record!r}')
+            return [record]
+
+        class UrlStatus(str, Enum):
+            ok = 'OK'
+            bad = 'BAD'
+            error = 'NETWORK ERROR'
+
+        def record_status(record: UrlStatusRecord) -> UrlStatus:
+            if record.ok:
+                return UrlStatus.ok
+            elif record.status == 0:
+                return UrlStatus.error
+            else:
+                return UrlStatus.bad
+
+        def add_event(condition: bool, msg: str):
+            if condition:
+                new_records.append(Event(event_type='status', text=msg))
+
+        status = f'{record.status} {record.reason}'
+        stored_status = f'{stored_record.status} {stored_record.reason}'
+
+        if record_status(record) == UrlStatus.ok:
+            if record.text_hash != stored_record.text_hash:
+                self.store_records([record], entity)
+                new_records.append(record)
+                self.logger.debug(
+                    f'[{entity.name}] storing new version of record "{record.get_uid()}" (hash: {record.hash()[:5]})')
+
+            if record_status(stored_record) == UrlStatus.ok:
+                pass
+            elif record_status(stored_record) == UrlStatus.bad:
+                add_event(entity.report_network_error,
+                          f'{record.url} is back online with {status} after network outage')
+            elif record_status(stored_record) == UrlStatus.error:
+                add_event(entity.report_server_error, f'{record.url} responded with {status} after {stored_status}')
+
+        elif record_status(record) == UrlStatus.bad:
+            record.text_hash = stored_record.text_hash
+
+            if record_status(stored_record) == UrlStatus.ok:
+                add_event(entity.report_server_error, f'{record.url} responded with {status} after {stored_status}')
+            elif record_status(stored_record) == UrlStatus.bad:
+                add_event(entity.report_server_error and record.status != stored_record.status,
+                          f'{record.url} responded with {status} after {stored_status}')
+            elif record_status(stored_record) == UrlStatus.error:
+                add_event(entity.report_network_error,
+                          f'{record.url} is back online with {status} after network outage'),
+                add_event(entity.report_server_error,
+                          f'{record.url} responded with {status} after network outage')
+
+        elif record_status(record) == UrlStatus.error:
+            record.text_hash = stored_record.text_hash
+
+            if record_status(stored_record) == UrlStatus.ok:
+                add_event(entity.report_network_error, f'got network error requesting {record.url}: {record.reason}')
+            elif record_status(stored_record) == UrlStatus.bad:
+                add_event(entity.report_network_error, f'got network error requesting {record.url}: {record.reason}')
+            elif record_status(stored_record) == UrlStatus.error:
+                pass
+
         return new_records
