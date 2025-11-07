@@ -13,7 +13,7 @@ from avtdl.core.plugins import Plugins
 from avtdl.core.request import DataResponse, HttpClient
 from avtdl.plugins.twitter.endpoints import LatestTimelineEndpoint, SearchQueryType, SearchTimelineEndpoint, \
     TimelineEndpoint, TwitterEndpoint, \
-    UserIDEndpoint, UserLikesEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint
+    UserIDEndpoint, UserTweetsEndpoint, UserTweetsRepliesEndpoint
 from avtdl.plugins.twitter.extractors import TwitterRecord, extract_contents, parse_tweet
 
 Plugins.register('twitter.user', Plugins.kind.ASSOCIATED_RECORD)(TwitterRecord)
@@ -131,7 +131,7 @@ class TwitterUserMonitorEntity(TwitterMonitorEntity):
     with_replies: bool = True
     """include replies by monitored user"""
     only_likes: bool = False
-    """monitor tweets liked by the user instead of user's own tweets"""
+    """user likes are long disabled and this option doesn't work"""
     user_id: Optional[str] = Field(exclude=True, default=None)
     """internal variable to persist state between updates. Used to cache user id for monitored user"""
 
@@ -152,9 +152,7 @@ class TwitterUserMonitor(TwitterMonitor):
 
     @staticmethod
     def _pick_endpoint(entity: TwitterUserMonitorEntity) -> type[TwitterEndpoint]:
-        if entity.only_likes:
-            return UserLikesEndpoint
-        elif entity.with_replies:
+        if entity.with_replies:
             return UserTweetsRepliesEndpoint
         else:
             return UserTweetsEndpoint

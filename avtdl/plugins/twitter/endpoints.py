@@ -30,7 +30,6 @@ class EndpointUrl:
     LATEST_TIMELINE = 'https://twitter.com/i/api/graphql/70b_oNkcK9IEN13WNZv8xA/HomeLatestTimeline'
     USER_TWEETS = 'https://twitter.com/i/api/graphql/piUHOePH_uDdwbD9GkquJA/UserTweets'
     USER_TWEETS_AND_REPLIES = 'https://twitter.com/i/api/graphql/KJiZSYLD2ijyHRBmgddo8Q/UserTweetsAndReplies'
-    USER_LIKES = 'https://twitter.com/i/api/graphql/W42Y54_EmIjbTEdg9mGLDQ/Likes'
     TWEET_DETAIL = 'https://twitter.com/i/api/graphql/F45teiuFI9MDxaS9UYKv-g/TweetDetail'
     USER_BY_SCREEN_NAME = 'https://twitter.com/i/api/graphql/qW5u-DAuXpMEG0zA1F7UGQ/UserByScreenName'
     AUDIOSPACE_BY_ID = 'https://twitter.com/i/api/graphql/d03OdorPdZ_sH9V3D1_yWQ/AudioSpaceById'
@@ -230,14 +229,6 @@ class UserTweetsRepliesEndpoint(UserTweetsEndpoint):
     @staticmethod
     def get_base_variables(is_continuation: bool = False):
         return {'includePromotedContent': True, 'withCommunity': True, 'withVoice': True, 'withV2Timeline': True}
-
-
-class UserLikesEndpoint(UserTweetsEndpoint):
-    URL = EndpointUrl.USER_LIKES
-
-    @staticmethod
-    def get_base_variables(is_continuation: bool = False):
-        return {'includePromotedContent': False, 'withClientEventToken': False, 'withBirdwatchNotes': False, 'withVoice': True, 'withV2Timeline': True}
 
 
 class SearchQueryType(str, enum.Enum):
