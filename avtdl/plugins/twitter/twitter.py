@@ -124,6 +124,7 @@ class TwitterHomeMonitor(TwitterMonitor):
         response = await self.request_endpoint(entity, client, request_details)
         return response.text if response is not None else None
 
+
 @Plugins.register('twitter.user', Plugins.kind.ACTOR_ENTITY)
 class TwitterUserMonitorEntity(TwitterMonitorEntity):
     user: str
@@ -160,7 +161,7 @@ class TwitterUserMonitor(TwitterMonitor):
     async def _get_user_id(self, entity: TwitterUserMonitorEntity, client: HttpClient) -> Optional[str]:
         if entity.user_id is None:
             request_details = UserIDEndpoint.prepare(entity.url, client.cookie_jar, entity.user)
-            response = await client.request_endpoint(self.logger, request_details)
+            response = await self.request_endpoint(entity, client, request_details)
             if not isinstance(response, DataResponse):
                 return None
             try:
