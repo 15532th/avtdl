@@ -182,6 +182,9 @@ class RplayMonitor(BaseFeedMonitor):
             return
         r = RplayUrl.bulkgetusers(creator_oids)
         response = await client.request(r.url, headers=r.headers, params=r.params)
+        if response.ok and not response.has_content:
+            self.logger.debug(f'[{entity.name}] got {response.status} updating nickname cache')
+            return
         if not response.has_json():
             self.logger.warning(f'[{entity.name}] failed to update nickname cache: failed to get users info. Raw response: {response!r}')
             return
