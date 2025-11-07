@@ -459,8 +459,7 @@ def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional
     else:
         if adjust_update_interval:
             new_update_interval = get_cache_ttl(headers) or base_update_interval
-            new_update_interval = min(new_update_interval, 10 * base_update_interval,
-                                      HIGHEST_UPDATE_INTERVAL)  # in case ttl is overly long
+            new_update_interval = min(new_update_interval, 10 * base_update_interval)  # in case ttl is overly long
             new_update_interval = max(new_update_interval, base_update_interval)
             if new_update_interval != current_update_interval:
                 logger.info(f'next update in {new_update_interval}')
