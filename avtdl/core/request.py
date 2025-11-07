@@ -19,6 +19,7 @@ import multidict
 from aiohttp.abc import AbstractCookieJar
 from multidict import CIMultiDictProxy
 
+from avtdl._version import __version__
 from avtdl.core.utils import JSONType, convert_cookiejar, load_cookies, timeit, utcnow
 
 HIGHEST_UPDATE_INTERVAL: float = 4000
@@ -166,6 +167,16 @@ def get_retry_after(headers: Union[Dict[str, str], multidict.CIMultiDictProxy[st
     except (TypeError, ValueError):
         pass
     return None
+
+
+def insert_useragent(headers: Optional[Dict[str, str]]) -> Optional[Dict[str, str]]:
+    if headers is None:
+        return None
+    if 'User-Agent' in headers:
+        return headers
+    headers = headers.copy()
+    headers['User-Agent'] = f'avtdl {__version__}'
+    return headers
 
 
 @dataclass
@@ -489,6 +500,7 @@ class HttpClient:
             request_headers['If-Modified-Since'] = state.last_modified
         if state.etag is not None:
             request_headers['If-None-Match'] = state.etag
+        request_headers = insert_useragent(request_headers)
         server_hostname = self.session.headers.get('Host') or request_headers.get('Host') or None
         try:
             async with self.session.request(method, url, headers=request_headers, params=params, data=data,

@@ -12,6 +12,7 @@ import aiohttp
 import multidict
 from pydantic import BaseModel
 
+from avtdl.core.request import insert_useragent
 from avtdl.core.utils import sha1
 
 CHUNK_SIZE = 1024 ** 3
@@ -52,6 +53,7 @@ def has_same_content(file1: Path, file2: Path) -> bool:
 
 async def download_file(url: str, path: Path, session: aiohttp.ClientSession, headers: Optional[Dict[str, Any]] = None, logger: Optional[logging.Logger] = None) -> Optional['RemoteFileInfo']:
     logger = logger or logging.getLogger('download')
+    headers = insert_useragent(headers)
     try:
         timeout = aiohttp.ClientTimeout(total=0, connect=60, sock_connect=60, sock_read=60)
         async with session.get(url, timeout=timeout, headers=headers) as response:
