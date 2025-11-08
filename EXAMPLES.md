@@ -591,7 +591,7 @@ Monitor tweets on the home timeline looking for Twitter Spaces, deduplicate cros
 
 Notifications are sent when a space gets scheduled or started, and when it ends. Here `emit_on_live` can be disabled because `emit_immediately` will take care of sending initial notification, and `emit_on_end` must be enabled to ensure a download will be initiated even for spaces without replay.
 
-`TwitterSpaceRecord`s with `state` field being "Ended", which means a corresponding Space has ended, are passed to `execute` plugin entity that uses [tslazer](https://github.com/HoloArchivists/tslazer) to download a recording. 
+`TwitterSpaceRecord`s with `state` field being "Ended", which means a corresponding Space has ended, are passed to `execute` plugin entity that uses yt-dlp to download a recording. 
 
 ```yaml
 actors:
@@ -631,8 +631,8 @@ actors:
 
   execute:
     entities:
-      - name: "tslazer"
-        command: "tslazer --dyn_url {media_url} --filename '[{username}] {title} [{uid}]'"
+      - name: "download space"
+        command: "yt-dlp --windows-filenames --downloader ffmpeg '{master_url}' --output '[{username}] {title} [{uid}].%(ext)s'"
         working_dir: "archive/spaces/{username}/"
 
 
@@ -658,7 +658,7 @@ chains:
     - filter.match:
       - "ended spaces"
     - execute:
-      - "tslazer"
+      - "download space"
 ```
 
 #### Monitor and download RPLAY livestreams
