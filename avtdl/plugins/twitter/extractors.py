@@ -4,7 +4,6 @@ import logging
 import re
 from textwrap import shorten
 from typing import Any, Dict, List, Optional, Tuple, Union
-from urllib.parse import urlparse, urlunparse
 
 import dateutil.parser
 from pydantic import BaseModel, ValidationError
@@ -489,23 +488,6 @@ def parse_media_url(data: dict) -> Optional[str]:
     return media_url
 
 
-def get_master_playlist_url(dynamic_playlist_url: str) -> Optional[str]:
-    """Infer master playlist url from dynamic playlist, return None if anything is wrong"""
-    try:
-        parts = urlparse(dynamic_playlist_url)
-    except Exception:
-        return None
-    path_parts = parts.path.rsplit('/', 1)
-    if not path_parts:
-        return None
-    if not path_parts[-1].lower().endswith(".m3u8"):
-        return None
-    path_parts[-1] = 'master_playlist.m3u8'
-    new_path = '/'.join(path_parts)
-
-    updated_parts = parts._replace(path=new_path, query="", fragment="")
-    return urlunparse(updated_parts)
-
 class TwitterSpaceRecord(Record):
     uid: str
     """space id"""
@@ -518,7 +500,7 @@ class TwitterSpaceRecord(Record):
     media_url: Optional[str] = None
     """link to the underlying HLS stream, when available"""
     master_url: Optional[str] = None
-    """link to the master playlist of the underlying HLS stream, inferred from the media_url when available"""
+    """link to the static playlist of the underlying HLS stream, retrieved from the master playlist when medial_url is available"""
     title: str
     """space title"""
     author: str
@@ -539,10 +521,6 @@ class TwitterSpaceRecord(Record):
     """timestamp of the last update"""
     recording_enabled: bool = False
     """whether host enabled recording of the space. When true, archive is likely to be available"""
-
-    def model_post_init(self, __context: Any) -> None:
-        if self.media_url is not None:
-            self.master_url = get_master_playlist_url(self.media_url)
 
     def __str__(self) -> str:
         header = f'[{self.published.strftime("%Y-%m-%d %H:%M:%S")}] Twitter Space by {self.author} (@{self.username}) [{self.state}]'

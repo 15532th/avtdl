@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import logging
+import re
 import urllib.parse
 from enum import Enum
 from typing import Callable, Optional, Sequence
@@ -144,6 +145,7 @@ class TwitterSpace(TaskAction):
             return
         info.set_status('initial update', space)
         space.media_url = await self.wait_for_any_url(logger, client, entity, space) or None
+        space.master_url = await get_static_playlist_url(client, space.media_url, logger)
         self.db.store_records([space], entity.name)
 
         done = handle_update_result(space)
@@ -171,12 +173,16 @@ class TwitterSpace(TaskAction):
 
             info.set_status('updating space status', space)
             old_media_url = space.media_url
+            old_master_url = space.master_url
+
             space = await self.fetch_space(logger, client, entity, space_id) or space
 
             if media_url:
                 space.media_url = media_url
+                space.master_url = await get_static_playlist_url(client, space.media_url, logger)
             else:
                 space.media_url = old_media_url
+                space.master_url = old_master_url
             self.db.store_records([space], entity.name)
 
             done = handle_update_result(space)
@@ -300,6 +306,53 @@ class TwitterSpace(TaskAction):
             logger.debug(f'failed to parse media url for {space.url}. Raw data: "{data}"')
             return None
         return media_url
+
+
+def replace_url_filename(url: str, new_name: str, strip_query: bool = True) -> str:
+    """Replace last element of url path with new_name"""
+    parts = urllib.parse.urlparse(url)
+    path_parts = parts.path.rsplit('/', 1)
+    if not path_parts:
+        raise ValueError(f'url has no path: {url}')
+    path_parts[-1] = new_name
+    new_path = '/'.join(path_parts)
+    new_query = parts.query if not strip_query else ""
+    updated_parts = parts._replace(path=new_path, query=new_query)
+    return urllib.parse.urlunparse(updated_parts)
+
+
+async def get_static_playlist_url(client: HttpClient, dynamic_playlist_url: Optional[str],
+                                  logger: Optional[logging.Logger] = None) -> Optional[str]:
+    """Fetch master playlist and infer latest static playlist url, return None if anything is wrong"""
+    if dynamic_playlist_url is None:
+        return None
+    logger = logger or logging.getLogger('get_static_playlist_url')
+    if re.findall(r'playlist_\d+\.m3u8', dynamic_playlist_url):
+        logger.debug(f'already a static playlist url: {dynamic_playlist_url}')
+        return dynamic_playlist_url
+    try:
+        master_playlist_url = replace_url_filename(dynamic_playlist_url, 'master_playlist.m3u8')
+    except Exception as e:
+        logger.warning(f'failed to update url "{dynamic_playlist_url}": {e}')
+        return None
+    master_playlist = await client.request_text(master_playlist_url)
+    if master_playlist is None:
+        return None
+    try:
+        static_path = master_playlist.strip().split('\n')[-1]
+        static_path_name = static_path.strip().split('/')[-1]
+    except Exception as e:
+        logger.warning(f'failed to extract filename from playlist at "{master_playlist_url}": {e}')
+        return None
+    if not static_path_name.lower().endswith('m3u8'):
+        logger.warning(f'unexpected playlist path: {static_path}')
+        return None
+    try:
+        static_playlist_url = replace_url_filename(master_playlist_url, static_path_name)
+    except Exception as e:
+        logger.warning(f'failed to update url "{master_playlist}" with {static_path_name}: {e}')
+        return None
+    return static_playlist_url
 
 
 def get_space_id(record: Record) -> Optional[str]:
