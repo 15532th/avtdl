@@ -1,7 +1,8 @@
 import datetime
 import json
+import logging
 from textwrap import shorten
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Tuple
 
 from dateutil import parser as dateutil_parser
 from pydantic import Field, PositiveFloat
@@ -11,7 +12,7 @@ from avtdl.core.config import Plugins
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import HttpTaskMonitor, HttpTaskMonitorEntity
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import JSONType
+from avtdl.core.utils import JSONType, with_prefix
 
 
 @Plugins.register('twitch', Plugins.kind.ASSOCIATED_RECORD)
@@ -25,7 +26,7 @@ class TwitchRecord(Record):
     """stream title"""
     start: datetime.datetime
     """timestamp of the stream start"""
-    avatar_url: str
+    avatar_url: Optional[str] = None
     """link to the user's avatar"""
     game: Optional[str] = None
     """game name, if present"""
@@ -81,26 +82,18 @@ class TwitchMonitor(HttpTaskMonitor):
         return [record] if record else []
 
     async def check_channel(self, entity: TwitchMonitorEntity, client: HttpClient) -> Optional[TwitchRecord]:
-        response = await self._get_channel_status(entity, client)
-        if response is None:
+        parser = Parse(with_prefix(self.logger, f'[{entity.name}] '))
+
+        body = OperationBody.use_live(entity.username)
+        response = await self._get_channel_status(entity, client, body)
+        stream_id, start = parser.use_live(response)
+        if stream_id is None:
+            self.logger.debug(f'[{entity.name}] user {entity.username} is not live')
             return None
-        try:
-            info: dict = response[0]['data']['user'] # type: ignore
-            avatar_url = info['profileImageURL']
-            title = info['lastBroadcast']['title']
-            stream_info = info['stream']
-            if stream_info is None:
-                self.logger.debug(f'[{entity.name}] user {entity.username} is not live')
-                return None
-            stream_id = stream_info['id']
-            start_text = stream_info['createdAt']
-            start = dateutil_parser.parse(start_text)
-            game_info = stream_info.get('game') or {}
-            game = game_info.get('name', None)
-        except (TypeError, IndexError, KeyError) as e:
-            self.logger.warning(f'[{entity.name}] failed to parse response: {type(e)} {e}')
-            self.logger.debug(f'[{entity.name}] raw response: {response}')
-            return None
+        body = OperationBody.use_live_broadcast(entity.username)
+        response = await self._get_channel_status(entity, client, body)
+        title, game = parser.use_live_broadcast(response)
+
         if stream_id == entity.most_recent_stream:
             self.logger.debug(f'[{entity.name}] user {entity.username} is live with stream {entity.most_recent_stream}, but record was already created')
             return None
@@ -108,11 +101,79 @@ class TwitchMonitor(HttpTaskMonitor):
         entity.most_recent_stream = stream_id
 
         channel_url = f'https://twitch.tv/{entity.username}/'
-        record = TwitchRecord(url=channel_url, username=entity.username, title=title, avatar_url=avatar_url, start=start, game=game)
+        record = TwitchRecord(url=channel_url, username=entity.username, title=title, avatar_url=None, start=start, game=game)
         return record
 
+    async def _get_channel_status(self, entity: TwitchMonitorEntity, client: HttpClient, body: JSONType) -> Optional[JSONType]:
+        api_url = 'https://gql.twitch.tv/gql'
+        headers = {'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko', 'Content-Type': 'application/json'}
+        data = await self.request_json(api_url, entity, client, method='POST', headers=headers, data=body)
+        return data
+
+
+class OperationBody:
+
     @staticmethod
-    def _prepare_body(username: str) -> str:
+    def channel_avatar(username: str) -> str:
+        body = [{
+            'operationName': 'ChannelAvatar',
+            'variables': {
+                'channelLogin': username,
+                'includeIsDJ': True
+            },
+            'extensions': {
+                'persistedQuery': {
+                    'version': 1,
+                    'sha256Hash': '12575ab92ea9444d8bade6de529b288a05073617f319c87078b3a89e74cd783a'
+                }
+            }
+        }]
+        return json.dumps(body)
+
+    @staticmethod
+    def use_live(username: str) -> str:
+        body = [{
+            'operationName': 'UseLive',
+            'variables': {'channelLogin': username},
+            'extensions': {
+                'persistedQuery': {
+                    'version': 1,
+                    'sha256Hash': '639d5f11bfb8bf3053b424d9ef650d04c4ebb7d94711d644afb08fe9a0fad5d9'
+                }
+            }
+        }]
+        return json.dumps(body)
+
+    @staticmethod
+    def use_live_broadcast(username: str) -> str:
+        body = [{
+            'operationName': 'UseLiveBroadcast',
+            'variables': {'channelLogin': username},
+            'extensions': {
+                'persistedQuery': {
+                    'version': 1,
+                    'sha256Hash': '0b47cc6d8c182acd2e78b81c8ba5414a5a38057f2089b1bbcfa6046aae248bd2'
+                }
+            }
+        }]
+        return json.dumps(body)
+
+    @staticmethod
+    def home_shelf_videos(username: str) -> str:
+        body = [{
+            'operationName': 'HomeShelfVideos',
+            'variables': {'channelLogin': username, 'first': 1},
+            'extensions': {
+                'persistedQuery': {
+                    'version': 1,
+                    'sha256Hash': '376aee6b71edb57fd47b3e3648eb9edbb6ab57bd7e65fe37ee93ae79d1ceb7cc'
+                }
+            }
+        }]
+        return json.dumps(body)
+
+    @staticmethod
+    def stream_metadata(username: str) -> str:
         body = [{
             'operationName': 'StreamMetadata',
             'variables': {'channelLogin': username},
@@ -125,9 +186,39 @@ class TwitchMonitor(HttpTaskMonitor):
         }]
         return json.dumps(body)
 
-    async def _get_channel_status(self, entity: TwitchMonitorEntity, client: HttpClient) -> Optional[JSONType]:
-        api_url = 'https://gql.twitch.tv/gql'
-        headers = {'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko', 'Content-Type': 'application/json'}
-        body = self._prepare_body(entity.username)
-        data = await self.request_json(api_url, entity, client, method='POST', headers=headers, data=body)
-        return data
+
+class Parse:
+
+    def __init__(self, logger: logging.Logger):
+        self.logger = logger
+
+    def use_live(self, response: JSONType) -> Tuple[Optional[str], Optional[datetime.datetime]]:
+        if response is None:
+            return None, None
+        try:
+            info: dict = response[0]['data']['user']  # type: ignore
+            stream_info = info['stream']
+            if stream_info is None:
+                return None, None
+            stream_id = stream_info['id']
+            start_text = stream_info['createdAt']
+            start = dateutil_parser.parse(start_text)
+        except (TypeError, IndexError, KeyError) as e:
+            self.logger.warning(f'failed to parse response: {type(e)} {e}')
+            self.logger.debug(f'raw response: {response}')
+            return None, None
+        return stream_id, start
+
+    def use_live_broadcast(self, response: JSONType) -> Tuple[Optional[str], Optional[str]]:
+        if response is None:
+            return None, None
+        try:
+            stream_info: dict = response[0]['data']['user']['lastBroadcast']  # type: ignore
+            title = str(stream_info['title'])
+            game_info = stream_info.get('game') or {}
+            game = game_info.get('name', None)
+        except (TypeError, IndexError, KeyError) as e:
+            self.logger.warning(f'failed to parse response: {type(e)} {e}')
+            self.logger.debug(f'raw response: {response}')
+            return None, None
+        return title, game
