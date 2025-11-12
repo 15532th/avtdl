@@ -777,6 +777,8 @@ Records that match the filter get passed to the `withny.live` action, that waits
 
 If the `withny.live` action was unable to retrieve the playlist url, an event is generated and passed down the chain instead of the record. Note how the entity of the `execute` plugin has the "event_passthrough" option enabled to skip processing them. The events are then written to a text file by the "failed withny streams" entity of the `to_file` plugin.
 
+Currently the site rejects requests to API endpoints made with the "User-Agent" header not matching that of a know browser, so suitable value must be provided with the `headers` option of every entity of `withny` and `withny.live` plugins. The HLS playlist urls, passed to the entity of the `execute` plugin running yt-dlp, require appropriate "Origin" and "Referer" headers, but not the "User-Agent".
+
 ```yaml
 actors:
 
@@ -786,6 +788,8 @@ actors:
         update_interval: 180
         update_ratio: 4
         quiet_first_time: false
+        headers:
+          User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
 
   filter.match:
     entities:
@@ -805,6 +809,8 @@ actors:
     entities:
       - name: "streams"
         cookies_file: "cookies.txt"
+        headers:
+          User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
 
   execute:
     entities:
