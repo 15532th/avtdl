@@ -515,8 +515,9 @@ class HttpClient:
         if not client_response.ok:
             logger.warning(
                 f'got code {client_response.status} ({client_response.reason or "No reason"}) while fetching {url}')
-            if text:
-                logger.debug(f'response body: "{text}"')
+            logger.debug(f'request headers: "{client_response.request_info.headers}"')
+            logger.debug(f'response headers: "{client_response.headers}"')
+            logger.debug(f'response body: "{text}"')
         elif client_response.status != 304:
             # some servers do not have cache headers in 304 response, so only updating on 200
             state.update(client_response.headers)
