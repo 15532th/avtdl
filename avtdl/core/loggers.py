@@ -68,7 +68,7 @@ class LoggingConfig:
         cls.file_handler = handler
         if cls.file_handler is not None:
             logger.addHandler(cls.file_handler)
-            logging.info(f'writing verbose log to file {path.absolute()}')
+            logging.info(f'writing verbose log to file {(path / name).absolute()}')
 
     @classmethod
     def setup_webserver_logger(cls, path: Path, name: str, max_size, level: LogLevel):
@@ -82,7 +82,7 @@ class LoggingConfig:
             return
         logger.addHandler(cls.access_handler)
         logger.propagate = False
-        logging.info(f'writing access log to file {path.absolute()}')
+        logging.info(f'writing access log to file {(path / name).absolute()}')
 
 
 def setup_console_logger(level):
