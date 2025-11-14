@@ -216,7 +216,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
     async def request_endpoint(self, entity: HttpTaskMonitorEntity,
                                client: HttpClient,
-                               request_details: RequestDetails) -> Optional[MaybeHttpResponse]:
+                               request_details: RequestDetails) -> MaybeHttpResponse:
 
         additional_headers = load_headers(entity.headers_file, with_prefix(self.logger, f'[{entity.name}]'))
         if additional_headers is not None:
