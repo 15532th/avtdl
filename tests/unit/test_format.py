@@ -78,3 +78,18 @@ class TestFormatFilter:
         result = fmt.match(entity, text_record)
 
         assert result.text == f'[{now.year}-{now.month:02}-{now.day:02}] test text message'
+
+    def test_output_format_text_is_shadowed(self, text_record):
+        fmt, entity = self.prepare_filter('*** {text} ***')
+        result = fmt.match(entity, text_record)
+        assert result.text == '*** test text message ***'
+
+    def test_output_format_short(self, text_record):
+        fmt, entity = self.prepare_filter('*** {short} ***')
+        result = fmt.match(entity, text_record)
+        assert result.text == '*** TextRecord("test text message") ***'
+
+    def test_output_format_json(self, text_record):
+        fmt, entity = self.prepare_filter('*** {json} ***')
+        result = fmt.match(entity, text_record)
+        assert result.text == '*** {"text": "test text message"} ***'

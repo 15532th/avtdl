@@ -589,6 +589,8 @@ Allows populating a predefined text string with values of current record fields.
 
 Formatting is performed by taking any text enclosed in `{}` and, if it contains a name of field of the currently processed record, replacing it with the value of the field.
 
+Special values listed in the `output_format` option of the [to_file](PLUGINS.md#tofile---write-record-to-a-text-file) plugin entity can be used to replace placeholder with text representation of the record in specified format. Record's own field with the same name takes precedence over special value, notable for the "text" field of TextRecord.
+
 Additionally, any use of %-encoded format codes specified in https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes in the template string will be replaced with current time formatted accordingly.
 
 For example, the following config snippet uses a template to output each processed record to a separate file, with the record's `post_id` field preceded by current date used as the file name.

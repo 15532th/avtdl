@@ -168,6 +168,10 @@ class OutputFormat(str, Enum):
     pretty_json = 'pretty_json'
     hash = 'hash'
 
+    @classmethod
+    def contains(cls, item) -> bool:
+        return item in cls.__members__.values()
+
 
 class Fmt:
     """Helper class to interpolate format string from config using data from Record"""
@@ -184,7 +188,11 @@ class Fmt:
         placeholders: List[str] = re.findall(r'({[^{}\\]+})', fmt)
         for placeholder in placeholders:
             field = placeholder.strip('{}')
+
             value = record_as_dict.get(field)
+            if value is None and OutputFormat.contains(field):
+                value = cls.save_as(record, field)  # type: ignore
+
             if value is not None:
                 value = cls.format_value(value, sanitize)
                 result = result.replace(placeholder, value)
