@@ -105,7 +105,6 @@ class TwitterSpace(TaskAction):
                 if space.media_url is not None and StreamUrlType.is_replay(space.media_url):
                     self.on_record(entity, space)
                     should_emit_replay_url = False
-                    should_emit_on_end = False
                     should_emit_live_url = False
                     should_emit_something = False
                     logger.debug(f'task emit_on_archive successfully completed for {space.url}')
