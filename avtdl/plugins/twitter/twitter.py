@@ -83,9 +83,10 @@ class TwitterMonitor(PagedFeedMonitor):
             return [], None
         await asyncio.sleep(0)
         records = []
+        empty = 0
         for tweet_result in raw_tweets:
             if not tweet_result:
-                self.logger.warning(f'error parsing tweet: tweet result is empty')
+                empty += 1
                 continue
             try:
                 record = parse_tweet(tweet_result)
@@ -95,6 +96,11 @@ class TwitterMonitor(PagedFeedMonitor):
                 self.logger.debug(f'raw tweet_result: {tweet_result}')
             else:
                 records.append(record)
+
+        if empty == 1:
+            self.logger.debug(f'skipping empty tweet result')
+        elif empty > 1:
+            self.logger.warning(f'got {empty} empty tweet results')
         if not records:
             self.logger.warning(f'no records on page')
             self.logger.debug(f'raw page: {page}')
