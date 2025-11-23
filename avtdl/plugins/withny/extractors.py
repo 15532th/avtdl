@@ -102,7 +102,7 @@ class Cast:
     @classmethod
     def from_cast_data(cls, data: dict) -> 'Cast':
         try:
-            info = data['agencySecret']
+            info = data['user']
             return cls(
                 username=info['username'],
                 name=info['name'],
@@ -125,6 +125,7 @@ class Cast:
             )
         except (TypeError, KeyError, ValueError) as e:
             raise ValueError(f'failed to parse owner info: {type(e)} {e}') from e
+
 
 def parse_live_record(data: dict, cast: Optional[Cast] = None) -> WithnyRecord:
     if cast is None:
