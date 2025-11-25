@@ -12,6 +12,7 @@ from email.utils import parsedate_to_datetime
 from http.cookies import SimpleCookie
 from math import log2
 from pathlib import Path
+from textwrap import shorten
 from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import aiohttp
@@ -440,9 +441,10 @@ def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional
                               adjust_update_interval: bool = True) -> float:
     update_interval: float
 
+    truncated_url = shorten(url, 256, break_long_words=True)
     if status is None or headers is None:  # response hasn't completed due to network error
         update_interval = max(Delay.get_next(current_update_interval), current_update_interval)
-        logger.warning(f'update interval set to {update_interval} seconds for {url}')
+        logger.warning(f'update interval set to {update_interval} seconds for {truncated_url}')
         return update_interval
 
     retry_after = get_retry_after(headers)
@@ -452,10 +454,10 @@ def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional
         update_interval = min(float(retry_after), HIGHEST_UPDATE_INTERVAL)
         if update_interval < base_update_interval:
             update_interval = base_update_interval
-        logger.warning(f'update interval set to {update_interval} seconds for {url} as requested by Retry-After')
+        logger.warning(f'update interval set to {update_interval} seconds for {truncated_url} as requested by Retry-After')
     elif status >= 400:
         update_interval = max(Delay.get_next(current_update_interval), current_update_interval)
-        logger.warning(f'update interval set to {update_interval} seconds for {url}')
+        logger.warning(f'update interval set to {update_interval} seconds for {truncated_url}')
     else:
         if adjust_update_interval:
             new_update_interval = get_cache_ttl(headers) or base_update_interval
@@ -466,7 +468,7 @@ def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional
             update_interval = new_update_interval
         else:
             if current_update_interval != base_update_interval:
-                logger.info(f'restoring update interval {base_update_interval} seconds for {url}')
+                logger.info(f'restoring update interval {base_update_interval} seconds for {truncated_url}')
             update_interval = base_update_interval
 
     return update_interval
