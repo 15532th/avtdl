@@ -9,10 +9,9 @@ import urllib.parse
 from pathlib import Path
 from typing import Any, Iterable, List, Optional
 
-from avtdl.core.download import download_file
 from avtdl.core.formatters import sanitize_filename
 from avtdl.core.interfaces import Record
-from avtdl.core.request import HttpClient
+from avtdl.core.request import HttpClient, download_file
 
 
 def find_file(path: Path) -> List[Path]:

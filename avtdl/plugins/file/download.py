@@ -11,11 +11,10 @@ from pydantic import AnyUrl, Field, NonNegativeFloat, RootModel, ValidationError
 from avtdl.core.actions import QueueAction, QueueActionConfig, QueueActionEntity
 from avtdl.core.cache import FileCache, find_free_suffix, find_with_suffix
 from avtdl.core.config import SettingsSection
-from avtdl.core.download import RemoteFileInfo, download_file, has_same_content, remove_files
 from avtdl.core.formatters import Fmt, sanitize_filename
 from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import HttpClient
+from avtdl.core.request import CHUNK_SIZE, HttpClient, RemoteFileInfo, download_file
 from avtdl.core.runtime import RuntimeContext
 from avtdl.core.utils import check_dir, is_url, sha1
 
@@ -189,6 +188,29 @@ class FileDownload(QueueAction):
         return await download(self.concurrency_limit, logger, client, url, output_file)
 
 
+def has_same_content(file1: Path, file2: Path) -> bool:
+    """return True if file1 and file2 are both files and have the same content"""
+    try:
+        if not file1.exists() or not file2.exists():
+            return False
+        if file1.is_dir() or file2.is_dir():
+            return False
+        if file1.lstat().st_size != file2.lstat().st_size:
+            return False
+        with (file1.open('rb') as fp1, file2.open('rb') as fp2):
+            while True:
+                chunk1 = fp1.read(CHUNK_SIZE)
+                chunk2 = fp2.read(CHUNK_SIZE)
+                if chunk1 != chunk2:
+                    return False
+                elif chunk1 and chunk2:
+                    continue
+                else:
+                    return True
+    except OSError:
+        return False
+
+
 async def download(semaphore: asyncio.BoundedSemaphore, logger: logging.Logger, client: HttpClient,
                    url: str, output_file: Path) -> Optional[RemoteFileInfo]:
     try:
@@ -223,6 +245,16 @@ def move_file(source: Path, target: Path, logger: logging.Logger) -> bool:
         message = f'failed to move file "{source}" to desired location "{target}": {e}'
         logger.warning(message)
         return False
+
+
+def remove_files(files: Sequence[Path]):
+    for file in files:
+        if not file.exists():
+            continue
+        try:
+            os.remove(file)
+        except OSError as e:
+            logging.getLogger('download').debug(f'failed to delete "{file}": {e}')
 
 
 @Plugins.register('cache', Plugins.kind.ACTOR_CONFIG)
