@@ -14,7 +14,7 @@ from avtdl.core.config import SettingsSection
 from avtdl.core.formatters import Fmt, sanitize_filename
 from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import CHUNK_SIZE, HttpClient, RemoteFileInfo, download_file
+from avtdl.core.request import CHUNK_SIZE, HttpClient, RemoteFileInfo
 from avtdl.core.runtime import RuntimeContext
 from avtdl.core.utils import check_dir, is_url, sha1
 
@@ -185,7 +185,16 @@ class FileDownload(QueueAction):
     async def download(self, logger: logging.Logger, client: HttpClient,
                        url: str, output_file: Path) -> Optional[RemoteFileInfo]:
         """Perform the actual download"""
-        return await download(self.concurrency_limit, logger, client, url, output_file)
+        semaphore = self.concurrency_limit
+        try:
+            async with semaphore:
+                logger.debug(f'acquired semaphore({semaphore._value}), downloading "{url}" to "{output_file}"')
+                info = await client.download_file(output_file, url)
+        except Exception as e:
+            logger.exception(f'unexpected error when downloading "{url}" to "{output_file}": {e}')
+            return None
+        logger.debug(f'finished downloading "{url}" to "{output_file}", semaphore({semaphore._value}) released')
+        return info
 
 
 def has_same_content(file1: Path, file2: Path) -> bool:
@@ -209,21 +218,6 @@ def has_same_content(file1: Path, file2: Path) -> bool:
                     return True
     except OSError:
         return False
-
-
-async def download(semaphore: asyncio.BoundedSemaphore, logger: logging.Logger, client: HttpClient,
-                   url: str, output_file: Path) -> Optional[RemoteFileInfo]:
-    try:
-        async with semaphore:
-            logger.debug(
-                f'acquired semaphore({semaphore._value}), downloading "{url}" to "{output_file}"')
-            info = await download_file(url, output_file, client.session)
-    except Exception as e:
-        logger.exception(f'unexpected error when downloading "{url}" to "{output_file}": {e}')
-        return None
-    logger.debug(
-        f'finished downloading "{url}" to "{output_file}", semaphore({semaphore._value}) released')
-    return info
 
 
 class UrlList(RootModel):

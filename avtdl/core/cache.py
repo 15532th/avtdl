@@ -11,7 +11,7 @@ from typing import Any, Iterable, List, Optional
 
 from avtdl.core.formatters import sanitize_filename
 from avtdl.core.interfaces import Record
-from avtdl.core.request import HttpClient, download_file
+from avtdl.core.request import HttpClient
 
 
 def find_file(path: Path) -> List[Path]:
@@ -172,7 +172,7 @@ class FileCache:
     async def _download_file(self, logger: logging.Logger, client: HttpClient, url: str, path: Path) -> Optional[Path]:
         """download file from given url, store to path, return path if successful"""
         temp_path = path.with_name(path.name + self.partial_file_suffix)
-        info = await download_file(url, temp_path, client.session, logger=logger)
+        info = await client.download_file(temp_path, url)
         if info is None:
             return None
         final_path = temp_path.with_suffix(info.extension)

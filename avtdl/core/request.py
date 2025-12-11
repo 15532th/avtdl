@@ -28,6 +28,8 @@ from avtdl.core.utils import JSONType, convert_cookiejar, load_cookies, timeit, 
 
 HIGHEST_UPDATE_INTERVAL: float = 4000
 
+CHUNK_SIZE = 1024 ** 3
+
 
 @dataclass
 class RetrySettings:
@@ -477,6 +479,73 @@ def decide_on_update_interval(logger: logging.Logger, url: str, status: Optional
     return update_interval
 
 
+class RemoteFileInfo(BaseModel):
+    url: str
+    source_name: str
+    extension: str = ''
+    content_length: Optional[int] = None
+    response_headers: dict
+
+    @classmethod
+    def from_url_response(cls, url: str, headers: multidict.CIMultiDictProxy) -> 'RemoteFileInfo':
+        size = headers.get('Content-Length')
+        filename = cls.extract_filename(url, headers)
+        if filename is None:
+            name, extension = '', ''
+        else:
+            name, extension = filename.stem, filename.suffix
+        return cls(url=url, content_length=size, source_name=name, extension=extension, response_headers=dict(headers))
+
+    @classmethod
+    def extract_filename(cls, url: str, headers: multidict.CIMultiDictProxy) -> Optional[Path]:
+        filename = cls._get_filename_from_headers(headers) or cls._get_filename_from_url(url)
+        if filename is not None and not filename.suffix:
+            extension = cls._get_mime_extension(headers)
+            if extension is not None:
+                filename = filename.with_suffix(extension)
+        return filename
+
+    @staticmethod
+    def _get_filename_from_headers(headers: multidict.CIMultiDictProxy) -> Optional[Path]:
+        """get filename from Content-Disposition, with or without extension"""
+        content_disposition = headers.get('Content-Disposition') or ''
+        email = EmailMessage()
+        email.add_header('Content-Disposition', content_disposition)
+        name = email.get_filename()
+        if name is not None:
+            filename = Path(name)
+            filename = Path(filename.name)
+            return filename
+        else:
+            return None
+
+    @staticmethod
+    def _get_filename_from_url(url: str) -> Optional[Path]:
+        """try extracting filename part from the url"""
+        try:
+            path = urllib.parse.urlparse(url).path
+            if not path:
+                return None
+            path = urllib.parse.unquote_plus(path)
+            filename = Path(path)
+            if not filename.name:
+                return None
+            filename = Path(filename.name)
+            return filename
+        except Exception as e:
+            return None
+
+    @staticmethod
+    def _get_mime_extension(headers: multidict.CIMultiDictProxy) -> Optional[str]:
+        """return file extension deduced from Content-Type header"""
+        mime_extension = None
+        content_type = headers.get('Content-Type')
+        if content_type is not None:
+            extension = mimetypes.guess_extension(content_type, strict=False)
+            if extension and extension.startswith('.'):
+                mime_extension = extension
+        return mime_extension
+
 class HttpClient:
 
     def __init__(self, logger: logging.Logger, session: aiohttp.ClientSession):
@@ -590,6 +659,33 @@ class HttpClient:
             details.rate_limit.submit_response(response, logger)
         return response
 
+    async def download_file(self, path: Path,
+                            url: str,
+                            params: Optional[Dict[str, str]] = None,
+                            data: Optional[Any] = None,
+                            data_json: Optional[Any] = None,
+                            headers: Optional[Dict[str, Any]] = None,
+                            method: str = 'GET') -> Optional['RemoteFileInfo']:
+        headers = insert_useragent(headers)
+        try:
+            timeout = aiohttp.ClientTimeout(total=0, connect=60, sock_connect=60, sock_read=60)
+            async with self.session.request(method, url,
+                                            params=params, data=data, data_json=data_json,
+                                            timeout=timeout, headers=headers) as response:
+                response.raise_for_status()
+                remote_info = RemoteFileInfo.from_url_response(url, response.headers)
+                self.logger.debug(f'downloading {str(remote_info.content_length) + " bytes" or ""} from "{url}"')
+                with open(path, 'w+b') as fp:
+                    async for data in response.content.iter_chunked(CHUNK_SIZE):
+                        fp.write(data)
+        except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as e:
+            self.logger.warning(f'failed to download "{url}": {type(e)} {e}')
+            return None
+        except Exception as e:
+            self.logger.exception(f'failed to download "{url}": {e}')
+            return None
+        return remote_info
+
 
 class SessionStorage:
     """
@@ -646,95 +742,3 @@ class SessionStorage:
                 self.logger.debug(f'closing session "{session_id}"')
                 await session.close()
         self.logger.debug('done')
-
-
-CHUNK_SIZE = 1024 ** 3
-
-
-async def download_file(url: str, path: Path, session: aiohttp.ClientSession, headers: Optional[Dict[str, Any]] = None, logger: Optional[logging.Logger] = None) -> Optional['RemoteFileInfo']:
-    logger = logger or logging.getLogger('download')
-    headers = insert_useragent(headers)
-    try:
-        timeout = aiohttp.ClientTimeout(total=0, connect=60, sock_connect=60, sock_read=60)
-        async with session.get(url, timeout=timeout, headers=headers) as response:
-            response.raise_for_status()
-            remote_info = RemoteFileInfo.from_url_response(url, response.headers)
-            logger.debug(f'downloading {str(remote_info.content_length) + " bytes" or ""} from "{url}"')
-            with open(path, 'w+b') as fp:
-                async for data in response.content.iter_chunked(CHUNK_SIZE):
-                    fp.write(data)
-    except (OSError, asyncio.TimeoutError, aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as e:
-        logger.warning(f'failed to download "{url}": {type(e)} {e}')
-        return None
-    except Exception as e:
-        logger.exception(f'failed to download "{url}": {e}')
-        return None
-    return remote_info
-
-
-class RemoteFileInfo(BaseModel):
-    url: str
-    source_name: str
-    extension: str = ''
-    content_length: Optional[int] = None
-    response_headers: dict
-
-    @classmethod
-    def from_url_response(cls, url: str, headers: multidict.CIMultiDictProxy) -> 'RemoteFileInfo':
-        size = headers.get('Content-Length')
-        filename = cls.extract_filename(url, headers)
-        if filename is None:
-            name, extension = '', ''
-        else:
-            name, extension = filename.stem, filename.suffix
-        return cls(url=url, content_length=size, source_name=name, extension=extension, response_headers=dict(headers))
-
-    @classmethod
-    def extract_filename(cls, url: str, headers: multidict.CIMultiDictProxy) -> Optional[Path]:
-        filename = cls._get_filename_from_headers(headers) or cls._get_filename_from_url(url)
-        if filename is not None and not filename.suffix:
-            extension = cls._get_mime_extension(headers)
-            if extension is not None:
-                filename = filename.with_suffix(extension)
-        return filename
-
-    @staticmethod
-    def _get_filename_from_headers(headers: multidict.CIMultiDictProxy) -> Optional[Path]:
-        """get filename from Content-Disposition, with or without extension"""
-        content_disposition = headers.get('Content-Disposition') or ''
-        email = EmailMessage()
-        email.add_header('Content-Disposition', content_disposition)
-        name = email.get_filename()
-        if name is not None:
-            filename = Path(name)
-            filename = Path(filename.name)
-            return filename
-        else:
-            return None
-
-    @staticmethod
-    def _get_filename_from_url(url: str) -> Optional[Path]:
-        """try extracting filename part from the url"""
-        try:
-            path = urllib.parse.urlparse(url).path
-            if not path:
-                return None
-            path = urllib.parse.unquote_plus(path)
-            filename = Path(path)
-            if not filename.name:
-                return None
-            filename = Path(filename.name)
-            return filename
-        except Exception as e:
-            return None
-
-    @staticmethod
-    def _get_mime_extension(headers: multidict.CIMultiDictProxy) -> Optional[str]:
-        """return file extension deduced from Content-Type header"""
-        mime_extension = None
-        content_type = headers.get('Content-Type')
-        if content_type is not None:
-            extension = mimetypes.guess_extension(content_type, strict=False)
-            if extension and extension.startswith('.'):
-                mime_extension = extension
-        return mime_extension
