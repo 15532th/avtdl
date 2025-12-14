@@ -689,10 +689,7 @@ class HttpClient:
 
 class ClientPool:
     """
-    Store and reuse instances HttpClient and associated SessionStorage
-
-    Aims to wrap and replaces SessionStorage in order to provide abstract interface
-    for multiple network transports
+    Store and reuse HttpClient instances and manage associated sessions livecycle
     """
 
     def __init__(self, logger: Optional[logging.Logger] = None) -> None:
@@ -727,6 +724,7 @@ class ClientPool:
 
     def get_client(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None,
                      name: str = '', logger: Optional[logging.Logger] = None) -> HttpClient:
+        """return new or cached HttpClient instance"""
         client_id = self.get_client_id(cookies_file, headers, name, logger)
         if client_id in self.clients:
             return self.clients[client_id]
@@ -736,13 +734,8 @@ class ClientPool:
         self.clients[client_id] = client
         return client
 
-    async def ensure_closed(self) -> None:
-        try:
-            await asyncio.Future()
-        except (asyncio.CancelledError, KeyboardInterrupt):
-            await self.close()
-
     async def close(self) -> None:
+        """close sessions for all cached clients"""
         self.logger.debug('closing http sessions...')
         for session_id, session in self.sessions.items():
             if not session.closed:
@@ -750,3 +743,8 @@ class ClientPool:
                 await session.close()
         self.logger.debug('done')
 
+    async def ensure_closed(self) -> None:
+        try:
+            await asyncio.Future()
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            await self.close()
