@@ -687,63 +687,6 @@ class HttpClient:
         return remote_info
 
 
-class SessionStorage:
-    """
-    Provide way to initialize, store and reuse ClientSession objects
-
-    The "name" parameter can be used to get distinct sessions
-    with the same cookies and headers.
-
-    To ensure sessions shared between multiple tasks are safely closed,
-    user must call SessionStorage.run() once from a running event loop
-    and should not use "async with" on any of the session objects, as it
-    might cause the session to be closed prematurely, making other tasks
-    using it fail.
-    """
-
-    def __init__(self, logger: Optional[logging.Logger] = None) -> None:
-        self.sessions: Dict[str, aiohttp.ClientSession] = {}
-        self.task: Optional[asyncio.Task] = None
-        self.logger = (logger or logging.getLogger()).getChild('sessions')
-
-    @staticmethod
-    def get_session_id(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]], name: str = '') -> str:
-        return name + str((cookies_file, headers))
-
-    def get_session_by_id(self, session_id: str) -> Optional[aiohttp.ClientSession]:
-        return self.sessions.get(session_id)
-
-    def session_exists(self, cookies_file: Optional[Path], headers: Optional[Dict[str, Any]], name: str = '') -> bool:
-        session_id = self.get_session_id(cookies_file, headers, name)
-        session = self.get_session_by_id(session_id)
-        return session is not None
-
-    def get_session(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None,
-                    name: str = '') -> aiohttp.ClientSession:
-        session_id = self.get_session_id(cookies_file, headers, name)
-        session = self.get_session_by_id(session_id)
-        if session is None:
-            netscape_cookies = load_cookies(cookies_file)
-            cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
-            session = aiohttp.ClientSession(cookie_jar=cookies, headers=headers)
-            self.sessions[session_id] = session
-        return session
-
-    async def ensure_closed(self) -> None:
-        try:
-            await asyncio.Future()
-        except (asyncio.CancelledError, KeyboardInterrupt):
-            await self.close()
-
-    async def close(self) -> None:
-        self.logger.debug('closing http sessions...')
-        for session_id, session in self.sessions.items():
-            if not session.closed:
-                self.logger.debug(f'closing session "{session_id}"')
-                await session.close()
-        self.logger.debug('done')
-
-
 class ClientPool:
     """
     Store and reuse instances HttpClient and associated SessionStorage
