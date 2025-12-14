@@ -25,7 +25,8 @@ from multidict import CIMultiDictProxy
 from pydantic import BaseModel
 
 from avtdl._version import __version__
-from avtdl.core.utils import JSONType, convert_cookiejar, load_cookies, timeit, utcnow
+from avtdl.core.cookies import convert_cookiejar, load_cookies
+from avtdl.core.utils import JSONType, timeit, utcnow
 
 HIGHEST_UPDATE_INTERVAL: float = 4000
 

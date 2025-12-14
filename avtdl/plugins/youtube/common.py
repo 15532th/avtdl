@@ -15,8 +15,9 @@ import lxml.html
 from aiohttp import CookieJar
 from pydantic import BaseModel
 
+from avtdl.core.cookies import get_cookie_value
 from avtdl.core.request import HttpClient
-from avtdl.core.utils import find_one, get_cookie_value
+from avtdl.core.utils import find_one
 
 
 def get_initial_data(page: str) -> dict:
