@@ -13,7 +13,7 @@ from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_val
 from avtdl.core.actors import ActorConfig, Monitor, MonitorEntity
 from avtdl.core.db import BaseDbConfig, RecordDB, RecordDbView
 from avtdl.core.interfaces import AbstractRecordsStorage, Record, utcnow
-from avtdl.core.request import ClientPool, HttpClient, MaybeHttpResponse, RequestDetails, StateStorage
+from avtdl.core.request import ClientPool, HttpClient, MaybeHttpResponse, RequestDetails, StateStorage, Transport
 from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.utils import JSONType, load_cookies, show_diff, with_prefix
 
@@ -123,6 +123,8 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
     it gets read from disk on every request. Files with `.json` extension are parsed in
     JSON format (must contain a single top-level object), other extensions are treated as 
     plaintext and expected to have one `key: value` pair per line"""
+    transport: Transport = Transport.AIOHTTP
+    """HTTP transport library to use for making requests"""
 
     adjust_update_interval: bool = True
     """change delay before the next update based on response headers. This setting doesn't affect timeouts after failed requests"""
@@ -245,7 +247,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
     def _get_client(self, entity: HttpTaskMonitorEntity) -> HttpClient:
         logger = self._get_logger(entity)
-        client = self.clients.get_client(entity.cookies_file, entity.headers, logger=logger)
+        client = self.clients.get_client(entity.cookies_file, entity.headers, logger=logger, transport=entity.transport)
         return client
 
     async def run(self):

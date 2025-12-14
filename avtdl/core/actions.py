@@ -11,7 +11,7 @@ from avtdl.core.actors import Action, ActionEntity, ActorConfig
 from avtdl.core.config import SettingsSection
 from avtdl.core.formatters import sanitize_filename
 from avtdl.core.interfaces import Record
-from avtdl.core.request import ClientPool, HttpClient
+from avtdl.core.request import ClientPool, HttpClient, Transport
 from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.state import StateSerializer
 from avtdl.core.utils import ListRootModel, check_dir, with_prefix
@@ -26,6 +26,8 @@ class HttpActionEntity(ActionEntity):
     """path to a text file containing cookies in Netscape format"""
     headers: Optional[Dict[str, str]] = {}
     """custom HTTP headers as pairs "key": value". "Set-Cookie" header will be ignored, use `cookies_file` option instead"""
+    transport: Transport = Transport.AIOHTTP
+    """HTTP transport library to use for making requests"""
 
 
 class HttpAction(Action, ABC):
@@ -48,7 +50,7 @@ class HttpAction(Action, ABC):
     def get_client(self, entity: HttpActionEntity) -> HttpClient:
         """provide  HttpClient instance for entity task to make network requests"""
         logger = with_prefix(self.logger, f'[{entity.name}] ')
-        client = self.clients.get_client(entity.cookies_file, entity.headers, logger=logger)
+        client = self.clients.get_client(entity.cookies_file, entity.headers, logger=logger, transport=entity.transport)
         return client
 
 

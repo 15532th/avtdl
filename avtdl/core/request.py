@@ -11,6 +11,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from email.message import EmailMessage
 from email.utils import parsedate_to_datetime
+from enum import Enum
 from http.cookies import SimpleCookie
 from math import log2
 from pathlib import Path
@@ -701,6 +702,20 @@ class HttpClient:
         return remote_info
 
 
+class Transport(str, Enum):
+    AIOHTTP = 'aiohttp'
+    CURL_FFI = 'curl_ffi'
+
+    @classmethod
+    def get_implementation(cls, name: 'Transport') -> type[HttpClient]:
+        if name == cls.AIOHTTP:
+            return HttpClient
+        elif name == cls.CURL_FFI:
+            return HttpClient
+        else:
+            raise NotImplementedError(f'unknown transport: "{name}"')
+
+
 class ClientPool:
     """
     Store and reuse HttpClient instances and manage associated sessions livecycle
@@ -722,8 +737,10 @@ class ClientPool:
         """Return cached client instance if present"""
         return self.clients.get(client_id)
 
-    def get_client(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None,
-                   name: str = '', logger: Optional[logging.Logger] = None,
+    def get_client(self, cookies_file: Optional[Path] = None,
+                   headers: Optional[Dict[str, Any]] = None,
+                   name: str = '',
+                   logger: Optional[logging.Logger] = None,
                    transport: Transport = Transport.AIOHTTP) -> HttpClient:
         """return new or cached HttpClient instance"""
         client_id = self.get_client_id(cookies_file, headers, name, logger)
@@ -740,7 +757,7 @@ class ClientPool:
         self.logger.debug('closing http sessions...')
         for client_id, client in self.clients.items():
             await client.close()
-        self.logger.debug('done')
+        self.logger.debug('all http sessions closed')
 
     async def ensure_closed(self) -> None:
         try:
