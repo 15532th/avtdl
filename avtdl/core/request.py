@@ -742,3 +742,68 @@ class SessionStorage:
                 self.logger.debug(f'closing session "{session_id}"')
                 await session.close()
         self.logger.debug('done')
+
+
+class ClientPool:
+    """
+    Store and reuse instances HttpClient and associated SessionStorage
+
+    Aims to wrap and replaces SessionStorage in order to provide abstract interface
+    for multiple network transports
+    """
+
+    def __init__(self, logger: Optional[logging.Logger] = None) -> None:
+        self.sessions: Dict[str, aiohttp.ClientSession] = {}
+        self.clients: Dict[str, HttpClient] = {}
+        self.task: Optional[asyncio.Task] = None
+        self.logger = (logger or logging.getLogger()).getChild('client_pool')
+
+    @staticmethod
+    def _get_session_id(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]], name: str = '') -> str:
+        return name + str((cookies_file, headers))
+
+    @classmethod
+    def get_client_id(cls, cookies_file: Optional[Path], headers: Optional[Dict[str, Any]],
+                      name: str = '', logger: Optional[logging.Logger] = None) -> str:
+        return cls._get_session_id(cookies_file, headers, name) + str(logger.name if logger is not None else '')
+
+    def get_client_by_id(self, client_id: str) -> Optional[HttpClient]:
+        """Return cached client instance if present"""
+        return self.clients.get(client_id)
+
+    def _get_session(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None,
+                     name: str = '') -> aiohttp.ClientSession:
+        session_id = self._get_session_id(cookies_file, headers, name)
+        session = self.sessions.get(session_id)
+        if session is None:
+            netscape_cookies = load_cookies(cookies_file)
+            cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
+            session = aiohttp.ClientSession(cookie_jar=cookies, headers=headers)
+            self.sessions[session_id] = session
+        return session
+
+    def get_client(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None,
+                     name: str = '', logger: Optional[logging.Logger] = None) -> HttpClient:
+        client_id = self.get_client_id(cookies_file, headers, name, logger)
+        if client_id in self.clients:
+            return self.clients[client_id]
+        logger = logger or logging.getLogger(f'HttpClient[{self._get_session_id(cookies_file, headers, name)}]')
+        session = self._get_session(cookies_file, headers, name)
+        client = HttpClient(logger, session)
+        self.clients[client_id] = client
+        return client
+
+    async def ensure_closed(self) -> None:
+        try:
+            await asyncio.Future()
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            await self.close()
+
+    async def close(self) -> None:
+        self.logger.debug('closing http sessions...')
+        for session_id, session in self.sessions.items():
+            if not session.closed:
+                self.logger.debug(f'closing session "{session_id}"')
+                await session.close()
+        self.logger.debug('done')
+

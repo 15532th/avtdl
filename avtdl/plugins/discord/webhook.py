@@ -10,8 +10,8 @@ from avtdl.core.actors import Action, ActionEntity, ActorConfig
 from avtdl.core.formatters import DiscordEmbedLimits, MessageFormatter
 from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import BucketRateLimit, Endpoint, HttpClient, HttpResponse, NoResponse, RequestDetails, \
-    SessionStorage
+from avtdl.core.request import BucketRateLimit, ClientPool, Endpoint, HttpClient, HttpResponse, NoResponse, \
+    RequestDetails
 from avtdl.core.runtime import RuntimeContext, TaskStatus
 
 
@@ -98,7 +98,7 @@ class DiscordHook(Action):
 
     def __init__(self, conf: DiscordHookConfig, entities: Sequence[DiscordHookEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
-        self.sessions: SessionStorage = SessionStorage(self.logger)
+        self.clients: ClientPool = ClientPool(self.logger)
         self.queues: Dict[str, asyncio.Queue] = {entity.name: asyncio.Queue() for entity in entities}
         self.endpoint = WebhookEndpoint()
 
@@ -109,13 +109,12 @@ class DiscordHook(Action):
         self.queues[entity.name].put_nowait(record)
 
     async def run(self):
-        session = self.sessions.get_session(name=self.conf.name)
-        client = HttpClient(self.logger, session)
+        client = self.clients.get_client(name=self.conf.name, logger=self.logger)
         for entity in self.entities.values():
             name = f'{self.conf.name}:{entity.name}'
             info = TaskStatus(self.conf.name, entity.name)
             _ = self.controller.create_task(self.run_for(entity, client, info), name=name, _info=info)
-        await self.sessions.ensure_closed()
+        await self.clients.ensure_closed()
 
     def update_status(self, info: TaskStatus, queue: asyncio.Queue, pending: List[Record]):
         msg = ''

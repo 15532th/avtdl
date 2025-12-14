@@ -8,13 +8,12 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-import aiohttp
 from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_validator
 
 from avtdl.core.actors import ActorConfig, Monitor, MonitorEntity
 from avtdl.core.db import BaseDbConfig, RecordDB, RecordDbView
 from avtdl.core.interfaces import AbstractRecordsStorage, Record, utcnow
-from avtdl.core.request import HttpClient, MaybeHttpResponse, RequestDetails, SessionStorage, StateStorage
+from avtdl.core.request import ClientPool, HttpClient, MaybeHttpResponse, RequestDetails, StateStorage
 from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.utils import JSONType, load_cookies, show_diff, with_prefix
 
@@ -194,7 +193,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
     def __init__(self, conf: ActorConfig, entities: Sequence[HttpTaskMonitorEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
-        self.sessions: SessionStorage = SessionStorage(self.logger)
+        self.clients: ClientPool = ClientPool(self.logger)
         self.state_storage = StateStorage()
 
     async def request_json(self, url: str, entity: HttpTaskMonitorEntity, client: HttpClient, method='GET', headers: Optional[Dict[str, str]] = None, params: Optional[Any] = None, data: Optional[Any] = None, data_json: Optional[Any] = None) -> Optional[JSONType]:
@@ -236,29 +235,27 @@ class HttpTaskMonitor(BaseTaskMonitor):
         entity.update_interval = response.next_update_interval(entity.base_update_interval, entity.update_interval, entity.adjust_update_interval)
         return response
 
-    def _get_session(self, entity: HttpTaskMonitorEntity) -> aiohttp.ClientSession:
-        session_id = self.sessions.get_session_id(entity.cookies_file, entity.headers)
-        session = self.sessions.get_session_by_id(session_id)
-        if session is None:
-            session = self.sessions.get_session(entity.cookies_file, entity.headers)
+    def _get_logger(self, entity: HttpTaskMonitorEntity) -> logging.Logger:
+        if self.logger.parent is not None:
+            logger = self.logger.parent.getChild('request').getChild(self.conf.name)
         else:
-            self.logger.debug(f'[{entity.name}] reusing session with cookies from {session_id}')
-        return session
+            logger = self.logger.getChild('request') # should never happen
+        logger = with_prefix(logger, f'[{entity.name}]')
+        return logger
+
+    def _get_client(self, entity: HttpTaskMonitorEntity) -> HttpClient:
+        logger = self._get_logger(entity)
+        client = self.clients.get_client(entity.cookies_file, entity.headers, logger=logger)
+        return client
 
     async def run(self):
         name = f'ensure_closed for {self.logger.name} ({self!r})'
-        _ = self.controller.create_task(self.sessions.ensure_closed(), name=name)
+        _ = self.controller.create_task(self.clients.ensure_closed(), name=name)
         await super().run()
 
     async def run_for(self, entity: HttpTaskMonitorEntity, info: TaskStatus):
         try:
-            session = self._get_session(entity)
-            if self.logger.parent is not None:
-                logger = self.logger.parent.getChild('request').getChild(self.conf.name)
-            else:
-                logger = self.logger.getChild('request') # should never happen
-            logger = with_prefix(logger, f'[{entity.name}]')
-            client = HttpClient(logger, session)
+            client = self._get_client(entity)
             while True:
                 await self.run_once(entity, client, info)
                 await asyncio.sleep(entity.update_interval)
@@ -312,13 +309,7 @@ class BaseFeedMonitor(HttpTaskMonitor):
 
     async def run(self):
         for entity in self.entities.values():
-            session = self._get_session(entity)
-            if self.logger.parent is not None:
-                logger = self.logger.parent.getChild('request').getChild(self.conf.name)
-            else:
-                logger = self.logger.getChild('request') # should never happen
-            logger = with_prefix(logger, f'[{entity.name}]')
-            client = HttpClient(logger, session)
+            client = self._get_client(entity)
             await self.prime_db(entity, client)
         await super().run()
 

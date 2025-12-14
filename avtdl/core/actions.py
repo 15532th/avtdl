@@ -11,7 +11,7 @@ from avtdl.core.actors import Action, ActionEntity, ActorConfig
 from avtdl.core.config import SettingsSection
 from avtdl.core.formatters import sanitize_filename
 from avtdl.core.interfaces import Record
-from avtdl.core.request import HttpClient, SessionStorage
+from avtdl.core.request import ClientPool, HttpClient
 from avtdl.core.runtime import RuntimeContext, TaskStatus
 from avtdl.core.state import StateSerializer
 from avtdl.core.utils import ListRootModel, check_dir, with_prefix
@@ -34,7 +34,7 @@ class HttpAction(Action, ABC):
         super().__init__(conf, entities, ctx)
         self.conf: HttpActionConfig
         self.entities: Mapping[str, HttpActionEntity]  # type: ignore
-        self.sessions = SessionStorage(self.logger)
+        self.clients = ClientPool(self.logger)
         settings: Optional[SettingsSection] = ctx.get_extra('settings')
         if settings is None:
             raise RuntimeError(f'runtime context is missing Settings instance. This is a bug, please report it')
@@ -42,14 +42,13 @@ class HttpAction(Action, ABC):
 
     async def run(self) -> None:
         name = f'ensure_closed for {self.logger.name} ({self!r})'
-        _ = self.controller.create_task(self.sessions.ensure_closed(), name=name)
+        _ = self.controller.create_task(self.clients.ensure_closed(), name=name)
         await super().run()
 
     def get_client(self, entity: HttpActionEntity) -> HttpClient:
         """provide  HttpClient instance for entity task to make network requests"""
-        session = self.sessions.get_session(entity.cookies_file, entity.headers)
         logger = with_prefix(self.logger, f'[{entity.name}] ')
-        client = HttpClient(logger, session)
+        client = self.clients.get_client(entity.cookies_file, entity.headers, logger=logger)
         return client
 
 
