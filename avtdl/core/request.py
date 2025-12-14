@@ -670,7 +670,7 @@ class HttpClient:
         try:
             timeout = aiohttp.ClientTimeout(total=0, connect=60, sock_connect=60, sock_read=60)
             async with self.session.request(method, url,
-                                            params=params, data=data, data_json=data_json,
+                                            params=params, data=data, json=data_json,
                                             timeout=timeout, headers=headers) as response:
                 response.raise_for_status()
                 remote_info = RemoteFileInfo.from_url_response(url, response.headers)
