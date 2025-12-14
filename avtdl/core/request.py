@@ -546,11 +546,25 @@ class RemoteFileInfo(BaseModel):
                 mime_extension = extension
         return mime_extension
 
+
 class HttpClient:
 
-    def __init__(self, logger: logging.Logger, session: aiohttp.ClientSession):
+    def __init__(self, logger: logging.Logger, cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]):
         self.logger = logger
-        self.session = session
+        self.session = self.create_session(cookies_file, headers)
+
+    @staticmethod
+    def create_session(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]) -> aiohttp.ClientSession:
+        netscape_cookies = load_cookies(cookies_file)
+        cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
+        session = aiohttp.ClientSession(cookie_jar=cookies, headers=headers)
+        return session
+
+    async def close(self) -> None:
+        """close underlying session, must be called before shutdown"""
+        if not self.session.closed:
+            self.logger.debug(f'closing session')
+            await self.session.close()
 
     @property
     def cookie_jar(self) -> AbstractCookieJar:
@@ -693,54 +707,39 @@ class ClientPool:
     """
 
     def __init__(self, logger: Optional[logging.Logger] = None) -> None:
-        self.sessions: Dict[str, aiohttp.ClientSession] = {}
         self.clients: Dict[str, HttpClient] = {}
         self.task: Optional[asyncio.Task] = None
         self.logger = (logger or logging.getLogger()).getChild('client_pool')
 
-    @staticmethod
-    def _get_session_id(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]], name: str = '') -> str:
-        return name + str((cookies_file, headers))
-
     @classmethod
-    def get_client_id(cls, cookies_file: Optional[Path], headers: Optional[Dict[str, Any]],
-                      name: str = '', logger: Optional[logging.Logger] = None) -> str:
-        return cls._get_session_id(cookies_file, headers, name) + str(logger.name if logger is not None else '')
+    def get_client_id(cls, cookies_file: Optional[Path],
+                      headers: Optional[Dict[str, Any]],
+                      name: str = '',
+                      logger: Optional[logging.Logger] = None) -> str:
+        return name + str((cookies_file, headers)) + str(logger.name if logger is not None else '')
 
     def get_client_by_id(self, client_id: str) -> Optional[HttpClient]:
         """Return cached client instance if present"""
         return self.clients.get(client_id)
 
-    def _get_session(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None,
-                     name: str = '') -> aiohttp.ClientSession:
-        session_id = self._get_session_id(cookies_file, headers, name)
-        session = self.sessions.get(session_id)
-        if session is None:
-            netscape_cookies = load_cookies(cookies_file)
-            cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
-            session = aiohttp.ClientSession(cookie_jar=cookies, headers=headers)
-            self.sessions[session_id] = session
-        return session
-
     def get_client(self, cookies_file: Optional[Path] = None, headers: Optional[Dict[str, Any]] = None,
-                     name: str = '', logger: Optional[logging.Logger] = None) -> HttpClient:
+                   name: str = '', logger: Optional[logging.Logger] = None,
+                   transport: Transport = Transport.AIOHTTP) -> HttpClient:
         """return new or cached HttpClient instance"""
         client_id = self.get_client_id(cookies_file, headers, name, logger)
         if client_id in self.clients:
             return self.clients[client_id]
-        logger = logger or logging.getLogger(f'HttpClient[{self._get_session_id(cookies_file, headers, name)}]')
-        session = self._get_session(cookies_file, headers, name)
-        client = HttpClient(logger, session)
+        logger = logger or logging.getLogger(f'HttpClient[{self.get_client_id(cookies_file, headers, name)}]')
+        HttpClientImplementation = Transport.get_implementation(transport)
+        client = HttpClientImplementation(logger, cookies_file, headers)
         self.clients[client_id] = client
         return client
 
     async def close(self) -> None:
         """close sessions for all cached clients"""
         self.logger.debug('closing http sessions...')
-        for session_id, session in self.sessions.items():
-            if not session.closed:
-                self.logger.debug(f'closing session "{session_id}"')
-                await session.close()
+        for client_id, client in self.clients.items():
+            await client.close()
         self.logger.debug('done')
 
     async def ensure_closed(self) -> None:
