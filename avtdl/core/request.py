@@ -555,22 +555,19 @@ class HttpClient:
         self.session = self.create_session(cookies_file, headers)
 
     @staticmethod
-    def create_session(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]) -> aiohttp.ClientSession:
-        netscape_cookies = load_cookies(cookies_file)
-        cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
-        session = aiohttp.ClientSession(cookie_jar=cookies, headers=headers)
-        return session
+    def create_session(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]):
+        """create underlying session instance"""
 
+    @abc.abstractmethod
     async def close(self) -> None:
         """close underlying session, must be called before shutdown"""
-        if not self.session.closed:
-            self.logger.debug(f'closing session')
-            await self.session.close()
 
     @property
+    @abc.abstractmethod
     def cookie_jar(self) -> AbstractCookieJar:
-        return self.session.cookie_jar
+        """return reference to the cookies jar associated with client's session"""
 
+    @abc.abstractmethod
     async def request_once(self, url: str,
                            params: Optional[Dict[str, str]] = None,
                            data: Optional[Any] = None,
@@ -579,44 +576,18 @@ class HttpClient:
                            method: str = 'GET',
                            state: EndpointState = EndpointState(),
                            ) -> 'MaybeHttpResponse':
-        logger = self.logger
+        """preform a single request to a text endpoint"""
 
-        request_headers: Dict[str, Any] = headers or {}
-        if self.session.headers is not None:
-            request_headers.update(self.session.headers)
-        if state.last_modified is not None and method in ['GET', 'HEAD']:
-            request_headers['If-Modified-Since'] = state.last_modified
-        if state.etag is not None:
-            request_headers['If-None-Match'] = state.etag
-        request_headers = insert_useragent(request_headers)
-        server_hostname = self.session.headers.get('Host') or request_headers.get('Host') or None
-        try:
-            async with self.session.request(method, url, headers=request_headers, params=params, data=data,
-                                            json=data_json, server_hostname=server_hostname) as client_response:
-                # fully read http response to get it cached inside ClientResponse object
-                # client code can then use it by awaiting .text() again without causing
-                # network activity and potentially triggering associated errors
-                text = await client_response.text()
-        except Exception as e:
-            logger.warning(f'error while fetching {url}: {e.__class__.__name__} {e}')
-            return NoResponse(logger, e, url)
+    @abc.abstractmethod
+    async def download_file(self, path: Path,
+                            url: str,
+                            params: Optional[Dict[str, str]] = None,
+                            data: Optional[Any] = None,
+                            data_json: Optional[Any] = None,
+                            headers: Optional[Dict[str, Any]] = None,
+                            method: str = 'GET') -> Optional['RemoteFileInfo']:
+        """download binary file from `url` and store it into `path`"""
 
-        if not client_response.ok:
-            logger.warning(
-                f'got code {client_response.status} ({client_response.reason or "No reason"}) while fetching {url}')
-            logger.debug(f'request headers: "{client_response.request_info.headers}"')
-            logger.debug(f'response headers: "{client_response.headers}"')
-            logger.debug(f'response body: "{text}"')
-        elif client_response.status != 304:
-            # some servers do not have cache headers in 304 response, so only updating on 200
-            state.update(client_response.headers)
-
-            cache_control = client_response.headers.get('Cache-control')
-            logger.debug(
-                f'Last-Modified={state.last_modified or "absent"}, ETAG={state.etag or "absent"}, Cache-control="{cache_control or "absent"}" for {client_response.real_url}')
-
-        response = HttpResponse.from_response(client_response, text, state, logger)
-        return response
 
     async def request(self, url: str,
                       params: Optional[Dict[str, str]] = None,
@@ -674,6 +645,73 @@ class HttpClient:
             details.rate_limit.submit_response(response, logger)
         return response
 
+
+class AioHttpClient(HttpClient):
+
+    @staticmethod
+    def create_session(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]) -> aiohttp.ClientSession:
+        netscape_cookies = load_cookies(cookies_file)
+        cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
+        session = aiohttp.ClientSession(cookie_jar=cookies, headers=headers)
+        return session
+
+    async def close(self) -> None:
+        if not self.session.closed:
+            self.logger.debug(f'closing session')
+            await self.session.close()
+
+    @property
+    def cookie_jar(self) -> AbstractCookieJar:
+        return self.session.cookie_jar
+
+    async def request_once(self, url: str,
+                           params: Optional[Dict[str, str]] = None,
+                           data: Optional[Any] = None,
+                           data_json: Optional[Any] = None,
+                           headers: Optional[Dict[str, Any]] = None,
+                           method: str = 'GET',
+                           state: EndpointState = EndpointState(),
+                           ) -> 'MaybeHttpResponse':
+        logger = self.logger
+
+        request_headers: Dict[str, Any] = headers or {}
+        if self.session.headers is not None:
+            request_headers.update(self.session.headers)
+        if state.last_modified is not None and method in ['GET', 'HEAD']:
+            request_headers['If-Modified-Since'] = state.last_modified
+        if state.etag is not None:
+            request_headers['If-None-Match'] = state.etag
+        request_headers = insert_useragent(request_headers)
+        server_hostname = self.session.headers.get('Host') or request_headers.get('Host') or None
+        try:
+            async with self.session.request(method, url, headers=request_headers, params=params, data=data,
+                                            json=data_json, server_hostname=server_hostname) as client_response:
+                # fully read http response to get it cached inside ClientResponse object
+                # client code can then use it by awaiting .text() again without causing
+                # network activity and potentially triggering associated errors
+                text = await client_response.text()
+        except Exception as e:
+            logger.warning(f'error while fetching {url}: {e.__class__.__name__} {e}')
+            return NoResponse(logger, e, url)
+
+        if not client_response.ok:
+            logger.warning(
+                f'got code {client_response.status} ({client_response.reason or "No reason"}) while fetching {url}')
+            logger.debug(f'request headers: "{client_response.request_info.headers}"')
+            logger.debug(f'response headers: "{client_response.headers}"')
+            logger.debug(f'response body: "{text}"')
+        elif client_response.status != 304:
+            # some servers do not have cache headers in 304 response, so only updating on 200
+            state.update(client_response.headers)
+
+            cache_control = client_response.headers.get('Cache-control')
+            logger.debug(
+                f'Last-Modified={state.last_modified or "absent"}, ETAG={state.etag or "absent"}, Cache-control="{cache_control or "absent"}" for {client_response.real_url}')
+
+        response = HttpResponse.from_response(client_response, text, state, logger)
+        return response
+
+
     async def download_file(self, path: Path,
                             url: str,
                             params: Optional[Dict[str, str]] = None,
@@ -701,7 +739,6 @@ class HttpClient:
             return None
         return remote_info
 
-
 class Transport(str, Enum):
     AIOHTTP = 'aiohttp'
     CURL_FFI = 'curl_ffi'
@@ -709,7 +746,7 @@ class Transport(str, Enum):
     @classmethod
     def get_implementation(cls, name: 'Transport') -> type[HttpClient]:
         if name == cls.AIOHTTP:
-            return HttpClient
+            return AioHttpClient
         elif name == cls.CURL_FFI:
             return HttpClient
         else:
