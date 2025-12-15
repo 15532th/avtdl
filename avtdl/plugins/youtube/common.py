@@ -6,16 +6,15 @@ import time
 from collections import defaultdict
 from hashlib import sha1
 from html import unescape
-from http import cookies
 from json import JSONDecodeError
 from typing import Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qs, unquote, urlparse
 
+import aiohttp
 import lxml.html
-from aiohttp import CookieJar
 from pydantic import BaseModel
 
-from avtdl.core.cookies import get_cookie_value
+from avtdl.core.cookies import AnotherAiohttpCookieJar, AnotherCookieJar
 from avtdl.core.request import HttpClient
 from avtdl.core.utils import find_one
 
@@ -130,9 +129,12 @@ class NextPageContext(BaseModel):
 
 CLIENT_VERSION = '2.20231023.04.02'
 
-def prepare_next_page_request(innertube_context: Optional[dict], continuation_token, cookies=None, session_index: str = '') -> Tuple[str, dict, dict]:
+def prepare_next_page_request(innertube_context: Optional[dict],
+                              continuation_token: str,
+                              cookies: Optional[AnotherCookieJar]=None,
+                              session_index: str = '') -> Tuple[str, dict, dict]:
     BROWSE_ENDPOINT = 'https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
-    cookies = cookies or CookieJar()
+    cookies = cookies or AnotherAiohttpCookieJar(aiohttp.CookieJar())
     innertube_context = innertube_context or {}
 
     visitor_data = find_one(innertube_context, '$..visitorData') or ''
@@ -148,7 +150,7 @@ def prepare_next_page_request(innertube_context: Optional[dict], continuation_to
         'X-Youtube-Client-Version': client_version,
         'Content-Type': 'application/json'
     }
-    sapisid = get_cookie_value(cookies, 'SAPISID')
+    sapisid = cookies.get('SAPISID')
     if sapisid is not None:
         headers['Authorization'] = get_auth_header(sapisid)
 
@@ -263,11 +265,8 @@ async def handle_consent(page: str, url: str, client: HttpClient, logger: Option
     if redirect_page_text is None:
         logger.debug(f'failed to submit cookies consent')
         return page
-    for morsel in client.cookie_jar:
-        if isinstance(morsel, cookies.Morsel):
-            if morsel.key == 'SOCS':
-                logger.debug(f'cookie indicating cookies usage consent was set successfully')
-                break
+    if client.cookie_jar.get('SOCS') is not None:
+        logger.debug(f'cookie indicating cookies usage consent was set successfully')
     reloaded_page = await client.request_text(url)
     if reloaded_page is None:
         logger.debug(f'reloading original page failed, page content might be invalid this time')

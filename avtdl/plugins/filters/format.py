@@ -134,4 +134,4 @@ class FormatOpaqueFilter(Filter):
         fields = {}
         for name, fmt in entity.fields_templates.items():
             fields[name] = Fmt.format(fmt, record, entity.missing, entity.timezone)
-        return OpaqueRecord(**fields)
+        return OpaqueRecord(**fields)  # type: ignore

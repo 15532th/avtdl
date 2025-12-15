@@ -2,10 +2,10 @@ import http.cookiejar
 import http.cookies
 import logging
 import urllib.parse
+from abc import abstractmethod
 from http import cookiejar
-from http.cookiejar import CookieJar
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Mapping, Optional, Union
 
 import aiohttp
 from aiohttp.abc import AbstractCookieJar
@@ -39,9 +39,9 @@ class CookieStoreError(Exception):
     """Raised when save_cookies() failed"""
 
 
-def save_cookies(cookies: AbstractCookieJar, path: str):
+def save_cookies(cookies: 'AnotherCookieJar', path: str):
     try:
-        cookie_jar = unconvert_cookiejar(cookies)
+        cookie_jar = cookies.to_file_cookie_jar()
     except Exception as e:
         msg = f'error converting cookie jar: {e}'
         raise CookieStoreError(msg) from e
@@ -96,9 +96,9 @@ def convert_cookiejar(cookie_jar: cookiejar.CookieJar) -> aiohttp.CookieJar:
     return new_jar
 
 
-def get_cookie_value(jar: Union[CookieJar, AbstractCookieJar], name: str) -> Optional[str]:
+def get_cookie_value(jar: Union[cookiejar.CookieJar, AbstractCookieJar], name: str) -> Optional[str]:
     found: List[Union[http.cookiejar.Cookie, http.cookies.Morsel]]
-    if isinstance(jar, CookieJar):
+    if isinstance(jar, cookiejar.CookieJar):
         found = [x for x in jar if x.name == name]
     else:
         found = [x for x in jar if x.key == name]
@@ -113,3 +113,51 @@ def set_cookie_value(jar: AbstractCookieJar, key: str, value: str, url: str):
     morsel['domain'] = urllib.parse.urlparse(url).netloc
     morsel['path'] = urllib.parse.urlparse(url).path
     jar.update_cookies(morsel)
+
+
+class AnotherCookieJar:
+    """Generic interface for various cookie jars from different http libraries"""
+
+    @abstractmethod
+    def update_cookies(self, cookies: Mapping[str, Union[str, http.cookies.Morsel]]):
+        """Update self with values from argument"""
+
+    @abstractmethod
+    def set(self, key: str, value: str, url: str):
+        """Set cookie value"""
+
+    @abstractmethod
+    def get(self, key: str) -> Optional[str]:
+        """Get cookie value (without any metadata)"""
+
+    @classmethod
+    @abstractmethod
+    def from_cookie_jar(cls, jar: cookiejar.CookieJar) -> 'AnotherCookieJar':
+        """Convert from http.cookiejar.CookieJar"""
+
+    @abstractmethod
+    def to_file_cookie_jar(self) -> cookiejar.MozillaCookieJar:
+        """Convert into MozillaCookieJar"""
+
+
+class AnotherAiohttpCookieJar(AnotherCookieJar):
+    def __init__(self, jar: aiohttp.CookieJar):
+        self._cookies: aiohttp.CookieJar = jar
+
+    def update_cookies(self, cookies: Mapping[str, Union[str, http.cookies.Morsel]]):
+        self._cookies.update_cookies(cookies)
+
+    def get(self, key: str) -> Optional[str]:
+        return get_cookie_value(self._cookies, key)
+
+    def set(self, key: str, value: str, url: str):
+        set_cookie_value(self._cookies, key, value, url)
+
+    @classmethod
+    def from_cookie_jar(cls, jar: cookiejar.CookieJar) -> 'AnotherCookieJar':
+        _jar = convert_cookiejar(jar)
+        return cls(_jar)
+
+    def to_file_cookie_jar(self) -> cookiejar.MozillaCookieJar:
+        return unconvert_cookiejar(self._cookies)
+

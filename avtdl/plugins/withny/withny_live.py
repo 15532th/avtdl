@@ -6,11 +6,10 @@ import urllib.parse
 from http.cookies import SimpleCookie
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
-from aiohttp.abc import AbstractCookieJar
 from pydantic import Field, FilePath, PositiveInt, SerializeAsAny, field_validator
 
 from avtdl.core.actions import TaskAction, TaskActionConfig, TaskActionEntity
-from avtdl.core.cookies import CookieStoreError, get_cookie_value, load_cookies, save_cookies
+from avtdl.core.cookies import AnotherCookieJar, CookieStoreError, load_cookies, save_cookies
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Event, EventType, Record
 from avtdl.core.plugins import Plugins
@@ -63,7 +62,7 @@ class AuthToken:
     def plain_token(self) -> str:
         return urllib.parse.unquote(self.token)
 
-    def set_cookies(self, jar: AbstractCookieJar):
+    def set_cookies(self, jar: AnotherCookieJar):
         cookies: SimpleCookie = SimpleCookie()
         for k, v in self.local_names.items():
             cookies[v] = getattr(self, k)
@@ -86,8 +85,8 @@ class AuthToken:
         )
 
     @classmethod
-    def from_cookies(cls, jar: AbstractCookieJar) -> 'AuthToken':
-        data: Dict[str, Any] = {data_key: get_cookie_value(jar, cookie_key) for data_key, cookie_key in cls.local_names.items()}
+    def from_cookies(cls, jar: AnotherCookieJar) -> 'AuthToken':
+        data: Dict[str, Any] = {data_key: jar.get(cookie_key) for data_key, cookie_key in cls.local_names.items()}
         for k, v in data.items():
             if v is None:
                 raise ValueError(f'{k} value is missing from the jar')

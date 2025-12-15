@@ -220,6 +220,10 @@ class YoutubeChatMonitor(BaseFeedMonitor):
         return actions
 
     async def _get_next(self, entity: YoutubeChatMonitorEntity, client: HttpClient) -> Optional[Dict[str, list]]:
+        if entity.context.continuation_token is None:
+            self.logger.warning(
+                f'[{entity}] continuation token is absent. This is a bug')
+            return None
         if entity.context.innertube_context is None:
             self.logger.warning(
                 f'[{entity}] continuation token is present in an absence of initial data. This is a bug')

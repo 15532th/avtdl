@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Union
 
 from multidict import CIMultiDictProxy
 
-from avtdl.core.cookies import get_cookie_value
+from avtdl.core.cookies import AnotherCookieJar
 from avtdl.core.request import BucketRateLimit, Endpoint, HttpResponse, RequestDetails, get_retry_after
 from avtdl.core.utils import find_one
 
@@ -51,8 +51,8 @@ def get_netloc(host: str) -> str:
     return urllib.parse.urlparse(host).netloc
 
 
-def get_auth_headers(cookies) -> dict[str, Any]:
-    ct0 = get_cookie_value(cookies, 'ct0') or ''
+def get_auth_headers(cookies: AnotherCookieJar) -> dict[str, Any]:
+    ct0 = cookies.get('ct0') or ''
     THE_API_KEY = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
     headers = {
         'authorization': THE_API_KEY,
@@ -112,7 +112,7 @@ class TwitterEndpoint(Endpoint):
         return variables_text
 
     @classmethod
-    def prepare_for(cls, host, cookies, variables: str) -> RequestDetails:
+    def prepare_for(cls, host: str, cookies: AnotherCookieJar, variables: str) -> RequestDetails:
         url = replace_url_host(cls.URL, host)
 
         params = {}
@@ -135,7 +135,7 @@ class UserIDEndpoint(TwitterEndpoint):
     FEATURES = USER_FEATURES
 
     @classmethod
-    def prepare(cls, host: str, cookies, user_handle: str) -> RequestDetails:
+    def prepare(cls, host: str, cookies: AnotherCookieJar, user_handle: str) -> RequestDetails:
         user_handle = user_handle.strip('@/')
         variables = {'screen_name': user_handle, 'withSafetyModeUserFields': True}
         variables_text = json.dumps(variables)
@@ -152,7 +152,7 @@ class TweetDetailEndpoint(TwitterEndpoint):
     FEATURES = TWEET_DETAIL_FEATURES
 
     @classmethod
-    def prepare(cls, host: str, cookies, tweet_id: str, continuation: Optional[str] = None) -> RequestDetails:
+    def prepare(cls, host: str, cookies: AnotherCookieJar, tweet_id: str, continuation: Optional[str] = None) -> RequestDetails:
         variables = {'focalTweetId': tweet_id, 'with_rux_injections': False, 'includePromotedContent': True,
                      'withCommunity': True, 'withQuickPromoteEligibilityTweetFields': True, 'withBirdwatchNotes': True,
                      'withVoice': True, 'withV2Timeline': True}
@@ -167,7 +167,7 @@ class AudioSpaceEndpoint(TwitterEndpoint):
     FEATURES = SPACE_FEATURES
 
     @classmethod
-    def prepare(cls, host, cookies, space_id: str) -> RequestDetails:
+    def prepare(cls, host: str, cookies: AnotherCookieJar, space_id: str) -> RequestDetails:
         variables = {'id': space_id, 'isMetatagsQuery': False, 'withReplays': True, 'withListeners': True}
         variables_text = json.dumps(variables)
         return cls.prepare_for(host, cookies, variables_text)
@@ -178,7 +178,7 @@ class LiveStreamEndpoint(TwitterEndpoint):
     url = 'https://twitter.com/i/api/1.1/live_video_stream/status/{}'
 
     @classmethod
-    def prepare(cls, host: str, cookies, media_key: str) -> RequestDetails:
+    def prepare(cls, host: str, cookies: AnotherCookieJar, media_key: str) -> RequestDetails:
         url = cls.url.format(media_key)
         url = replace_url_host(url, host)
         params = {'client': 'web', 'use_syndication_guest_id': 'false', 'cookie_set_host': get_netloc(host)}
@@ -202,7 +202,10 @@ class LatestTimelineEndpoint(TwitterEndpoint):
         return variables
 
     @classmethod
-    def prepare(cls, host: str, cookies, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
+    def prepare(cls, host: str,
+                cookies: AnotherCookieJar,
+                continuation: Optional[str] = None,
+                count: int = 20) -> RequestDetails:
         variables = cls.get_variables(continuation=continuation, count=count)
         return cls.prepare_for(host, cookies, variables)
 
@@ -225,7 +228,11 @@ class UserTweetsEndpoint(TwitterEndpoint):
         return {'includePromotedContent': True, 'withQuickPromoteEligibilityTweetFields': True, 'withVoice': True, 'withV2Timeline': True}
 
     @classmethod
-    def prepare(cls, host: str, cookies, user_id: str, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
+    def prepare(cls, host: str,
+                cookies: AnotherCookieJar,
+                user_id: str,
+                continuation: Optional[str] = None,
+                count: int = 20) -> RequestDetails:
         variables = cls.get_variables(user_id=user_id, count=count, continuation=continuation)
         return cls.prepare_for(host, cookies, variables)
 
@@ -250,7 +257,12 @@ class SearchTimelineEndpoint(TwitterEndpoint):
     FEATURES = SEARCH_FEATURES
 
     @classmethod
-    def prepare(cls, host: str, cookies, raw_query: str, query_type: SearchQueryType, continuation: Optional[str] = None, count: int = 20) -> RequestDetails:
+    def prepare(cls, host: str,
+                cookies: AnotherCookieJar,
+                raw_query: str,
+                query_type: SearchQueryType,
+                continuation: Optional[str] = None,
+                count: int = 20) -> RequestDetails:
         variables = {'rawQuery': raw_query, 'count': count, 'querySource': 'typed_query', 'product': query_type.value}
         if continuation:
             variables.update({'cursor': continuation})
@@ -258,7 +270,8 @@ class SearchTimelineEndpoint(TwitterEndpoint):
         return cls.prepare_for(host, cookies, variables_text)
 
 
-def get_rate_limit_delay(headers: Union[Dict[str, str], CIMultiDictProxy[str]], logger: Optional[logging.Logger] = None) -> int:
+def get_rate_limit_delay(headers: Union[Dict[str, str], CIMultiDictProxy[str]],
+                         logger: Optional[logging.Logger] = None) -> int:
     logger = logger or logging.getLogger().getChild('twitter_endpoints')
     retry_after = get_retry_after(headers)
     if retry_after is not None:

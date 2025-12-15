@@ -20,12 +20,11 @@ from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import aiohttp
 import multidict
-from aiohttp.abc import AbstractCookieJar
 from multidict import CIMultiDictProxy
 from pydantic import BaseModel
 
 from avtdl._version import __version__
-from avtdl.core.cookies import convert_cookiejar, load_cookies
+from avtdl.core.cookies import AnotherAiohttpCookieJar, AnotherCookieJar, convert_cookiejar, load_cookies
 from avtdl.core.utils import JSONType, timeit, utcnow
 
 HIGHEST_UPDATE_INTERVAL: float = 4000
@@ -565,7 +564,7 @@ class HttpClient:
 
     @property
     @abc.abstractmethod
-    def cookie_jar(self) -> AbstractCookieJar:
+    def cookie_jar(self) -> AnotherCookieJar:
         """return reference to the cookies jar associated with client's session"""
 
     @abc.abstractmethod
@@ -662,8 +661,8 @@ class AioHttpClient(HttpClient):
             await self.session.close()
 
     @property
-    def cookie_jar(self) -> AbstractCookieJar:
-        return self.session.cookie_jar
+    def cookie_jar(self) -> AnotherCookieJar:
+        return AnotherAiohttpCookieJar(self.session.cookie_jar)
 
     async def request_once(self, url: str,
                            params: Optional[Dict[str, str]] = None,
@@ -686,7 +685,6 @@ class AioHttpClient(HttpClient):
             request_headers['If-None-Match'] = state.etag
         server_hostname = request_headers.get('Host')
         request_headers = insert_useragent(request_headers)
-        server_hostname = self.session.headers.get('Host') or request_headers.get('Host') or None
         try:
             async with self.session.request(method, url, headers=request_headers, params=params, data=data,
                                             json=data_json, server_hostname=server_hostname) as client_response:
