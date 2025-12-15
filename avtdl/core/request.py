@@ -675,13 +675,16 @@ class AioHttpClient(HttpClient):
                            ) -> 'MaybeHttpResponse':
         logger = self.logger
 
-        request_headers: Dict[str, Any] = headers or {}
+        request_headers: Dict[str, str] = {}
         if self.session.headers is not None:
             request_headers.update(self.session.headers)
+        if headers is not None:
+            request_headers.update(headers)
         if state.last_modified is not None and method in ['GET', 'HEAD']:
             request_headers['If-Modified-Since'] = state.last_modified
         if state.etag is not None:
             request_headers['If-None-Match'] = state.etag
+        server_hostname = request_headers.get('Host')
         request_headers = insert_useragent(request_headers)
         server_hostname = self.session.headers.get('Host') or request_headers.get('Host') or None
         try:
