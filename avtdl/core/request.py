@@ -743,13 +743,13 @@ class AioHttpClient(HttpClient):
 
 class Transport(str, Enum):
     AIOHTTP = 'aiohttp'
-    CURL_FFI = 'curl_ffi'
+    CURL_CFFI = 'curl_cffi'
 
     @classmethod
     def get_implementation(cls, name: 'Transport') -> type[HttpClient]:
         if name == cls.AIOHTTP:
             return AioHttpClient
-        elif name == cls.CURL_FFI:
+        elif name == cls.CURL_CFFI:
             return HttpClient
         else:
             raise NotImplementedError(f'unknown transport: "{name}"')
