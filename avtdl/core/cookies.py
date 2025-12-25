@@ -5,9 +5,10 @@ import urllib.parse
 from abc import abstractmethod
 from http import cookiejar
 from pathlib import Path
-from typing import List, Mapping, Optional, Union
+from typing import List, Mapping, Optional, Tuple, Union
 
 import aiohttp
+import curl_cffi
 from aiohttp.abc import AbstractCookieJar
 
 from avtdl.core.utils import parse_to_date_string, parse_to_timestamp
@@ -41,12 +42,15 @@ class CookieStoreError(Exception):
 
 def save_cookies(cookies: 'AnotherCookieJar', path: str):
     try:
-        cookie_jar = cookies.to_file_cookie_jar()
+        cookie_jar = cookies.to_cookie_jar()
     except Exception as e:
         msg = f'error converting cookie jar: {e}'
         raise CookieStoreError(msg) from e
+    file_cookie_jar = cookiejar.MozillaCookieJar()
+    for cookie in cookie_jar:
+        file_cookie_jar.set_cookie(cookie)
     try:
-        cookie_jar.save(path, ignore_discard=True, ignore_expires=True)
+        file_cookie_jar.save(path, ignore_discard=True, ignore_expires=True)
     except Exception as e:
         msg = f'failed to store cookies to "{path}": {e}'
         raise CookieStoreError(msg) from e
@@ -107,14 +111,6 @@ def get_cookie_value(jar: Union[cookiejar.CookieJar, AbstractCookieJar], name: s
     return found[0].value
 
 
-def set_cookie_value(jar: AbstractCookieJar, key: str, value: str, url: str):
-    morsel: http.cookies.Morsel = http.cookies.Morsel()
-    morsel.set(key, value, value)
-    morsel['domain'] = urllib.parse.urlparse(url).netloc
-    morsel['path'] = urllib.parse.urlparse(url).path
-    jar.update_cookies(morsel)
-
-
 class AnotherCookieJar:
     """Generic interface for various cookie jars from different http libraries"""
 
@@ -136,14 +132,17 @@ class AnotherCookieJar:
         """Convert from http.cookiejar.CookieJar"""
 
     @abstractmethod
-    def to_file_cookie_jar(self) -> cookiejar.MozillaCookieJar:
-        """Convert into MozillaCookieJar"""
+    def to_cookie_jar(self) -> cookiejar.CookieJar:
+        """Convert into http.cookiejar.CookieJar"""
 
 
 class AnotherAiohttpCookieJar(AnotherCookieJar):
-    def __init__(self, jar: aiohttp.CookieJar):
-        self._cookies: aiohttp.CookieJar = jar
+    def __init__(self, jar: Optional[aiohttp.CookieJar] = None):
+        self._cookies: aiohttp.CookieJar = jar if jar is not None else aiohttp.CookieJar()
 
+    def __repr__(self):
+        content = [c for c in self._cookies]
+        return f'{self.__class__.__name__}({content})'
     def update_cookies(self, cookies: Mapping[str, Union[str, http.cookies.Morsel]]):
         self._cookies.update_cookies(cookies)
 
@@ -151,13 +150,54 @@ class AnotherAiohttpCookieJar(AnotherCookieJar):
         return get_cookie_value(self._cookies, key)
 
     def set(self, key: str, value: str, url: str):
-        set_cookie_value(self._cookies, key, value, url)
+        morsel: http.cookies.Morsel = http.cookies.Morsel()
+        morsel.set(key, value, value)
+        morsel['domain'] = urllib.parse.urlparse(url).netloc
+        morsel['path'] = urllib.parse.urlparse(url).path
+        self._cookies.update_cookies({key: morsel})
 
     @classmethod
     def from_cookie_jar(cls, jar: cookiejar.CookieJar) -> 'AnotherCookieJar':
         _jar = convert_cookiejar(jar)
         return cls(_jar)
 
-    def to_file_cookie_jar(self) -> cookiejar.MozillaCookieJar:
+    def to_cookie_jar(self) -> cookiejar.CookieJar:
         return unconvert_cookiejar(self._cookies)
+
+
+def split_url(url: str) -> Tuple[str, str]:
+    parsed = urllib.parse.urlparse(url)
+    domain = parsed.netloc or ''
+    path = parsed.path or '/'
+    return domain, path
+
+
+class AnotherCurlCffiCookieJar(AnotherCookieJar):
+    def __init__(self, jar: Optional[curl_cffi.requests.Cookies] = None):
+        self._cookies = jar if jar is not None else curl_cffi.requests.Cookies()
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self._cookies})'
+
+    def update_cookies(self, cookies: Mapping[str, Union[str, http.cookies.Morsel]]):
+        for name, value in cookies.items():
+            if isinstance(value, http.cookies.Morsel):
+                self._cookies.set(name, value.value, value.get('domain', ''), value.get('path', '/'))
+            else:
+                self._cookies.set(name, value)
+
+    def get(self, key: str) -> Optional[str]:
+        return self._cookies.get(key)
+
+    def set(self, key: str, value: str, url: str):
+        domain, path = split_url(url)
+        self._cookies.set(key, value, domain, path)
+
+    @classmethod
+    def from_cookie_jar(cls, jar: cookiejar.CookieJar) -> 'AnotherCookieJar':
+        _jar = curl_cffi.Cookies(jar)
+        return cls(_jar)
+
+    def to_cookie_jar(self) -> cookiejar.CookieJar:
+        return self._cookies.jar
 

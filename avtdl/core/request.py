@@ -19,12 +19,14 @@ from textwrap import shorten
 from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import aiohttp
+import curl_cffi
 import multidict
 from multidict import CIMultiDictProxy
 from pydantic import BaseModel
 
 from avtdl._version import __version__
-from avtdl.core.cookies import AnotherAiohttpCookieJar, AnotherCookieJar, convert_cookiejar, load_cookies
+from avtdl.core.cookies import AnotherAiohttpCookieJar, AnotherCookieJar, AnotherCurlCffiCookieJar, convert_cookiejar, \
+    load_cookies
 from avtdl.core.utils import JSONType, timeit, utcnow
 
 HIGHEST_UPDATE_INTERVAL: float = 4000
@@ -231,34 +233,6 @@ class HttpResponse:
     """detected response content encoding"""
     completed: bool = True
     _json: Optional[JSONType] = None
-
-    @classmethod
-    def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
-        has_content = 200 <= response.status < 300
-        factory: type[HttpResponse]
-        if has_content:
-            factory = DataResponse
-        elif response.ok:
-            factory = GoodResponse
-        elif not response.ok:
-            factory = BadResponse
-        else:
-            factory = cls
-        response = factory(
-            logger,
-            text,
-            str(response.url),
-            response.ok,
-            has_content,
-            response.status,
-            response.reason or 'No reason',
-            response.headers,
-            response.request_info.headers,
-            response.cookies,
-            state,
-            response.get_encoding()
-        )
-        return response
 
     def has_json(self) -> bool:
         try:
@@ -488,8 +462,12 @@ class RemoteFileInfo(BaseModel):
     response_headers: dict
 
     @classmethod
-    def from_url_response(cls, url: str, headers: multidict.CIMultiDictProxy) -> 'RemoteFileInfo':
-        size = headers.get('Content-Length')
+    def from_url_response(cls, url: str, headers: Union[Dict[str, str], multidict.CIMultiDictProxy]) -> 'RemoteFileInfo':
+        try:
+            value = headers.get('Content-Length', 0)
+            size = int(value)
+        except Exception:
+            size = None
         filename = cls.extract_filename(url, headers)
         if filename is None:
             name, extension = '', ''
@@ -498,7 +476,7 @@ class RemoteFileInfo(BaseModel):
         return cls(url=url, content_length=size, source_name=name, extension=extension, response_headers=dict(headers))
 
     @classmethod
-    def extract_filename(cls, url: str, headers: multidict.CIMultiDictProxy) -> Optional[Path]:
+    def extract_filename(cls, url: str, headers: Union[Dict[str, str], multidict.CIMultiDictProxy]) -> Optional[Path]:
         filename = cls._get_filename_from_headers(headers) or cls._get_filename_from_url(url)
         if filename is not None and not filename.suffix:
             extension = cls._get_mime_extension(headers)
@@ -507,7 +485,7 @@ class RemoteFileInfo(BaseModel):
         return filename
 
     @staticmethod
-    def _get_filename_from_headers(headers: multidict.CIMultiDictProxy) -> Optional[Path]:
+    def _get_filename_from_headers(headers: Union[Dict[str, str], multidict.CIMultiDictProxy]) -> Optional[Path]:
         """get filename from Content-Disposition, with or without extension"""
         content_disposition = headers.get('Content-Disposition') or ''
         email = EmailMessage()
@@ -537,7 +515,7 @@ class RemoteFileInfo(BaseModel):
             return None
 
     @staticmethod
-    def _get_mime_extension(headers: multidict.CIMultiDictProxy) -> Optional[str]:
+    def _get_mime_extension(headers: Union[Dict[str, str], multidict.CIMultiDictProxy]) -> Optional[str]:
         """return file extension deduced from Content-Type header"""
         mime_extension = None
         content_type = headers.get('Content-Type')
@@ -548,15 +526,10 @@ class RemoteFileInfo(BaseModel):
         return mime_extension
 
 
-class HttpClient:
+class HttpClient(abc.ABC):
 
     def __init__(self, logger: logging.Logger, cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]):
         self.logger = logger
-        self.session = self.create_session(cookies_file, headers)
-
-    @staticmethod
-    def create_session(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]):
-        """create underlying session instance"""
 
     @abc.abstractmethod
     async def close(self) -> None:
@@ -648,12 +621,13 @@ class HttpClient:
 
 class AioHttpClient(HttpClient):
 
-    @staticmethod
-    def create_session(cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]) -> aiohttp.ClientSession:
+    def __init__(self, logger: logging.Logger, cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]):
+        super().__init__(logger, cookies_file, headers)
+
         netscape_cookies = load_cookies(cookies_file)
         cookies = convert_cookiejar(netscape_cookies) if netscape_cookies else None
         session = aiohttp.ClientSession(cookie_jar=cookies, headers=headers)
-        return session
+        self.session = session
 
     async def close(self) -> None:
         if not self.session.closed:
@@ -662,7 +636,35 @@ class AioHttpClient(HttpClient):
 
     @property
     def cookie_jar(self) -> AnotherCookieJar:
-        return AnotherAiohttpCookieJar(self.session.cookie_jar)
+        return AnotherAiohttpCookieJar(self.session.cookie_jar) # type: ignore
+
+    @classmethod
+    def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
+        has_content = 200 <= response.status < 300
+        factory: type[HttpResponse]
+        if has_content:
+            factory = DataResponse
+        elif response.ok:
+            factory = GoodResponse
+        elif not response.ok:
+            factory = BadResponse
+        else:
+            factory = HttpResponse
+        response = factory(
+            logger,
+            text,
+            str(response.url),
+            response.ok,
+            has_content,
+            response.status,
+            response.reason or 'No reason',
+            response.headers,
+            response.request_info.headers,
+            response.cookies,
+            state,
+            response.get_encoding()
+        )
+        return response
 
     async def request_once(self, url: str,
                            params: Optional[Dict[str, str]] = None,
@@ -710,9 +712,8 @@ class AioHttpClient(HttpClient):
             logger.debug(
                 f'Last-Modified={state.last_modified or "absent"}, ETAG={state.etag or "absent"}, Cache-control="{cache_control or "absent"}" for {client_response.real_url}')
 
-        response = HttpResponse.from_response(client_response, text, state, logger)
+        response = self.from_response(client_response, text, state, logger)
         return response
-
 
     async def download_file(self, path: Path,
                             url: str,
@@ -741,6 +742,148 @@ class AioHttpClient(HttpClient):
             return None
         return remote_info
 
+def headers_dict(h: curl_cffi.Headers) -> Dict[str, str]:
+    return {k: v for k, v in h.items() if v is not None}
+
+
+class CurlCffiHttpClient(HttpClient):
+
+    @dataclass
+    class Options:
+        use_own_ua: bool = False
+        impersonate: curl_cffi.BrowserTypeLiteral = 'chrome'
+        http_version: Optional[Literal['v1', 'v2', 'v2tls', 'v2_prior_knowledge', 'v3', 'v3only']] = 'v2tls'
+
+
+    def __init__(self, logger: logging.Logger, cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]):
+        super().__init__(logger, cookies_file, headers)
+        self.options = self.Options()
+
+        netscape_cookies = load_cookies(cookies_file)
+        self.session: curl_cffi.requests.AsyncSession = curl_cffi.requests.AsyncSession(cookies=netscape_cookies, headers=headers)
+
+    async def close(self) -> None:
+        self.logger.debug(f'closing session')
+        await self.session.close()
+
+    @property
+    def cookie_jar(self) -> AnotherCookieJar:
+        return AnotherCurlCffiCookieJar(self.session.cookies)
+
+    @classmethod
+    def from_response(cls, response: curl_cffi.Response, state: EndpointState, logger: logging.Logger):
+        has_content = 200 <= response.status_code < 300
+        factory: type[HttpResponse]
+        if has_content:
+            factory = DataResponse
+        elif response.ok:
+            factory = GoodResponse
+        elif not response.ok:
+            factory = BadResponse
+        else:
+            factory = HttpResponse
+        response = factory(
+            logger,
+            response.text,
+            str(response.url),
+            response.ok,
+            has_content,
+            response.status_code,
+            response.reason or 'No reason',
+            headers_dict(response.headers),
+            headers_dict(response.request.headers) if response.request is not None else {},
+            response.cookies.jar,
+            state,
+            response.encoding
+        )
+        return response
+
+    async def request_once(self, url: str,
+                           params: Optional[Dict[str, str]] = None,
+                           data: Optional[Any] = None,
+                           data_json: Optional[Any] = None,
+                           headers: Optional[Dict[str, Any]] = None,
+                           method: str = 'GET',
+                           state: EndpointState = EndpointState(),
+                           ) -> 'MaybeHttpResponse':
+        logger = self.logger
+
+        request_headers: Dict[str, str] = {}
+        if headers is not None:
+            request_headers.update(headers)
+        if state.last_modified is not None and method in ['GET', 'HEAD']:
+            request_headers['If-Modified-Since'] = state.last_modified
+        if state.etag is not None:
+            request_headers['If-None-Match'] = state.etag
+        if self.options.use_own_ua:
+            request_headers = insert_useragent(request_headers)
+        try:
+            client_response: curl_cffi.Response = await self.session.request(
+                method=method,  # type: ignore
+                url=url,
+                params=params,
+                headers=request_headers,
+                data=data,
+                json=data_json,
+                timeout=60,
+                impersonate=self.options.impersonate,
+                http_version=self.options.http_version
+            )
+        except Exception as e:
+            logger.warning(f'error while fetching {url}: {e.__class__.__name__} {e}')
+            return NoResponse(logger, e, url)
+
+        if not client_response.ok:
+            logger.warning(
+                f'got code {client_response.status_code} ({client_response.reason or "No reason"}) while fetching {url}')
+            if client_response.request is not None:
+                logger.debug(f'request headers: "{client_response.request.headers}"')
+            logger.debug(f'response headers: "{client_response.headers}"')
+            logger.debug(f'response body: "{client_response.text}"')
+        elif client_response.status_code != 304:
+            # some servers do not have cache headers in 304 response, so only updating on 200
+            state.update(headers_dict(client_response.headers))
+
+            cache_control = client_response.headers.get('Cache-control')
+            logger.debug(
+                f'Last-Modified={state.last_modified or "absent"}, ETAG={state.etag or "absent"}, Cache-control="{cache_control or "absent"}" for {client_response.url}')
+
+        response = self.from_response(client_response, state, logger)
+        return response
+
+    async def download_file(self, path: Path,
+                            url: str,
+                            params: Optional[Dict[str, str]] = None,
+                            data: Optional[Any] = None,
+                            data_json: Optional[Any] = None,
+                            headers: Optional[Dict[str, Any]] = None,
+                            method: str = 'GET') -> Optional['RemoteFileInfo']:
+        if self.options.use_own_ua:
+            headers = insert_useragent(headers)
+        try:
+            response: curl_cffi.Response = await self.session.stream(method=method,  # type: ignore
+                                                 url=url,
+                                                 params=params,
+                                                 headers=headers,
+                                                 data=data,
+                                                 json=data_json,
+                                                 timeout=60,
+                                                 )
+            response.raise_for_status()
+            remote_info = RemoteFileInfo.from_url_response(url, headers_dict(response.headers))
+            self.logger.debug(f'downloading {str(remote_info.content_length) + " bytes" or ""} from "{url}"')
+            with open(path, 'w+b') as fp:
+                async for data in response.aiter_content():
+                    fp.write(data)
+        except (OSError, curl_cffi.exceptions.RequestException) as e:
+            self.logger.warning(f'failed to download "{url}": {type(e)} {e}')
+            return None
+        except Exception as e:
+            self.logger.exception(f'failed to download "{url}": {e}')
+            return None
+        return remote_info
+
+
 class Transport(str, Enum):
     AIOHTTP = 'aiohttp'
     CURL_CFFI = 'curl_cffi'
@@ -750,7 +893,7 @@ class Transport(str, Enum):
         if name == cls.AIOHTTP:
             return AioHttpClient
         elif name == cls.CURL_CFFI:
-            return HttpClient
+            return CurlCffiHttpClient
         else:
             raise NotImplementedError(f'unknown transport: "{name}"')
 

@@ -1,6 +1,7 @@
 pydantic>=2.7.0
 aiohttp>=3.9,<3.10,;sys_platform == 'win32'
 aiohttp>=3.9;sys_platform != 'win32'
+curl_cffi
 multidict
 feedparser
 python-dateutil
