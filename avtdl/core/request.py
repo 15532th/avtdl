@@ -861,20 +861,20 @@ class CurlCffiHttpClient(HttpClient):
         if self.options.use_own_ua:
             headers = insert_useragent(headers)
         try:
-            response: curl_cffi.Response = await self.session.stream(method=method,  # type: ignore
+            async with self.session.stream(method=method,  # type: ignore
                                                  url=url,
                                                  params=params,
                                                  headers=headers,
                                                  data=data,
                                                  json=data_json,
                                                  timeout=60,
-                                                 )
-            response.raise_for_status()
-            remote_info = RemoteFileInfo.from_url_response(url, headers_dict(response.headers))
-            self.logger.debug(f'downloading {str(remote_info.content_length) + " bytes" or ""} from "{url}"')
-            with open(path, 'w+b') as fp:
-                async for data in response.aiter_content():
-                    fp.write(data)
+                                                 ) as response:
+                response.raise_for_status()
+                remote_info = RemoteFileInfo.from_url_response(url, headers_dict(response.headers))
+                self.logger.debug(f'downloading {str(remote_info.content_length) + " bytes" or ""} from "{url}"')
+                with open(path, 'w+b') as fp:
+                    async for data in response.aiter_content():
+                        fp.write(data)
         except (OSError, curl_cffi.exceptions.RequestException) as e:
             self.logger.warning(f'failed to download "{url}": {type(e)} {e}')
             return None
