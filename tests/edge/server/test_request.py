@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 
 from avtdl.core.request import ClientPool, Transport
@@ -112,5 +110,49 @@ async def test_http_client(server_instance: TestServer, server_cfg: ServerConfig
                                                      method=route.method)
                 if not response.status == payload.status:
                     assert False, f'endpoint {route.method} {route.path} failed with {response.text}'
+    finally:
+        await client_pool.close()
+
+
+TEXT_FILE = b'\x00\x01\x02\xFF'
+
+file_server_config = [
+    {
+        "method": "GET",
+        "path": "/file.txt",
+        "payloads": [
+            {
+                "headers": {"Content-Type": "application/octet-stream"},
+                "body": TEXT_FILE,
+                "expected_request": {}
+            }
+        ]
+    },
+
+]
+
+
+@pytest.mark.parametrize("server_cfg", [file_server_config], indirect=True)
+@pytest.mark.parametrize("transport", [Transport.AIOHTTP, Transport.CURL_CFFI])
+@pytest.mark.asyncio
+async def test_download(server_instance: TestServer, server_cfg: ServerConfig, transport: Transport, tmp_path):
+    client_pool = ClientPool()
+    try:
+        for route in server_cfg:
+            for payload in route.payloads:
+                expected = payload.expected_request
+                client = client_pool.get_client(name='test_http_client', transport=transport)
+                if expected.cookies:
+                    client.cookie_jar.update_cookies(expected.cookies)
+                download_path = tmp_path / route.path.lstrip('/')
+                file_info = await client.download_file(download_path,
+                                                       server_instance.url + route.path,
+                                                       expected.params,
+                                                       expected.data,
+                                                       headers=expected.headers,
+                                                       method=route.method)
+                assert file_info is not None
+                assert download_path.exists()
+                assert download_path.read_bytes() == payload.body
     finally:
         await client_pool.close()
