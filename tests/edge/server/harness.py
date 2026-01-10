@@ -21,7 +21,7 @@ class Payload(BaseModel):
     '''Representation of a single response payload'''
     status: int = 200
     headers: Dict[str, str] = {}
-    body: str = ''
+    body: Union[str, bytes] = ''
     expected_request: ExpectedRequest = ExpectedRequest()
 
 
@@ -115,7 +115,12 @@ class TestServer:
             else:
                 payload = queue.popleft()
             await validate_request(request, payload.expected_request)
-            return web.Response(text=payload.body, status=payload.status, headers=payload.headers)
+            if isinstance(payload.body, str):
+                return web.Response(text=payload.body, status=payload.status, headers=payload.headers)
+            elif isinstance(payload.body, bytes):
+                return web.Response(body=payload.body, status=payload.status, headers=payload.headers)
+            else:
+                raise web.HTTPInternalServerError(reason=f'unexpected payload type: {type(payload.body)}')
 
         return handler
 
