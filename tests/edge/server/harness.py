@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, List, Mapping, Tuple, Union
+from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 from aiohttp import web
 from pydantic import BaseModel, Field
@@ -13,7 +11,7 @@ from avtdl.core.utils import ListRootModel
 class ExpectedRequest(BaseModel):
     headers: Dict[str, str] = {}
     params: Dict[str, str] = {}
-    data: str | None = None
+    data: Optional[str] = None
     cookies: Dict[str, str] = {}
 
 
@@ -75,8 +73,8 @@ class ServerConfig(ListRootModel):
 class TestServer:
     def __init__(self) -> None:
         self._app = web.Application()
-        self._runner: web.AppRunner | None = None
-        self._site: web.TCPSite | None = None
+        self._runner: Optional[web.AppRunner] = None
+        self._site: Optional[web.TCPSite] = None
         self._payloads: Dict[Tuple[str, str], deque[Payload]] = defaultdict(deque)
 
     async def start(self) -> None:
