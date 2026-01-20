@@ -640,24 +640,9 @@ All mentioned tools support customization of the output name format and can down
 
 #### Youtube
 
-[ytarchive](https://github.com/Kethsar/ytarchive) is a tool for downloading upcoming and ongoing livestreams. Checks scheduled date and waits for upcoming livestream, can monitor channel for livestreams and download them as they start. Typical command would be
+[ytarchive](https://github.com/Kethsar/ytarchive) is a tool for downloading upcoming and ongoing livestreams. Checks scheduled date and waits for upcoming livestream, can monitor channel for livestreams and download them as they start.
 
-    ytarchive --threads 4 --add-metadata --thumbnail --wait --merge {url} best
-
-Running `ytarchive` without an url, specifying the `--wait` key or selecting the livestream quality will cause it to prompt for user input asking to provide missing details, which works in interactive environment but would wait forever if happened in automated job, so caution should be applied to provide all necessary info in command string. Quality can be specified as a slash-delimited list, and it is generally advised to always add `best` at the end: `1080p/1080p60/best`.
-
-<details>
-  <summary>Commonly used options (click to expand):</summary>
-
-- `--add-metadata` - writes stream info, such as title, description, channel name and date to output file metadata
-- `--cookies "path/to/file.txt"` - file with Youtube login cookies, allows downloading member-only streams
-- `--threads "number"` - run multiple download threads in parallel. Use if download is falling behind the live edge. Usually 2 or 3 threads is enough for a livestream
-- `--thumbnail` - embed the stream thumbnail as a video preview
-- `--wait` and `--merge` are used to avoid prompting for user input
-
-</details>
-
-`ytarchive` depends on [ffmpeg](https://www.ffmpeg.org/download.html) for merging video and audio in output file and for embedding thumbnail and metadata, so it should be installed or provided as an executable.
+Is currently broken and is expected to stay broken [until further notice](https://github.com/Kethsar/ytarchive/issues/272#issuecomment-3761037556). One possible alternative is using yt-dlp with the `--live-from-start` option, however, it does not wait for upcoming livestreams, and avtdl does not yet (but hopefully soon) provide support for running it just in time.
 
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) can be used to download Youtube videos, playlists or entire channel content. Might not work well with livestreams.
 
