@@ -103,9 +103,7 @@ class Command(TaskAction):
     or Jabber notifications or execute another command when it happens.
 
     Processed record itself can also be passed down the chain if the command failed,
-    providing a way to try a different one as a fallback. For example, record with
-    Youtube url could be first handled by `ytarchive` and passed to `yt-dlp` if
-    it happens to fail due to video link not being a livestream.
+    providing a way to try a different one as a fallback.
     """
 
     def __init__(self, conf: CommandConfig, entities: Sequence[CommandEntity], ctx: RuntimeContext):
