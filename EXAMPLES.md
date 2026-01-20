@@ -12,9 +12,9 @@ When avtdl is running, it is possible to change current config in the [web inter
 
 <!-- TOC -->
   * [Examples](#examples)
-      * [Download livestreams from Youtube channel](#download-livestreams-from-youtube-channel)
-      * [Download member-only livestreams from subscription feed](#download-member-only-livestreams-from-subscription-feed)
-      * [Monitor and download streams from both subscriptions feed and channels RSS feeds](#monitor-and-download-streams-from-both-subscriptions-feed-and-channels-rss-feeds)
+      * [Download new videos from Youtube channel](#download-new-videos-from-youtube-channel)
+      * [Download member-only uploads from subscription feed](#download-member-only-uploads-from-subscription-feed)
+      * [Monitor and download videos from both subscriptions feed and channels RSS feeds](#monitor-and-download-videos-from-both-subscriptions-feed-and-channels-rss-feeds)
       * [Download Twitcasting streams using yt-dlp](#download-twitcasting-streams-using-yt-dlp)
       * [Download FC2 streams using fc2-live-dl](#download-fc2-streams-using-fc2-live-dl)
       * [Send Jabber message about Youtube videos with specific words in the title](#send-jabber-message-about-youtube-videos-with-specific-words-in-the-title)
@@ -33,9 +33,9 @@ When avtdl is running, it is possible to change current config in the [web inter
 
 ---
 
-#### Download livestreams from Youtube channel
+#### Download new videos from Youtube channel
 
-Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with default update interval of 15 minutes and send new publications urls to `ytarchive`, executed in dedicated directories (specified by template in `working_dir`) for each channel. Every new upload, be it a video or a scheduled livestream, is sent to ytarchive, relying on it only processing livestreams.
+Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with default update interval of 15 minutes and send new publications urls to yt-dlp, executed in dedicated directories (specified by template in `working_dir`) for each channel. Note that yt-dlp process is started for every new upload, be it a video or a scheduled livestream, but this setup does not support downloading upcoming livestreams.
 
 ```yaml
 actors:
@@ -50,8 +50,8 @@ actors:
   execute:
     entities:
       - name: "archive"
-        command: "ytarchive --threads 3 --wait {url} best"
-        working_dir: "archive/livestreams/{author}/"
+        command: "yt-dlp --embed-metadata {url}"
+        working_dir: "archive/youtube/{author}/"
 
 
 chains:
@@ -64,9 +64,9 @@ chains:
       - "archive"
 ```
 
-#### Download member-only livestreams from subscription feed
+#### Download member-only uploads from subscription feed
 
-Check subscription feed of Youtube account using cookies from `cookies.txt` and send all uploads marked as "Member Only" to `execute` plugin running ytarchive. Again, template in `working_dir` is used to ensure files from different channels gets stored in different directories. Note that the working directory ytarchive is executed in depends on channel's name. So unlike the `cookies_file` parameter, the "--cookies" argument passed to ytarchive uses an absolute path.
+Check subscription feed of Youtube account using cookies from `cookies.txt` and send all uploads marked as "Member Only" to `execute` plugin running yt-dlp. Again, template in `working_dir` is used to ensure files from different channels gets stored in different directories. Note that the working directory for yt-dlp process depends on channel's name. So unlike the `cookies_file` parameter, the "--cookies" argument passed to yt-dlp uses an absolute path.
 
 ```yaml
 actors:
@@ -86,8 +86,8 @@ actors:
   execute:
     entities:
       - name: "archive"
-        command: "ytarchive --threads 3 --wait --cookies '/path/to/cookies.txt' {url} best"
-        working_dir: "archive/livestreams/{author} (member-only)/"
+        command: "yt-dlp --embed-metadata --cookies '/path/to/cookies.txt' {url}"
+        working_dir: "archive/youtube/{author} (member-only)/"
 
 
 chains:
@@ -101,9 +101,9 @@ chains:
       - "archive"
 ```
 
-#### Monitor and download streams from both subscriptions feed and channels RSS feeds
+#### Monitor and download videos from both subscriptions feed and channels RSS feeds
 
-Both RSS feeds and channel pages are monitored for new uploads. All new records are then fed into the same `filter.deduplicate` entity, so that only one record (from the monitor that noticed it first) is generated for a new video. These records are then passed to `execute` plugin entity that runs `ytarchive` on them.
+Both RSS feeds and channel pages are monitored for new uploads. All new records are then fed into the same `filter.deduplicate` entity, so that only one record (from the monitor that noticed it first) is generated for a new video, and the consequent one is silently dropped. These (now unique) records are then passed to `execute` plugin entity that runs yt-dlp for each of them.
 
 ```yaml
 actors:
@@ -131,8 +131,8 @@ actors:
   execute:
     entities:
       - name: "archive"
-        command: "ytarchive --threads 3 --wait {url} best"
-        working_dir: "archive/livestreams/{author}/"
+        command: "yt-dlp --embed-metadata {url}"
+        working_dir: "archive/youtube/{author}/"
 
 
 chains:
