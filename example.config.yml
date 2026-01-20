@@ -50,8 +50,8 @@ actors:
   execute: # run predefined command template filled with received data
     entities:
       - name: "archive"
-        command: "ytarchive --threads 3 --wait {url} best"
-        working_dir: "archive/livestreams/{author}/"
+        command: "yt-dlp --embed-metadata {url}"
+        working_dir: "archive/youtube/{author}/"
 
 
   to_file: # write data to text file
@@ -92,7 +92,7 @@ chains:
     - to_file:
         - "ChannelName"
 
-  # run "ytarchive ..." with url of every new upload of Youtube channel
+  # run "yt-dlp ..." with url of every new upload of Youtube channel
   "archive":
     - rss:
         - "ChannelName"

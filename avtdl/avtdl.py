@@ -30,8 +30,8 @@ actors:
   execute:
     entities:
       - name: "archive"
-        command: "ytarchive --threads 3 --wait {url} best"
-        working_dir: "archive/livestreams/{author}/"
+        command: "yt-dlp --embed-metadata {url}"
+        working_dir: "archive/youtube/{author}/"
 
 chains:
   "archive":
