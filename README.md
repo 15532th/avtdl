@@ -642,7 +642,7 @@ All mentioned tools support customization of the output name format and can down
 
 [ytarchive](https://github.com/Kethsar/ytarchive) is a tool for downloading upcoming and ongoing livestreams. Checks scheduled date and waits for upcoming livestream, can monitor channel for livestreams and download them as they start.
 
-Is currently broken and is expected to stay broken [until further notice](https://github.com/Kethsar/ytarchive/issues/272#issuecomment-3761037556). One possible alternative is using yt-dlp with the `--live-from-start` option, however, it does not wait for upcoming livestreams, and avtdl does not yet (but hopefully soon) provide support for running it just in time.
+Is currently broken and is expected to stay broken [until further notice](https://github.com/Kethsar/ytarchive/issues/272#issuecomment-3761037556). One possible alternative is using yt-dlp with the `--live-from-start` and `--wait-for-video` options.
 
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) can be used to download Youtube videos, playlists or entire channel content. Might not work well with livestreams.
 
