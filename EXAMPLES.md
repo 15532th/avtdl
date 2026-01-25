@@ -703,8 +703,6 @@ actors:
       - name: "rplay"
         command: "yt-dlp --windows-filenames --add-header Referer:'https://rplay.live' --add-header Origin:'https://rplay.live'  {playlist_url} --output '{start} [{name}] {title}.%(ext)s'"
         working_dir: "archive/rplay/{name} [{creator_id}]/"
-        log_dir: "archive/rplay/logs/"
-        log_filename: "{start} {name} [{creator_id}].log"
 
 chains:
   
@@ -819,8 +817,6 @@ actors:
         event_passthrough: true
         command: "yt-dlp --windows-filenames --add-header 'Origin: https://www.withny.fun/' --add-header 'Referer: https://www.withny.fun' --downloader ffmpeg --hls-use-mpegts {playlist_url} --output '{start} [{username}] {title}.%(ext)s'"
         working_dir: "archive/withny/{name} [{username}]/"
-        log_dir: "archive/withny/logs/"
-        log_filename: "[{username}] {stream_id}.log"
 
   to_file:
     entities:
