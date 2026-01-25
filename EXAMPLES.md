@@ -35,7 +35,7 @@ When avtdl is running, it is possible to change current config in the [web inter
 
 #### Download new videos from Youtube channel
 
-Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with default update interval of 15 minutes and send new publications urls to yt-dlp, executed in dedicated directories (specified by template in `working_dir`) for each channel. Note that yt-dlp process is started for every new upload, be it a video or a scheduled livestream, but this setup does not support downloading upcoming livestreams.
+Monitor two Youtube channels (`@ChannelName` and `@AnotherChannelName`) with default update interval of 15 minutes and send new publications urls to yt-dlp, executed in dedicated directories (specified by template in `working_dir`) for each channel.
 
 ```yaml
 actors:
@@ -50,7 +50,7 @@ actors:
   execute:
     entities:
       - name: "archive"
-        command: "yt-dlp --embed-metadata {url}"
+        command: "yt-dlp --embed-thumbnail --embed-metadata --live-from-start --wait-for-video 300 {url}"
         working_dir: "archive/youtube/{author}/"
 
 
@@ -86,7 +86,7 @@ actors:
   execute:
     entities:
       - name: "archive"
-        command: "yt-dlp --embed-metadata --cookies '/path/to/cookies.txt' {url}"
+        command: "yt-dlp --embed-thumbnail --embed-metadata --live-from-start --wait-for-video 300 --cookies '/path/to/cookies.txt' {url}"
         working_dir: "archive/youtube/{author} (member-only)/"
 
 
@@ -131,7 +131,7 @@ actors:
   execute:
     entities:
       - name: "archive"
-        command: "yt-dlp --embed-metadata {url}"
+        command: "yt-dlp --embed-thumbnail --embed-metadata --live-from-start --wait-for-video 300 {url}"
         working_dir: "archive/youtube/{author}/"
 
 
