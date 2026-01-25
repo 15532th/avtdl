@@ -18,11 +18,6 @@ def make_morsel(name: str, value: str) -> http.cookies.Morsel:
     return morsel
 
 
-@pytest.fixture
-def empty_jar(jar_class):
-    return jar_class()
-
-
 def sample_cookie(name: str, value: str, domain: str = 'example.com', path: str = '/') -> cookiejar.Cookie:
     return cookiejar.Cookie(
         version=0,
@@ -53,7 +48,9 @@ def populated_cookiejar():
     return cj
 
 
-def test_set_and_get_basic(empty_jar):
+@pytest.mark.asyncio
+async def test_set_and_get_basic(jar_class):
+    empty_jar = jar_class()
     empty_jar.set('session', 'abc123', 'https://example.com')
     assert empty_jar.get('session') == 'abc123'
 
@@ -62,7 +59,9 @@ def test_set_and_get_basic(empty_jar):
     assert empty_jar.get('session') == 'def456'
 
 
-def test_get_missing_key_returns_none(empty_jar):
+@pytest.mark.asyncio
+async def test_get_missing_key_returns_none(jar_class):
+    empty_jar = jar_class()
     assert empty_jar.get('nonexistent') is None
 
 
@@ -74,7 +73,9 @@ def test_get_missing_key_returns_none(empty_jar):
         {'mix': 'plain', 'morsel': make_morsel('morsel', 'zoo')},
     ],
 )
-def test_update_cookies(empty_jar, mapping):
+@pytest.mark.asyncio
+async def test_update_cookies(jar_class, mapping):
+    empty_jar = jar_class()
     empty_jar.update_cookies(mapping)
 
     for key, val in mapping.items():
@@ -85,7 +86,9 @@ def test_update_cookies(empty_jar, mapping):
         assert empty_jar.get(key) == expected
 
 
-def test_to_cookie_jar(empty_jar):
+@pytest.mark.asyncio
+async def test_to_cookie_jar(jar_class):
+    empty_jar = jar_class()
     empty_jar.set('alpha', 'A', 'https://a.com')
     empty_jar.set('beta', 'B', 'https://b.com')
 
@@ -95,7 +98,8 @@ def test_to_cookie_jar(empty_jar):
     assert names == {'alpha', 'beta'}
 
 
-def test_from_cookie_jar(jar_class):
+@pytest.mark.asyncio
+async def test_from_cookie_jar(jar_class):
     raw = cookiejar.CookieJar()
     raw.set_cookie(sample_cookie(name='alpha', value='A', domain='https://a.com'))
     raw.set_cookie(sample_cookie(name='beta', value='B', domain='https://b.com'))
@@ -106,7 +110,8 @@ def test_from_cookie_jar(jar_class):
     assert jar.get('beta') == 'B'
 
 
-def test_mutating_extracted_cookiejar_reflects_on_original(jar_class):
+@pytest.mark.asyncio
+async def test_mutating_extracted_cookiejar_reflects_on_original(jar_class):
     original = jar_class()
     original.set('original', 'original_value', 'example.com')
 
