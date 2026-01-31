@@ -44,6 +44,13 @@ def parse_to_date_string(text: Union[int, str, None]) -> Optional[str]:
     return date_string
 
 
+def try_parse_date(text: Any) -> Optional[datetime.datetime]:
+    try:
+        return dateutil.parser.parse(str(text))
+    except Exception:
+        return None
+
+
 def check_dir(path: Path, create=True) -> bool:
     """check if directory exists and writable, create if asked"""
     if path.is_dir() and os.access(path, mode=os.W_OK):
