@@ -216,6 +216,14 @@ class HttpTaskMonitor(BaseTaskMonitor):
             return response.text
         return None
 
+    async def request_json_endpoint(self, entity: HttpTaskMonitorEntity,
+                               client: HttpClient,
+                               request_details: RequestDetails) -> Optional[JSONType]:
+        response = await self.request_endpoint(entity, client, request_details)
+        if response.has_json():
+            return response.json()
+        return None
+
     async def request_endpoint(self, entity: HttpTaskMonitorEntity,
                                client: HttpClient,
                                request_details: RequestDetails) -> MaybeHttpResponse:
