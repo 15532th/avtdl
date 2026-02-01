@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from email.message import EmailMessage
 from email.utils import parsedate_to_datetime
 from enum import Enum
+from http.cookiejar import CookieJar
 from http.cookies import SimpleCookie
 from math import log2
 from pathlib import Path
@@ -226,7 +227,7 @@ class HttpResponse:
     headers: Union[CIMultiDictProxy[str], Dict[str, str]]
     """response headers"""
     request_headers: Union[CIMultiDictProxy[str], Dict[str, str]]
-    cookies: SimpleCookie
+    cookies: Union[SimpleCookie, CookieJar]
     """response cookies"""
     endpoint_state: EndpointState
     content_encoding: str
@@ -351,21 +352,21 @@ class BucketRateLimit(RateLimit):
         self.limit_remaining: int = 10
         self.reset_at: int = int(utcnow().timestamp())
 
-    def _fallback_delay(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
+    def _fallback_delay(self, response: MaybeHttpResponse) -> int:
         return int(response.next_update_interval(self.base_delay, self.current_delay, True))
 
     def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> int:
         logger = logger or self.logger
 
         if isinstance(response, NoResponse):
-            return self._fallback_delay(response, logger)
+            return self._fallback_delay(response)
         parsed_successfully = self._submit_headers(response, logger)
         if not parsed_successfully:
-            return self._fallback_delay(response, logger)
+            return self._fallback_delay(response)
         if self.limit_remaining >= 1:
             if response.ok:
                 return 0
-            return self._fallback_delay(response, logger)
+            return self._fallback_delay(response)
         reset_after = max(0, self.reset_at - int(utcnow().timestamp()))
         return reset_after
 
@@ -380,8 +381,9 @@ class BucketRateLimit(RateLimit):
 class NoRateLimit(RateLimit):
 
     def __init__(self, name: str, logger: Optional[logging.Logger] = None) -> None:
-        logger = logging.getLogger('noop')
-        logger.setLevel(logging.CRITICAL)
+        if logger is None:
+            logger = logging.getLogger('noop')
+            logger.setLevel(logging.CRITICAL)
         super().__init__(name, logger)
 
     def _submit_response(self, response: MaybeHttpResponse, logger: logging.Logger) -> float:
@@ -512,6 +514,7 @@ class RemoteFileInfo(BaseModel):
             filename = Path(filename.name)
             return filename
         except Exception as e:
+            logging.getLogger().debug(f'[RemoteFileInfo] failed to extract path part from url "{url}: {e}"')
             return None
 
     @staticmethod
@@ -808,7 +811,8 @@ class CurlCffiHttpClient(HttpClient):
                            ) -> 'MaybeHttpResponse':
         logger = self.logger
 
-        request_headers: Dict[str, str] = {}
+        request_headers: Optional[Dict[str, str]] = {}
+        assert request_headers is not None
         if headers is not None:
             request_headers.update(headers)
         if state.last_modified is not None and method in ['GET', 'HEAD']:
