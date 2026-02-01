@@ -12,7 +12,7 @@ from avtdl.core.monitors import PagedFeedMonitor, \
     PagedFeedMonitorConfig, PagedFeedMonitorEntity
 from avtdl.core.request import HttpClient, RequestDetails
 from avtdl.core.runtime import RuntimeContext
-from avtdl.core.utils import JSONType, find_one, try_parse_date, with_prefix
+from avtdl.core.utils import JSONType, find_one, get_netloc, try_parse_date, with_prefix
 
 
 @Plugins.register('nicochannel', Plugins.kind.ASSOCIATED_RECORD)
@@ -186,8 +186,7 @@ class LivePageContext(PageContext):
     live_type: int = 1
 
 
-@Plugins.register('nicochannel.news', Plugins.kind.ACTOR)
-class NicochannelNewsMonitor(PagedFeedMonitor):
+class NicochannelMonitor(PagedFeedMonitor):
     """
     Monitor Nicochannel fanclub NEWS tab
 
@@ -201,38 +200,49 @@ class NicochannelNewsMonitor(PagedFeedMonitor):
                  ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
         self.entities: Mapping[str, NicochannelMonitorEntity]  # type: ignore
-        self.site_cache: Dict[str, FanclubInfo] = {}
+        self.info_cache: Dict[str, FanclubInfo] = {}
+        self.endpoint_cache: Dict[str, NicochannelUrl] = {}
+
+    async def get_endpoint(self, entity: NicochannelMonitorEntity, client: HttpClient) -> Optional['NicochannelUrl']:
+        if entity.name in self.endpoint_cache:
+            return self.endpoint_cache[entity.name]
+        endpoint = await self.fetch_endpoint(entity, client)
+        if endpoint is not None:
+            self.endpoint_cache[entity.name] = endpoint
+        return endpoint
 
     async def get_info(self, entity: NicochannelMonitorEntity, client: HttpClient) -> Optional['FanclubInfo']:
-        if entity.name in self.site_cache:
-            return self.site_cache[entity.name]
-        endpoint = await self.fetch_info(entity, client)
-        if endpoint is not None:
-            self.site_cache[entity.name] = endpoint
+        if entity.name in self.info_cache:
+            return self.info_cache[entity.name]
+        info = await self.fetch_info(entity, client)
+        if info is not None:
+            self.info_cache[entity.name] = info
+        return info
+
+    async def fetch_endpoint(self, entity: NicochannelMonitorEntity, client: HttpClient) -> Optional['NicochannelUrl']:
+        logger = with_prefix(self.logger, f'[{entity.name}] ')
+        endpoint = await NicochannelUrl.construct(entity.url, client, logger)
         return endpoint
 
     async def fetch_info(self, entity: NicochannelMonitorEntity, client: HttpClient) -> Optional['FanclubInfo']:
-        r = NicochannelUrl.fanclub_id(entity.url)
-        data = await self.request_json_endpoint(entity, client, r)
-        if data is None:
-            self.logger.warning(f'[{entity.name}] failed to fetch fanclub id')
+        endpoint = await self.get_endpoint(entity, client)
+        if endpoint is None:
             return None
-        fanclub_id = parse_fanclub_id(data)
-        if fanclub_id is None:
-            self.logger.warning(f'[{entity.name}] failed to parse fanclub id')
-            self.logger.debug(f'[{entity.name}] raw response: {data}')
-            return None
-        endpoint = NicochannelUrl(fanclub_id)
-        r = endpoint.fanclub_info()
-        data = await self.request_json_endpoint(entity, client, r)
-        try:
-            info = FanclubInfo.from_data(entity.url, fanclub_id, data)
-            self.logger.debug(f'[{entity.name}] successfully fetched info for fanclub {fanclub_id} ({entity.url})')
-            return info
-        except Exception as e:
-            self.logger.warning(f'[{entity.name}] failed to parse fanclub info: {e}')
-            self.logger.debug(f'[{entity.name}] raw response: {data}', exc_info=True)
-            return None
+        logger = with_prefix(self.logger, f'[{entity.name}] ')
+        info = await endpoint.fetch_info(client, logger)
+        return info
+
+
+@Plugins.register('nicochannel.news', Plugins.kind.ACTOR)
+class NicochannelNewsMonitor(NicochannelMonitor):
+    """
+    Monitor Nicochannel fanclub NEWS tab
+
+    Monitors fanclub for new posts on the NEWS tab. Example of supported url:
+
+    - `https://nicochannel.jp/creatorname`
+
+    """
 
     async def handle_first_page(self, entity: NicochannelMonitorEntity,
                                 client: HttpClient
@@ -244,10 +254,10 @@ class NicochannelNewsMonitor(PagedFeedMonitor):
                                client: HttpClient,
                                context: PageContext
                                ) -> Tuple[Optional[Sequence[NicochannelPostRecord]], Optional[PageContext]]:
+        endpoint = await self.get_endpoint(entity, client)
         info = await self.get_info(entity, client)
-        if info is None:
+        if endpoint is None or info is None:
             return None, None
-        endpoint = NicochannelUrl(info.fanclub_id)
         r = endpoint.article_pages(context.page, context.per_page)
         data = await self.request_json_endpoint(entity, client, r)
         articles = extract_articles(data)
@@ -262,7 +272,7 @@ class NicochannelNewsMonitor(PagedFeedMonitor):
 
 
 @Plugins.register('nicochannel', Plugins.kind.ACTOR)
-class NicochannelMonitor(NicochannelNewsMonitor):
+class NicochannelVideoMonitor(NicochannelMonitor):
     """
     Monitor Nicochannel fanclub
 
@@ -300,10 +310,10 @@ class NicochannelMonitor(NicochannelNewsMonitor):
                                client: HttpClient,
                                context: LivePageContext
                                ) -> Tuple[Optional[Sequence[NicochannelVideoRecord]], Optional[LivePageContext]]:
+        endpoint = await self.get_endpoint(entity, client)
         info = await self.get_info(entity, client)
-        if info is None:
+        if endpoint is None or info is None:
             return None, None
-        endpoint = NicochannelUrl(info.fanclub_id)
         r = endpoint.live_pages(context.live_type, context.page, context.per_page)
         data = await self.request_json_endpoint(entity, client, r)
         videos = extract_videos(data)
@@ -319,64 +329,115 @@ class NicochannelMonitor(NicochannelNewsMonitor):
 
 class NicochannelUrl:
 
-    def __init__(self, fanclub_id: int, fc_use_device: Optional[str] = None):
-        self.site_id = str(fanclub_id)
+    def __init__(self, base_url: str, api_base_url: str, fanclub_id: int, fc_use_device: Optional[str] = None):
+        self.base_url = base_url
+        self.api_base_url = api_base_url
+        self.site_id = fanclub_id
         self.fc_use_device = fc_use_device or 'null'
+
+    @property
+    def on_main_domain(self) -> bool:
+        return self.site_id == 1 or get_netloc(self.base_url) == 'nicochannel.jp'
+
+    @classmethod
+    async def construct(cls, base_url: str, client: HttpClient,
+                        logger: Optional[logging.Logger] = None) -> Optional['NicochannelUrl']:
+        logger = logger or logging.getLogger('NicochannelUrl')
+        r = cls._settings(base_url)
+        data = await client.request_json_endpoint(logger, r)
+        if data is None:
+            return None
+        try:
+            endpoint = cls._from_settings_response(base_url, data)
+        except ValueError as e:
+            logger.warning(f'failed to construct NicochannelUrl: {e}')
+            return None
+        if not endpoint.on_main_domain:
+            return endpoint
+
+        r = endpoint._fanclub_id()
+        data = await client.request_json_endpoint(logger, r)
+        if data is None:
+            return None
+        try:
+            site_id = data['data']['content_providers']['id']  # type: ignore
+            assert isinstance(site_id, int)
+            domain = data['data']['content_providers']['domain']  # type: ignore
+            assert isinstance(domain, str)
+        except Exception as e:
+            logger.warning(f'failed to parse content provider info "{data}": {type(e)} {e}')
+            return None
+        else:
+            return cls(domain, endpoint.api_base_url, site_id)
+
+    @classmethod
+    def _from_settings_response(cls, base_url: str, data: JSONType) -> 'NicochannelUrl':
+        try:
+            assert isinstance(data, dict)
+            site_id = data['fanclub_site_id']
+            api_base_url = data['api_base_url']
+        except Exception as e:
+            raise ValueError(f'unexpected fanclub settings format: {data}') from e
+        return cls(base_url=base_url, api_base_url=api_base_url, fanclub_id=site_id)
+
+    @staticmethod
+    def _settings(current_site_domain: str) -> RequestDetails:
+        domain = get_netloc(current_site_domain)
+        url = f'https://{domain}/site/settings.json'
+        headers = {'Referer': current_site_domain}
+        return RequestDetails(url=url, headers=headers)
 
     @property
     def _headers(self) -> Dict[str, str]:
         return {
-            'fc_site_id': self.site_id,
+            'fc_site_id': str(self.site_id),
             'fc_use_device': self.fc_use_device,
-            'Origin': 'https://nicochannel.jp',
-            'Referer': 'https://nicochannel.jp'
+            'Origin': self.base_url,
+            'Referer': self.base_url
         }
 
-    @staticmethod
-    def login() -> RequestDetails:
-        url = f'https://api.nicochannel.jp/fc/fanclub_sites/1/login'
-        headers = {
-            'fc_site_id': 1,
-            'fc_use_device': 'null',
-            'Origin': 'https://nicochannel.jp',
-            'Referer': 'https://nicochannel.jp'
-        }
-        return RequestDetails(url=url, headers=headers)
+    def _fanclub_id(self) -> RequestDetails:
+        url = '{self.api_base_url}/content_providers/channel_domain'
+        params = {'current_site_domain': self.base_url}
+        return RequestDetails(url=url, params=params, headers=self._headers)
 
-    @staticmethod
-    def fanclub_id(current_site_domain: str) -> RequestDetails:
-        url = 'https://api.nicochannel.jp/fc/content_providers/channel_domain'
-        params = {'current_site_domain': current_site_domain}
-        headers = {'Origin': 'https://nicochannel.jp', 'Referer': 'https://nicochannel.jp'}
-        return RequestDetails(url=url, params=params, headers=headers)
+    async def fetch_info(self, client: HttpClient,
+                         logger: Optional[logging.Logger] = None) -> Optional['FanclubInfo']:
+        logger = logger or logging.getLogger('NicochannelUrl')
+        r = self.fanclub_info()
+        data = await client.request_json_endpoint(logger, r)
+        if data is None:
+            logger.warning(f'failed to fetch fanclub info')
+            return None
+        try:
+            info = FanclubInfo.from_data(self.base_url, self.site_id, data)
+            logger.debug(f'successfully fetched info for fanclub {self.site_id} ({self.base_url})')
+            return info
+        except Exception as e:
+            logger.warning(f'failed to parse fanclub info: {e}')
+            logger.debug(f'raw response: {data}', exc_info=True)
+            return None
 
     def fanclub_info(self) -> RequestDetails:
-        url = f'https://api.nicochannel.jp/fc/fanclub_sites/{self.site_id}/page_base_info'
+        url = f'{self.api_base_url}/fanclub_sites/{self.site_id}/page_base_info'
         return RequestDetails(url=url, headers=self._headers)
 
     def live_pages(self, live_type: int, page: int, per_page: Optional[int] = None) -> RequestDetails:
-        url = f'https://api.nicochannel.jp/fc/fanclub_sites/{self.site_id}/live_pages'
+        url = f'{self.api_base_url}/fanclub_sites/{self.site_id}/live_pages'
         params = {'page': page, 'live_type': live_type, 'per_page': per_page}
         if 'per_page' in params and params.get('per_page') is None:
             params.pop('per_page')
         return RequestDetails(url=url, params=params, headers=self._headers)
 
     def video_pages(self, page: int, per_page: int = 6) -> RequestDetails:
-        url = f'https://api.nicochannel.jp/fc/fanclub_sites/{self.site_id}/video_pages'
+        url = f'{self.api_base_url}/fanclub_sites/{self.site_id}/video_pages'
         params = {'page': page, 'per_page': per_page, 'sort': '-display_date'}
         return RequestDetails(url=url, params=params, headers=self._headers)
 
     def article_pages(self, page: int, per_page: int = 6) -> RequestDetails:
-        url = f'https://api.nicochannel.jp/fc/fanclub_sites/{self.site_id}/article_themes/news/articles'
+        url = f'{self.api_base_url}/fanclub_sites/{self.site_id}/article_themes/news/articles'
         params = {'page': page, 'per_page': per_page, 'sort': 'published_at_desc'}
         return RequestDetails(url=url, params=params, headers=self._headers)
-
-
-def parse_fanclub_id(data: JSONType) -> Optional[int]:
-    value = find_one(data, '$..fanclub_site.id')
-    if isinstance(value, int):
-        return value
-    return None
 
 
 class FanclubInfo(BaseModel):

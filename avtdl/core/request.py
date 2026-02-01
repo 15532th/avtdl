@@ -621,6 +621,13 @@ class HttpClient(abc.ABC):
             details.rate_limit.submit_response(response, logger)
         return response
 
+    async def request_json_endpoint(self, logger: logging.Logger, details: RequestDetails) -> Optional[JSONType]:
+        response = await self.request_endpoint(logger, details)
+        if response.has_json():
+            return response.json()
+        return None
+
+
 
 class AioHttpClient(HttpClient):
 
