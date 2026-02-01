@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import urllib.parse
 from collections import OrderedDict
 from contextlib import ContextDecorator
 from pathlib import Path
@@ -369,3 +370,7 @@ def format_validation_error(e: ValidationError, msg: str) -> str:
         error = 'error parsing "{}" in config section {}: {}'
         errors.append(error.format(user_input, location, error_message))
     return '\n    '.join([msg] + errors)
+
+
+def get_netloc(host: str) -> str:
+    return urllib.parse.urlparse(host).netloc
