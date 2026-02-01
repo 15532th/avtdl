@@ -15,13 +15,13 @@ class VideoRendererInfo(BaseModel):
     url: str
     title: str
     summary: Optional[str] = Field(repr=False)
+    thumbnail_url: Optional[str] = None
+    published_text: Optional[str]
     scheduled: Optional[datetime.datetime] = None
     author: Optional[str]
     avatar_url: Optional[str] = None
-    thumbnail_url: Optional[str] = None
     channel_link: Optional[str] = None
     channel_id: Optional[str] = None
-    published_text: Optional[str]
     length: Optional[str]
 
     is_upcoming: bool

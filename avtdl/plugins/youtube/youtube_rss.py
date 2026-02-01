@@ -25,26 +25,26 @@ class YoutubeFeedRecord(Record):
     """
     model_config = ConfigDict(extra='allow')
 
+    video_id: str
+    """short string identifying the video on Youtube. Part of the video url"""
     url: str
     """link to the video"""
     title: str
     """title of the video at the time of parsing"""
-    published: datetime
-    """published value of the feed item, usually the time when the video was uploaded or the livestream frame was set up"""
-    updated: datetime
-    """updated value of the feed item. If different from `published`, might indicate either a change to video title, thumbnail or description, or a change in video status, for example livestream ending"""
-    thumbnail_url: Optional[str] = None
-    """link to the video thumbnail"""
-    author: str
-    """author's name, as shown on the channel icon"""
-    video_id: str
-    """short string identifying the video on Youtube. Part of the video url"""
     summary: Optional[str] = None
     """video's description"""
-    views: Optional[int]
-    """current number of views. Is zero for upcoming and ongoing livestreams"""
+    thumbnail_url: Optional[str] = None
+    """link to the video thumbnail"""
+    published: datetime
+    """published value of the feed item, usually the time when the video was uploaded or the livestream frame was set up"""
     scheduled: Optional[datetime] = None
     """scheduled time for an upcoming livestream to start at, otherwise absent"""
+    updated: datetime
+    """updated value of the feed item. If different from `published`, might indicate either a change to video title, thumbnail or description, or a change in video status, for example livestream ending"""
+    author: str
+    """author's name, as shown on the channel icon"""
+    views: Optional[int]
+    """current number of views. Is zero for upcoming and ongoing livestreams"""
 
     async def check_scheduled(self, client: HttpClient, logger: Optional[logging.Logger] = None):
         scheduled = None

@@ -36,20 +36,20 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
     """title of the video at the time of parsing"""
     summary: Optional[str] = Field(repr=False)
     """snippet of the video description. Not always available"""
+    thumbnail_url: Optional[str] = None
+    """link to the video thumbnail"""
+    published_text: Optional[str]
+    """localized text saying how long ago the video was uploaded"""
     scheduled: Optional[datetime.datetime] = None
     """scheduled date for upcoming stream or premiere"""
     author: Optional[str]
     """channel name"""
     avatar_url: Optional[str] = None
     """link to the avatar of the channel. Not always available"""
-    thumbnail_url: Optional[str] = None
-    """link to the video thumbnail"""
     channel_link: Optional[str] = None
     """link to the channel uploading the video"""
     channel_id: Optional[str] = None
     """channel ID in old format (such as `UCK0V3b23uJyU4N8eR_BR0QA`)"""
-    published_text: Optional[str]
-    """localized text saying how long ago the video was uploaded"""
     length: Optional[str]
     """text showing the video duration (hh:mm:ss)"""
 

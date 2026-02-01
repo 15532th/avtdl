@@ -31,28 +31,47 @@ class VideoFormat(BaseModel):
 
 
 class VideoInfo(BaseModel):
-    url: str
-    title: str
-    published: str
-    uploaded: str
-    author: str
-    channel_id: str
     video_id: str
+    """short string identifying video on Youtube. Part of video url"""
+    url: str
+    """video url"""
+    title: str
+    """title of the video at the time of parsing"""
     summary: str = Field(repr=False)
-    views: int
-    length: int
-
+    """video's description"""
+    published: str
+    """time when the video  or the livestream frame was made public"""
     scheduled: Optional[datetime.datetime] = None
+    """scheduled date for upcoming stream or premiere"""
+    uploaded: str
+    """time when the video was uploaded or the livestream frame was set up"""
+    author: str
+    """author's name, as shown on the channel icon"""
+    channel_id: str
+    """author's channel ID"""
+    views: int
+    """current number of views. Is zero for upcoming and ongoing livestreams"""
+    length: int
+    """video duration in seconds"""
+
     live_start: Optional[datetime.datetime] = None
+    """date and time when the live actually started"""
     live_end: Optional[datetime.datetime] = None
+    """date and time when the live actually ended"""
 
     is_unlisted: bool
+    """whether the video is unlisted"""
     is_adult: bool
+    """whether the video is marked as adult"""
     is_livestream: bool
+    """whether the video is a livestream"""
     is_upcoming: bool
+    """whether the video is an upcoming livestream or premiere"""
 
     playability_status: str
+    """playability status (OK, UNPLAYABLE, ERROR and others)"""
     playability_reason: Optional[str] = None
+    """additional context of the playability status (usually a reason video is unplayable)"""
 
     formats: Optional[List[VideoFormat]] = []
 
