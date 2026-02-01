@@ -227,7 +227,6 @@ class HttpTaskMonitor(BaseTaskMonitor):
     async def request_endpoint(self, entity: HttpTaskMonitorEntity,
                                client: HttpClient,
                                request_details: RequestDetails) -> MaybeHttpResponse:
-
         additional_headers = load_headers(entity.headers_file, with_prefix(self.logger, f'[{entity.name}]'))
         if additional_headers is not None:
             request_details.headers = {**(request_details.headers or {}), **additional_headers}
@@ -413,7 +412,6 @@ class PagedFeedMonitorEntity(BaseFeedMonitorEntity):
 
 class PagedFeedMonitor(BaseFeedMonitor, ABC):
     '''Provide support for loading and parsing feeds with pagination or lazy loading'''
-
     @abstractmethod
     async def handle_first_page(self, entity: PagedFeedMonitorEntity, client: HttpClient) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         '''Download and parse first page of the feed
@@ -429,7 +427,7 @@ class PagedFeedMonitor(BaseFeedMonitor, ABC):
         then first element is an empty list and the second element is None'''
 
     @abstractmethod
-    async def handle_next_page(self, entity: PagedFeedMonitorEntity, client: HttpClient, context: Optional[Any]) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
+    async def handle_next_page(self, entity: PagedFeedMonitorEntity, client: HttpClient, context: Any) -> Tuple[Optional[Sequence[Record]], Optional[Any]]:
         '''Download and parse continuation  page
 
         Parameters:
