@@ -50,7 +50,7 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
     """link to the channel uploading the video"""
     channel_id: Optional[str] = None
     """channel ID in old format (such as `UCK0V3b23uJyU4N8eR_BR0QA`)"""
-    length_text: Optional[str]
+    length: Optional[str]
     """text showing the video duration (hh:mm:ss)"""
 
     is_upcoming: bool
@@ -92,8 +92,8 @@ class YoutubeVideoRecord(VideoRendererInfo, Record):
         footer = ''
         if self.published_text:
             footer += self.published_text
-        if self.length_text:
-            embed['fields'].append({'name': f'[{self.length_text}]', 'value': '', 'inline': True})
+        if self.length:
+            embed['fields'].append({'name': f'[{self.length}]', 'value': '', 'inline': True})
         if self.scheduled is not None:
             scheduled = self.scheduled.strftime('%Y-%m-%d %H:%M')
             embed['fields'].append({'name': 'Scheduled:', 'value': scheduled, 'inline': True})

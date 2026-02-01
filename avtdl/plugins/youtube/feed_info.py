@@ -22,7 +22,7 @@ class VideoRendererInfo(BaseModel):
     avatar_url: Optional[str] = None
     channel_link: Optional[str] = None
     channel_id: Optional[str] = None
-    length_text: Optional[str]
+    length: Optional[str]
 
     is_upcoming: bool
     is_live: bool
