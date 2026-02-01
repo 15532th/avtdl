@@ -398,7 +398,7 @@ class NicochannelUrl:
 
     def _fanclub_id(self) -> RequestDetails:
         url = f'{self.api_base_url}/content_providers/channel_domain'
-        params = {'current_site_domain': self.base_url}
+        params = {'current_site_domain': self.base_url.rstrip('/')}
         return RequestDetails(url=url, params=params, headers=self._headers)
 
     async def fetch_info(self, client: HttpClient,
