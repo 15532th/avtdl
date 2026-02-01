@@ -397,7 +397,7 @@ class NicochannelUrl:
         }
 
     def _fanclub_id(self) -> RequestDetails:
-        url = '{self.api_base_url}/content_providers/channel_domain'
+        url = f'{self.api_base_url}/content_providers/channel_domain'
         params = {'current_site_domain': self.base_url}
         return RequestDetails(url=url, params=params, headers=self._headers)
 
@@ -407,7 +407,7 @@ class NicochannelUrl:
         r = self.fanclub_info()
         data = await client.request_json_endpoint(logger, r)
         if data is None:
-            logger.warning(f'failed to fetch fanclub info')
+            logger.warning('failed to fetch fanclub info')
             return None
         try:
             info = FanclubInfo.from_data(self.base_url, self.site_id, data)
