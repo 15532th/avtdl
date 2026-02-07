@@ -132,9 +132,10 @@ class RecordDB(BaseRecordDB):
     def store_records(self, records: Sequence[Record], entity_name: str,
                       replace: bool = False, use_created_as_parsed: bool = False):
         rows = []
+        parsed_at = datetime.datetime.now(tz=datetime.timezone.utc)
         for record in records:
             uid = self._get_record_id(record, entity_name)
-            parsed_at = datetime.datetime.now(tz=datetime.timezone.utc)
+            parsed_at += datetime.timedelta(microseconds=1)
             if use_created_as_parsed:
                 parsed_at = record.created_at
             hashsum = record.hash()
