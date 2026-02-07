@@ -1,5 +1,7 @@
 import datetime
 import logging
+import math
+from abc import ABC
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -7,6 +9,7 @@ import dateutil.parser
 from pydantic import BaseModel, Field, PositiveFloat
 
 from avtdl.core.config import Plugins
+from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import PagedFeedMonitor, \
     PagedFeedMonitorConfig, PagedFeedMonitorEntity
@@ -52,15 +55,18 @@ class NicochannelVideoRecord(Record):
     is_live: bool
     """indicates that the video is a livestream that is currently live"""
 
+    live_start: Optional[datetime.datetime] = None
+    live_end: Optional[datetime.datetime] = None
+
     def __str__(self):
         last_line = ''
         scheduled = self.scheduled
-        if scheduled:
+        if self.is_upcoming:
             last_line = '\nscheduled to {}'.format(scheduled.strftime('%Y-%m-%d %H:%M'))
         elif self.is_live:
             last_line = '\n[Live]'
-        template = '{}\n{}\npublished by {}'
-        return template.format(self.url, self.title, self.author) + last_line
+        template = '{}\n{}\npublished by {} at {}'
+        return template.format(self.url, self.title, self.author, self.published) + last_line
 
     def __repr__(self):
         template = '{:<8} [{}] {}'
@@ -82,8 +88,9 @@ class NicochannelVideoRecord(Record):
         }
         footer = ''
         if self.length:
-            embed['fields'].append({'name': f'[{self.length}]', 'value': '', 'inline': True})
-        if self.scheduled is not None:
+            duration = Fmt.duration(self.length)
+            embed['fields'].append({'name': f'[{duration}]', 'value': '', 'inline': True})
+        if self.is_upcoming and self.scheduled is not None:
             scheduled = self.scheduled.strftime('%Y-%m-%d %H:%M')
             embed['fields'].append({'name': 'Scheduled:', 'value': scheduled, 'inline': True})
         if self.is_live:
@@ -178,15 +185,24 @@ class NicochannelMonitorEntity(PagedFeedMonitorEntity):
 class PageContext:
     page: int
     per_page: int
-    max_page: Optional[int] = None
+    max_record: Optional[int] = None
+
+    @property
+    def max_page(self) -> Optional[int]:
+        if self.max_record is None:
+            return None
+        if self.max_record == 0:
+            return 0
+        return math.ceil(self.max_record / self.per_page)
 
 
 @dataclass
 class LivePageContext(PageContext):
     live_type: int = 1
+    """1-4 is live_type parameter of the /lives endpoint, 0 means /videos endpoint should be used"""
 
 
-class NicochannelMonitor(PagedFeedMonitor):
+class NicochannelMonitor(PagedFeedMonitor, ABC):
     """
     Monitor Nicochannel fanclub NEWS tab
 
@@ -261,11 +277,11 @@ class NicochannelNewsMonitor(NicochannelMonitor):
         r = endpoint.article_pages(context.page, context.per_page)
         data = await self.request_json_endpoint(entity, client, r)
         articles = extract_articles(data)
-        context.max_page = extract_articles_count(data)
+        context.max_record = extract_articles_count(data)
         records = parse_articles(articles, info, with_prefix(self.logger, f'[{entity.name}] '))
-        if context.max_page is None or context.max_page <= context.page:
+        if context.max_page is None or context.max_page <= context.page or len(records) == 0:
             self.logger.debug(
-                f'[{entity.name}] reached end of the feed. Current page: {context.page}, total pages: {context.max_page}')
+                f'[{entity.name}] reached end of the feed. Current page: {context.page}, total pages: {context.max_record}')
             return records, None
         context.page += 1
         return records, context
@@ -288,14 +304,17 @@ class NicochannelVideoMonitor(NicochannelMonitor):
             LivePageContext(page=1, per_page=10, live_type=1),
             LivePageContext(page=1, per_page=6, live_type=2),
             LivePageContext(page=1, per_page=8, live_type=3),
-            LivePageContext(page=1, per_page=8, live_type=4),
+            LivePageContext(page=1, per_page=8, live_type=0),
         ]
         combined_records: List[NicochannelVideoRecord] = []
         for context in contexts:
             entity.current_context = context
             records = await super().get_records(entity, client)
-            self.logger.debug(f'[{entity.name}] partial update with {context} returned {len(records)} records')
-            combined_records.extend(records)  # type: ignore
+            known_ids = {r.video_id for r in combined_records}
+            filtered_records = [r for r in records if not r.video_id in known_ids]  # type: ignore
+            self.logger.debug(f'[{entity.name}] partial update with {context} returned {len(records)} records ({len(filtered_records)} unseen)')
+            combined_records.extend(filtered_records)  # type: ignore
+        combined_records.sort(key=lambda r: r.published)
         return combined_records
 
     async def handle_first_page(self, entity: NicochannelMonitorEntity,
@@ -314,16 +333,20 @@ class NicochannelVideoMonitor(NicochannelMonitor):
         info = await self.get_info(entity, client)
         if endpoint is None or info is None:
             return None, None
-        r = endpoint.live_pages(context.live_type, context.page, context.per_page)
+        if context.live_type == 0:
+            r = endpoint.video_pages(context.page, context.per_page)
+        else:
+            r = endpoint.live_pages(context.live_type, context.page, context.per_page)
         data = await self.request_json_endpoint(entity, client, r)
         videos = extract_videos(data)
-        context.max_page = extract_videos_count(data)
+        context.max_record = extract_videos_count(data)
         records = parse_videos(videos, info, with_prefix(self.logger, f'[{entity.name}] '))
         if context.max_page is None or context.max_page <= context.page or len(records) == 0:
             self.logger.debug(
-                f'[{entity.name}] reached end of the feed. Current page: {context.page} with {len(records)} records, total pages: {context.max_page}')
+                f'[{entity.name}] reached end of the feed. Current page: {context.page} with {len(records)} records, total records: {context.max_record}')
             return records, None
         context.page += 1
+        records.reverse()
         return records, context
 
 
@@ -559,9 +582,16 @@ def parse_video(item: JSONType, fanclub: FanclubInfo) -> NicochannelVideoRecord:
     published = dateutil.parser.parse(item['released_at'])
     scheduled = try_parse_date(item.get('live_scheduled_start_at'))
     length = find_one(item, '$.active_video_filename.length')
+
+    live_start = try_parse_date(item.get('live_started_at'))
+    live_end = try_parse_date(item.get('live_finished_at'))
+    is_live = live_start is not None and live_end is None
+    is_upcoming = scheduled is not None and live_start is None
+    is_vod = scheduled is None and live_start is None
+
     return NicochannelVideoRecord(
         video_id=video_id,
-        url=f'{fanclub.url.rstrip("/")}/{"live" if length is None else "video"}/{video_id}',
+        url=f'{fanclub.url.rstrip("/")}/{"live" if not is_vod else "video"}/{video_id}',
         title=item['title'],
         summary=item.get('description'),
         published=published,
@@ -574,6 +604,9 @@ def parse_video(item: JSONType, fanclub: FanclubInfo) -> NicochannelVideoRecord:
         fanclub_id=fanclub.fanclub_id,
         fanclub_url=fanclub.url,
 
-        is_live=not bool(item.get('live_finished_at')),
-        is_upcoming=scheduled is not None and not bool(item.get('live_started_at'))
+        live_start=live_start,
+        live_end=live_end,
+
+        is_live=is_live,
+        is_upcoming=is_upcoming,
     )
