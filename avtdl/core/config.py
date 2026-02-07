@@ -81,8 +81,8 @@ class Config(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     settings: SettingsSection = SettingsSection()
-    actors: Dict[str, ActorConfigSection]
-    chains: Dict[str, ChainConfigSection]
+    actors: Dict[str, ActorConfigSection] = {}
+    chains: Dict[str, ChainConfigSection] = {}
 
 
 TConfig = TypeVar('TConfig')
