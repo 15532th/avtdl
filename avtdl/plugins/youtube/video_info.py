@@ -8,6 +8,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from avtdl.core.utils import try_parse_date
+from avtdl.plugins.youtube.common import thumbnail_url
+
 
 class VideoInfoError(ValueError):
     """Error fetching or parsing video info"""
@@ -39,19 +42,23 @@ class VideoInfo(BaseModel):
     """title of the video at the time of parsing"""
     summary: str = Field(repr=False)
     """video's description"""
-    published: str
+    thumbnail_url: Optional[str] = None
+    """link to the video thumbnail"""
+    published: Optional[datetime.datetime]
     """time when the video  or the livestream frame was made public"""
     scheduled: Optional[datetime.datetime] = None
     """scheduled date for upcoming stream or premiere"""
-    uploaded: str
+    uploaded: Optional[datetime.datetime]
     """time when the video was uploaded or the livestream frame was set up"""
     author: str
     """author's name, as shown on the channel icon"""
     channel_id: str
     """author's channel ID"""
-    views: int
-    """current number of views. Is zero for upcoming and ongoing livestreams"""
-    length: int
+    channel_link: Optional[str] = None
+    """link to the channel uploading the video"""
+    views: Optional[int] = None
+    """current number of views. Is zero for upcoming and ongoing livestreams, absent for member and premium limited"""
+    duration: int
     """video duration in seconds"""
 
     live_start: Optional[datetime.datetime] = None
@@ -67,6 +74,8 @@ class VideoInfo(BaseModel):
     """whether the video is a livestream"""
     is_upcoming: bool
     """whether the video is an upcoming livestream or premiere"""
+    is_live: bool
+    """indicates that the video is a livestream or premiere that is currently live"""
 
     playability_status: str
     """playability status (OK, UNPLAYABLE, ERROR and others)"""
@@ -180,11 +189,16 @@ def parse_video_details(player_response: dict) -> Dict[str, Any]:
         'video_id': 'videoId',
         'summary': 'shortDescription',
         'views': 'viewCount',
-        'length': 'lengthSeconds',
+        'duration': 'lengthSeconds',
         'is_livestream': 'isLiveContent',
     }
     info = rename_keys(video_details, key_mapping)
     info['is_upcoming'] = video_details.get('isUpcoming', False)
+    try:
+        thumbnail = video_details['thumbnail']['thumbnails'][-1]['url']
+    except Exception:
+        thumbnail = thumbnail_url(info['video_id'])
+    info['thumbnail'] = thumbnail
     return info
 
 
@@ -197,24 +211,33 @@ def parse_microformat(player_response: dict) -> Dict[str, Any]:
         'uploaded': 'uploadDate',
         'author': 'ownerChannelName',
         'views': 'viewCount',
-        'length': 'lengthSeconds',
+        'duration': 'lengthSeconds',
         'is_unlisted': 'isUnlisted',
+        'channel_link': 'ownerProfileUrl',
+        'channel_id': 'externalChannelId'
     }
     info = rename_keys(microformat, key_mapping)
+    try:
+        info['thumbnail'] = microformat['thumbnail']['thumbnails'][-1]['url']
+    except Exception:
+        pass
+    info['published'] = try_parse_date(info['published'])
+    info['uploaded'] = try_parse_date(info['uploaded'])
     if microformat.get('title') is not None:
         info['title'] = microformat.get('title', {}).get('simpleText')
     if microformat.get('description') is not None:
         info['summary'] = microformat.get('description', {}).get('simpleText')
     info['is_adult'] = not microformat.get('isFamilySafe')
     info['is_livestream'] = microformat.get('liveBroadcastDetails') is not None
-
     live_details = microformat.get('liveBroadcastDetails')
+    info['is_live'] = False
     if live_details is not None:
         if live_details.get('endTimestamp') is not None:  # live ended
             info['live_start'] = live_details.get('startTimestamp')
             info['live_end'] = live_details.get('endTimestamp')
         elif live_details.get('isLiveNow') == True:  # live is live
             info['live_start'] = live_details.get('startTimestamp')
+            info['is_live'] = True
         else:  # live is scheduled
             date = live_details.get('startTimestamp')
             try:
@@ -222,7 +245,6 @@ def parse_microformat(player_response: dict) -> Dict[str, Any]:
                 info['scheduled'] = date
             except (ValueError, TypeError):
                 pass
-
     return info
 
 
