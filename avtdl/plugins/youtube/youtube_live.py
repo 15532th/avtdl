@@ -3,7 +3,7 @@ import datetime
 import logging
 from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar, Union
 
-from pydantic import Field, FilePath, PositiveInt, SerializeAsAny, field_validator
+from pydantic import Field, FilePath, NonNegativeFloat, PositiveInt, SerializeAsAny, field_validator
 
 from avtdl.core.actions import TaskAction, TaskActionConfig, TaskActionEntity
 from avtdl.core.cookies import load_cookies
@@ -27,7 +27,10 @@ class YoutubeLiveErrorEvent(Event):
     """record that was being processed when this event happened"""
 
     def __str__(self):
-        return f'Processing stream {self.record.stream_id} failed: {self.text}\n[{self.record.name}] {self.record.title}\n{self.record.url}'
+        msg = f'Processing stream failed, {self.text}'
+        if self.record is not None:
+            msg += f'\n[{self.record.author}] {self.record.title}\n{self.record.url}'
+        return msg
 
 
 Plugins.register('youtube.live', Plugins.kind.ASSOCIATED_RECORD)(YoutubeFeedRecord)
@@ -46,8 +49,6 @@ class YoutubeVideoInfoRecord(VideoInfo, Record):
             last_line = '\nscheduled to {}'.format(scheduled.strftime('%Y-%m-%d %H:%M'))
         elif self.is_live:
             last_line = '\n[Live]'
-        if self.is_member_only:
-            last_line += ' [Member only]'
         template = '{}\n{}\npublished by {}'
         return template.format(self.url, self.title, self.author) + last_line
 
@@ -84,7 +85,8 @@ class YoutubeVideoInfoRecord(VideoInfo, Record):
 
 @Plugins.register('youtube.live', Plugins.kind.ACTOR_CONFIG)
 class YoutubeLiveConfig(TaskActionConfig, BaseDbConfig):
-    pass
+    consumption_delay: NonNegativeFloat = 5
+    """delay between start of processing of multiple records received at the same time, in seconds. Used to even out short bursts of activity"""
 
 
 @Plugins.register('youtube.live', Plugins.kind.ACTOR_ENTITY)
@@ -113,7 +115,7 @@ RecordType = TypeVar('RecordType', bound=Record)
 
 def merge_models(base: RecordType, overlay: YoutubeVideoInfoRecord) -> RecordType:
     common = set(base.model_fields) & set(overlay.model_fields)
-    overlay_data = overlay.model_dump(include=common, exclude_unset=True)
+    overlay_data = overlay.model_dump(include=common, exclude_unset=True, exclude_defaults=True, exclude_none=True)
     merged = base.model_dump()
     merged.update(overlay_data)
     return base.model_validate(merged)
@@ -189,11 +191,9 @@ class YoutubeLive(TaskAction):
             record.origin = base_record.origin
             record.chain = base_record.chain
 
-            try:
-                if self.db.record_has_changed(record, entity.name, {'views'}):
-                    self.db.store_records([record], entity.name)
-            except Exception as e:
-                continue
+            base_record = merge_models(base_record, record)
+            if self.db.record_has_changed(base_record, entity.name, {'views'}):
+                self.db.store_records([base_record], entity.name)
 
             if record.scheduled is not None:
                 self.logger.debug(f'stream {record.video_id}, attempt {attempt}: scheduled {record.scheduled}')
