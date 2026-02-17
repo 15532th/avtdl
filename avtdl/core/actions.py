@@ -216,8 +216,12 @@ class TaskAction(HttpAction):
 
     async def _handle_record_task(self, logger: logging.Logger, client: HttpClient,
                                   entity: TaskActionEntity, record: Record, info: TaskStatus) -> None:
+        logger.debug(f'record queried for processing: "{record!r}"')
+        info.set_status(f'record queried for processing', record)
         async with self.start_token:
             # ideally delay should be applied after the task creation, but it means adding yet another create_task()
+            logger.debug(f'waiting for {self.conf.consumption_delay} before handling record "{record!r}"')
+            info.set_status(f'waiting for {self.conf.consumption_delay} before handling the record', record)
             await asyncio.sleep(self.conf.consumption_delay)
         try:
             await self.handle_record_task(logger, client, entity, record, info)
