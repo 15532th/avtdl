@@ -50,7 +50,7 @@ class HttpAction(Action, ABC):
     def get_client(self, entity: HttpActionEntity) -> HttpClient:
         """provide  HttpClient instance for entity task to make network requests"""
         logger = with_prefix(self.logger, f'[{entity.name}] ')
-        client = self.clients.get_client(entity.cookies_file, entity.headers, logger=logger, transport=entity.transport)
+        client = self.clients.get_client(entity.cookies_file, entity.headers, name=entity.name, logger=logger, transport=entity.transport)
         return client
 
 

@@ -255,7 +255,8 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
     def _get_client(self, entity: HttpTaskMonitorEntity) -> HttpClient:
         logger = self._get_logger(entity)
-        client = self.clients.get_client(entity.cookies_file, entity.headers, logger=logger, transport=entity.transport)
+        client = self.clients.get_client(entity.cookies_file, entity.headers,
+                                         name=entity.name, logger=logger, transport=entity.transport)
         return client
 
     async def run(self):
