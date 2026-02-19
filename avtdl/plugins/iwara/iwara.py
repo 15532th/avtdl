@@ -129,7 +129,7 @@ class IwaraMonitor(PagedFeedMonitor):
                           entity: IwaraMonitorEntity,
                           client: HttpClient,
                           context: Optional[Context]) -> Optional[JSONType]:
-        url = 'https://api.iwara.tv/videos'
+        url = 'https://apiq.iwara.tv/videos'
         params = {'rating': 'all', 'sort': 'date'}
         if context:
             params['page'] = str(context.page)
