@@ -47,7 +47,7 @@ class BaseTaskMonitor(Monitor):
 
     async def start_tasks_for(self, entities: List[TaskMonitorEntity], interval: float) -> None:
         assert self.logger.parent is not None
-        logger = self.logger.parent.getChild('scheduler').getChild(self.conf.name)
+        logger = self.logger.parent.getChild('scheduler').getChild(self.conf.name.replace('.', '_'))
         if len(entities) == 0:
             logger.debug(f'called with no entities and {interval} interval')
             return
@@ -247,7 +247,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
 
     def _get_logger(self, entity: HttpTaskMonitorEntity) -> logging.Logger:
         if self.logger.parent is not None:
-            logger = self.logger.parent.getChild('request').getChild(self.conf.name)
+            logger = self.logger.parent.getChild('request').getChild(self.conf.name.replace('.', '_'))
         else:
             logger = self.logger.getChild('request') # should never happen
         logger = with_prefix(logger, f'[{entity.name}]')
