@@ -233,6 +233,8 @@ def sha1(text: str) -> str:
 
 
 def find_all(data: JSONType, jsonpath: str, cache={}) -> List[JSONType]:
+    if not isinstance(data, (list, dict)):
+        return []
     if jsonpath not in cache:
         cache[jsonpath] = JSONPath(jsonpath)
     parser = cache[jsonpath]
