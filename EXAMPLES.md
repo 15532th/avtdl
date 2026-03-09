@@ -722,9 +722,10 @@ chains:
 
 The [rplay](PLUGINS.md#rplay---monitor-livestreams-on-rplay) monitor works by loading the main page, which makes it a better choice when handling more than a few creators at once. However, since it does not generate direct links, a specialized external downloader should be used. 
 
-While yt-dlp does not support RPLAY yet, there is a [fork](https://github.com/c-basalt/yt-dlp/tree/rplay-native), that implements this functionality (see [pull request](https://github.com/yt-dlp/yt-dlp/pull/10693) for details and discussion).
+While yt-dlp does not support RPLAY yet, there is a [fork](https://github.com/c-basalt/yt-dlp/tree/rplay-native), that implements this functionality (see [pull request](https://github.com/yt-dlp/yt-dlp/pull/10693) for details and discussion). While the fork adds support for new sites, it does not incorporate updates made to the main branch very often, so it makes sense to install it separately.
 
-One way to get a specific version of yt-dlp running would be to clone or download and unpack the [repo](https://github.com/c-basalt/yt-dlp/archive/refs/heads/rplay-native.zip), install requirements by running `pip3 install -r requirements.txt` in the project directory (Python must be installed and added to `PATH` to run `pip`) and use one of the `yt-dlp.sh`/`yt-dlp.cmd` scripts in place of yt-dlp executable. 
+Prebuild executable are available on the [releases](https://github.com/c-basalt/yt-dlp/releases/tag/rplaylive) page.
+Alternative way to get the specific version of yt-dlp running is to clone or download and unpack the [repo](https://github.com/c-basalt/yt-dlp/archive/refs/heads/rplay-native.zip), install requirements by running `pip3 install -r requirements.txt` in the project directory (Python must be installed and added to `PATH` to run `pip`) and use one of the `yt-dlp.sh`/`yt-dlp.cmd` scripts in place of yt-dlp executable. 
 
 
 ```yaml
