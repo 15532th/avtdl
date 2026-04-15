@@ -1,21 +1,20 @@
 import asyncio
 import datetime
-import json
 import logging
-import urllib.parse
-from http.cookies import SimpleCookie
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
+import dateutil.parser
 from pydantic import Field, FilePath, PositiveInt, SerializeAsAny, field_validator
 
 from avtdl.core.actions import TaskAction, TaskActionConfig, TaskActionEntity
-from avtdl.core.cookies import AnotherCookieJar, CookieStoreError, load_cookies, save_cookies
+from avtdl.core.cookies import AnotherCookieJar, AnotherCurlCffiCookieJar, CookieStoreError, \
+    load_cookies, save_cookies
 from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.interfaces import Event, EventType, Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import HttpClient, RetrySettings, StateStorage
 from avtdl.core.runtime import RuntimeContext, TaskStatus
-from avtdl.core.utils import JSONType, jwt_decode, utcnow
+from avtdl.core.utils import JSONType, utcnow
 from avtdl.plugins.withny.extractors import WithnyRecord, parse_live_record, parse_schedule_record
 
 
@@ -35,117 +34,71 @@ def timestamp_now_ms() -> float:
     return datetime.datetime.now().timestamp() * 1000
 
 
-class AuthToken:
-    local_names = {
-        'token': 'auth._token.local',
-        'token_expiration': 'auth._token_expiration.local',
-        'refresh_token': 'auth._refresh_token.local',
-        'refresh_token_expiration': 'auth._refresh_token_expiration.local'
-    }
+class SessionToken:
 
-    def __init__(self, token: str, token_expiration: str, refresh_token: str, refresh_token_expiration: str):
-        self.token = token
-        self.token_expiration = token_expiration
-        self.refresh_token = refresh_token
-        self.refresh_token_expiration = refresh_token_expiration
-
-    def __repr__(self):
-        return f'AuthToken(token={self.token}, token_expiration={self.token_expiration}, self.refresh_token={self.refresh_token}, self.refresh_token_expiration={self.refresh_token_expiration})'
+    def __init__(self, access_token: str, expires: datetime.datetime):
+        self.access_token = access_token
+        self.expires = expires
 
     def expired(self) -> bool:
-        return int(self.token_expiration) < timestamp_now_ms()
-
-    def refreshable(self) -> bool:
-        return int(self.refresh_token_expiration) > timestamp_now_ms()
-
-    @property
-    def plain_token(self) -> str:
-        return urllib.parse.unquote(self.token)
-
-    def set_cookies(self, jar: AnotherCookieJar):
-        cookies: SimpleCookie = SimpleCookie()
-        for k, v in self.local_names.items():
-            cookies[v] = getattr(self, k)
-            cookies[v]['domain'] = 'www.withny.fun'
-            cookies[v]['path'] = '/'
-        jar.update_cookies(cookies)
+        return self.expires <= utcnow()
 
     @classmethod
-    def from_login_data(cls, data: Dict[str, Any]) -> 'AuthToken':
-        token = urllib.parse.quote(f'{data["tokenType"]} {data["token"]}')
-        token_content = jwt_decode(data['token'])
-        token_expiration = str(token_content['exp'] * 1000)
-        refresh_token = data['refreshToken']
-        refresh_token_expiration = str(int(token_expiration) + int(datetime.timedelta(days=29).total_seconds() * 1000))
-        return cls(
-            token,
-            token_expiration,
-            refresh_token,
-            refresh_token_expiration
-        )
-
-    @classmethod
-    def from_cookies(cls, jar: AnotherCookieJar) -> 'AuthToken':
-        data: Dict[str, Any] = {data_key: jar.get(cookie_key) for data_key, cookie_key in cls.local_names.items()}
-        for k, v in data.items():
-            if v is None:
-                raise ValueError(f'{k} value is missing from the jar')
-        return cls(**data)
+    def from_json(cls, data: dict) -> 'SessionToken':
+        expires = dateutil.parser.parse(data['expires'])
+        access_token = data['accessToken']
+        return cls(access_token=access_token, expires=expires)
 
 
 def has_expired(expiration_timestamp: str) -> bool:
     return int(expiration_timestamp) < timestamp_now_ms() + 60000
 
 
-async def perform_login(client: HttpClient, logger: logging.Logger, username: str, password: str) -> Optional[
-    AuthToken]:
-    """Make request to log in, update session's cookie jar"""
-    url = 'https://www.withny.fun/api/auth/login'
-    data = json.dumps({'email': username, 'password': password})
-    headers = {'Referer': 'https://www.withny.fun/login', 'Content-Type': 'application/json'}
-    return await make_auth_request(client, logger, url, data, headers)
+def check_auth_cookies(jar: AnotherCookieJar):
+    """Check if client's cookie jar contains authorization cookies that look valid, raise otherwise"""
+    auth_cookies = ['__Secure-next-auth.session-token', '__Host-next-auth.csrf-token']
+    old_auth_cookies = ['auth._token.local', 'auth._refresh_token.local']
+    if not all(
+        jar.get(name) is not None for name in auth_cookies
+    ) and any(
+        jar.get(name) is not None for name in old_auth_cookies
+    ):
+        raise ValueError(f'Cookies are missing login information. Export new cookies from a browser while logged in.')
+    else:
+        return
 
 
-async def refresh_auth(client: HttpClient, logger: logging.Logger) -> Optional[AuthToken]:
-    """Make request to refresh auth token, update client's cookie jar"""
+async def refresh_session(client: HttpClient, logger: logging.Logger) -> Optional[SessionToken]:
+    """Request new session token, store next-auth cookies in client's cookie jar"""
     try:
-        auth = AuthToken.from_cookies(client.cookie_jar)
-    except Exception as e:
-        logger.debug(f'[login] failed to refresh token: error when parsing cookies: {type(e)}, {e}')
+        check_auth_cookies(client.cookie_jar)
+    except ValueError as e:
+        logger.warning(f'failed to get session token: {e}')
         return None
-    url = 'https://www.withny.fun/api/auth/token'
-    data = json.dumps({'refreshToken': auth.refresh_token})
+    url = 'https://www.withny.fun/api/auth/session'
     headers = {'Referer': 'https://www.withny.fun/',
                'Origin': 'https: // www.withny.fun',
-               'Content-Type': 'application/json;charset=utf-8',
-               'Authorization': auth.plain_token}
-    return await make_auth_request(client, logger, url, data, headers)
-
-
-async def make_auth_request(client: HttpClient, logger: logging.Logger, url: str, data,
-                            headers: Optional[dict] = None) -> Optional[AuthToken]:
-    result = await client.request_json(url, method='POST', data=data, headers=headers,
-                                       settings=RetrySettings(retry_times=1))
+               'Content-Type': 'application/json'}
+    result = await client.request_json(url, method='GET', headers=headers, settings=RetrySettings(retry_times=1))
     if result is None:
         return None
     try:
         if not isinstance(result, dict):
             raise ValueError('unexpected response format')
-        new_auth = AuthToken.from_login_data(result)
-        new_auth.set_cookies(client.cookie_jar)
+        new_auth = SessionToken.from_json(result)
         return new_auth
     except Exception as e:
         logger.exception(
-            f'[login] failed to log in: error when parsing response: {type(e)}, {e}. Raw response: {result}')
+            f'[login] failed to get session key: error when parsing response: {type(e)}, {e}. Raw response: {result}')
         return None
 
 
 async def fetch_stream_url(client: HttpClient,
                            logger: logging.Logger,
                            stream_id: str,
-                           auth: AuthToken) -> Optional[str]:
+                           session: SessionToken) -> Optional[str]:
     url = f'https://www.withny.fun/api/streams/{stream_id}/playback-url'
-    headers = {'Referer': url, 'Authorization': auth.plain_token}
+    headers = {'Referer': url, 'Authorization': f'Bearer {session.access_token}'}
     result = await client.request_json(url, headers=headers, settings=RetrySettings(retry_times=2))
     if result is None:
         return None
@@ -191,9 +144,15 @@ class WithnyLiveEntity(TaskActionEntity):
     @classmethod
     def check_cookies(cls, path: FilePath):
         try:
-            load_cookies(path, raise_on_error=True)
+            jar = load_cookies(path, raise_on_error=True)
         except Exception as e:
             raise ValueError(f'{e}') from e
+        assert jar is not None
+        another_jar = AnotherCurlCffiCookieJar.from_cookie_jar(jar)
+        try:
+            check_auth_cookies(another_jar)
+        except ValueError as e:
+            raise ValueError(f'\n    {e}')
         return path
 
 
@@ -213,6 +172,7 @@ class WithnyLive(TaskAction):
         self.conf: WithnyLiveConfig
         self.state_storage = StateStorage()
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
+        self.sessions: Dict[str, SessionToken] = {}
 
     async def request_json(self, url: str,
                            base_update_interval: float,
@@ -268,31 +228,19 @@ class WithnyLive(TaskAction):
 
         return updated_record, update_interval
 
-    async def ensure_login(self, client: HttpClient, entity: WithnyLiveEntity) -> Optional[AuthToken]:
+    async def ensure_session(self, client: HttpClient, entity: WithnyLiveEntity) -> Optional[SessionToken]:
+        session = self.sessions.get(entity.name)
+        if session is not None and not session.expired():
+            return session
+        new_session = await refresh_session(client, self.logger)
+        if new_session is None:
+            return None
+        self.logger.debug(f'[{entity.name}] storing refreshed cookies to "{entity.cookies_file}"')
         try:
-            auth = AuthToken.from_cookies(client.cookie_jar)
-        except ValueError:
-            self.logger.warning(f'[{entity.name}] failed to login: error loading data from cookies')
-            return None
-        if has_expired(auth.refresh_token_expiration):
-            # no point checking auth token here, since it does not outlive refresh token
-            self.logger.warning(f'[{entity.name}] failed to login: cookies has expired')
-            return None
-        elif not has_expired(auth.token_expiration):
-            self.logger.debug(f'[{entity.name}] skipping logging in, valid auth token is already present in cookies')
-            return auth
-        else:
-            expiration = datetime.timedelta(seconds=(timestamp_now_ms() - int(auth.token_expiration)) / 1000)
-            self.logger.debug(f'[{entity.name}] token expired {expiration} ago, refreshing')
-            new_auth = await refresh_auth(client, self.logger)
-            if new_auth is None:
-                return None
-            self.logger.debug(f'[{entity.name}] storing refreshed cookies to "{entity.cookies_file}"')
-            try:
-                save_cookies(client.cookie_jar, str(entity.cookies_file))
-            except CookieStoreError as e:
-                self.logger.warning(f'[{entity.name}] {e}')
-            return new_auth
+            save_cookies(client.cookie_jar, str(entity.cookies_file))
+        except CookieStoreError as e:
+            self.logger.warning(f'[{entity.name}] {e}')
+        return new_session
 
     async def handle_record_task(self, logger: logging.Logger, client: HttpClient, entity: WithnyLiveEntity,
                                  record: Record, info: TaskStatus) -> None:
@@ -351,7 +299,7 @@ class WithnyLive(TaskAction):
             return
 
         # stream is now live for sure, try fetching stream_url
-        auth = await self.ensure_login(client, entity)
+        auth = await self.ensure_session(client, entity)
         if not auth:
             self.logger.warning(f'login failed, aborting processing')
             self.on_record(entity, WithnyLiveErrorEvent(text='login failed', record=record))
