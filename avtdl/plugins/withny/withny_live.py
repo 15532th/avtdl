@@ -54,15 +54,24 @@ def has_expired(expiration_timestamp: str) -> bool:
     return int(expiration_timestamp) < timestamp_now_ms() + 60000
 
 
-def check_auth_cookies(jar: AnotherCookieJar):
-    """Check if client's cookie jar contains authorization cookies that look valid, raise otherwise"""
+def check_old_auth_cookies(jar: AnotherCookieJar):
+    """Check if client's cookie jar contains authorization cookies in old format"""
     auth_cookies = ['__Secure-next-auth.session-token', '__Host-next-auth.csrf-token']
     old_auth_cookies = ['auth._token.local', 'auth._refresh_token.local']
     if not all(
-        jar.get(name) is not None for name in auth_cookies
+            jar.get(name) is not None for name in auth_cookies
     ) and any(
         jar.get(name) is not None for name in old_auth_cookies
     ):
+        raise ValueError(f'Cookies are using old auth format. Export new cookies from a browser while logged in.')
+    else:
+        return
+
+
+def check_auth_cookies(jar: AnotherCookieJar):
+    """Check if client's cookie jar contains authorization cookies in new format"""
+    auth_cookies = ['__Secure-next-auth.session-token', '__Host-next-auth.csrf-token']
+    if not all(jar.get(name) is not None for name in auth_cookies):
         raise ValueError(f'Cookies are missing login information. Export new cookies from a browser while logged in.')
     else:
         return
@@ -71,6 +80,7 @@ def check_auth_cookies(jar: AnotherCookieJar):
 async def refresh_session(client: HttpClient, logger: logging.Logger) -> Optional[SessionToken]:
     """Request new session token, store next-auth cookies in client's cookie jar"""
     try:
+        check_old_auth_cookies(client.cookie_jar)
         check_auth_cookies(client.cookie_jar)
     except ValueError as e:
         logger.warning(f'failed to get session token: {e}')
@@ -150,7 +160,7 @@ class WithnyLiveEntity(TaskActionEntity):
         assert jar is not None
         another_jar = AnotherCurlCffiCookieJar.from_cookie_jar(jar)
         try:
-            check_auth_cookies(another_jar)
+            check_old_auth_cookies(another_jar)
         except ValueError as e:
             raise ValueError(f'\n    {e}')
         return path
