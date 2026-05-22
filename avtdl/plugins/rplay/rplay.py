@@ -11,7 +11,7 @@ from textwrap import shorten
 from typing import Dict, List, Mapping, Optional, Sequence
 
 import dateutil.parser
-from pydantic import Field, FilePath, PositiveFloat, model_validator
+from pydantic import Field, FilePath, PositiveFloat
 
 from avtdl.core.config import Plugins
 from avtdl.core.formatters import Fmt
@@ -207,20 +207,12 @@ class RplayMonitor(BaseFeedMonitor):
 
 @Plugins.register('rplay.user', Plugins.kind.ACTOR_CONFIG)
 class RplayUserMonitorConfig(BaseFeedMonitorConfig):
-    login: Optional[str] = None
+    login: str
     """rplay login of the account used for monitoring"""
-    password: Optional[str] = None
+    password: str
     """rplay password of the account used for monitoring"""
     user_id: Optional[str] = None
     """userOid of the account used for monitoring. When absent can be retrieved automatically by performing a login request"""
-
-    @model_validator(mode='after')
-    def check_invariants(self):
-        if (self.login and not self.password) or (not self.login and self.password):
-            raise ValueError('provide either both login and password or none of them')
-        if self.user_id and not self.login:
-            raise ValueError('when user_id is set,  credentials must also be provided')
-        return self
 
 
 @Plugins.register('rplay.user', Plugins.kind.ACTOR_ENTITY)
@@ -236,6 +228,8 @@ class RplayUserMonitor(BaseFeedMonitor):
     """
     Monitor livestreams on RPLAY channel
 
+    Requires account credentials in order to work.
+
     Monitors a user with given `creator_oid`, produces record
     when the user starts a livestream. `creator_oid` is the
     unique part of the user's home or livestream url.
@@ -246,11 +240,10 @@ class RplayUserMonitor(BaseFeedMonitor):
     - `https://rplay.live/live/6596e71c04a7ea2fd7c36ae7`
 
     When producing a record, this plugin will generate `playlist_url`
-    for the stream. If credentials are provided in the `config` section,
-    it will try to update it with the key required to access livestreams
-    limited to subscribers. Resulting `playlist_url` might still be
-    invalid if the update failed or account does not have permissions
-    to view the stream.
+    for the stream and try to update it with the key required to access
+    livestreams limited to subscribers. Resulting `playlist_url` might
+    still be invalid if the update failed or user account does not have
+    permissions to view the stream.
     """
 
     def __init__(self, conf: RplayUserMonitorConfig, entities: Sequence[RplayUserMonitorEntity], ctx: RuntimeContext):
@@ -259,7 +252,11 @@ class RplayUserMonitor(BaseFeedMonitor):
         self.own_user: Optional['User'] = None
 
     async def get_records(self, entity: RplayUserMonitorEntity, client: HttpClient) -> Sequence[RplayRecord]:
-        r = RplayUrl.play(entity.creator_oid, self.conf.user_id)
+        own_user = await self.get_own_user(client)
+        if own_user is None:
+            self.logger.warning(f'[{entity.name}] update cancelled because login failed. If the failure persists, verify the login credentials in the monitor config')
+            return []
+        r = RplayUrl.play(entity.creator_oid, own_user)
         data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
         if data is None:
             return []
@@ -301,8 +298,6 @@ class RplayUserMonitor(BaseFeedMonitor):
         return key2
 
     async def get_own_user(self, client: HttpClient) -> Optional['User']:
-        if self.conf.login is None or self.conf.password is None:
-            return None
         if self.own_user is None:
             token = User.token_for(self.conf.login, self.conf.password)
             if self.conf.user_id is not None:
@@ -313,13 +308,13 @@ class RplayUserMonitor(BaseFeedMonitor):
                 user_info = await client.request_json(r.url, method=r.method, params=r.params, data=r.data,
                                                       headers=r.headers)
                 if user_info is None:
-                    self.logger.debug(f'failed to log in')
+                    self.logger.warning(f'failed to log in')
                     return None
                 if not isinstance(user_info, dict):
-                    self.logger.debug(f'unexpected user_info format: {user_info}')
+                    self.logger.warning(f'unexpected user_info format: {user_info}')
                     return None
                 if not 'oid' in user_info:
-                    self.logger.debug(f'user oid is absent in login response. Raw response: {user_info}')
+                    self.logger.warning(f'user oid is absent in login response. Raw response: {user_info}')
                     return None
                 user_oid = user_info['oid']
                 self.logger.info(f'successfully logged in, user_id is "{user_oid}"')
@@ -494,7 +489,7 @@ class RplayUrl:
         return RequestDetails(url=url, params=params)
 
     @staticmethod
-    def play(oid: str, requestor_id: Optional[str] = None, key: str = '') -> RequestDetails:
+    def play(oid: str, user: User, key: str = '') -> RequestDetails:
         """
         'streamState': 'offline', 'live' | 'twitch' | 'youtube'
         'liveStreamId' - youtube video_id or ""
@@ -509,8 +504,10 @@ class RplayUrl:
         }
         """
         url = f'https://api.rplay.live/live/play'
-        params = {'creatorOid': oid, 'key': key, 'lang': 'en', 'requestorOid': requestor_id or '6596e71c04a7ea2fd7c36ae7'}
-        return RequestDetails(url=url, params=params)
+        params = {'creatorOid': oid, 'key': key, 'lang': 'en', 'requestorOid': user.user_oid}
+        params.update({'requestorOid': user.user_oid, 'loginType': 'plax'})
+        headers = user.get_auth_header()
+        return RequestDetails(url=url, params=params, headers=headers)
 
     @staticmethod
     def getuser_by_oid(creator_oid: str) -> RequestDetails:
