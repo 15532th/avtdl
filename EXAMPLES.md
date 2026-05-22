@@ -669,7 +669,7 @@ Streams hosted on other platforms (Youtube or Twitch) are filtered out by the "r
 
 Streams on RPLAY do not get a unique ID, so the starting time is used instead.
 
-By providing login credentials it is possible to download subscriber-only livestreams accessible to a given account.
+This monitor requires login credentials to operate. For alternatives see the [next](#using-yt-dlp-fork-with-rplay-support) section.
 
 ```yaml
 actors:
@@ -724,7 +724,7 @@ The [rplay](PLUGINS.md#rplay---monitor-livestreams-on-rplay) monitor works by lo
 
 While yt-dlp does not support RPLAY yet, there is a [fork](https://github.com/c-basalt/yt-dlp/tree/rplay-native), that implements this functionality (see [pull request](https://github.com/yt-dlp/yt-dlp/pull/10693) for details and discussion). While the fork adds support for new sites, it does not incorporate updates made to the main branch very often, so it makes sense to install it separately.
 
-Prebuild executable are available on the [releases](https://github.com/c-basalt/yt-dlp/releases/tag/rplaylive) page.
+Prebuilt executable are available on the [releases](https://github.com/c-basalt/yt-dlp/releases/tag/rplaylive) page.
 Alternative way to get the specific version of yt-dlp running is to clone or download and unpack the [repo](https://github.com/c-basalt/yt-dlp/archive/refs/heads/rplay-native.zip), install requirements by running `pip3 install -r requirements.txt` in the project directory (Python must be installed and added to `PATH` to run `pip`) and use one of the `yt-dlp.sh`/`yt-dlp.cmd` scripts in place of yt-dlp executable. 
 
 
