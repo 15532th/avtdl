@@ -22,6 +22,7 @@ from typing import Any, Dict, Literal, Optional, Tuple, Union
 import aiohttp
 import curl_cffi
 import multidict
+from curl_cffi import CurlHttpVersion
 from multidict import CIMultiDictProxy
 from pydantic import BaseModel
 
@@ -762,8 +763,7 @@ class CurlCffiHttpClient(HttpClient):
     class Options:
         use_own_ua: bool = False
         impersonate: curl_cffi.BrowserTypeLiteral = 'chrome'
-        http_version: Optional[Literal['v1', 'v2', 'v2tls', 'v2_prior_knowledge', 'v3', 'v3only']] = 'v2tls'
-
+        http_version: Optional[CurlHttpVersion] = CurlHttpVersion.V2TLS
 
     def __init__(self, logger: logging.Logger, cookies_file: Optional[Path], headers: Optional[Dict[str, Any]]):
         super().__init__(logger, cookies_file, headers)
