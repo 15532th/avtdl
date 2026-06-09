@@ -217,14 +217,10 @@ class NicochannelMonitor(PagedFeedMonitor, ABC):
         super().__init__(conf, entities, ctx)
         self.entities: Mapping[str, NicochannelMonitorEntity]  # type: ignore
         self.info_cache: Dict[str, FanclubInfo] = {}
-        self.endpoint_cache: Dict[str, NicochannelUrl] = {}
 
-    async def get_endpoint(self, entity: NicochannelMonitorEntity, client: HttpClient) -> Optional['NicochannelUrl']:
-        if entity.name in self.endpoint_cache:
-            return self.endpoint_cache[entity.name]
-        endpoint = await self.fetch_endpoint(entity, client)
-        if endpoint is not None:
-            self.endpoint_cache[entity.name] = endpoint
+    async def fetch_endpoint(self, entity: NicochannelMonitorEntity, client: HttpClient) -> Optional['NicochannelUrl']:
+        logger = with_prefix(self.logger, f'[{entity.name}] ')
+        endpoint = await NicochannelUrl.construct(entity.url, client, logger)
         return endpoint
 
     async def get_info(self, entity: NicochannelMonitorEntity, client: HttpClient) -> Optional['FanclubInfo']:
@@ -235,13 +231,8 @@ class NicochannelMonitor(PagedFeedMonitor, ABC):
             self.info_cache[entity.name] = info
         return info
 
-    async def fetch_endpoint(self, entity: NicochannelMonitorEntity, client: HttpClient) -> Optional['NicochannelUrl']:
-        logger = with_prefix(self.logger, f'[{entity.name}] ')
-        endpoint = await NicochannelUrl.construct(entity.url, client, logger)
-        return endpoint
-
     async def fetch_info(self, entity: NicochannelMonitorEntity, client: HttpClient) -> Optional['FanclubInfo']:
-        endpoint = await self.get_endpoint(entity, client)
+        endpoint = await self.fetch_endpoint(entity, client)
         if endpoint is None:
             return None
         logger = with_prefix(self.logger, f'[{entity.name}] ')
@@ -270,7 +261,7 @@ class NicochannelNewsMonitor(NicochannelMonitor):
                                client: HttpClient,
                                context: PageContext
                                ) -> Tuple[Optional[Sequence[NicochannelPostRecord]], Optional[PageContext]]:
-        endpoint = await self.get_endpoint(entity, client)
+        endpoint = await self.fetch_endpoint(entity, client)
         info = await self.get_info(entity, client)
         if endpoint is None or info is None:
             return None, None
@@ -329,7 +320,7 @@ class NicochannelVideoMonitor(NicochannelMonitor):
                                client: HttpClient,
                                context: LivePageContext
                                ) -> Tuple[Optional[Sequence[NicochannelVideoRecord]], Optional[LivePageContext]]:
-        endpoint = await self.get_endpoint(entity, client)
+        endpoint = await self.fetch_endpoint(entity, client)
         info = await self.get_info(entity, client)
         if endpoint is None or info is None:
             return None, None
@@ -352,6 +343,8 @@ class NicochannelVideoMonitor(NicochannelMonitor):
 
 class NicochannelUrl:
 
+    cache: Dict[str, 'NicochannelUrl'] = {} # mapping base_url: NicochannelUrl
+
     def __init__(self, base_url: str, api_base_url: str, fanclub_id: int, fc_use_device: Optional[str] = None):
         self.base_url = base_url
         self.api_base_url = api_base_url
@@ -365,6 +358,19 @@ class NicochannelUrl:
     @classmethod
     async def construct(cls, base_url: str, client: HttpClient,
                         logger: Optional[logging.Logger] = None) -> Optional['NicochannelUrl']:
+        if cls.cache.get(base_url) is not None:
+            return cls.cache[base_url]
+
+        endpoint = await cls._construct(base_url, client, logger)
+
+        if endpoint is not None:
+            cls.cache[base_url] = endpoint
+        return endpoint
+
+
+    @classmethod
+    async def _construct(cls, base_url: str, client: HttpClient,
+                         logger: Optional[logging.Logger] = None) -> Optional['NicochannelUrl']:
         logger = logger or logging.getLogger('NicochannelUrl')
         r = cls._settings(base_url)
         data = await client.request_json_endpoint(logger, r)
@@ -419,6 +425,15 @@ class NicochannelUrl:
             'Referer': self.base_url
         }
 
+    @property
+    def origin_headers(self) -> Dict[str, str]:
+        """dict with Origin and Referer headers"""
+        return {
+            'Origin': self.base_url,
+            'Referer': self.base_url
+        }
+
+
     def _fanclub_id(self) -> RequestDetails:
         url = f'{self.api_base_url}/content_providers/channel_domain'
         params = {'current_site_domain': self.base_url.rstrip('/')}
@@ -462,6 +477,13 @@ class NicochannelUrl:
         params = {'page': page, 'per_page': per_page, 'sort': 'published_at_desc'}
         return RequestDetails(url=url, params=params, headers=self._headers)
 
+    def video_info(self, video_id: str) -> RequestDetails:
+        url = f'{self.api_base_url}/fc/video_pages/{video_id}'
+        return RequestDetails(url=url, params=None, headers=self._headers)
+
+    def session_id(self, video_id: str) -> RequestDetails:
+        url = f'{self.api_base_url}/fc/video_pages/{video_id}/session_ids'
+        return RequestDetails(url=url, method='POST', params=None, data={}, headers=self._headers)
 
 class FanclubInfo(BaseModel):
     url: str
@@ -610,3 +632,34 @@ def parse_video(item: JSONType, fanclub: FanclubInfo) -> NicochannelVideoRecord:
         is_live=is_live,
         is_upcoming=is_upcoming,
     )
+
+def parse_video_page(video_page: JSONType) -> dict[str, Any]:
+    if not isinstance(video_page, dict):
+        raise ValueError(f'unexpected format: expected dict, got {type(video_page)}')
+    item = video_page['data']['video_page']
+    if not isinstance(item, dict):
+        raise ValueError(f'unexpected video info format: expected dict, got {type(item)}')
+
+    video_id = item['content_code']
+    published = dateutil.parser.parse(item['released_at'])
+    scheduled = try_parse_date(item.get('live_scheduled_start_at'))
+
+    live_start = try_parse_date(item.get('live_started_at'))
+    live_end = try_parse_date(item.get('live_finished_at'))
+    is_live = live_start is not None and live_end is None
+    is_upcoming = scheduled is not None and live_start is None
+    is_vod = scheduled is None and live_start is None
+
+    return {
+        'video_id' :video_id,
+        'title': item['title'],
+        'summary': item.get('description'),
+        'published': published,
+        'scheduled': scheduled,
+        'thumbnail_url': item['thumbnail_url'],
+        'live_start': live_start,
+        'live_end': live_end,
+        'is_live': is_live,
+        'is_upcoming': is_upcoming,
+        'is_vod': is_vod,
+    }
