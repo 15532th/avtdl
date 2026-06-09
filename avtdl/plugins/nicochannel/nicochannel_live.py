@@ -44,9 +44,9 @@ class NicochannelLiveRecord(NicochannelVideoRecord):
     """
     playlist_url: Optional[str] = None
     """HLS playlist url"""
-    key: Optional[str]
+    key: Optional[str] = None
     """decryption key, used to decrypt media chunks in playlist (as a string of hexadecimal values)"""
-    key_b64: Optional[str]
+    key_b64: Optional[str] = None
     """decryption key (as a base64 string)"""
 
 
