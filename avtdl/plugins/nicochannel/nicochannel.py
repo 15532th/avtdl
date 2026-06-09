@@ -478,12 +478,13 @@ class NicochannelUrl:
         return RequestDetails(url=url, params=params, headers=self._headers)
 
     def video_info(self, video_id: str) -> RequestDetails:
-        url = f'{self.api_base_url}/fc/video_pages/{video_id}'
+        url = f'{self.api_base_url}/video_pages/{video_id}'
         return RequestDetails(url=url, params=None, headers=self._headers)
 
     def session_id(self, video_id: str) -> RequestDetails:
-        url = f'{self.api_base_url}/fc/video_pages/{video_id}/session_ids'
+        url = f'{self.api_base_url}/video_pages/{video_id}/session_ids'
         return RequestDetails(url=url, method='POST', params=None, data={}, headers=self._headers)
+
 
 class FanclubInfo(BaseModel):
     url: str
@@ -633,6 +634,7 @@ def parse_video(item: JSONType, fanclub: FanclubInfo) -> NicochannelVideoRecord:
         is_upcoming=is_upcoming,
     )
 
+
 def parse_video_page(video_page: JSONType) -> dict[str, Any]:
     if not isinstance(video_page, dict):
         raise ValueError(f'unexpected format: expected dict, got {type(video_page)}')
@@ -651,7 +653,7 @@ def parse_video_page(video_page: JSONType) -> dict[str, Any]:
     is_vod = scheduled is None and live_start is None
 
     return {
-        'video_id' :video_id,
+        'video_id': video_id,
         'title': item['title'],
         'summary': item.get('description'),
         'published': published,
