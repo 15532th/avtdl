@@ -47,9 +47,10 @@ def parse_to_date_string(text: Union[int, str, None]) -> Optional[str]:
 
 def try_parse_date(text: Any) -> Optional[datetime.datetime]:
     try:
-        return dateutil.parser.parse(str(text))
+        dt = dateutil.parser.parse(str(text))
     except Exception:
         return None
+    return dt.astimezone(datetime.timezone.utc)
 
 
 def check_dir(path: Path, create=True) -> bool:
