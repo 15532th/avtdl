@@ -1,1 +1,1 @@
-__all__ = ['nicochannel']
+__all__ = ['nicochannel', 'nicochannel_live']
