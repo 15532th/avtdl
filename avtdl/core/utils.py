@@ -45,11 +45,20 @@ def parse_to_date_string(text: Union[int, str, None]) -> Optional[str]:
     return date_string
 
 
-def try_parse_date(text: Any) -> Optional[datetime.datetime]:
+def try_parse_date(text: Any, tz: Optional[datetime.tzinfo] = None) -> Optional[datetime.datetime]:
+    """
+    Try parsing text as datetime, return None on failure.
+    Resulting datetime is always timezone-aware. If input
+    text does not contain timezone information it is treated
+    as localtime or as tz if specified. If input text does
+    contain timezone information tz is ignored.
+    """
     try:
         dt = dateutil.parser.parse(str(text))
     except Exception:
         return None
+    if tz is not None and dt.tzinfo is None:
+        dt = dt.replace(tzinfo=tz)
     return dt.astimezone(datetime.timezone.utc)
 
 
