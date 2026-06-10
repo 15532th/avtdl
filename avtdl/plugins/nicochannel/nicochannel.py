@@ -602,12 +602,15 @@ def parse_video(item: JSONType, fanclub: FanclubInfo) -> NicochannelVideoRecord:
     if not isinstance(item, dict):
         raise ValueError(f'unexpected format: expected dict, got {type(item)}')
     video_id = item['content_code']
-    published = dateutil.parser.parse(item['released_at'])
-    scheduled = try_parse_date(item.get('live_scheduled_start_at'))
+    released_at = item['released_at']
+    published = try_parse_date(released_at, datetime.timezone.utc)
+    if published is None:
+        raise ValueError(f'failed to parse publication date: {released_at}')
+    scheduled = try_parse_date(item.get('live_scheduled_start_at'), datetime.timezone.utc)
     length = find_one(item, '$.active_video_filename.length')
 
-    live_start = try_parse_date(item.get('live_started_at'))
-    live_end = try_parse_date(item.get('live_finished_at'))
+    live_start = try_parse_date(item.get('live_started_at'), datetime.timezone.utc)
+    live_end = try_parse_date(item.get('live_finished_at'), datetime.timezone.utc)
     is_live = live_start is not None and live_end is None
     is_upcoming = scheduled is not None and live_start is None
     is_vod = scheduled is None and live_start is None
@@ -643,11 +646,11 @@ def parse_video_page(video_page: JSONType) -> dict[str, Any]:
         raise ValueError(f'unexpected video info format: expected dict, got {type(item)}')
 
     video_id = item['content_code']
-    published = dateutil.parser.parse(item['released_at'])
-    scheduled = try_parse_date(item.get('live_scheduled_start_at'))
+    published = try_parse_date(item['released_at'], datetime.timezone.utc)
+    scheduled = try_parse_date(item.get('live_scheduled_start_at'), datetime.timezone.utc)
 
-    live_start = try_parse_date(item.get('live_started_at'))
-    live_end = try_parse_date(item.get('live_finished_at'))
+    live_start = try_parse_date(item.get('live_started_at'), datetime.timezone.utc)
+    live_end = try_parse_date(item.get('live_finished_at'), datetime.timezone.utc)
     is_live = live_start is not None and live_end is None
     is_upcoming = scheduled is not None and live_start is None
     is_vod = scheduled is None and live_start is None
