@@ -483,7 +483,9 @@ class NicochannelUrl:
 
     def session_id(self, video_id: str) -> RequestDetails:
         url = f'{self.api_base_url}/video_pages/{video_id}/session_ids'
-        return RequestDetails(url=url, method='POST', params=None, data={}, headers=self._headers)
+        headers = self._headers.copy()
+        headers.update({'Content-type': 'application/json', 'Accept': 'application/json, text/plain'})
+        return RequestDetails(url=url, method='POST', params=None, data_json={}, headers=headers)
 
 
 class FanclubInfo(BaseModel):
