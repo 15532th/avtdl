@@ -1,6 +1,4 @@
 import asyncio
-import base64
-import binascii
 import datetime
 import logging
 import re
@@ -46,9 +44,6 @@ class NicochannelLiveRecord(NicochannelVideoRecord):
     """HLS playlist url"""
     key: Optional[str] = None
     """decryption key, used to decrypt media chunks in playlist (as a string of hexadecimal values)"""
-    key_b64: Optional[str] = None
-    """decryption key (as a base64 string)"""
-
 
 
 @Plugins.register('nicochannel.live', Plugins.kind.ACTOR_CONFIG)
@@ -194,6 +189,7 @@ class NicochannelLive(TaskAction):
             return
 
         # stream is now live for sure, emit the record
+        await retrieve_playlist_url(client, record, logger)
         self.db.store_records([record], entity.name)
         self.on_record(entity, record)
 
@@ -201,27 +197,34 @@ class NicochannelLive(TaskAction):
 async def retrieve_playlist_url(client: HttpClient, record: NicochannelLiveRecord, logger: logging.Logger):
     """Try retrieving and updating "playlist_url" and "key" values of the given record"""
     if record.fanclub_url is None:
+        logger.warning(f'aborting playlist retrieval, record has no fanclub_url: {record}')
         return
     endpoint = await NicochannelUrl.construct(record.fanclub_url, client, logger)
     if endpoint is None:
+        logger.warning(f'aborting playlist retrieval, failed to construct endpoint for record {record}')
         return
 
     r = endpoint.session_id(record.video_id)
     session_ids = await client.request_json_endpoint(logger, r)
     if session_ids is None:
+        logger.warning(f'aborting playlist retrieval: fetching session id failed')
         return
     session_id = find_one(session_ids, 'data.session_id')
     if not isinstance(session_id, str):
+        logger.warning(f'aborting playlist retrieval: failed to parse session_id: {session_ids}')
         return
 
     r = endpoint.video_info(record.video_id)
     video_info = await client.request_json_endpoint(logger, r)
     if video_info is None:
+        logger.warning(f'aborting playlist retrieval: fetching video info failed')
         return
     auth_url = find_one(video_info, 'data.video_page.video_stream.authenticated_url')
     if not isinstance(auth_url, str):
+        logger.warning(f'aborting playlist retrieval: could not find authenticated_url in video info response: {video_info}')
         return
     if not auth_url.endswith('{session_id}'):
+        logger.warning(f'aborting playlist retrieval: unexpected authenticated_url format: {auth_url}')
         return
 
     playlist_url = auth_url.replace('{session_id}', session_id)
@@ -229,32 +232,34 @@ async def retrieve_playlist_url(client: HttpClient, record: NicochannelLiveRecor
 
     master_playlist = await client.request_text(playlist_url)
     if master_playlist is None:
+        logger.warning(f'aborting playlist key retrieval: fetching playlist failed')
         return
     playlists = [url for url in master_playlist.splitlines() if not url.startswith('#')]
     if not playlists:
+        logger.warning(f'aborting playlist key retrieval: master playlist does not contain any urls. Raw playlist:\n{playlists}')
         return
     playlist = playlists[0]
     try:
         HttpUrl(playlist)
     except ValidationError:
+        logger.warning(f'aborting playlist key retrieval: failed to parse playlist url: {playlist}')
         return
     playlist_content = await client.request_text(playlist)
     if playlist_content is None:
+        logger.warning(f'aborting playlist key retrieval: failed to fetch playlist content')
         return
-    key_urls = re.findall(r'#EXT-X-KEY:METHOD=AES-128,URI="[^"]+', playlist_content)
+    key_urls = re.findall(r'#EXT-X-KEY:METHOD=AES-128,URI="([^"]+)', playlist_content)
     if not key_urls:
+        logger.warning(f'aborting playlist key retrieval: no EXT-X-KEY found. Raw playlist content:\n{playlist_url[:10]}')
         return
     key_url = key_urls[0]
     try:
         HttpUrl(key_url)
     except ValidationError:
+        logger.warning(f'aborting playlist key retrieval: failed to parse key url: {key_url}')
         return
-    key_b64 = await client.request_text(key_url, headers=endpoint.origin_headers) # needs browser user-agent
-    if key_b64 is None:
+    key = await client.request_text(key_url, headers=endpoint.origin_headers) # needs browser user-agent
+    if key is None:
+        logger.warning(f'aborting playlist key retrieval: failed to fetch decryption key')
         return
-    record.key_b64 = key_b64
-    try:
-        key_raw = base64.b64decode(key_b64)
-    except binascii.Error:
-        return
-    record.key = key_raw.hex()
+    record.key = key
