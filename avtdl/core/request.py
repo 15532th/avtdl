@@ -267,8 +267,17 @@ class GoodResponse(HttpResponse):
 
 
 class DataResponse(GoodResponse):
-    """HttpResponse that completed successfully"""
+    """HttpResponse that completed successfully and has text data"""
     has_content: Literal[True] = True
+
+
+class OctetResponse(DataResponse):
+    """HttpResponse that completed successfully and has binary data"""
+    text: str
+    """response body as a string of hexadecimal numbers"""
+    @property
+    def raw_body(self) -> bytes:
+        return bytes.fromhex(self.text)
 
 
 class RateLimit:
@@ -650,11 +659,19 @@ class AioHttpClient(HttpClient):
         return AnotherAiohttpCookieJar(self.session.cookie_jar) # type: ignore
 
     @classmethod
-    def from_response(cls, response: aiohttp.ClientResponse, text: str, state: EndpointState, logger: logging.Logger):
+    def from_response(cls, response: aiohttp.ClientResponse, body: bytes, state: EndpointState, logger: logging.Logger):
         has_content = 200 <= response.status < 300
+        try:
+            text = body.decode(response.get_encoding())
+            has_text_content = True
+        except UnicodeDecodeError:
+            text = body.hex()
+            has_text_content = False
         factory: type[HttpResponse]
-        if has_content:
+        if has_text_content:
             factory = DataResponse
+        elif has_content:
+            factory = OctetResponse
         elif response.ok:
             factory = GoodResponse
         elif not response.ok:
@@ -677,6 +694,21 @@ class AioHttpClient(HttpClient):
         )
         return response
 
+    def prepare_headers(self, headers: Optional[Dict[str, Any]] = None,
+                              method: str = 'GET',
+                              state: EndpointState = EndpointState()) -> Optional[Dict[str, Any]]:
+        request_headers: Dict[str, str] = {}
+        if self.session.headers is not None:
+            request_headers.update(self.session.headers)
+        if headers is not None:
+            request_headers.update(headers)
+        if state.last_modified is not None and method in ['GET', 'HEAD']:
+            request_headers['If-Modified-Since'] = state.last_modified
+        if state.etag is not None:
+            request_headers['If-None-Match'] = state.etag
+        request_headers = insert_useragent(request_headers)
+        return request_headers
+
     async def request_once(self, url: str,
                            params: Optional[Dict[str, str]] = None,
                            data: Optional[Any] = None,
@@ -687,24 +719,15 @@ class AioHttpClient(HttpClient):
                            ) -> 'MaybeHttpResponse':
         logger = self.logger
 
-        request_headers: Dict[str, str] = {}
-        if self.session.headers is not None:
-            request_headers.update(self.session.headers)
-        if headers is not None:
-            request_headers.update(headers)
-        if state.last_modified is not None and method in ['GET', 'HEAD']:
-            request_headers['If-Modified-Since'] = state.last_modified
-        if state.etag is not None:
-            request_headers['If-None-Match'] = state.etag
-        server_hostname = request_headers.get('Host')
-        request_headers = insert_useragent(request_headers)
+        request_headers = self.prepare_headers(headers, method, state)
+        server_hostname = request_headers.get('Host') if request_headers is not None else None
         try:
             async with self.session.request(method, url, headers=request_headers, params=params, data=data,
                                             json=data_json, server_hostname=server_hostname) as client_response:
                 # fully read http response to get it cached inside ClientResponse object
                 # client code can then use it by awaiting .text() again without causing
                 # network activity and potentially triggering associated errors
-                text = await client_response.text()
+                body = await client_response.read()
         except Exception as e:
             logger.warning(f'error while fetching {url}: {e.__class__.__name__} {e}')
             return NoResponse(logger, e, url)
@@ -714,7 +737,7 @@ class AioHttpClient(HttpClient):
                 f'got code {client_response.status} ({client_response.reason or "No reason"}) while fetching {url}')
             logger.debug(f'request headers: "{client_response.request_info.headers}"')
             logger.debug(f'response headers: "{client_response.headers}"')
-            logger.debug(f'response body: "{text}"')
+            logger.debug(f'response body: "{body!r}"')
         elif client_response.status != 304:
             # some servers do not have cache headers in 304 response, so only updating on 200
             state.update(client_response.headers)
@@ -723,7 +746,7 @@ class AioHttpClient(HttpClient):
             logger.debug(
                 f'Last-Modified={state.last_modified or "absent"}, ETAG={state.etag or "absent"}, Cache-control="{cache_control or "absent"}" for {client_response.real_url}')
 
-        response = self.from_response(client_response, text, state, logger)
+        response = self.from_response(client_response, body, state, logger)
         return response
 
     async def download_file(self, path: Path,
@@ -783,9 +806,17 @@ class CurlCffiHttpClient(HttpClient):
     @classmethod
     def from_response(cls, response: curl_cffi.Response, state: EndpointState, logger: logging.Logger):
         has_content = 200 <= response.status_code < 300
+        try:
+            text = response.text
+            has_text_content = True
+        except UnicodeDecodeError:
+            text = response.content.hex()
+            has_text_content = False
         factory: type[HttpResponse]
-        if has_content:
+        if has_text_content:
             factory = DataResponse
+        elif has_content:
+            factory = OctetResponse
         elif response.ok:
             factory = GoodResponse
         elif not response.ok:
@@ -794,7 +825,7 @@ class CurlCffiHttpClient(HttpClient):
             factory = HttpResponse
         response = factory(
             logger,
-            response.text,
+            text,
             str(response.url),
             response.ok,
             has_content,
@@ -808,6 +839,23 @@ class CurlCffiHttpClient(HttpClient):
         )
         return response
 
+    def prepare_headers(self, headers: Optional[Dict[str, Any]] = None,
+                              method: str = 'GET',
+                              state: EndpointState = EndpointState()) -> Optional[Dict[str, Any]]:
+        request_headers: Optional[Dict[str, str]] = {}
+        assert request_headers is not None
+        if self.session.headers is not None:
+            request_headers.update(self.session.headers)
+        if headers is not None:
+            request_headers.update(headers)
+        if state.last_modified is not None and method in ['GET', 'HEAD']:
+            request_headers['If-Modified-Since'] = state.last_modified
+        if state.etag is not None:
+            request_headers['If-None-Match'] = state.etag
+        if self.options.use_own_ua:
+            request_headers = insert_useragent(request_headers)
+        return request_headers
+
     async def request_once(self, url: str,
                            params: Optional[Dict[str, str]] = None,
                            data: Optional[Any] = None,
@@ -818,16 +866,7 @@ class CurlCffiHttpClient(HttpClient):
                            ) -> 'MaybeHttpResponse':
         logger = self.logger
 
-        request_headers: Optional[Dict[str, str]] = {}
-        assert request_headers is not None
-        if headers is not None:
-            request_headers.update(headers)
-        if state.last_modified is not None and method in ['GET', 'HEAD']:
-            request_headers['If-Modified-Since'] = state.last_modified
-        if state.etag is not None:
-            request_headers['If-None-Match'] = state.etag
-        if self.options.use_own_ua:
-            request_headers = insert_useragent(request_headers)
+        request_headers = self.prepare_headers(headers, method, state)
         try:
             client_response: curl_cffi.Response = await self.session.request(
                 method=method,  # type: ignore
@@ -850,7 +889,7 @@ class CurlCffiHttpClient(HttpClient):
             if client_response.request is not None:
                 logger.debug(f'request headers: "{client_response.request.headers}"')
             logger.debug(f'response headers: "{client_response.headers}"')
-            logger.debug(f'response body: "{client_response.text}"')
+            logger.debug(f'response body: "{client_response.content!r}"')
         elif client_response.status_code != 304:
             # some servers do not have cache headers in 304 response, so only updating on 200
             state.update(headers_dict(client_response.headers))
