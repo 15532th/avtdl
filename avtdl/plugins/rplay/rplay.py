@@ -5,13 +5,14 @@ import enum
 import hashlib
 import hmac
 import json
+import time
 import urllib.parse
 from dataclasses import dataclass
 from textwrap import shorten
 from typing import Dict, List, Mapping, Optional, Sequence
 
 import dateutil.parser
-from pydantic import Field, FilePath, PositiveFloat
+from pydantic import Field, FilePath, PositiveFloat, model_validator
 
 from avtdl.core.config import Plugins
 from avtdl.core.formatters import Fmt
@@ -212,8 +213,15 @@ class RplayUserMonitorConfig(BaseFeedMonitorConfig):
     password: str
     """rplay password of the account used for monitoring"""
     user_id: Optional[str] = None
-    """userOid of the account used for monitoring. When absent can be retrieved automatically by performing a login request"""
+    """userOid of the account used for monitoring. Normally is retrieved automatically by performing a login request"""
+    refresh_token: Optional[str] = None
+    """refresh token is used to request access token. Normally is retrieved automatically by performing a login request"""
 
+    @model_validator(mode='after')
+    def check_invariants(self):
+        if self.user_id is None and not self.refresh_token is None or self.user_id is not None and self.refresh_token is None:
+            raise ValueError('"user_id" and "refresh_token" must be both present when used and both absent otherwise')
+        return self
 
 @Plugins.register('rplay.user', Plugins.kind.ACTOR_ENTITY)
 class RplayUserMonitorEntity(RplayMonitorEntity):
@@ -229,6 +237,8 @@ class RplayUserMonitor(BaseFeedMonitor):
     Monitor livestreams on RPLAY channel
 
     Requires account credentials in order to work.
+    When "user_id" and "refresh_token" provided,
+    they are used instead of the login/password pair.
 
     Monitors a user with given `creator_oid`, produces record
     when the user starts a livestream. `creator_oid` is the
@@ -299,27 +309,58 @@ class RplayUserMonitor(BaseFeedMonitor):
 
     async def get_own_user(self, client: HttpClient) -> Optional['User']:
         if self.own_user is None:
-            token = User.token_for(self.conf.login, self.conf.password)
-            if self.conf.user_id is not None:
-                self.logger.debug(f'using userOid from configuration')
-                user_oid = self.conf.user_id
-            else:
-                r = RplayUrl.login(token, self.conf.password)
-                user_info = await client.request_json(r.url, method=r.method, params=r.params, data=r.data,
-                                                      headers=r.headers)
+            if self.conf.user_id is None or self.conf.refresh_token is None:
+                # fresh login using login/password config values
+                r = RplayUrl.login(self.conf.login, self.conf.password)
+                user_info = await client.request_json_endpoint(self.logger, r)
                 if user_info is None:
                     self.logger.warning(f'failed to log in')
                     return None
                 if not isinstance(user_info, dict):
                     self.logger.warning(f'unexpected user_info format: {user_info}')
                     return None
-                if not 'oid' in user_info:
-                    self.logger.warning(f'user oid is absent in login response. Raw response: {user_info}')
+                try:
+                    user_oid = user_info['user']['_id']
+                    token = user_info['token']
+                    refresh_token = user_info['refreshToken']
+                except Exception:
+                    self.logger.warning(f'failed to parse login response: {user_info}')
                     return None
-                user_oid = user_info['oid']
                 self.logger.info(f'successfully logged in, user_id is "{user_oid}"')
-            self.own_user = User(user_oid, token)
+            else:
+                # user_id and refresh_token config values are provided, use them instead of login/password
+                user_oid = self.conf.user_id
+                refresh_token = self.conf.refresh_token
+                token = await self.refresh_auth_token(client, user_oid, refresh_token)
+            self.own_user = User(user_oid, token, refresh_token)
+        elif self.own_user.token_expired():
+            token = await self.refresh_auth_token(client, self.own_user.user_oid, self.own_user.refresh_token)
+            if token is None:
+                return None
+            self.own_user.token = token
         return self.own_user
+
+    async def refresh_auth_token(self, client: HttpClient, user_id, refresh_token) -> Optional[str]:
+        r = RplayUrl.refresh_token(user_id, refresh_token)
+        access_token = await client.request_json_endpoint(self.logger, r)
+        if access_token is None:
+            self.logger.warning(f'failed to refresh access token')
+            return None
+        if not isinstance(access_token, dict):
+            self.logger.warning(f'unexpected access token format: {access_token}')
+            return None
+        try:
+            token = access_token['accessToken']
+        except Exception:
+            self.logger.warning(f'failed to parse access token: {access_token}')
+            return None
+        try:
+            JWTAuth.decode_token(token)
+        except Exception as e:
+            self.logger.warning(f'failed to decode access token: {token}: {e}')
+            return None
+        self.logger.info(f'successfully refreshed access token')
+        return token
 
 
 def parse_livestream(item: dict) -> RplayRecord:
@@ -425,6 +466,23 @@ class JWTAuth:
         return base64.urlsafe_b64encode(signature).decode().strip('=')
 
     @classmethod
+    def decode_token(cls, token: str) -> dict:
+        try:
+            parts = token.split('.')
+            if len(parts) != 3:
+                raise ValueError('Invalid token format. Expected 3 parts separated by "."')
+            payload = parts[1]
+
+            padding = 4 - len(payload) % 4
+            if padding != 4:
+                payload += '=' * padding
+
+            decoded = base64.urlsafe_b64decode(payload)
+            return json.loads(decoded)
+        except Exception as e:
+            raise ValueError(f'Failed to decode JWT: {e}')
+
+    @classmethod
     def generate_token(cls, eml: str, dat: Optional[datetime.datetime] = None) -> str:
         header = {'alg': 'HS256', 'typ': 'JWT'}
         header_encoded = cls._dict_to_b64url(header)
@@ -461,13 +519,18 @@ class JWTAuth:
 class User:
     user_oid: str
     token: str
-
-    @staticmethod
-    def token_for(email: str, passwd: str) -> str:
-        return JWTAuth.new(email, passwd)
+    refresh_token: str
 
     def get_auth_header(self) -> Dict[str, str]:
         return {'Authorization': self.token}
+
+    def token_expired(self) -> bool:
+        """
+        Check if token has expired.
+        Raises if it couldn't be decoded or missing "exp" field.
+        """
+        payload = JWTAuth.decode_token(self.token)
+        return payload['exp'] - time.time() < 240
 
 
 def url_with_query(r: RequestDetails) -> str:
@@ -505,7 +568,7 @@ class RplayUrl:
         """
         url = f'https://api.rplay.live/live/play'
         params = {'creatorOid': oid, 'key': key, 'lang': 'en', 'requestorOid': user.user_oid}
-        params.update({'requestorOid': user.user_oid, 'loginType': 'plax'})
+        params.update({'requestorOid': user.user_oid, 'loginType': 'rplay'})
         headers = user.get_auth_header()
         return RequestDetails(url=url, params=params, headers=headers)
 
@@ -546,7 +609,7 @@ class RplayUrl:
                   'lang': 'en'}
         headers = {}
         if user is not None:
-            params.update({'requestorOid': user.user_oid, 'loginType': 'plax'})
+            params.update({'requestorOid': user.user_oid, 'loginType': 'rplay'})
             headers.update(user.get_auth_header())
         return RequestDetails(url=url, params=params, headers=headers)
 
@@ -560,13 +623,24 @@ class RplayUrl:
     def key2(user: User) -> RequestDetails:
         """response is the key as a plaintext"""
         url = f'https://api.rplay.live/live/key2'
-        params = {'requestorOid': user.user_oid, 'loginType': 'plax'}
+        params = {'requestorOid': user.user_oid, 'loginType': 'rplay'}
         headers = user.get_auth_header()
         return RequestDetails(url=url, params=params, headers=headers)
 
     @staticmethod
-    def login(token: str, passw: str) -> RequestDetails:
+    def login(username: str, password: str) -> RequestDetails:
         url = f'https://api.rplay.live/account/login'
-        data = {'checkAdmin': None, 'lang': 'en', 'loginType': None, 'platformType': 'rplay', 'rawPw': passw, 'token': token}
-        headers = {'Content-Type': 'application/json'}
+        data = {'accountType': 'plax', 'checkAdmin': None, 'email': username, 'lang': 'en', 'loginType': None, 'password': password, 'platformType': 'rplay'}
+
+        headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/'}
         return RequestDetails(url=url, method='POST', data=json.dumps(data), headers=headers)
+
+    @staticmethod
+    def refresh_token(user_oid: str, refresh_token: str) -> RequestDetails:
+        url = f'https://api.rplay.live/account/login'
+        data = {'requestorOid': user_oid}
+
+        headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/', 'refresh-token': refresh_token}
+        return RequestDetails(url=url, method='POST', data=json.dumps(data), headers=headers)
+
+
