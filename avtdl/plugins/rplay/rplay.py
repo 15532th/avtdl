@@ -637,7 +637,7 @@ class RplayUrl:
 
     @staticmethod
     def refresh_token(user_oid: str, refresh_token: str) -> RequestDetails:
-        url = f'https://api.rplay.live/rplay/account/login'
+        url = f'https://api.rplay.live/rplay/account/refresh-token'
         data = {'requestorOid': user_oid}
 
         headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/', 'refresh-token': refresh_token}
