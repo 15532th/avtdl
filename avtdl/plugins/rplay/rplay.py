@@ -629,7 +629,7 @@ class RplayUrl:
 
     @staticmethod
     def login(username: str, password: str) -> RequestDetails:
-        url = f'https://api.rplay.live/account/login'
+        url = f'https://api.rplay.live/rplay/account/login'
         data = {'accountType': 'plax', 'checkAdmin': None, 'email': username, 'lang': 'en', 'loginType': None, 'password': password, 'platformType': 'rplay'}
 
         headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/'}
@@ -637,7 +637,7 @@ class RplayUrl:
 
     @staticmethod
     def refresh_token(user_oid: str, refresh_token: str) -> RequestDetails:
-        url = f'https://api.rplay.live/account/login'
+        url = f'https://api.rplay.live/rplay/account/login'
         data = {'requestorOid': user_oid}
 
         headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/', 'refresh-token': refresh_token}
