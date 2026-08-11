@@ -15,7 +15,7 @@ from avtdl.core.interfaces import Record
 from avtdl.core.plugins import Plugins
 from avtdl.core.request import DataResponse, Delay, HttpClient, NoResponse
 from avtdl.core.runtime import RuntimeContext, TaskStatus
-from avtdl.core.utils import find_matching_field_value
+from avtdl.core.utils import find_matching_field_value, utcnow
 from avtdl.plugins.twitter.endpoints import AudioSpaceEndpoint, LiveStreamEndpoint
 from avtdl.plugins.twitter.extractors import TwitterSpaceRecord, find_space_id, parse_media_url, parse_space, \
     space_url_by_id
@@ -66,10 +66,15 @@ class TwitterSpace(TaskAction):
     produced with all `emit_*` options enabled.
     """
 
-    CHECK_UPCOMING_DELAY = 30.0
-    CHECK_LIVE_DELAY = 300.0
-    CHECK_ENDED_DELAY = 30.0
-    MAX_SEQUENTIAL_CHECKS = 100
+    UPCOMING_CHECK_INTERVAL = 30.0
+    LIVE_CHECK_INTERVAL = 300.0
+    ENDED_CHECK_INTERVAL = 60.0
+    UPCOMING_CHECK_ATTEMPTS = 10
+    LIVE_CHECK_ATTEMPTS = 100
+    ENDED_CHECK_ATTEMPTS = 20
+    MAX_WAIT_FOR_LIVE = datetime.timedelta(hours=1)
+    MAX_WAIT_FOR_END = datetime.timedelta(hours=12)
+    MAX_WAIT_FOR_ARCHIVE = datetime.timedelta(seconds=600)
 
     def __init__(self, conf: TwitterSpaceConfig, entities: Sequence[TwitterSpaceEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
@@ -109,7 +114,11 @@ class TwitterSpace(TaskAction):
                     logger.debug(f'task emit_on_archive successfully completed for {space.url}')
                 elif not space.recording_enabled:
                     should_emit_replay_url = False
-                    logger.debug(f'task emit_on_archive for {space.url} is cancelled: recording is disabled')
+                    logger.warning(f'task emit_on_archive for {space.url} is cancelled: host has disabled recording, there will be no archive')
+                elif space.ended is not None and utcnow() - space.ended >= self.MAX_WAIT_FOR_ARCHIVE:
+                    should_emit_replay_url = False
+                    logger.warning(f'task emit_on_archive for {space.url} is cancelled: was unable to retrieve archive media_url for {utcnow() - space.ended} after the space end')
+
             if should_emit_on_end:
                 if space.ended is not None:
                     self.on_record(entity, space)
@@ -117,6 +126,11 @@ class TwitterSpace(TaskAction):
                     should_emit_live_url = False
                     should_emit_something = False
                     logger.debug(f'task emit_on_end successfully completed for {space.url}')
+                elif space.started is not None and utcnow() - space.started >= self.MAX_WAIT_FOR_END:
+                    should_emit_on_end = False
+                    should_emit_replay_url = False
+                    logger.warning(
+                        f'task for processing {space.url} is cancelled: space has been live for {utcnow() - space.started}, giving up on waiting for it to end')
             if should_emit_live_url:
                 if space.media_url is not None and StreamUrlType.is_live(space.media_url):
                     self.on_record(entity, space)
@@ -126,6 +140,12 @@ class TwitterSpace(TaskAction):
                 elif space.ended is not None:
                     should_emit_live_url = False
                     logger.debug(f'task emit_on_live for {space.url} is cancelled: space ended')
+                elif space.scheduled is not None and utcnow() - space.scheduled >= self.MAX_WAIT_FOR_LIVE:
+                    should_emit_live_url = False
+                    should_emit_on_end = False
+                    should_emit_replay_url = False
+                    logger.warning(
+                        f'task for processing {space.url} is cancelled: space was scheduled to {space.scheduled} and is late for {utcnow() - space.scheduled}, giving up on waiting')
             if should_emit_something:
                 self.on_record(entity, space)
                 should_emit_something = False
@@ -194,7 +214,7 @@ class TwitterSpace(TaskAction):
         while True:  # waiting until start
             delay = (space.scheduled - datetime.datetime.now(tz=datetime.timezone.utc))
             delay_seconds = delay.total_seconds()
-            if delay_seconds < self.CHECK_UPCOMING_DELAY:
+            if delay_seconds < self.UPCOMING_CHECK_INTERVAL:
                 break
             logger.debug(f'space {space.url} starts at {space.scheduled}, sleeping for {delay}')
             await asyncio.sleep(delay_seconds)
@@ -205,7 +225,7 @@ class TwitterSpace(TaskAction):
         def is_done(media_url: str) -> bool:
             return media_url != ''
 
-        return await self.wait_for_media_url(logger, client, entity, space, self.CHECK_UPCOMING_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
+        return await self.wait_for_media_url(logger, client, entity, space, self.UPCOMING_CHECK_INTERVAL, self.UPCOMING_CHECK_ATTEMPTS, is_done)
 
     async def wait_for_replay(self, logger: logging.Logger, client: HttpClient, entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
         logger.debug(f'space {space.url} is ongoing since {space.started}, fetching live media_url')
@@ -223,13 +243,13 @@ class TwitterSpace(TaskAction):
 
         return await self.wait_for_media_url(logger, client,
                                              entity, space,
-                                             self.CHECK_LIVE_DELAY, self.MAX_SEQUENTIAL_CHECKS, is_done)
+                                             self.LIVE_CHECK_INTERVAL, self.LIVE_CHECK_ATTEMPTS, is_done)
 
     async def wait_for_any_url(self, logger: logging.Logger, client: HttpClient,
                                entity: TwitterSpaceEntity, space: TwitterSpaceRecord):
         return await self.wait_for_media_url(logger, client,
                                              entity, space,
-                                             self.CHECK_ENDED_DELAY, self.MAX_SEQUENTIAL_CHECKS, lambda _: True)
+                                             self.ENDED_CHECK_INTERVAL, self.ENDED_CHECK_ATTEMPTS, lambda _: True)
 
     async def wait_for_media_url(self, logger: logging.Logger, client: HttpClient,
                                  entity: TwitterSpaceEntity, space: TwitterSpaceRecord,
