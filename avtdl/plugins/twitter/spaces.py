@@ -80,7 +80,6 @@ class TwitterSpace(TaskAction):
         space_id = get_space_id(record)
         if space_id is None:
             return
-        info = TaskStatus(self.conf.name, entity.name, 'starting', record)
         await self.handle_space(entity, space_id, record, client, logger, info)
 
     async def handle_space(self, entity: TwitterSpaceEntity, space_id: str, source_record: Record,
