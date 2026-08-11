@@ -245,7 +245,7 @@ def parse_lockup_view(item: dict, owner_info: Optional[AuthorInfo], try_unknown_
     is_live = 'THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE' in badges
 
     published_text = metadata_parts[-1] if metadata_parts else None
-    length = find_one(item, '$.contentImage.thumbnailViewModel..thumbnailOverlayBadgeViewModel.thumbnailBadges..thumbnailBadgeViewModel.text')
+    length = find_one(item, '$.contentImage.thumbnailViewModel..thumbnailBottomOverlayViewModel.badges..thumbnailBadgeViewModel.text')
     if is_live:
         published_text = None
         length = None
