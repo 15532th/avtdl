@@ -112,6 +112,7 @@ class TwitchMonitor(BaseFeedMonitor):
         response = await self.request_endpoint(entity, client, details)
         if not isinstance(response, DataResponse) or not response.has_json():
             self.logger.warning(f'update failed: unexpected response. Raw response: {response}')
+            return None
         results = response.json()
         if not isinstance(results, list):
             self.logger.warning(f'update failed: unexpected response format. Raw response: {results}')
