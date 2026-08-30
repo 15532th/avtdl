@@ -12,9 +12,9 @@ from avtdl.core.db import BaseDbConfig, RecordDB
 from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import Event, EventType, Record
 from avtdl.core.plugins import Plugins
-from avtdl.core.request import HttpClient, RequestDetails
+from avtdl.core.request import HttpClient
 from avtdl.core.runtime import RuntimeContext, TaskStatus
-from avtdl.core.utils import JSONType, find_one
+from avtdl.core.utils import find_one
 from avtdl.plugins.nicochannel.nicochannel import NicochannelUrl, NicochannelVideoRecord, parse_video_page
 
 
@@ -72,6 +72,26 @@ class NicochannelLiveEntity(TaskActionEntity):
         return path
 
 
+async def fetch_video_state(client: HttpClient,
+                            record: NicochannelVideoRecord,
+                            update_interval: float,
+                            base_update_interval: float,
+                            logger: logging.Logger) -> Tuple[Optional[NicochannelLiveRecord], float]:
+    assert record.fanclub_url is not None, 'caller must ensure fanclub_url is present. This is a bug'
+    endpoint = await NicochannelUrl.construct(record.fanclub_url, client, logger)
+    if endpoint is None:
+        return None, update_interval
+    r = endpoint.video_info(record.video_id)
+    response = await client.request_endpoint(logger, r)
+    update_interval = response.next_update_interval(base_update_interval, update_interval, True)
+    data = response.json() if response.has_json() else None
+    if data is None:
+        return None, update_interval
+    video_info = parse_video_page(data)
+    updated_record = NicochannelLiveRecord(**{**record.model_dump(), **video_info})
+    return updated_record, update_interval
+
+
 @Plugins.register('nicochannel.live', Plugins.kind.ACTOR)
 class NicochannelLive(TaskAction):
     """
@@ -88,39 +108,6 @@ class NicochannelLive(TaskAction):
         super().__init__(conf, entities, ctx)
         self.conf: NicochannelLiveConfig
         self.db = RecordDB(conf.db_path, logger=self.logger.getChild('db'))
-
-    @classmethod
-    async def request_endpoint(cls, client: HttpClient,
-                               logger: logging.Logger,
-                               r: RequestDetails,
-                               base_update_interval: float,
-                               current_update_interval: float) -> Tuple[Optional[JSONType], float]:
-        '''Helper method to make http request to a json endpoint'''
-        response = await client.request_endpoint(logger, r)
-        update_interval = response.next_update_interval(base_update_interval, current_update_interval, True)
-        if response.has_json():
-            data = response.json()
-        else:
-            data = None
-        return data, update_interval
-
-    async def fetch_video_state(self,
-                                client: HttpClient,
-                                record: NicochannelVideoRecord,
-                                update_interval: float,
-                                base_update_interval: float,
-                                logger: logging.Logger) -> Tuple[Optional[NicochannelLiveRecord], float]:
-        assert record.fanclub_url is not None, 'caller must ensure fanclub_url is present. This is a bug'
-        endpoint = await NicochannelUrl.construct(record.fanclub_url, client, logger)
-        if endpoint is None:
-            return None, update_interval
-        r = endpoint.video_info(record.video_id)
-        data, update_interval = await self.request_endpoint(client, logger, r, base_update_interval, update_interval)
-        if data is None:
-            return None, update_interval
-        video_info = parse_video_page(data)
-        updated_record = NicochannelLiveRecord(**{**record.model_dump(), **video_info})
-        return updated_record, update_interval
 
     async def handle_record_task(self, logger: logging.Logger, client: HttpClient, entity: NicochannelLiveEntity,
                                  base_record: Record, info: TaskStatus) -> None:
@@ -141,7 +128,7 @@ class NicochannelLive(TaskAction):
             msg = f'stream {base_record.url} by {base_record.author or "unknown author"}, attempt {attempt}: fetching live status'
             self.logger.debug(msg)
             info.set_status(msg, base_record)
-            record, update_interval = await self.fetch_video_state(client, base_record, update_interval,
+            record, update_interval = await fetch_video_state(client, base_record, update_interval,
                                                                    entity.poll_interval, logger)
             if record is None:
                 continue

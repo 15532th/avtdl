@@ -350,14 +350,18 @@ class NicochannelUrl:
         self.api_base_url = api_base_url
         self.site_id = fanclub_id
         self.fc_use_device = fc_use_device or 'null'
-
-    @property
-    def on_main_domain(self) -> bool:
-        return self.site_id == 1 or get_netloc(self.base_url) == 'nicochannel.jp'
+        self._channels_urls: Dict[str, str] = {}
 
     @classmethod
     async def construct(cls, base_url: str, client: HttpClient,
                         logger: Optional[logging.Logger] = None) -> Optional['NicochannelUrl']:
+        """
+        Retrieve site_id and construct NicochannelUrl for given channel
+
+        Constructed instances are cached until restart.
+        When request is made to the main domain, `base_url` must be a link to channel,
+        on private sites it should be main page.
+        """
         if cls.cache.get(base_url) is not None:
             return cls.cache[base_url]
 
@@ -371,43 +375,46 @@ class NicochannelUrl:
     @classmethod
     async def _construct(cls, base_url: str, client: HttpClient,
                          logger: Optional[logging.Logger] = None) -> Optional['NicochannelUrl']:
+        """Actually retrieve site_id and construct instance"""
         logger = logger or logging.getLogger('NicochannelUrl')
         r = cls._settings(base_url)
-        data = await client.request_json_endpoint(logger, r)
-        if data is None:
+        settings_data = await client.request_json_endpoint(logger, r)
+        if settings_data is None:
+            logger.warning(f'failed to retrieve site settings for {base_url}')
             return None
         try:
-            endpoint = cls._from_settings_response(base_url, data)
+            api_base_url, site_id = cls._parse_settings_response(settings_data)
         except ValueError as e:
-            logger.warning(f'failed to construct NicochannelUrl: {e}')
+            logger.warning(f'failed to parse site settings for {base_url}: {e}')
             return None
-        if not endpoint.on_main_domain:
-            return endpoint
 
-        r = endpoint._fanclub_id()
-        data = await client.request_json_endpoint(logger, r)
-        if data is None:
-            return None
-        try:
-            site_id = data['data']['content_providers']['id']  # type: ignore
-            assert isinstance(site_id, int)
-            domain = data['data']['content_providers']['domain']  # type: ignore
-            assert isinstance(domain, str)
-        except Exception as e:
-            logger.warning(f'failed to parse content provider info "{data}": {type(e)} {e}')
-            return None
+        if get_netloc(base_url) != 'nicochannel.jp':
+            # on private domains site_id in settings.json response is valid and good to go
+            return cls(base_url=base_url, api_base_url=api_base_url, fanclub_id=site_id)
         else:
-            return cls(domain, endpoint.api_base_url, site_id)
+            # on main domain settings.json responds with site_id=1, while
+            # actual site_id for a channel is fetched from /content_providers/ endpoints
+            r = cls._fanclub_id(base_url)
+            data = await client.request_json_endpoint(logger, r)
+            if data is None:
+                return None
+            site_id = find_one(data, '$.data.content_providers.id')  # type: ignore
+            domain = find_one(data, '$.data.content_providers.domain')
+            if not isinstance(site_id, int) or not isinstance(domain, str):
+                logger.warning(f'failed to parse content provider info "{data}"')
+                return None
+            else:
+                return cls(domain, api_base_url, site_id)
 
     @classmethod
-    def _from_settings_response(cls, base_url: str, data: JSONType) -> 'NicochannelUrl':
+    def _parse_settings_response(cls, data: JSONType) -> Tuple[str, int]:
         try:
             assert isinstance(data, dict)
-            site_id = data['fanclub_site_id']
+            site_id = int(data['fanclub_site_id'])
             api_base_url = data['api_base_url']
         except Exception as e:
             raise ValueError(f'unexpected fanclub settings format: {data}') from e
-        return cls(base_url=base_url, api_base_url=api_base_url, fanclub_id=site_id)
+        return api_base_url, site_id
 
     @staticmethod
     def _settings(current_site_domain: str) -> RequestDetails:
@@ -434,10 +441,22 @@ class NicochannelUrl:
         }
 
 
-    def _fanclub_id(self) -> RequestDetails:
-        url = f'{self.api_base_url}/content_providers/channel_domain'
-        params = {'current_site_domain': self.base_url.rstrip('/')}
-        return RequestDetails(url=url, params=params, headers=self._headers)
+    @staticmethod
+    def _fanclub_id(channel_url) -> RequestDetails:
+        """
+        Structure containing site_id for fanclub located on the main domain
+        """
+        # api url and site id are hardcoded even though they could be retrieved from /settings.json,
+        # passing them here is a pain and they are unlikely to change.
+        url = f'https://api.nicochannel.jp/fc/content_providers/channel_domain'
+        params = {'current_site_domain': channel_url.rstrip('/')}
+        headers = {
+            'fc_site_id': '1',
+            'fc_use_device': 'null',
+            'Origin': channel_url,
+            'Referer': channel_url
+        }
+        return RequestDetails(url=url, params=params, headers=headers)
 
     async def fetch_info(self, client: HttpClient,
                          logger: Optional[logging.Logger] = None) -> Optional['FanclubInfo']:
@@ -486,6 +505,56 @@ class NicochannelUrl:
         headers = self._headers.copy()
         headers.update({'Content-type': 'application/json', 'Accept': 'application/json, text/plain'})
         return RequestDetails(url=url, method='POST', params=None, data_json={}, headers=headers)
+
+    def all_contents(self, page: int = 1, per_page: int = 20) ->RequestDetails:
+        """List of all live and upcoming streams on entire site"""
+        url = f'{self.api_base_url}/fanclub_groups/1/all_contents' # test on private sites, hardcoded /1/ might need to be replaced with site_id
+        params = {'sort_type': '-live_started_at', 'filter': '1A', 'content_type': 1, 'per_page': per_page, 'page': page}
+        return RequestDetails(url=url, params=params, headers=self._headers)
+
+    def content_providers(self) -> RequestDetails:
+        """List of content providers (channel url to site id mapping) on the main site"""
+        url = f'{self.api_base_url}/content_providers/channels'
+        return RequestDetails(url=url, headers=self._headers)
+
+
+class ContentProvidersCache:
+    """Mappings between channel url (domain) and site_id"""
+    def __init__(self, domain_by_id: Dict[int, str], id_by_domain: Dict[str, int]):
+        self.id_by_domain = id_by_domain
+        self.domain_by_id = domain_by_id
+
+    def get_channel_url(self, site_id: int) -> Optional[str]:
+        return self.domain_by_id.get(site_id)
+
+    def get_id(self, channel_url: str) -> Optional[int]:
+        return self.id_by_domain.get(channel_url)
+
+    @classmethod
+    def from_data(cls, data: JSONType) -> 'ContentProvidersCache':
+        content_providers = find_one(data, '$.data.content_providers')
+        if not isinstance(content_providers, list):
+            raise ValueError(f'failed to parse channels list: content_providers field is missing')
+
+        id_by_domain = {}
+        domain_by_id = {}
+
+        for item in content_providers:
+            if not isinstance(item, dict):
+                continue
+            domain = item.get('domain')
+            if not isinstance(domain, str):
+                continue
+            site_id = item.get('id')
+            if not isinstance(site_id, int):
+                continue
+            id_by_domain[domain] = site_id
+            domain_by_id[site_id] = domain
+
+        if not id_by_domain or not domain_by_id:
+            raise ValueError(f'got no channels after parsing channels list')
+
+        return cls(domain_by_id, id_by_domain)
 
 
 class FanclubInfo(BaseModel):
@@ -644,6 +713,10 @@ def parse_video_page(video_page: JSONType) -> dict[str, Any]:
     if not isinstance(video_page, dict):
         raise ValueError(f'unexpected format: expected dict, got {type(video_page)}')
     item = video_page['data']['video_page']
+    return parse_video_page_item(item)
+
+
+def parse_video_page_item(item: JSONType) -> dict[str, Any]:
     if not isinstance(item, dict):
         raise ValueError(f'unexpected video info format: expected dict, got {type(item)}')
 
@@ -670,3 +743,26 @@ def parse_video_page(video_page: JSONType) -> dict[str, Any]:
         'is_upcoming': is_upcoming,
         'is_vod': is_vod,
     }
+
+
+def parse_all_contents_video(item: JSONType, content_providers: ContentProvidersCache) -> NicochannelVideoRecord:
+    fanclub_site_name = find_one(item, '$.fanclub_site.fanclub_site_name')
+    avatar_url = find_one(item, '$.fanclub_site.current_fanclub_design.app_icon_url')
+    fanclub_id = find_one(item, '$.fanclub_site.id')
+    info = parse_video_page_item(item)
+    video_id = info['video_id']
+    is_vod = info['is_vod']
+
+    base_url = content_providers.get_channel_url(fanclub_id)  # type: ignore
+    if base_url is None:
+        raise ValueError(f'unknown fanclub_id: {fanclub_id}')
+
+    return NicochannelVideoRecord(
+        url=f'{base_url}/{"live" if not is_vod else "video"}/{video_id}',
+        length=None,
+        author=str(fanclub_site_name),
+        avatar_url=str(avatar_url),
+        fanclub_id=int(str(fanclub_id)),
+        fanclub_url=base_url,
+        **info
+    )
