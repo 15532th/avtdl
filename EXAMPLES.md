@@ -841,3 +841,46 @@ chains:
     - to_file:
         - "failed withny streams"
 ```
+
+
+#### Monitor and download livestreams on Nicochannel fanclubs
+
+The 'nicochannel' monitor supports main and custom domains, however, setting up a separate chain for each domain is recommended in order to pass correct `Referer` and `Origin` headers.
+
+Records from the monitor gets passed to the `nicochannel.live` action, that waits for upcoming livestreams to go live and attempts to fetch an HLS playlist url. After that record is fed into the `execute` plugin entity to proceed with downloading the playlist with yt-dlp. Using ffmpeg directly is also possible.
+
+In both cases in order to download playlist chunks downloader must set `User-Agent` header to exactly the same value `nicochannel.live` entity uses to retrieve the playlist url, along with valid referer and origin.
+
+```yaml
+actors:
+  nicochannel:
+    entities:
+      - name: test
+        url: https://nicochannel.jp/test/
+  nicochannel.live:
+    entities:
+      - name: main
+        event_passthrough: true
+        headers:
+          User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+            (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+  execute:
+    entities:
+      - name: nicochannel
+        event_passthrough: true
+        command: "yt-dlp --compat-options filename-sanitization --downloader ffmpeg
+          --downloader-args \"ffmpeg_i: -seekable 0\"  --add-header \"User-Agent:Mozilla/5.0
+          (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36" \
+          \  --add-header \"Origin:https://nicochannel.jp\" --add-header \"Referer:https://nicochannel.jp/\"\
+          \ {playlist_url} --output '[{author}] {title} [{video_id}].%(ext)s'"
+        working_dir: archive/nicochannel/{author}
+        log_dir: archive/nicochannel/logs
+        log_filename: '[{author}] {video_id}.log'
+chains:
+  nicochannel_dl:
+    - nicochannel:
+        - test
+    - nicochannel.live:
+        - main
+    - execute:
+        - nicochannel
