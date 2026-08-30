@@ -868,11 +868,7 @@ actors:
     entities:
       - name: nicochannel
         event_passthrough: true
-        command: "yt-dlp --compat-options filename-sanitization --downloader ffmpeg
-          --downloader-args \"ffmpeg_i: -seekable 0\"  --add-header \"User-Agent:Mozilla/5.0
-          (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36" \
-          \  --add-header \"Origin:https://nicochannel.jp\" --add-header \"Referer:https://nicochannel.jp/\"\
-          \ {playlist_url} --output '[{author}] {title} [{video_id}].%(ext)s'"
+        command: "yt-dlp --compat-options filename-sanitization --downloader ffmpeg --downloader-args \"ffmpeg_i: -seekable 0\" --add-header \"User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36\" --add-header \"Origin:https://nicochannel.jp\" --add-header \"Referer:https://nicochannel.jp/\" {playlist_url} --output '[{author}] {title} [{video_id}].%(ext)s'"
         working_dir: archive/nicochannel/{author}
         log_dir: archive/nicochannel/logs
         log_filename: '[{author}] {video_id}.log'
