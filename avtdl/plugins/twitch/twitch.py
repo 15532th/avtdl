@@ -37,10 +37,10 @@ class TwitchRecord(Record):
 
     def __repr__(self):
         title = shorten(self.title, MAX_REPR_LEN)
-        return f'TwitchRecord(username={self.username}, title="{title}")'
+        return f'TwitchRecord(username={self.username}, title="{title}", start="{self.start}")'
 
     def get_uid(self) -> str:
-        return self.url
+        return f'{self.username}-{self.start}'
 
     def as_embed(self) -> dict:
         return {
