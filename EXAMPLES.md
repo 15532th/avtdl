@@ -847,9 +847,9 @@ chains:
 
 The 'nicochannel' monitor supports main and custom domains, however, setting up a separate chain for each domain is recommended in order to pass correct `Referer` and `Origin` headers.
 
-Records from the monitor gets passed to the `nicochannel.live` action, that waits for upcoming livestreams to go live and attempts to fetch an HLS playlist url. After that record is fed into the `execute` plugin entity to proceed with downloading the playlist with yt-dlp. Using ffmpeg directly is also possible.
+After records representing VODs are filtered out on a pair of `filter.match` entities, the rest is passed to the `nicochannel.live` action, that waits for upcoming livestreams to go live and attempts to fetch an HLS playlist url. After that record is fed into the `execute` plugin entity to proceed with downloading the playlist with yt-dlp. Using ffmpeg directly is also possible.
 
-In both cases in order to download playlist chunks downloader must set `User-Agent` header to exactly the same value `nicochannel.live` entity uses to retrieve the playlist url, along with valid referer and origin.
+In both cases in order to download HLS playlist _and_ chunks downloader must set `User-Agent` header to exactly the same value `nicochannel.live` entity uses to retrieve the playlist url, along with valid referer and origin.
 
 ```yaml
 actors:
@@ -857,6 +857,18 @@ actors:
     entities:
       - name: test
         url: https://nicochannel.jp/test/
+  filter.match:
+    entities:
+      - name: nicochannel_live
+        patterns:
+          - 'True'
+        fields:
+          - is_live
+      - name: nicochannel_upcoming
+        patterns:
+          - 'True'
+        fields:
+          - is_upcoming
   nicochannel.live:
     entities:
       - name: main
@@ -868,15 +880,29 @@ actors:
     entities:
       - name: nicochannel
         event_passthrough: true
-        command: "yt-dlp --compat-options filename-sanitization --downloader ffmpeg --downloader-args \"ffmpeg_i: -seekable 0\" --add-header \"User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36\" --add-header \"Origin:https://nicochannel.jp\" --add-header \"Referer:https://nicochannel.jp/\" {playlist_url} --output '[{author}] {title} [{video_id}].%(ext)s'"
-        working_dir: archive/nicochannel/{author}
-        log_dir: archive/nicochannel/logs
+        command: "yt-dlp --compat-options filename-sanitization --extractor-args \"\
+          generic:hls_key={key}\" --downloader ffmpeg --downloader-args 'ffmpeg_i:
+          -v debug -seekable 0 -user_agent \"User-Agent:Mozilla/5.0 (Windows NT 10.0;
+          Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36\"\
+          \ -headers \"Origin: https://nicochannel.jp\" -headers \"Referer: https://nicochannel.jp/\"\
+          ' --add-header \"User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+          (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36\" --add-header \"Origin:https://nicochannel.jp\"\
+          \ --add-header \"Referer:https://nicochannel.jp/\" {playlist_url} --output
+          '[{author}] {title} [{video_id}].%(ext)s'"
+        working_dir: archive\nicochannel\{author}
+        log_dir: archive\nicochannel\logs
         log_filename: '[{author}] {video_id}.log'
+        report_finished: true
+
 chains:
   nicochannel_dl:
     - nicochannel:
         - test
+    - filter.match:
+        - nicochannel_upcoming
+        - nicochannel_live
     - nicochannel.live:
         - main
     - execute:
         - nicochannel
+```
