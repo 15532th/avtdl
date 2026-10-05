@@ -71,6 +71,34 @@ class Record(BaseModel):
         return json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False, default=str, indent=indent)
 
     def as_embed(self) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """
+        Render record into json structure frontend can render
+
+        It is used to format record for sending records into Discord using webhook plugin
+        and to render records in avtdl own web interface.
+
+        Format is derived from and must be compatible with Discord embed
+        (https://birdie0.github.io/discord-webhooks-guide/structure/embeds.html)
+
+        Implementations may use additional fields only supported the web interface.
+        Additional fields names start with underscore and are stripped when sent to Discord.
+
+        {
+            # fields added automatically on every record:
+
+            '_timestamp': int # record.created_at as timestamp
+            '_origin': str # record.origin
+
+            # fields that might be added by specific as_embed() implementations:
+
+            'image': {'url': str, '_preview': str},
+            # image source (normally "url") is replaced with "_preview" on hover if it is provided
+
+            '_video': {url: str, _preview: str}
+            # if "_video" dictionary is provided, video from "url" is rendered with "preview" as thumbnail url
+        }
+
+        """
         embed_title_max_length = 256
         embed_description_max_length = 4096
 

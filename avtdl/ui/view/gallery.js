@@ -296,6 +296,11 @@ function renderEmbed(embed, loadImages = true) {
         }
     }
 
+    if (embed._video) {
+        createVideo(embed._video.url, embed._video._preview, 'embed-video', embedBody);
+    }
+
+
     if (embed.thumbnail && embed.thumbnail.url) {
         createImage(embed.thumbnail.src, 'embed-thumbnail', embedBody, loadImages);
     }

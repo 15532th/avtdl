@@ -10,6 +10,7 @@ from pydantic import BaseModel, ValidationError
 
 from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
+from avtdl.core.request import RemoteFileInfo
 from avtdl.core.utils import JSONType, find_one, format_validation_error, utcnow
 
 local_logger = logging.getLogger().getChild('twitter_extractors')
@@ -104,14 +105,33 @@ class TwitterRecord(Record):
             'footer': footer
         }
 
-        def format_attachments(post_url: str, attachments: List[str]) -> List[dict]:
-            return [{'url': post_url, 'image': {'url': attachment}} for attachment in attachments]
+        def format_attachments(post_url: str, attachments: List[str], images: List[str], videos: List[str]) -> Tuple[List[dict], List[dict]]:
+            images_json = []
+            videos_json = []
+            for image in images:
+                images_json.append({'url': post_url, 'image': {'url': image}})
+            for video in videos:
+                thumbnail: Optional[str] = None
+                video_file = RemoteFileInfo.extract_filename(video, {})
+                if video_file is not None:
+                    attachment_id = video_file.stem
+                    if attachment_id:
+                        for attachment in attachments:
+                            if attachment_id in attachments:
+                                thumbnail = attachment
+                                break
+                videos_json.append({'url': post_url, '_video': {'url': video, '_preview': thumbnail}})
+            return images_json, videos_json
 
         embeds = [embed]
         if self.attachments and not self.retweet:
-            images = format_attachments(self.url, self.attachments)
-            embed['image'] = images.pop(0)['image']
-            embeds.extend(images)
+            images, videos = format_attachments(self.url, self.attachments, self.images, self.videos)
+            if images:
+                embed['image'] = images.pop(0)['image']
+                embeds.extend(images)
+            if videos:
+                embed['_video'] = videos.pop(0)['_video']
+                embeds.extend(videos)
         if self.retweet is not None:
             retweet_embed = self.retweet.as_embed(color=0xb0c8d4)
             embeds.extend(retweet_embed)

@@ -130,6 +130,28 @@ function toggleImageState(img, state) {
 }
 
 /**
+ * @param {string} src - Video URL
+ * @param {string?} previewSrc - Preview/poster image URL
+ * @param {string?} className
+ * @param {HTMLElement?} parentElement
+ */
+function createVideo(src, previewSrc, className, parentElement = null) {
+    const video = document.createElement('video');
+    video.setAttribute('data-src', src);
+    if (previewSrc) {
+        video.poster = previewSrc;
+    }
+    if (className) {
+        video.classList.add(className);
+    }
+    if (parentElement) {
+        parentElement.appendChild(video);
+    }
+    return video;
+}
+
+
+/**
  * @param {string} tag
  * @param {string | undefined} [className]
  * @param {HTMLElement | undefined} [parentElement]
