@@ -364,7 +364,7 @@ Configuration contains {len(self.actors)} actors and {len(self.chains)} chains, 
                 msg = f'cached file "{image_file}" for url "{image_url}" is not relative to "{self.cache.cache_directory}"'
                 self.logger.warning(msg)
                 return None
-            resource = str(self.CACHE_ROUTE / relative)
+            resource = (self.CACHE_ROUTE / relative).as_posix()
             return resource
         return rewriter
 
