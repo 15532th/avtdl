@@ -55,6 +55,8 @@ class NicochannelLiveConfig(TaskActionConfig, BaseDbConfig):
 class NicochannelLiveEntity(TaskActionEntity):
     cookies_file: Optional[FilePath] = None
     """path to a text file containing cookies in Netscape format"""
+    retrieve_key: bool = False
+    """attempt to fetch playlist decryption key and store in record's "key" property. Fetching master playlist and then the decryption key is only possible once for a session, so enabling this option will make consequent attempts to download record's "playlist_url" (for example with ffmpeg) fail with 403 retrieving the key"""
     poll_interval: PositiveInt = 180
     """how often live status of the stream is updated after the scheduled time, in seconds"""
     poll_attempts: PositiveInt = 30
@@ -177,6 +179,8 @@ class NicochannelLive(TaskAction):
 
         # stream is now live for sure, emit the record
         await retrieve_playlist_url(client, record, logger)
+        if entity.retrieve_key:
+            await retrieve_playlist_key(client, record, logger)
         self.db.store_records([record], entity.name)
         self.on_record(entity, record)
 
@@ -200,7 +204,6 @@ async def retrieve_playlist_url(client: HttpClient, record: NicochannelLiveRecor
     if not isinstance(session_id, str):
         logger.warning(f'aborting playlist retrieval: failed to parse session_id: {session_ids}')
         return
-
     r = endpoint.video_info(record.video_id)
     video_info = await client.request_json_endpoint(logger, r)
     if video_info is None:
@@ -217,7 +220,16 @@ async def retrieve_playlist_url(client: HttpClient, record: NicochannelLiveRecor
     playlist_url = auth_url.replace('{session_id}', session_id)
     record.playlist_url = playlist_url
 
-    master_playlist = await client.request_text(playlist_url)
+
+async def retrieve_playlist_key(client: HttpClient, record: NicochannelLiveRecord, logger: logging.Logger):
+    """
+    Try retrieving and updating "key" value of the given record
+    Requires valid "playlist_url".
+    """
+    if record.playlist_url is None:
+        return
+
+    master_playlist = await client.request_text(record.playlist_url)
     if master_playlist is None:
         logger.warning(f'aborting playlist key retrieval: fetching playlist failed')
         return
@@ -237,7 +249,7 @@ async def retrieve_playlist_url(client: HttpClient, record: NicochannelLiveRecor
         return
     key_urls = re.findall(r'#EXT-X-KEY:METHOD=AES-128,URI="([^"]+)', playlist_content)
     if not key_urls:
-        logger.warning(f'aborting playlist key retrieval: no EXT-X-KEY found. Raw playlist content:\n{playlist_url[:10]}')
+        logger.warning(f'aborting playlist key retrieval: no EXT-X-KEY found. Raw playlist content:\n{record.playlist_url[:10]}')
         return
     key_url = key_urls[0]
     try:
@@ -245,6 +257,15 @@ async def retrieve_playlist_url(client: HttpClient, record: NicochannelLiveRecor
     except ValidationError:
         logger.warning(f'aborting playlist key retrieval: failed to parse key url: {key_url}')
         return
+
+    if record.fanclub_url is None:
+        logger.warning(f'aborting playlist key retrieval, record has no fanclub_url: {record}')
+        return
+    endpoint = await NicochannelUrl.construct(record.fanclub_url, client, logger)
+    if endpoint is None:
+        logger.warning(f'aborting playlist key retrieval, failed to construct endpoint for record {record}')
+        return
+
     key = await client.request_text(key_url, headers=endpoint.origin_headers) # needs browser user-agent
     if key is None:
         logger.warning(f'aborting playlist key retrieval: failed to fetch decryption key')
