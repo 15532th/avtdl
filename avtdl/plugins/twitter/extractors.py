@@ -117,7 +117,18 @@ class TwitterRecord(Record):
                     attachment_id = video_file.stem
                     if attachment_id:
                         for attachment in attachments:
-                            if attachment_id in attachments:
+                            if attachment_id in attachment:
+                                thumbnail = attachment
+                                break
+                re_video_uid = r'\d{19}'
+                video_uids = re.findall(re_video_uid, video)
+                if video_uids:
+                    video_uid = video_uids[0]
+                    for attachment in attachments:
+                        attachment_uids = re.findall(re_video_uid, attachment)
+                        if attachment_uids:
+                            attachment_uid = attachment_uids[0]
+                            if attachment_uid == video_uid:
                                 thumbnail = attachment
                                 break
                 videos_json.append({'url': post_url, '_video': {'url': video, '_preview': thumbnail}})
