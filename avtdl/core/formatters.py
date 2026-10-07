@@ -354,7 +354,9 @@ class MessageFormatter:
                         ('image', 'thumbnail'),
                         ('image', '_preview'),
                         ('author', 'icon_url'),
-                        ('footer', 'icon_url')]
+                        ('footer', 'icon_url'),
+                        ('_video', 'url'),
+                        ('_video', '_preview')]
         for field_name, subfield_name in image_fields:
             field = embed.get(field_name, None)
             if not isinstance(field, dict):
