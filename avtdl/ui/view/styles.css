@@ -236,6 +236,13 @@
     margin: 4px;
 }
 
+.embed-video {
+    max-width: 100%;
+    min-height: 2em;
+    flex: 1 3 40%;
+    margin: 4px;
+}
+
 .embed-thumbnail {
     max-width: 200px;
 }

@@ -137,7 +137,11 @@ function toggleImageState(img, state) {
  */
 function createVideo(src, previewSrc, className, parentElement = null) {
     const video = document.createElement('video');
-    video.setAttribute('data-src', src);
+    video.setAttribute('src', src);
+    video.controls = true;
+    video.preload = 'metadata';
+    video.playsInline = true;
+    video.loop = true;
     if (previewSrc) {
         video.poster = previewSrc;
     }
