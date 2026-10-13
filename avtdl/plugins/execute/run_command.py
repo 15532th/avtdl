@@ -220,8 +220,13 @@ class Command(TaskAction):
                 event = Event(event_type=EventType.finished, text=text, record=record)
                 self.on_record(entity, event)
         else:
+            logger.info(f'[{entity.name}] the following command finished with error: {command_line}')
+            if stdout is not None:
+                logger.info(f'see "{stdout_path}" for detailed output of the failed command')
             if entity.report_failed:
                 text = f'[{entity.name}] command finished with error: {command_line}'
+                if stdout is not None:
+                    text += f'\ndetailed log written to "{stdout_path}"'
                 event = Event(event_type=EventType.error, text=text, record=record)
                 self.on_record(entity, event)
             if entity.forward_failed:
