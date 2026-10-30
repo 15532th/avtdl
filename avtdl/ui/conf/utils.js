@@ -148,11 +148,25 @@ function createVideo(src, previewSrc, className, parentElement = null) {
     if (className) {
         video.classList.add(className);
     }
+
+    video.addEventListener('error', function () {
+        if (!previewSrc) {
+            return;
+        }
+        const img = createImage(previewSrc, 'embed-image');
+        img.src = previewSrc || video.poster;
+        img.alt = 'Video unavailable';
+        if (video.parentNode) {
+            video.parentNode.replaceChild(img, video);
+        }
+    });
+
     if (parentElement) {
         parentElement.appendChild(video);
     }
     return video;
 }
+
 
 
 /**
