@@ -5,7 +5,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from avtdl.core.actors import ActorConfig
 from avtdl.core.interfaces import AbstractRecordsStorage, Record, get_record_type
@@ -23,6 +23,7 @@ class BaseRecordDB:
 
     def __init__(self, db_path: Union[str, Path], logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger('RecordDB')
+        self.db_path = db_path
         try:
             if not db_path == ':memory:' and not Path(db_path).exists():
                 check_dir(Path(db_path).parent)
@@ -187,7 +188,12 @@ class RecordDB(BaseRecordDB):
             row_content = {k: row[k] for k in row.keys()}
             self.logger.debug(f'Raw row: {row_content}')
             return None
-        record = record_type.model_validate_json(row['as_json'])
+        try:
+            record = record_type.model_validate_json(row['as_json'])
+        except ValidationError as e:
+            self.logger.warning(f'failed to load record {row["uid"]} as "{record_type.__name__}" from database at "{self.db_path}"')
+            self.logger.debug(f'raw record:\n{row["as_json"]}')
+            return None
         self.set_record_time(record, row['parsed_at'] or None)
         return record
 
