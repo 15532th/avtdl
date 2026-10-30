@@ -23,7 +23,7 @@ class YoutubeLiveErrorEvent(Event):
     """Produced on failure to process a livestream"""
     event_type: str = EventType.error
     """text describing the nature of event, can be used to filter classes of events, such as errors"""
-    record: SerializeAsAny[Union[YoutubeVideoRecord, YoutubeFeedRecord, None]] = Field(exclude=True)
+    record: SerializeAsAny[Union[YoutubeVideoRecord, YoutubeFeedRecord, None]] = Field(exclude=True, default=None)
     """record that was being processed when this event happened"""
 
     def __str__(self):
