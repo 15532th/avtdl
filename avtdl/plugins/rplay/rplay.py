@@ -5,6 +5,7 @@ import enum
 import hashlib
 import hmac
 import json
+import logging
 import time
 import urllib.parse
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.request import HttpClient, RequestDetails, RetrySettings
 from avtdl.core.runtime import RuntimeContext
+from avtdl.core.utils import JSONType, find_all, try_parse_date, with_prefix
 
 
 @Plugins.register('rplay', Plugins.kind.ASSOCIATED_RECORD)
@@ -388,6 +390,189 @@ def parse_livestream(item: dict) -> RplayRecord:
     return record
 
 
+@Plugins.register('rplay.notifications', Plugins.kind.ACTOR_CONFIG)
+class RplayNotificationsMonitorConfig(RplayUserMonitorConfig):
+        pass
+
+@Plugins.register('rplay.notifications', Plugins.kind.ACTOR_ENTITY)
+class RplayNotificationsMonitorEntity(RplayMonitorEntity):
+    creators: Optional[List[str]] = None
+    """list of IDs of the users to monitor. With no IDs provided livestream notification for all subscriptions are reported"""
+    emit_notifications: bool = False
+    """produce notifications records in addition to active livestreams"""
+
+
+@Plugins.register('rplay.notifications', Plugins.kind.ASSOCIATED_RECORD)
+class RplayNotification(Record):
+    url: str
+    """notification url (livestream or channel url)"""
+    uid: str
+    """NotificationId"""
+    creator_id: str
+    """creatorOid"""
+    content_id: str
+    """contentOid"""
+    name: str
+    """Visible name of the creator"""
+    notification_type: str
+    """livestream, contentPublished, recordingPublished"""
+    published: datetime.datetime
+    """time when notification was sent"""
+
+    def __str__(self) -> str:
+        return f'Notification: {self.notification_type} by {self.name} at {self.published}'
+
+    def __repr__(self) -> str:
+        return f'RplayNotification(uid={self.uid}, type={self.notification_type}, name={self.name}, published={self.published})'
+
+    def get_uid(self) -> str:
+        return f'{self.creator_id}:{int(self.published.timestamp() * 1000)}'
+
+    def as_embed(self) -> dict:
+        avatar_url = get_avatar_url(self.creator_id)
+        return {
+            'title': f'Notification: {self.notification_type}',
+            'url': self.url,
+            'description': None,
+            'color': None,
+            'author': {'name': self.name, 'url': None, 'icon_url': avatar_url},
+            'timestamp': self.published.isoformat(),
+            'footer': {'text': None},
+            'fields': []
+        }
+
+
+@Plugins.register('rplay.notifications', Plugins.kind.ACTOR)
+class RplayNotificationsMonitor(RplayUserMonitor):
+    """
+    Monitor livestreams notifications of RPLAY account
+
+    Requires account credentials in order to work.
+    When "user_id" and "refresh_token" provided,
+    they are used instead of the login/password pair.
+
+    Monitors account's notifications, produces record
+    when livestream notification is received.
+    """
+
+    async def get_records(self, entity: RplayNotificationsMonitorEntity, client: HttpClient) -> Sequence[RplayRecord]:
+        raise NotImplementedError('get_records should never get called on RplayNotificationMonitor because get_new_records is overwritten')
+
+    async def get_new_records(self, entity: RplayNotificationsMonitorEntity, client: HttpClient) -> Sequence[RplayRecord]:
+        logger = with_prefix(self.logger, f'[{entity.name}]')
+        own_user = await self.get_own_user(client)
+        if own_user is None:
+            logger.warning(f'update cancelled because login failed. If the failure persists, verify the login credentials in the monitor config')
+            return []
+        r = RplayUrl.get_own_info(own_user)
+        data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
+        if data is None:
+            return []
+        try:
+            notifications = parse_own_info(data, logger)
+        except Exception as e:
+            logger.warning(f'failed to parse notifications: {type(e)} {e}.')
+            logger.debug(f' Raw data:\n"{data}"')
+            return []
+        new_notifications = self.filter_new_records(notifications, entity)
+        if entity.emit_notifications:
+            for notification in new_notifications:
+                self.on_record(entity, notification)
+        content_oids = [n.content_id for n in new_notifications if n.notification_type=='livestream']  # type: ignore
+        if len(content_oids) > 10:
+            logger.warning(f'got {len(content_oids)} livestream notifications, keeping last 10. If you run into this limitation please report it.')
+            content_oids = content_oids[-10:]
+        logger.debug(f'got {len(notifications)} notifications ({len(new_notifications)} new, {len(content_oids)} new livestreams)')
+        if not content_oids:
+            return []
+        r = RplayUrl.bulkcontent(content_oids, own_user)
+        data = await self.request_json(r.url, entity, client, method=r.method, headers=r.headers, params=r.params, data=r.data, data_json=r.data_json)
+        if data is None:
+            return []
+        try:
+            records = parse_bulk_content(data, logger)
+        except Exception as e:
+            logger.warning(f'failed to parse content info: {type(e)} {e}.')
+            logger.debug(f' Raw data:\n"{data}"')
+            return []
+        # for record in records:
+        #     if self.record_is_new(record, entity):
+        #         record.playlist_url = await self.get_playlist_url(client, record)
+        return records
+
+
+def parse_own_info(data: JSONType, logger: logging.Logger) -> List[RplayNotification]:
+    """Parse notifications from account own information"""
+    if not isinstance(data, dict):
+        raise ValueError(f'unexpected response: expected dict got {type(data)}')
+    notifications_items = data.get('notifications')
+    if notifications_items is None:
+        raise ValueError(f'unexpected response: no notifications present')
+    notifications = []
+    for notification_item in notifications_items:
+        try:
+            creator_oid = notification_item.get('creatorOid')
+            published_text = notification_item.get('date')
+            published = try_parse_date(published_text, datetime.timezone.utc)
+            notification_type = notification_item.get('type')
+            assert isinstance(notification_type, str), f'unexpected notification type: {notification_type}'
+            assert isinstance(published, datetime.datetime), f'failed to parse notification timestamp: {published_text}'
+            if notification_type == 'livestream':
+                url = get_livestream_url(creator_oid)
+            else:
+                url = get_channel_url(creator_oid)
+            notification = RplayNotification(
+                url=url,
+                uid=notification_item.get('notificationId'),
+                content_id=notification_item.get('contentOid'),
+                creator_id=creator_oid,
+                name=notification_item.get('nickname'),
+                notification_type=notification_type,
+                published=published
+            )
+        except Exception as e:
+            logger.warning(f'failed to parse notification: {e}')
+            logger.debug(f'raw notification data:\n{notification_item}')
+            continue
+        notifications.append(notification)
+    return notifications
+
+
+def parse_bulk_content(data: JSONType, logger: logging.Logger) -> List[RplayRecord]:
+    if not isinstance(data, dict):
+        raise ValueError(f'unexpected response: expected dict got {type(data)}')
+    records = []
+    for content_oid, content_item in data.items():
+        try:
+            record = parse_content(content_item)
+        except Exception as e:
+            logger.warning(f'failed to parse content item: {e}')
+            logger.debug(f'raw item:\n{content_item}')
+            continue
+        records.append(record)
+    return records
+
+def parse_content(item: dict) -> RplayRecord:
+    """parse a single item from a list returned by /content/bulk endpoint"""
+    creator_oid = item['creatorOid']
+
+    record = RplayRecord(
+
+        url=get_livestream_url(creator_oid),
+        title=item['title'],
+        description=item['introText'],
+        thumbnail_url=live_thumbnail_url(creator_oid),
+        start=dateutil.parser.parse(item['publishedAt']),
+        user_id=item['creatorInfo']['_id'],
+        creator_id=creator_oid,
+        name=item['nickname'],
+        avatar_url=get_avatar_url(creator_oid),
+        restream_platform=None,
+        restream_url=None
+    )
+    return record
+
+
 class StreamState(str, enum.Enum):
     OFFLINE = 'offline'
     LIVE = 'live'
@@ -436,6 +621,10 @@ def get_avatar_url(creator_oid: str) -> str:
 
 def get_livestream_url(creator_oid: str) -> str:
     return f'https://rplay.live/live/{creator_oid}/'
+
+
+def get_channel_url(creator_oid: str) -> str:
+    return f'https://rplay.live/creatorhome/{creator_oid}/'
 
 
 def live_thumbnail_url(creator_oid: str) -> str:
@@ -543,6 +732,10 @@ def url_with_query(r: RequestDetails) -> str:
     return url
 
 
+def are_valid_oids(oids: List[str]) -> bool:
+    """check all passed strings are 24 characters long and only contain alphanumeric characters"""
+    return all(len(s) == 24 and s.isalnum() and s.islower() for s in oids)
+
 class RplayUrl:
 
     @staticmethod
@@ -580,6 +773,21 @@ class RplayUrl:
         return RequestDetails(url=url, params=params)
 
     @staticmethod
+    def get_own_info(user: User) -> RequestDetails:
+        url = f'https://api.rplay.live/account/getuser'
+        params = {
+            'userOid': user.user_oid,
+            'options': '{"includeLoginFields":true,"includeGrabFilter":true}',
+            'lang': 'en',
+            'requestorOid': user.user_oid,
+            'platformType': 'rplay',
+            'loginType': 'rplay',
+        }
+        headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/'}
+        headers.update(user.get_auth_header())
+        return RequestDetails(url=url, params=params, headers=headers)
+
+    @staticmethod
     def getuser_by_name(cursom_url: str) -> RequestDetails:
         """get user info and live status by custom channel url"""
         url = f'https://api.rplay.live/account/getuser'
@@ -614,6 +822,27 @@ class RplayUrl:
         return RequestDetails(url=url, params=params, headers=headers)
 
     @staticmethod
+    def bulkcontent(content_oids: List[str], user: User) -> RequestDetails:
+        assert are_valid_oids(content_oids), f'unexpected data in content_oid list: "{content_oids}"'
+        url = 'https://api.rplay.live/content/bulk'
+        params= {'omitComments': 'true'}
+        data = {
+            'creatorInfoProjection': [
+                    'nickname',
+                    'multiLangNick'
+                ],
+            'includeDeletedContents': False,
+            'loginType': 'rplay',
+            'privateFields': False,
+            'requestFormQueue': content_oids,
+            'requestorOid': user.user_oid,
+            'status': 'published'
+        }
+        headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/', 'Origin': 'https://rplay.live/'}
+        headers.update(user.get_auth_header())
+        return RequestDetails(url=url, method='POST', params=params, data_json=data, headers=headers)
+
+    @staticmethod
     def playlist(creator_oid: str, key: str = '', key2: str = '') -> RequestDetails:
         url = 'https://api.rplay.live/live/stream/playlist.m3u8'
         params = {'creatorOid': creator_oid, 'key': key, 'key2': key2}
@@ -643,4 +872,24 @@ class RplayUrl:
         headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/', 'refresh-token': refresh_token}
         return RequestDetails(url=url, method='POST', data=json.dumps(data), headers=headers)
 
+    @staticmethod
+    def page2() -> RequestDetails:
+        url = 'https://api2.rplay.live/content/page2'
+        params = {
+            'componentOids[]': '66e481283d5f0a8e4608c40c',
+            'liveDataRequest': 'true',
+            'forceFetch': 'false',
+            'lang': 'en',
+            'platformType': 'rplay',
+        }
+        headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/', 'platform-type': 'rplay'}
+        return RequestDetails(url=url, method='POST', params=params, headers=headers)
 
+def page2_get_livestream_oids(data) -> Optional[List[str]]:
+    """Extract componentOid from a list of main page blocks with curationType==livestreamList"""
+    oids = find_all(data, '$[*][?(@.curationType=="livestreamList")].componentData.componentOid')
+    if not isinstance(oids, list):
+        return None
+    for oid in oids:
+        if not isinstance(oid, str):
+            return None
