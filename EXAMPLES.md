@@ -28,7 +28,9 @@ When avtdl is running, it is possible to change current config in the [web inter
       * [Send notifications and download Twitter Spaces](#send-notifications-and-download-twitter-spaces)
       * [Monitor and download RPLAY livestreams](#monitor-and-download-rplay-livestreams)
         * [Using yt-dlp fork with RPLAY support](#using-yt-dlp-fork-with-rplay-support)
+        * [Monitoring RPLAY notifications](#monitoring-rplay-notifications)
       * [Monitor and download Withny livestreams](#monitor-and-download-withny-livestreams)
+      * [Monitor and download livestreams on Nicochannel fanclubs](#monitor-and-download-livestreams-on-nicochannel-fanclubs)
 <!-- TOC -->
 
 ---
@@ -767,6 +769,51 @@ chains:
 
 ```
 
+##### Monitoring RPLAY notifications
+
+Check account notifications, separate livestreams from the rest, collect and display in the web interface.
+
+Has two obvious limitations: it needs account credentials and only reports creators the account is subscribed to.
+Once first update has completed records can be viewed at http://localhost:8080/ui/view/view.html?actor=view&entity=main&view=rplay_streams
+
+```yaml
+
+actors:
+
+  rplay.notifications:
+    config:
+      login: "username@example.com"
+      password: "the password"
+    entities:
+      - name: main
+        quiet_first_time: false
+  filter.match:
+    entities:
+      - name: stream_notifications
+        patterns:
+          - livestream
+        fields:
+          - notification_type
+  view:
+    entities:
+      - name: rplay_streams
+      - name: rplay_notifications
+
+chains:
+  notify-streams:
+    - rplay.notifications:
+        - main
+    - filter.match:
+        - stream_notifications
+    - view:
+        - rplay_streams
+  notify-raw:
+    - rplay.notifications:
+        - main
+    - view:
+        - rplay_notifications
+
+```
 
 #### Monitor and download Withny livestreams
 
