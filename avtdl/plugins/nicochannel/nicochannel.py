@@ -348,6 +348,7 @@ class NicochannelUrl:
     def __init__(self, base_url: str, api_base_url: str, fanclub_id: int, fc_use_device: Optional[str] = None):
         self.base_url = base_url
         self.api_base_url = api_base_url
+        self.api_base_url_v2 = api_base_url.replace('/fc', '/fc/v2')
         self.site_id = fanclub_id
         self.fc_use_device = fc_use_device or 'null'
         self._channels_urls: Dict[str, str] = {}
@@ -487,7 +488,7 @@ class NicochannelUrl:
         return RequestDetails(url=url, params=params, headers=self._headers)
 
     def video_pages(self, page: int, per_page: int = 6) -> RequestDetails:
-        url = f'{self.api_base_url}/fanclub_sites/{self.site_id}/video_pages'
+        url = f'{self.api_base_url_v2}/fanclub_sites/{self.site_id}/video_pages'
         params = {'page': page, 'per_page': per_page, 'sort': '-display_date'}
         return RequestDetails(url=url, params=params, headers=self._headers)
 
