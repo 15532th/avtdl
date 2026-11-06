@@ -353,6 +353,9 @@ async def get_static_playlist_url(client: HttpClient, dynamic_playlist_url: Opti
     except Exception as e:
         logger.warning(f'failed to update url "{dynamic_playlist_url}": {e}')
         return None
+    if 'x-media-live-stream-pdxa' in master_playlist_url:
+        logger.debug(f'replacing "pdxa"')
+        master_playlist_url = master_playlist_url.replace('x-media-live-stream-pdxa', 'periscope-replays-public')
     master_playlist = await client.request_text(master_playlist_url)
     if master_playlist is None:
         return None
