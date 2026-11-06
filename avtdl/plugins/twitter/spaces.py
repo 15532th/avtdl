@@ -158,6 +158,8 @@ class TwitterSpace(TaskAction):
         space = await self.fetch_space(logger, client, entity, space_id)
         if space is None:
             return
+        initial_state = SpaceState.from_space_record(space)
+        logger.info(f'initial update for {space.url}: space {initial_state.value}')
         if self.db.record_exists(space, entity.name):
             logger.debug(f'space {space_id} has already been processed')
             return
