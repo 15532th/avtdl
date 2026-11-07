@@ -122,6 +122,12 @@ class RplayMonitor(BaseFeedMonitor):
     however, because of that it does not try to retrieve the
     direct `playlist url` for livestreams, and therefore does
     not support providing login credentials.
+
+    Accessing livestream endpoints requires providing a valid
+    x-turnstile-token or x-browser-pass header. avtdl does not
+    generate them itself, so they must be provided and updated
+    upon expiration using headers_file option of the entity
+    (see (headers_file)[https://github.com/15532th/avtdl/blob/master/README.md#headers_file] section of the README).
     """
 
     def __init__(self, conf: RplayMonitorConfig, entities: Sequence[RplayMonitorEntity], ctx: RuntimeContext):
@@ -226,6 +232,7 @@ class RplayUserMonitorConfig(BaseFeedMonitorConfig):
             raise ValueError('"user_id" and "refresh_token" must be both present when used and both absent otherwise')
         return self
 
+
 @Plugins.register('rplay.user', Plugins.kind.ACTOR_ENTITY)
 class RplayUserMonitorEntity(RplayMonitorEntity):
     creators: None = Field(default=None, exclude=True)
@@ -242,6 +249,16 @@ class RplayUserMonitor(BaseFeedMonitor):
     Requires account credentials in order to work.
     When "user_id" and "refresh_token" provided,
     they are used instead of the login/password pair.
+
+    Accounts used for automation are subject to ban by rplay,
+    do not use anything you would not want to lose. Better yet
+    do not use this plugin at all while this warning is present.
+
+    Accessing livestream endpoints requires providing a valid
+    x-turnstile-token or x-browser-pass header.
+    They must be provided and updated upon expiration using
+    headers_file option of the entity
+    (see (headers_file)[https://github.com/15532th/avtdl/blob/master/README.md#headers_file] section of the README).
 
     Monitors a user with given `creator_oid`, produces record
     when the user starts a livestream. `creator_oid` is the
