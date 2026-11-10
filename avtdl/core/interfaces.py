@@ -170,6 +170,19 @@ class Event(Record):
             self.origin = self.record.origin
             self.chain = self.record.chain
 
+    def as_embed(self) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        title = f'[event] {self.event_type}'
+        footer_text = None
+        if self.record:
+            footer_text = f'Generated in [{self.origin or ""}:{self.chain or ""}]'
+            footer_text += ' by processing this record:'
+        embeds = [{'title': title, 'description': self.text, 'footer': {'text': footer_text}}]
+        if self.record is not None:
+            record_embed = self.record.as_embed()
+            if isinstance(record_embed, dict):
+                record_embed = [record_embed]
+            embeds.extend(record_embed)
+        return embeds
 
 class OpaqueRecord(Record):
     """Record without predefined fields and structure"""
