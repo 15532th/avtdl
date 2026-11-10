@@ -331,7 +331,8 @@ class MessageFormatter:
             # only adding more extra fields if they are not going to be stripped
             for embed in embeds:
                 embed['_timestamp'] = int(record.created_at.timestamp() * 1000)
-                embed['_origin'] = record.origin
+                embed['_origin'] = record.origin or ''
+                embed['_chain'] = record.chain
 
         return embeds
 
