@@ -174,7 +174,15 @@ def load_headers(path: Optional[Path], logger: logging.Logger) -> Optional[Dict[
         if not isinstance(data, dict):
             logger.warning(f'failed to parse headers in json file "{path}": file must contain top-level dictionary')
             return None
-        headers = {str(k): str(v) for k, v in data.items()}
+        headers: Dict[str, str] = {}
+        for k, v in data.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                logger.warning(f'while parsing headers in "{path}" skipped malformed item "{k}: {v}": header name and value must be strings')
+                continue
+            if k in headers:
+                logger.warning(f'while parsing headers in "{path}" skipped duplicate item "{k}: {v}": "{k}" is already set to "{headers[k]}"')
+            else:
+                headers[k] = v
     else:
         logger.debug(f'loading plaintext headers from "{path}"')
         headers = {}
