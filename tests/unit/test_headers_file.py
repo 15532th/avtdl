@@ -31,12 +31,12 @@ testcases: Dict[str, Tuple[str, str, Optional[Dict[str, str]]]] = {
     'empty_json_file': (
         'headers.json',
         '',
-        None
+        {}
     ),
     'invalid_json_file': (
         'headers.json',
         '{"key1": "value1", "key2": "value2",}',
-        None
+        {}
     ),
     'plaintext_file_empty_lines_ignored': (
         'headers.txt',

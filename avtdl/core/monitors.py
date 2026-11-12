@@ -6,7 +6,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
 from pydantic import Field, FilePath, PositiveFloat, field_serializer, field_validator
 
@@ -155,42 +155,47 @@ class HttpTaskMonitorEntity(TaskMonitorEntity):
         self.base_update_interval = self.update_interval
 
 
-def load_headers(path: Optional[Path], logger: logging.Logger) -> Optional[Dict[str, str]]:
+def load_headers(path: Optional[Path], logger: logging.Logger) -> Dict[str, str]:
     """load HTTP headers from given file, either .json or plaintext"""
     if path is None:
-        return None
+        return {}
     try:
         text = path.read_text()
     except (OSError, UnicodeDecodeError) as e:
         logger.warning(f'failed to load headers from "{path}": {e}')
-        return None
-    if path.suffix == '.json':
-        logger.debug(f'loading json headers from "{path}"')
+        return {}
+    data_format = 'json' if path.suffix == '.json' else 'plain'
+    return parse_headers_config(text, data_format, str(path), logger)  # type: ignore
+
+
+def parse_headers_config(text: str, data_format: Literal['json', 'plain'], source: str, logger: logging.Logger) -> Dict[str, str]:
+    if data_format == 'json':
+        logger.debug(f'loading json headers from "{source}"')
         try:
             data = json.loads(text)
         except json.JSONDecodeError as e:
-            logger.warning(f'failed to parse headers in json file "{path}": {e}')
-            return None
+            logger.warning(f'failed to parse headers from json at "{source}": {e}')
+            return {}
         if not isinstance(data, dict):
-            logger.warning(f'failed to parse headers in json file "{path}": file must contain top-level dictionary')
-            return None
+            logger.warning(f'failed to parse headers from json at "{source}": file must contain top-level dictionary')
+            return {}
         headers: Dict[str, str] = {}
         for k, v in data.items():
             if not isinstance(k, str) or not isinstance(v, str):
-                logger.warning(f'while parsing headers in "{path}" skipped malformed item "{k}: {v}": header name and value must be strings')
+                logger.warning(f'while parsing headers in "{source}" skipped malformed item "{k}: {v}": header name and value must be strings')
                 continue
             if k in headers:
-                logger.warning(f'while parsing headers in "{path}" skipped duplicate item "{k}: {v}": "{k}" is already set to "{headers[k]}"')
+                logger.warning(f'while parsing headers in "{source}" skipped duplicate item "{k}: {v}": "{k}" is already set to "{headers[k]}"')
             else:
                 headers[k] = v
     else:
-        logger.debug(f'loading plaintext headers from "{path}"')
+        logger.debug(f'loading plaintext headers from "{source}"')
         headers = {}
         for line in text.splitlines():
             if not line or line.startswith('#'):
                 continue
             if not ':' in line:
-                logger.warning(f'while parsing headers in "{path}" skipped malformed line "{line}": header name and value must be separated by semicolon')
+                logger.warning(f'while parsing headers in "{source}" skipped malformed line "{line}": header name and value must be separated by semicolon')
                 continue
             key, value = re.split(r': ?', line, 1)
             headers[key] = value
@@ -236,7 +241,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
                                client: HttpClient,
                                request_details: RequestDetails) -> MaybeHttpResponse:
         additional_headers = load_headers(entity.headers_file, with_prefix(self.logger, f'[{entity.name}]'))
-        if additional_headers is not None:
+        if additional_headers:
             request_details.headers = {**(request_details.headers or {}), **additional_headers}
         response = await client.request_endpoint(self.logger, request_details)
         entity.update_interval = response.next_update_interval(entity.base_update_interval, entity.update_interval, entity.adjust_update_interval)
@@ -246,7 +251,7 @@ class HttpTaskMonitor(BaseTaskMonitor):
         '''Helper method to make http request. Does not retry, adjusts entity.update_interval instead'''
         state = self.state_storage.get(url, method, params)
         additional_headers = load_headers(entity.headers_file, with_prefix(self.logger, f'[{entity.name}]'))
-        if additional_headers is not None:
+        if additional_headers:
             headers = {**(headers or {}), **additional_headers}
 
         response = await client.request(url, params, data, data_json, headers, method, state)
