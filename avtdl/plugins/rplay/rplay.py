@@ -155,7 +155,7 @@ class RplayMonitor(BaseFeedMonitor):
 
     async def update_records(self, entity: RplayMonitorEntity, client: HttpClient) -> None:
         r = RplayUrl.livestreams()
-        data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
+        data = await self.request_json_endpoint(entity, client, r)
         if data is None:
             return
         if not isinstance(data, List):
@@ -191,23 +191,24 @@ class RplayMonitor(BaseFeedMonitor):
         if not creator_oids:
             return
         r = RplayUrl.bulkgetusers(creator_oids)
-        response = await client.request(r.url, headers=r.headers, params=r.params)
+        logger = with_prefix(self.logger, f'[{entity.name}] ')
+        response = await client.request_endpoint(logger, r)
         if response.ok and not response.has_content:
-            self.logger.debug(f'[{entity.name}] got {response.status} updating nickname cache')
+            logger.debug(f'got {response.status} updating nickname cache')
             return
         if not response.has_json():
-            self.logger.warning(f'[{entity.name}] failed to update nickname cache: failed to get users info. Raw response: {response!r}')
+            logger.warning(f'failed to update nickname cache: failed to get users info. Raw response: {response!r}')
             return
         try:
             data = response.json()
             if not isinstance(data, dict):
-                self.logger.warning(f'[{entity.name}] failed to update nickname cache: unexpected response "{data}"')
+                logger.warning(f'failed to update nickname cache: unexpected response "{data}"')
                 return
             for oid, info in data.items():
                 if 'nickname' in info:
                     self.nickname_cache[oid] = info['nickname']
         except Exception as e:
-            self.logger.warning(f'[{entity.name}] failed to update nickname cache: {type(e)} {e}')
+            logger.warning(f'failed to update nickname cache: {type(e)} {e}')
 
     def update_nicknames(self, records: List[RplayRecord]):
         for record in records:
@@ -287,7 +288,7 @@ class RplayUserMonitor(BaseFeedMonitor):
             self.logger.warning(f'[{entity.name}] update cancelled because login failed. If the failure persists, verify the login credentials in the monitor config')
             return []
         r = RplayUrl.play(entity.creator_oid, own_user)
-        data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
+        data = await self.request_json_endpoint(entity, client, r)
         if data is None:
             return []
         if not isinstance(data, dict):
@@ -481,7 +482,7 @@ class RplayNotificationsMonitor(RplayUserMonitor):
             logger.warning(f'update cancelled because login failed. If the failure persists, verify the login credentials in the monitor config')
             return []
         r = RplayUrl.get_own_info(own_user)
-        data = await self.request_json(r.url, entity, client, headers=r.headers, params=r.params)
+        data = await self.request_json_endpoint(entity, client, r)
         if data is None:
             return []
         try:
@@ -503,7 +504,7 @@ class RplayNotificationsMonitor(RplayUserMonitor):
         if not content_oids:
             return []
         r = RplayUrl.bulkcontent(content_oids)
-        data = await self.request_json(r.url, entity, client, method=r.method, headers=r.headers, params=r.params, data=r.data, data_json=r.data_json)
+        data = await self.request_json_endpoint(entity, client, r)
         if data is None:
             return []
         if not data:
@@ -761,7 +762,7 @@ class RplayUrl:
     def livestreams(creator_oid: str = '') -> RequestDetails:
         url = f'https://api.rplay.live/live/livestreams'
         params = {'creatorOid': creator_oid, 'lang': 'en'}
-        return RequestDetails(url=url, params=params)
+        return RequestDetails(url=url, params=params, has_turnstile=True)
 
     @staticmethod
     def play(oid: str, user: User, key: str = '') -> RequestDetails:
