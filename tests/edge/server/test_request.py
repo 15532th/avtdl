@@ -4,7 +4,7 @@ from avtdl.core.request import ClientPool, Transport
 from harness import ServerConfig, TestServer
 from test_harness import server_cfg, server_instance
 
-test_cases = [
+http_test_cases = [
     # Simple GET
     {
         "method": "GET",
@@ -46,8 +46,6 @@ test_cases = [
         "path": "/post-json",
         "payloads": [
             {
-                "headers": {"Content-Type": "application/json"},
-                "body": '{"msg": "hello", "id": 123}',
                 "expected_request": {
                     "headers": {"Content-Type": "application/json"},
                     "data": '{"msg":"hello","id":123}'
@@ -62,8 +60,6 @@ test_cases = [
         "path": "/post-form",
         "payloads": [
             {
-                "headers": {"Content-Type": "application/x-www-form-urlencoded"},
-                "body": "name=alice&age=30",
                 "expected_request": {
                     "headers": {"Content-Type": "application/x-www-form-urlencoded"},
                     "data": "name=alice&age=30"
@@ -78,8 +74,6 @@ test_cases = [
         "path": "/post-with-cookies",
         "payloads": [
             {
-                "headers": {"Content-Type": "application/json"},
-                "body": '{"action": "login"}',
                 "expected_request": {
                     "headers": {"Content-Type": "application/json"},
                     "data": '{"action": "login"}',
@@ -91,7 +85,7 @@ test_cases = [
 ]
 
 
-@pytest.mark.parametrize("server_cfg", [test_cases], indirect=True)
+@pytest.mark.parametrize("server_cfg", [http_test_cases], indirect=True)
 @pytest.mark.parametrize("transport", [Transport.AIOHTTP, Transport.CURL_CFFI])
 @pytest.mark.asyncio
 async def test_http_client(server_instance: TestServer, server_cfg: ServerConfig, transport: Transport):
@@ -100,7 +94,7 @@ async def test_http_client(server_instance: TestServer, server_cfg: ServerConfig
         for route in server_cfg:
             for payload in route.payloads:
                 expected = payload.expected_request
-                client = client_pool.get_client(name='test_http_client', transport=transport)
+                client = client_pool.get_client(name=f'test_http_client {route.path}', transport=transport)
                 if expected.cookies:
                     client.cookie_jar.update_cookies(expected.cookies)
                 response = await client.request_once(server_instance.url + route.path,
@@ -116,7 +110,7 @@ async def test_http_client(server_instance: TestServer, server_cfg: ServerConfig
 
 TEXT_FILE = b'\x00\x01\x02\xFF'
 
-file_server_config = [
+file_test_cases = [
     {
         "method": "GET",
         "path": "/file.txt",
@@ -132,7 +126,7 @@ file_server_config = [
 ]
 
 
-@pytest.mark.parametrize("server_cfg", [file_server_config], indirect=True)
+@pytest.mark.parametrize("server_cfg", [file_test_cases], indirect=True)
 @pytest.mark.parametrize("transport", [Transport.AIOHTTP, Transport.CURL_CFFI])
 @pytest.mark.asyncio
 async def test_download(server_instance: TestServer, server_cfg: ServerConfig, transport: Transport, tmp_path):

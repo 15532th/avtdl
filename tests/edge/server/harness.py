@@ -15,8 +15,8 @@ class ExpectedRequest(BaseModel):
     cookies: Dict[str, str] = {}
 
 
-class Payload(BaseModel):
-    '''Representation of a single response payload'''
+class ResponsePayload(BaseModel):
+    '''Representation of a single response'''
     status: int = 200
     headers: Dict[str, str] = {}
     body: Union[str, bytes] = ''
@@ -35,7 +35,7 @@ def _compare_dict(actual: Mapping[str, Any], expected: Mapping[str, Any], kind: 
 async def validate_request(request: web.Request, expected: ExpectedRequest) -> None:
     """Raise status 400 if request doesn't match expected_request"""
 
-    # normalise header names to lower‑case because aiohttp stores themthat way
+    # normalise header names to lower‑case because aiohttp stores them that way
     actual_headers = {k.lower(): v for k, v in request.headers.items()}
     expected_headers = {k.lower(): v for k, v in expected.headers.items()}
     _compare_dict(actual_headers, expected_headers, "header")
@@ -59,10 +59,18 @@ async def validate_request(request: web.Request, expected: ExpectedRequest) -> N
 
 
 class Route(BaseModel):
-    '''Definition of a route and the sequence of payloads it should return'''
+    '''
+    Definition of a route and the sequence of payloads it should respond with
+
+    When route only has a single payload it is returned for every request,
+    for multiple payloads consequent requests receive them one after another.
+
+    Before response request is matched against expected_request
+    and is rejected with 400 if different.
+    '''
     method: str = 'GET'
     path: str
-    payloads: List[Payload] = []
+    payloads: List[ResponsePayload] = []
 
 
 class ServerConfig(ListRootModel):
@@ -75,7 +83,7 @@ class TestServer:
         self._app = web.Application()
         self._runner: Optional[web.AppRunner] = None
         self._site: Optional[web.TCPSite] = None
-        self._payloads: Dict[Tuple[str, str], deque[Payload]] = defaultdict(deque)
+        self._payloads: Dict[Tuple[str, str], deque[ResponsePayload]] = defaultdict(deque)
 
     async def start(self) -> None:
         self._runner = web.AppRunner(self._app)
@@ -99,7 +107,7 @@ class TestServer:
     def url(self) -> str:
         return f'http://127.0.0.1:{self.port}'
 
-    def get_payload_queue(self, method: str, path: str) -> deque[Payload]:
+    def get_payload_queue(self, method: str, path: str) -> deque[ResponsePayload]:
         return self._payloads[(method.upper(), path)]
 
     def _make_handler(self, method: str, path: str) -> Callable[[web.Request], Awaitable[web.Response]]:
