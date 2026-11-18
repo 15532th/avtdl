@@ -856,6 +856,18 @@ class CurlCffiHttpClient(HttpClient):
             request_headers = insert_useragent(request_headers)
         return request_headers
 
+    @staticmethod
+    def prepare_cookies(headers: Optional[Dict[str, str]]) -> Optional[Dict[str, str]]:
+        if headers is None:
+            return None
+        cookie = SimpleCookie()
+        cookies_header = headers.get('Cookie')
+        if cookies_header is None:
+            return None
+        cookie.load(cookies_header)
+        cookies_dict = {key: morsel.value for key, morsel in cookie.items()}
+        return cookies_dict
+
     async def request_once(self, url: str,
                            params: Optional[Dict[str, str]] = None,
                            data: Optional[Any] = None,
@@ -867,6 +879,7 @@ class CurlCffiHttpClient(HttpClient):
         logger = self.logger
 
         request_headers = self.prepare_headers(headers, method, state)
+        request_cookies = self.prepare_cookies(headers)
         try:
             client_response: curl_cffi.Response = await self.session.request(
                 method=method,  # type: ignore
@@ -875,6 +888,7 @@ class CurlCffiHttpClient(HttpClient):
                 headers=request_headers,
                 data=data,
                 json=data_json,
+                cookies=request_cookies,
                 timeout=60,
                 impersonate=self.options.impersonate,
                 http_version=self.options.http_version
