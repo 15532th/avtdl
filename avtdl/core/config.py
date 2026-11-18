@@ -31,6 +31,8 @@ def try_parsing(func):
     return wrapper
 
 
+
+
 class SettingsSection(BaseModel):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -54,6 +56,8 @@ class SettingsSection(BaseModel):
     Send records through the "cache" plugin to download and store resources it references"""
     state_directory: Path = Field(default='cache/state/', validate_default=True)
     """directory used to store certain parts of the internal state of the application between restarts"""
+    cufl_cffi_impersonate: str = 'chrome'
+    """globally set impersonation target for curl_cffi transport. Experimental, might be removed in the future"""
 
     @field_validator('cache_directory')
     @classmethod
