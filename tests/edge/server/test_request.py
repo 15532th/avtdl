@@ -1,7 +1,7 @@
 import pytest
 
 from avtdl.core.request import ClientPool, Transport
-from harness import ServerConfig, TestServer
+from harness import ExpectedRequest, ResponsePayload, Route, ServerConfig, TestServer
 from test_harness import server_cfg, server_instance
 
 http_test_cases = [
@@ -105,6 +105,39 @@ async def test_http_client(server_instance: TestServer, server_cfg: ServerConfig
                 if not response.status == payload.status:
                     assert False, f'endpoint {route.method} {route.path} failed with {response.text}'
     finally:
+        await client_pool.close()
+
+
+@pytest.mark.parametrize("transport", [Transport.AIOHTTP, Transport.CURL_CFFI])
+@pytest.mark.asyncio
+async def test_setting_cookies(transport: Transport):
+    route = Route(
+        method='GET',
+        path='/cookies',
+        payloads=[
+            ResponsePayload(
+                expected_request=ExpectedRequest(
+                    headers={"Content-Type": "application/json"},
+                    cookies= {"set_by_jar": "ok", "set_by_header": "ok"}
+                )
+            )
+        ]
+    )
+
+    server_instance = TestServer()
+    server_instance.register_route(route)
+    await server_instance.start()
+    client_pool = ClientPool()
+    try:
+        client = client_pool.get_client(name=f'test_http_client {route.path}', transport=transport)
+        client.cookie_jar.update_cookies({"set_by_jar": "ok"})
+        response = await client.request_once(server_instance.url + route.path,
+                                             headers={"Content-Type": "application/json", "Cookie": "set_by_header=ok"},
+                                             method=route.method)
+        if not response.status == 200:
+            assert False, f'endpoint {route.method} {route.path} failed with {response.text}'
+    finally:
+        await server_instance.stop()
         await client_pool.close()
 
 
