@@ -20,9 +20,10 @@ from avtdl.core.config import Plugins
 from avtdl.core.formatters import Fmt
 from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
-from avtdl.core.request import HttpClient, RequestDetails, RetrySettings
+from avtdl.core.request import HttpClient, MaybeHttpResponse, RetrySettings
 from avtdl.core.runtime import RuntimeContext
 from avtdl.core.utils import JSONType, try_parse_date, with_prefix
+from avtdl.plugins.rplay.browser_pass import RequestDetails, TurnstileSolver, TurnstileSolverConfigMixin
 
 
 @Plugins.register('rplay', Plugins.kind.ASSOCIATED_RECORD)
@@ -83,7 +84,7 @@ class RplayRecord(Record):
 
 
 @Plugins.register('rplay', Plugins.kind.ACTOR_CONFIG)
-class RplayMonitorConfig(BaseFeedMonitorConfig):
+class RplayMonitorConfig(TurnstileSolverConfigMixin, BaseFeedMonitorConfig):
     pass
 
 
@@ -143,6 +144,24 @@ class RplayMonitor(BaseFeedMonitor):
         entity_for_update = min(entities, key=lambda entity: entity.update_interval)
         entity_for_update.selected_for_update = True
 
+        self.token_provider = TurnstileSolver(conf)
+
+    async def request_endpoint(self, entity: RplayMonitorEntity,
+                               client: HttpClient,
+                               request_details: RequestDetails) -> MaybeHttpResponse:
+        return await self.token_provider.request_endpoint(entity, client, request_details)
+
+    async def request_json_endpoint(self, entity: RplayMonitorEntity,
+                               client: HttpClient,
+                               request_details: RequestDetails) -> Optional[JSONType]:
+        # redefining this might be unnecessarily if super().request_json_endpoint will
+        # still call RplayMonitor.request_endpoint. Redefining is just more explicit
+        response = await self.request_endpoint(entity, client, request_details)
+        if response.has_json():
+            return response.json()
+        else:
+            return None
+
     async def get_records(self, entity: RplayMonitorEntity, client: HttpClient) -> Sequence[RplayRecord]:
         if entity.selected_for_update:
             await self.update_records(entity, client)
@@ -192,7 +211,7 @@ class RplayMonitor(BaseFeedMonitor):
             return
         r = RplayUrl.bulkgetusers(creator_oids)
         logger = with_prefix(self.logger, f'[{entity.name}] ')
-        response = await client.request_endpoint(logger, r)
+        response = await self.request_endpoint(entity, client, r)
         if response.ok and not response.has_content:
             logger.debug(f'got {response.status} updating nickname cache')
             return
@@ -217,7 +236,7 @@ class RplayMonitor(BaseFeedMonitor):
 
 
 @Plugins.register('rplay.user', Plugins.kind.ACTOR_CONFIG)
-class RplayUserMonitorConfig(BaseFeedMonitorConfig):
+class RplayUserMonitorConfig(TurnstileSolverConfigMixin, BaseFeedMonitorConfig):
     login: str
     """rplay login of the account used for monitoring"""
     password: str
@@ -281,6 +300,23 @@ class RplayUserMonitor(BaseFeedMonitor):
         super().__init__(conf, entities, ctx)
         self.conf: RplayUserMonitorConfig
         self.own_user: Optional['User'] = None
+        self.token_provider = TurnstileSolver(conf)
+
+    async def request_endpoint(self, entity: RplayMonitorEntity,
+                               client: HttpClient,
+                               request_details: RequestDetails) -> MaybeHttpResponse:
+        return await self.token_provider.request_endpoint(entity, client, request_details)
+
+    async def request_json_endpoint(self, entity: RplayMonitorEntity,
+                                    client: HttpClient,
+                                    request_details: RequestDetails) -> Optional[JSONType]:
+        # redefining this might be unnecessarily if super().request_json_endpoint will
+        # still call RplayMonitor.request_endpoint. Redefining is just more explicit
+        response = await self.request_endpoint(entity, client, request_details)
+        if response.has_json():
+            return response.json()
+        else:
+            return None
 
     async def get_records(self, entity: RplayUserMonitorEntity, client: HttpClient) -> Sequence[RplayRecord]:
         own_user = await self.get_own_user(client)
@@ -301,24 +337,23 @@ class RplayUserMonitor(BaseFeedMonitor):
             return []
         if record is None:
             return []
-        record.playlist_url = await self.get_playlist_url(client, record)
+        record.playlist_url = await self.get_playlist_url(entity, client, record)
         return [record]
 
-    async def get_playlist_url(self, client: HttpClient, record: RplayRecord) -> Optional[str]:
+    async def get_playlist_url(self, entity: RplayUserMonitorEntity, client: HttpClient, record: RplayRecord) -> Optional[str]:
         if record.restream_url is not None:
             return None
-        key2 = await self.get_key2(client) or ''
+        key2 = await self.get_key2(entity, client) or ''
         r = RplayUrl.playlist(record.creator_id, key2=key2)
         return url_with_query(r)
 
-    async def get_key2(self, client: HttpClient) -> Optional[str]:
+    async def get_key2(self, entity: RplayUserMonitorEntity, client: HttpClient) -> Optional[str]:
         own_user = await self.get_own_user(client)
         if own_user is None:
             return None
         r = RplayUrl.key2(own_user)
-        retry_settings = RetrySettings(retry_times=3, retry_multiplier=3)
-        raw_key2 = await client.request_text(r.url, method=r.method, params=r.params, data=r.data, headers=r.headers,
-                                        settings=retry_settings)
+        response = await self.request_endpoint(entity, client, r)
+        raw_key2 = response.text
         if raw_key2 is None:
             return None
         try:
@@ -353,6 +388,9 @@ class RplayUserMonitor(BaseFeedMonitor):
                 user_oid = self.conf.user_id
                 refresh_token = self.conf.refresh_token
                 token = await self.refresh_auth_token(client, user_oid, refresh_token)
+                if token is None:
+                    self.logger.warning(f'failed to refresh auth token')
+                    return None
             self.own_user = User(user_oid, token, refresh_token)
         elif self.own_user.token_expired():
             token = await self.refresh_auth_token(client, self.own_user.user_oid, self.own_user.refresh_token)
@@ -761,7 +799,7 @@ class RplayUrl:
     @staticmethod
     def livestreams(creator_oid: str = '') -> RequestDetails:
         url = f'https://api.rplay.live/live/livestreams'
-        params = {'creatorOid': creator_oid, 'lang': 'en'}
+        params = {'creatorOid': creator_oid, 'platformType': 'rplay', 'lang': 'en'}
         return RequestDetails(url=url, params=params, has_turnstile=True)
 
     @staticmethod
@@ -783,7 +821,7 @@ class RplayUrl:
         params = {'creatorOid': oid, 'key': key, 'lang': 'en', 'requestorOid': user.user_oid}
         params.update({'requestorOid': user.user_oid, 'loginType': 'rplay'})
         headers = user.get_auth_header()
-        return RequestDetails(url=url, params=params, headers=headers)
+        return RequestDetails(url=url, params=params, headers=headers, has_turnstile=True)
 
     @staticmethod
     def getuser_by_oid(creator_oid: str) -> RequestDetails:
@@ -867,7 +905,8 @@ class RplayUrl:
         url = f'https://api.rplay.live/live/key2'
         params = {'requestorOid': user.user_oid, 'loginType': 'rplay'}
         headers = user.get_auth_header()
-        return RequestDetails(url=url, params=params, headers=headers)
+        retry_settings = RetrySettings(retry_times=3, retry_multiplier=3)
+        return RequestDetails(url=url, params=params, headers=headers, retry_settings=retry_settings)
 
     @staticmethod
     def login(username: str, password: str) -> RequestDetails:

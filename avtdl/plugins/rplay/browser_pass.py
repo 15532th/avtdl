@@ -1,17 +1,15 @@
 import datetime
 import logging
 import re
-from abc import ABC
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Sequence, Union
+from typing import Dict, Optional, Union
 
 from multidict import CIMultiDictProxy
 
 from avtdl.core.interfaces import utcnow
-from avtdl.core.monitors import BaseFeedMonitorConfig, HttpTaskMonitor, HttpTaskMonitorEntity, load_headers
+from avtdl.core.monitors import BaseFeedMonitorConfig, HttpTaskMonitorEntity, load_headers
 from avtdl.core.request import HttpClient, MaybeHttpResponse
 from avtdl.core.request import RequestDetails as BaseRequestDetails
-from avtdl.core.runtime import RuntimeContext
 from avtdl.core.utils import with_prefix
 
 
@@ -21,7 +19,7 @@ class RequestDetails(BaseRequestDetails):
 
 
 class TurnstileSolverConfigMixin(BaseFeedMonitorConfig):
-    turnstile_solver_url: str
+    turnstile_solver_url: Optional[str] = None
     """url of an external challenge solver"""
     turnstile_solver_data: Optional[str] = None
     """body of the request sent to the external challenge solver, in plaintext. Also affects request method: POST when body is provided, GET otherwise"""
@@ -78,16 +76,17 @@ class Token:
                 self.x_browser_pass = token_value
 
 
-class TurnstileSolverMixin(HttpTaskMonitor, ABC):
+class TurnstileSolver:
 
-    def __init__(self, conf: TurnstileSolverConfigMixin, entities: Sequence[HttpTaskMonitorEntity],
-                 ctx: RuntimeContext):
-        super().__init__(conf, entities, ctx)
+    def __init__(self, conf: TurnstileSolverConfigMixin):
         self.conf: TurnstileSolverConfigMixin = conf
-        self.logger = logging.getLogger('turnstile_solver')
+        self.logger = logging.getLogger(f'{self.conf.name}')
         self.active_token: Optional[Token] = None
 
     async def fetch_token(self, client: HttpClient, logger: logging.Logger) -> Optional[Token]:
+        if self.conf.turnstile_solver_url is None:
+            logger.warning(f'request to fetch turnstile token is made but provider url is not configured. This is a bug, please report it')
+            return None
         method = 'POST' if self.conf.turnstile_solver_data is not None else 'GET'
         response = await client.request_text(url=self.conf.turnstile_solver_url,
                                              data=self.conf.turnstile_solver_data,
@@ -96,7 +95,7 @@ class TurnstileSolverMixin(HttpTaskMonitor, ABC):
         if response is None:
             logger.warning(f'failed to fetch turnstile token from "{self.conf.turnstile_solver_url}"')
             return None
-        token_match = re.match(self.conf.turnstile_token_expression, response)
+        token_match = re.search(self.conf.turnstile_token_expression, response)
         if token_match is None:
             logger.warning(
                 f'expression "{self.conf.turnstile_token_expression}" found no matches in solver response. Raw response: {response}')
@@ -104,36 +103,53 @@ class TurnstileSolverMixin(HttpTaskMonitor, ABC):
         token = token_match.group(1)
         return Token(x_turnstile_token=token)
 
+    def active_token_ok(self, logger: logging.Logger) -> bool:
+        if self.active_token is None:
+            logger.debug(f'cached token is absent')
+            return False
+        if self.active_token.has_expired():
+            logger.debug(f'cached token has expired')
+            return False
+        return True
+
     async def request_endpoint(self, entity: HttpTaskMonitorEntity,
                                client: HttpClient,
                                request_details: RequestDetails) -> MaybeHttpResponse:
-        """request_endpoint() wrapper with turnstile token handling"""
+        """
+        Reimplementation of HttpTaskMonitor.request_endpoint() with turnstile token handling
 
-        # if request_details does not require turnstile, call is passed to base implementation
-        if not request_details.has_turnstile:
-            return await super().request_endpoint(entity, client, request_details)
-
-        # otherwise base implementation is re-implemented with additional headers handling
+        If RequestDetails.has_turnstile is False behaves like the original.
+        """
         logger = with_prefix(self.logger, f'[{entity.name}] ')
 
         additional_headers = load_headers(entity.headers_file, logger)
         if additional_headers:
             request_details.headers = {**(request_details.headers or {}), **additional_headers}
 
-        if self.active_token is None or self.active_token.has_expired():
-            self.active_token = Token.from_request_headers(request_details.headers)
+        if request_details.has_turnstile:
+            if self.active_token is None or self.active_token.has_expired():
+                logger.debug(f'request to {request_details.url} requires token, checking headers file')
+                self.active_token = Token.from_request_headers(request_details.headers)
 
-        if self.active_token is None or self.active_token.has_expired():
-            self.active_token = await self.fetch_token(client, logger)
+            if self.active_token is None or self.active_token.has_expired():
+                if self.conf.turnstile_solver_url is not None:
+                    logger.debug(f'request to {request_details.url} requires token, trying to fetch from provider')
+                    self.active_token = await self.fetch_token(client, logger)
 
-        if self.active_token is None or self.active_token.has_expired():
-            logger.warning(f'request to "{request_details.url}" requires turnstile token')
-            headers = {}
-        else:
-            headers = self.active_token.to_request_headers()
+            if self.active_token is None or self.active_token.has_expired():
+                logger.warning(f'request to "{request_details.url}" requires turnstile token, but no active token is found')
+                headers = {}
+            else:
+                logger.debug(f'request to {request_details.url} requires token, adding it')
+                headers = self.active_token.to_request_headers()
 
-        request_details.headers = headers.update(request_details.headers or {})
-        response = await super().request_endpoint(entity, client, request_details)
+            if request_details.headers is not None:
+                request_details.headers.update(headers)
+            else:
+                request_details.headers = headers
+
+        response = await client.request_endpoint(logger, request_details)
+
         if self.active_token is not None:
             self.active_token.update_from_response_headers(response.headers)
         else:
