@@ -134,7 +134,6 @@ class RplayMonitor(BaseFeedMonitor):
     def __init__(self, conf: RplayMonitorConfig, entities: Sequence[RplayMonitorEntity], ctx: RuntimeContext):
         super().__init__(conf, entities, ctx)
         self.entities: Mapping[str, RplayMonitorEntity]  # type: ignore
-        self.nickname_cache: Dict[str, str] = {}
         self.consumers: Dict[str, asyncio.Queue] = {}
         for entity in self.entities.values():
             self.consumers[entity.name] = asyncio.Queue()
@@ -183,11 +182,6 @@ class RplayMonitor(BaseFeedMonitor):
             return
         records = self.parse_livestreams(data)
 
-        # nickname field in data from /livestreams endpoint is empty,
-        # get them from /bulkgetusers instead
-        await self.update_nicknames_cache(client, entity, records)
-        self.update_nicknames(records)
-
         for record in records:
             for name, queue in self.consumers.items():
                 creators = self.entities[name].creators
@@ -203,36 +197,6 @@ class RplayMonitor(BaseFeedMonitor):
             except Exception as e:
                 self.logger.warning(f'failed to parse record: {type(e)} {e}. Raw data: "{data}"')
         return records
-
-    async def update_nicknames_cache(self, client: HttpClient, entity: RplayMonitorEntity,
-                                     records: List[RplayRecord]):
-        creator_oids = [r.creator_id for r in records if r.creator_id not in self.nickname_cache]
-        if not creator_oids:
-            return
-        r = RplayUrl.bulkgetusers(creator_oids)
-        logger = with_prefix(self.logger, f'[{entity.name}] ')
-        response = await self.request_endpoint(entity, client, r)
-        if response.ok and not response.has_content:
-            logger.debug(f'got {response.status} updating nickname cache')
-            return
-        if not response.has_json():
-            logger.warning(f'failed to update nickname cache: failed to get users info. Raw response: {response!r}')
-            return
-        try:
-            data = response.json()
-            if not isinstance(data, dict):
-                logger.warning(f'failed to update nickname cache: unexpected response "{data}"')
-                return
-            for oid, info in data.items():
-                if 'nickname' in info:
-                    self.nickname_cache[oid] = info['nickname']
-        except Exception as e:
-            logger.warning(f'failed to update nickname cache: {type(e)} {e}')
-
-    def update_nicknames(self, records: List[RplayRecord]):
-        for record in records:
-            if record.creator_id in self.nickname_cache:
-                record.name = self.nickname_cache[record.creator_id]
 
 
 @Plugins.register('rplay.user', Plugins.kind.ACTOR_CONFIG)
