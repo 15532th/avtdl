@@ -55,6 +55,8 @@ class RplayRecord(Record):
     playlist_url: Optional[str] = None
     """for native stream, link to the underlying hls playlist if was retrieved successfully.
     Might be invalid even when present in case of insufficient permissions or network error"""
+    x_browser_pass: Optional[str] = None
+    """when present contains value of the x-browser-pass header used to retrieve the record"""
 
     def __str__(self):
         restream = f'\n(restream from {self.restream_url})\n' if self.restream_url else ''
@@ -128,7 +130,10 @@ class RplayMonitor(BaseFeedMonitor):
     x-turnstile-token or x-browser-pass header. avtdl does not
     generate them itself, so they must be provided and updated
     upon expiration using headers_file option of the entity
-    (see (headers_file)[https://github.com/15532th/avtdl/blob/master/README.md#headers_file] section of the README).
+    (see (headers_file)[https://github.com/15532th/avtdl/blob/master/README.md#headers_file] section of the README),
+    or with an external solver configured in monitor config
+    with `turnstile_solver_url` and related options.
+
     """
 
     def __init__(self, conf: RplayMonitorConfig, entities: Sequence[RplayMonitorEntity], ctx: RuntimeContext):
@@ -181,6 +186,12 @@ class RplayMonitor(BaseFeedMonitor):
                 f'unexpected response from /livestreams endpoint, not a list of records. Raw response: {data}')
             return
         records = self.parse_livestreams(data)
+
+        if self.token_provider.active_token is not None:
+            browser_pass = self.token_provider.active_token.x_browser_pass
+            if browser_pass is not None:
+                for record in records:
+                    record.x_browser_pass = browser_pass
 
         for record in records:
             for name, queue in self.consumers.items():

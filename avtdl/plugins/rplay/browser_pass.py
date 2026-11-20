@@ -21,9 +21,9 @@ class RequestDetails(BaseRequestDetails):
 class TurnstileSolverConfigMixin(BaseFeedMonitorConfig):
     turnstile_solver_url: Optional[str] = None
     """url of an external challenge solver"""
-    turnstile_solver_data: Optional[str] = None
+    turnstile_solver_data: Optional[str] = '{"sitekey":"0x4AAAAAAFpJTWip4zXSkTi4","siteurl":"https://rplay.live","timeout":60}'
     """body of the request sent to the external challenge solver, in plaintext. Also affects request method: POST when body is provided, GET otherwise"""
-    turnstile_solver_headers: Dict[str, str] = {}
+    turnstile_solver_headers: Dict[str, str] = {'Content-Type': 'application/json'}
     """headers of the request sent to the external challenge solver"""
     turnstile_token_expression: str = r'"token": ?"([^"]+)"'
     """regular expression used to extract token from the solver response. Must contain exactly one group"""
@@ -102,15 +102,6 @@ class TurnstileSolver:
             return None
         token = token_match.group(1)
         return Token(x_turnstile_token=token)
-
-    def active_token_ok(self, logger: logging.Logger) -> bool:
-        if self.active_token is None:
-            logger.debug(f'cached token is absent')
-            return False
-        if self.active_token.has_expired():
-            logger.debug(f'cached token has expired')
-            return False
-        return True
 
     async def request_endpoint(self, entity: HttpTaskMonitorEntity,
                                client: HttpClient,
