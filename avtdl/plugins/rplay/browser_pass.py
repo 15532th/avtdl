@@ -119,16 +119,19 @@ class TurnstileSolver:
 
         if request_details.has_turnstile:
             if self.active_token is None or self.active_token.has_expired():
-                logger.debug(f'request to {request_details.url} requires token, checking headers file')
+                state = 'is absent' if self.active_token is None else 'has expired'
+                logger.debug(f'request to {request_details.url} requires token, but token {state}. Checking headers file')
                 self.active_token = Token.from_request_headers(request_details.headers)
 
             if self.active_token is None or self.active_token.has_expired():
                 if self.conf.turnstile_solver_url is not None:
-                    logger.debug(f'request to {request_details.url} requires token, trying to fetch from provider')
+                    state = 'is absent' if self.active_token is None else 'has expired'
+                    logger.debug(f'token in headers file {state}. Trying to fetch from provider')
                     self.active_token = await self.fetch_token(client, logger)
 
             if self.active_token is None or self.active_token.has_expired():
-                logger.warning(f'request to "{request_details.url}" requires turnstile token, but no active token is found')
+                state = 'is absent' if self.active_token is None else 'has expired'
+                logger.warning(f'request to "{request_details.url}" requires turnstile token, but token {state}')
                 headers = {}
             else:
                 logger.debug(f'request to {request_details.url} requires token, adding it')
