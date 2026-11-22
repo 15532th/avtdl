@@ -670,7 +670,7 @@ Here yt-dlp is used as a generic HLS downloader and could be replaced with, for 
 
 Streams hosted on other platforms (Youtube or Twitch) are filtered out by the "rplay restream" `exclude` filter by checking the "restream_platform" field on the record.
 
-This monitor requires login credentials to operate. For alternatives see the [next](#using-yt-dlp-fork-with-rplay-support) section. Note, that rplay might ban accounts it suspect in using automation, so avoid using credentials you would not want to lose.
+This monitor requires login credentials to operate. For alternatives see the [next](#using-yt-dlp-fork-with-rplay-support) section. Note that rplay might ban accounts it suspect in using automation, so avoid using credentials you would not want to lose.
 
 Additionally, it requires headers from a solved Turnstile challenge. They can be provided through a text file using the `headers_file` [option](https://github.com/15532th/avtdl/#headers_file) or requested directly from an external solver as configured in the `turnstile_*` [options](https://github.com/15532th/avtdl/#turnstile_options).
 
@@ -737,7 +737,7 @@ Prebuilt executable are available on the [releases](https://github.com/c-basalt/
 Alternative way to get the specific version of yt-dlp running is to clone or download and unpack the [repo](https://github.com/c-basalt/yt-dlp/archive/refs/heads/rplay-native.zip), install requirements by running `pip3 install -r requirements.txt` in the project directory (Python must be installed and added to `PATH` to run `pip`) and use one of the `yt-dlp.sh`/`yt-dlp.cmd` scripts in place of yt-dlp executable.
 
 This monitor requires headers from a solved Turnstile challenge. They can be provided through a text file using the `headers_file` [option](https://github.com/15532th/avtdl/#headers_file) or requested directly from an external solver as configured in the `turnstile_*` [options](https://github.com/15532th/avtdl/#turnstile_options).
-In order to perform the download yt-dlp also needs to pass Turnstile. This example uses `x-browser-pass` header stored by the monitor in `x_browser_pass` field of every record. Note, however, that this header is short-lived and might in rare circumstances expire before yt-dlp gets to run. Alternatively it is possible to point yt-dlp to external json endpoint returning dictionary of headers with `--extractor-args "rplaylive:turnstile_provider=http://XXXX"`.
+In order to perform the download yt-dlp also needs to pass Turnstile. This example uses `x-browser-pass` header stored by the monitor in `x_browser_pass` field of every record. Note, however, that this header is short-lived and might in rare circumstances expire before yt-dlp gets to run. Alternatively, it is possible to point yt-dlp to external json endpoint returning dictionary of headers with `--extractor-args "rplaylive:turnstile_provider=http://XXXX"`.
 
 
 ```yaml
