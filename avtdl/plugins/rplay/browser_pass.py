@@ -8,7 +8,7 @@ from multidict import CIMultiDictProxy
 
 from avtdl.core.interfaces import utcnow
 from avtdl.core.monitors import BaseFeedMonitorConfig, HttpTaskMonitorEntity, load_headers
-from avtdl.core.request import HttpClient, MaybeHttpResponse
+from avtdl.core.request import HttpClient, MaybeHttpResponse, NoResponse
 from avtdl.core.request import RequestDetails as BaseRequestDetails
 from avtdl.core.utils import with_prefix
 
@@ -27,6 +27,8 @@ class TurnstileSolverConfigMixin(BaseFeedMonitorConfig):
     """headers of the request sent to the external challenge solver"""
     turnstile_token_expression: str = r'"token": ?"([^"]+)"'
     """regular expression used to extract token from the solver response. Must contain exactly one group"""
+    turnstile_failsafe: bool = True
+    """prevent requests to protected endpoint from being sent if retrieving token from solver has failed for any reason"""
 
 
 @dataclass
@@ -92,9 +94,9 @@ class Token:
 
 class TurnstileSolver:
 
-    def __init__(self, conf: TurnstileSolverConfigMixin):
+    def __init__(self, conf: TurnstileSolverConfigMixin, logger: logging.Logger):
         self.conf: TurnstileSolverConfigMixin = conf
-        self.logger = logging.getLogger(f'{self.conf.name}')
+        self.logger = logger
         self.active_token: Optional[Token] = None
 
     async def fetch_token(self, client: HttpClient, logger: logging.Logger) -> Optional[Token]:
@@ -145,6 +147,9 @@ class TurnstileSolver:
             if self.active_token is None or self.active_token.has_expired():
                 state = 'is absent' if self.active_token is None else 'has expired'
                 logger.warning(f'request to "{request_details.url}" requires turnstile token, but token {state}')
+                if self.conf.turnstile_failsafe:
+                    logger.warning(f'turnstile_failsafe is enabled, aborting request to {request_details.url}')
+                    return NoResponse(logger, Exception(f'turnstile token {state}'), request_details.url)
                 headers = {}
             else:
                 logger.debug(f'request to {request_details.url} requires token, adding it')

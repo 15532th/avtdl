@@ -148,7 +148,7 @@ class RplayMonitor(BaseFeedMonitor):
         entity_for_update = min(entities, key=lambda entity: entity.update_interval)
         entity_for_update.selected_for_update = True
 
-        self.token_provider = TurnstileSolver(conf)
+        self.token_provider = TurnstileSolver(conf, self.logger)
 
     async def request_endpoint(self, entity: RplayMonitorEntity,
                                client: HttpClient,
@@ -280,7 +280,7 @@ class RplayUserMonitor(BaseFeedMonitor):
         super().__init__(conf, entities, ctx)
         self.conf: RplayUserMonitorConfig
         self.own_user: Optional['User'] = None
-        self.token_provider = TurnstileSolver(conf)
+        self.token_provider = TurnstileSolver(conf, self.logger)
 
     async def request_endpoint(self, entity: RplayMonitorEntity,
                                client: HttpClient,
