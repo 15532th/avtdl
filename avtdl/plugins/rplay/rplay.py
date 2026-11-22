@@ -393,7 +393,7 @@ class RplayUserMonitor(BaseFeedMonitor):
         except Exception as e:
             self.logger.warning(f'failed to decode access token: {token}: {e}')
             return None
-        self.logger.info(f'successfully refreshed access token')
+        self.logger.debug(f'successfully refreshed access token')
         return token
 
 
