@@ -23,6 +23,7 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
         * [`cookies_file`](#cookies_file)
         * [`headers`](#headers)
         * [`headers_file`](#headers_file)
+        * [`Turnstile options`](#turnstile_options)
         * [`timezone`](#timezone)
         * [`fetch_until_the_end_of_feed_mode`](#fetch_until_the_end_of_feed_mode)
         * [`quiet_first_time` and `quiet_start`](#quiet_first_time-and-quiet_start)
@@ -554,6 +555,30 @@ Plaintext format is expected to have one semicolon separated `name: value` pair 
 
 X-Csrf-Token: i8XNjC4b8KVok4uw5RftR38Wgp2BFwql
 X-Request-ID: f058ebd6-02f7-4d3f-942e-904344e8cde5
+```
+
+##### Turnstile options
+
+Some actors must be able to pass Turnstile (non-interactive js challenge) in order to access certain endpoints. avtdl does not do it itself and instead relies on an external solver, accessed through http endpoint. Endpoint url and request parameters are configured per actor through a set of configuration options starting with `turnstile_`:
+
+- `turnstile_solver_url`: url of the external challenge solver
+- `turnstile_solver_data`: body of the request sent to the external challenge solver, in plaintext. Also affects request method: POST when body is provided, GET otherwise
+- `turnstile_solver_headers`: headers of the request sent to the external challenge solver, in case it needs any
+- `turnstile_token_expression`: regular expression used to extract token from the solver response. Must contain exactly one group
+- `turnstile_failsafe`: when enabled, prevent requests to protected endpoint from being sent if retrieving token from solver has failed for any reason
+
+Example: using [Violetic Solver](https://github.com/cv3inx/turnstile-solver) with `rplay` monitor:
+
+As described in the [API reference](https://github.com/cv3inx/turnstile-solver/tree/main#post-solve--turnstile-token) solver runs on port `9988` by default, providing /solve endpoint, which expects POST request with json containing "sitekey" and "siteurl". Token is extracted from response json (`{"token": "1.abc...xyz", "elapsed": 6.07 }`) using regular expression.
+
+```yaml
+rplay:
+  config:
+    turnstile_solver_url: http://localhost:9988/solve
+    turnstile_solver_data: '{"sitekey":"0x4AAAAAAFpJTWip4zXSkTi4","siteurl":"https://rplay.live","timeout":45}'
+    turnstile_token_expression: '"token": ?"([^"]+)"'
+  entities:
+    ...
 ```
 
 ##### `timezone`

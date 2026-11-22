@@ -127,12 +127,10 @@ class RplayMonitor(BaseFeedMonitor):
     not support providing login credentials.
 
     Accessing livestream endpoints requires providing a valid
-    x-turnstile-token or x-browser-pass header. avtdl does not
-    generate them itself, so they must be provided and updated
-    upon expiration using headers_file option of the entity
-    (see (headers_file)[https://github.com/15532th/avtdl/blob/master/README.md#headers_file] section of the README),
-    or with an external solver configured in monitor config
-    with `turnstile_solver_url` and related options.
+    x-turnstile-token or x-browser-pass header
+    (see [headers_file](https://github.com/15532th/avtdl/blob/master/README.md#headers_file)
+    and [turnstile options](https://github.com/15532th/avtdl/#turnstile_options) sections of the README).
+    When available, active x-browser-pass header is stored in each record's `x_browser_pass` field.
 
     """
 
@@ -251,10 +249,10 @@ class RplayUserMonitor(BaseFeedMonitor):
     do not use this plugin at all while this warning is present.
 
     Accessing livestream endpoints requires providing a valid
-    x-turnstile-token or x-browser-pass header.
-    They must be provided and updated upon expiration using
-    headers_file option of the entity
-    (see (headers_file)[https://github.com/15532th/avtdl/blob/master/README.md#headers_file] section of the README).
+    x-turnstile-token or x-browser-pass header
+    (see [headers_file](https://github.com/15532th/avtdl/blob/master/README.md#headers_file)
+    and [turnstile options](https://github.com/15532th/avtdl/#turnstile_options) sections of the README).
+    When available, active x-browser-pass header is stored in each record's `x_browser_pass` field.
 
     Monitors a user with given `creator_oid`, produces record
     when the user starts a livestream. `creator_oid` is the
@@ -268,7 +266,7 @@ class RplayUserMonitor(BaseFeedMonitor):
     When producing a record, this plugin will generate `playlist_url`
     for the stream and try to update it with the key required to access
     livestreams limited to subscribers. Resulting `playlist_url` might
-    still be invalid if the update failed or user account does not have
+    still be absent or invalid if the update failed or user account does not have
     permissions to view the stream.
     """
 
