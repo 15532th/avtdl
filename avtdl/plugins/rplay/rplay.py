@@ -22,7 +22,7 @@ from avtdl.core.interfaces import MAX_REPR_LEN, Record
 from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeedMonitorEntity
 from avtdl.core.request import HttpClient, MaybeHttpResponse, RetrySettings
 from avtdl.core.runtime import RuntimeContext
-from avtdl.core.utils import JSONType, try_parse_date, with_prefix
+from avtdl.core.utils import JSONType, find_one, try_parse_date, with_prefix
 from avtdl.plugins.rplay.browser_pass import RequestDetails, TurnstileSolver, TurnstileSolverConfigMixin
 
 
@@ -308,21 +308,38 @@ class RplayUserMonitor(BaseFeedMonitor):
         if data is None:
             return []
         if not isinstance(data, dict):
-            self.logger.warning(f'failed to parse record: unexpected format. Raw data: "{data}"')
+            self.logger.warning(f'[{entity.name}] failed to parse record: unexpected format. Raw data: "{data}"')
             return []
         try:
             record = parse_play(data)
         except Exception as e:
-            self.logger.warning(f'failed to parse record: {type(e)} {e}. Raw data: "{data}"')
+            self.logger.warning(f'[{entity.name}] failed to parse record: {type(e)} {e}. Raw data: "{data}"')
             return []
         if record is None:
             return []
-        record.playlist_url = await self.get_playlist_url(entity, client, record)
+        if not is_play_accessible(data):
+            self.logger.warning(f'[{entity.name}] livestream {record.url} is not accessible by the user account. It might require free or paid subscription to view')
+        elif record.restream_url is not None:
+            self.logger.debug(f'[{entity.name}] {record.url} is restream of {record.restream_url}, skipping retrieving playlist_url')
+        elif is_byteplus(data):
+            self.logger.debug(f'[{entity.name}] {record.url} is byteplus stream, trying to fetch url')
+            record.playlist_url = await self.get_byteplus_url(entity, client, record)
+        else:
+            record.playlist_url = await self.get_playlist_url(entity, client, record)
         return [record]
 
-    async def get_playlist_url(self, entity: RplayUserMonitorEntity, client: HttpClient, record: RplayRecord) -> Optional[str]:
-        if record.restream_url is not None:
+    async def get_byteplus_url(self, entity: RplayUserMonitorEntity, client: HttpClient, record: RplayRecord) -> Optional[str]:
+        r = RplayUrl.byteplus(record.creator_id, self.own_user)
+        data = await self.request_json_endpoint(entity, client, r)
+        play_url = find_one(data, '$.playUrls[*]')
+        if play_url is None:
             return None
+        if not isinstance(play_url, str):
+            self.logger.warning(f'[{entity.name}] failed to extract bytePlus playlist url. Raw data: {data}')
+            return None
+        return play_url
+
+    async def get_playlist_url(self, entity: RplayUserMonitorEntity, client: HttpClient, record: RplayRecord) -> Optional[str]:
         key2 = await self.get_key2(entity, client) or ''
         r = RplayUrl.playlist(record.creator_id, key2=key2)
         return url_with_query(r)
@@ -619,7 +636,7 @@ class StreamState(str, enum.Enum):
 
 
 def parse_play(item: dict) -> Optional[RplayRecord]:
-    """parse a single item from a list returned by /live/play/ endpoint"""
+    """parse data returned by /live/play/ endpoint into RplayRecord"""
     state = item['streamState']
     if state == StreamState.OFFLINE:
         return None
@@ -651,6 +668,16 @@ def parse_play(item: dict) -> Optional[RplayRecord]:
         restream_url=restream_url
     )
     return record
+
+
+def is_play_accessible(item: dict) -> bool:
+    """check if livestream data returned by /live/play/ marks stream as viewable"""
+    accessible = item.get('accessible', True)
+    return accessible
+
+def is_byteplus(item: dict) -> bool:
+    """check if livestream data returned by /live/play/ marks live as bytePlus stream"""
+    return item.get('bytePlusPlaybackUrl') is not None
 
 
 def get_avatar_url(creator_oid: str) -> str:
@@ -916,3 +943,21 @@ class RplayUrl:
         }
         headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/', 'platform-type': 'rplay'}
         return RequestDetails(url=url, method='POST', params=params, headers=headers)
+
+    @staticmethod
+    def byteplus(creator_oid: str, user: Optional[User]) -> RequestDetails:
+        url = 'https://api.rplay.live/live/bytedance/play-urls'
+        requestor_oid = user.user_oid if user is not None else ''
+        data = {
+            "creatorId": creator_oid,
+            "userId": requestor_oid,
+            "key": "",
+            "platformType": "rplay",
+            "lang": "en",
+            "loginType": "rplay",
+        }
+        headers = {'Content-Type': 'application/json', 'Referer': 'https://rplay.live/', 'platform-type': 'rplay'}
+        if user is not None:
+            data.update({"token": user.token})
+            headers.update(user.get_auth_header())
+        return RequestDetails(url=url, data=data, headers=headers, has_turnstile=True)
