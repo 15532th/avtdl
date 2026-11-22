@@ -23,7 +23,7 @@ from avtdl.core.monitors import BaseFeedMonitor, BaseFeedMonitorConfig, BaseFeed
 from avtdl.core.request import HttpClient, MaybeHttpResponse, RetrySettings
 from avtdl.core.runtime import RuntimeContext
 from avtdl.core.utils import JSONType, find_one, try_parse_date, with_prefix
-from avtdl.plugins.rplay.browser_pass import RequestDetails, TurnstileSolver, TurnstileSolverConfigMixin
+from avtdl.plugins.rplay.browser_pass import RequestDetails, Token, TurnstileSolver, TurnstileSolverConfigMixin
 
 
 @Plugins.register('rplay', Plugins.kind.ASSOCIATED_RECORD)
@@ -183,23 +183,19 @@ class RplayMonitor(BaseFeedMonitor):
             return
         if not isinstance(data, List):
             self.logger.warning(
-                f'unexpected response from /livestreams endpoint, not a list of records. Raw response: {data}')
+                f'[{entity.name}] unexpected response from /livestreams endpoint, not a list of records. Raw response: {data}')
             return
         records = self.parse_livestreams(data)
 
         if records:
-            if self.token_provider.active_token is not None and not self.token_provider.active_token.has_expired():
-                self.logger.debug(f'adding x-browser-pass (expires in {self.token_provider.active_token.browser_pass_ttl()}) to {len(records)} records')
-                browser_pass = self.token_provider.active_token.x_browser_pass
-                if browser_pass is not None:
-                    for record in records:
-                        record.x_browser_pass = browser_pass
+            inject_browser_pass(self.token_provider.active_token, records, self.logger)
 
         for record in records:
             for name, queue in self.consumers.items():
                 creators = self.entities[name].creators
                 if creators is None or record.creator_id in creators:
                     await queue.put(record)
+
 
     def parse_livestreams(self, data: list) -> List[RplayRecord]:
         records = []
@@ -317,6 +313,8 @@ class RplayUserMonitor(BaseFeedMonitor):
             return []
         if record is None:
             return []
+        inject_browser_pass(self.token_provider.active_token, [record], self.logger)
+
         if not is_play_accessible(data):
             self.logger.warning(f'[{entity.name}] livestream {record.url} is not accessible by the user account. It might require free or paid subscription to view')
         elif record.restream_url is not None:
@@ -417,31 +415,6 @@ class RplayUserMonitor(BaseFeedMonitor):
             return None
         self.logger.debug(f'successfully refreshed access token')
         return token
-
-
-def parse_livestream(item: dict) -> RplayRecord:
-    """parse a single item from a list returned by /live/livestreams endpoint"""
-    creator_oid = item['creatorOid']
-
-    restream_platform = item.get('streamState')
-    restream_key = item.get('multiPlatformKey')
-    restream_url = get_restream_url(restream_platform, restream_key)
-
-    record = RplayRecord(
-
-        url=get_livestream_url(creator_oid),
-        title=item['title'],
-        description=item['description'],
-        thumbnail_url=item.get('thumbnailUrl'),
-        start=dateutil.parser.parse(item['streamStartTime']),
-        user_id=item['_id'],
-        creator_id=creator_oid,
-        name=item['creatorNickname'],
-        avatar_url=get_avatar_url(creator_oid),
-        restream_platform=restream_platform,
-        restream_url=restream_url
-    )
-    return record
 
 
 @Plugins.register('rplay.notifications', Plugins.kind.ACTOR_CONFIG)
@@ -554,6 +527,41 @@ class RplayNotificationsMonitor(RplayUserMonitor):
         #     if self.record_is_new(record, entity):
         #         record.playlist_url = await self.get_playlist_url(client, record)
         return records
+
+
+def inject_browser_pass(active_token: Optional[Token], records: List[RplayRecord], logger: logging.Logger):
+    """set record.x_browser_pass if active_token has one that is not expired"""
+    if active_token is not None and not active_token.has_expired():
+        if active_token.x_browser_pass is not None:
+            logger.debug(
+                f'adding x-browser-pass (expires in {active_token.browser_pass_ttl()}) to {len(records)} records')
+            for record in records:
+                record.x_browser_pass = active_token.x_browser_pass
+
+
+def parse_livestream(item: dict) -> RplayRecord:
+    """parse a single item from a list returned by /live/livestreams endpoint"""
+    creator_oid = item['creatorOid']
+
+    restream_platform = item.get('streamState')
+    restream_key = item.get('multiPlatformKey')
+    restream_url = get_restream_url(restream_platform, restream_key)
+
+    record = RplayRecord(
+
+        url=get_livestream_url(creator_oid),
+        title=item['title'],
+        description=item['description'],
+        thumbnail_url=item.get('thumbnailUrl'),
+        start=dateutil.parser.parse(item['streamStartTime']),
+        user_id=item['_id'],
+        creator_id=creator_oid,
+        name=item['creatorNickname'],
+        avatar_url=get_avatar_url(creator_oid),
+        restream_platform=restream_platform,
+        restream_url=restream_url
+    )
+    return record
 
 
 def parse_own_info(data: JSONType, logger: logging.Logger) -> List[RplayNotification]:
