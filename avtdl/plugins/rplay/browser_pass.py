@@ -46,7 +46,8 @@ class Token:
             return utcnow() - self.created_at > datetime.timedelta(minutes=5)
         else:
             try:
-                expires_at = datetime.datetime.fromtimestamp(int(self.x_browser_pass.split('.')[0]) // 1000)
+                ts = int(self.x_browser_pass.split('.')[0]) // 1000
+                expires_at = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
                 return utcnow() < expires_at
             except Exception:
                 return True
@@ -116,7 +117,6 @@ class TurnstileSolver:
         additional_headers = load_headers(entity.headers_file, logger)
         if additional_headers:
             request_details.headers = {**(request_details.headers or {}), **additional_headers}
-
         if request_details.has_turnstile:
             if self.active_token is None or self.active_token.has_expired():
                 state = 'is absent' if self.active_token is None else 'has expired'
