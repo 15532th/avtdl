@@ -23,7 +23,7 @@ Tool to monitor Youtube and some other streaming platforms for new streams and u
         * [`cookies_file`](#cookies_file)
         * [`headers`](#headers)
         * [`headers_file`](#headers_file)
-        * [`Turnstile options`](#turnstile_options)
+        * [`Turnstile options`](#turnstile-options)
         * [`timezone`](#timezone)
         * [`fetch_until_the_end_of_feed_mode`](#fetch_until_the_end_of_feed_mode)
         * [`quiet_first_time` and `quiet_start`](#quiet_first_time-and-quiet_start)
