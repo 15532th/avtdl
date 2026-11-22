@@ -139,7 +139,7 @@ class TurnstileSolver:
             if self.active_token is None or self.active_token.has_expired():
                 if self.conf.turnstile_solver_url is not None:
                     state = 'is absent' if self.active_token is None else 'has expired'
-                    logger.debug(f'token in headers file {state}. Trying to fetch from provider')
+                    logger.debug(f'token in headers file {state}. Trying to fetch from provider ({self.conf.turnstile_solver_url})')
                     self.active_token = await self.fetch_token(client, logger)
 
             if self.active_token is None or self.active_token.has_expired():
