@@ -45,12 +45,25 @@ class Token:
         if self.x_browser_pass is None:
             return utcnow() - self.created_at > datetime.timedelta(minutes=5)
         else:
-            try:
-                ts = int(self.x_browser_pass.split('.')[0]) // 1000
-                expires_at = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
-                return utcnow() > expires_at
-            except Exception:
-                return True
+            expires_at = self.browser_pass_expires_at()
+            return utcnow() > expires_at if expires_at is not None else True
+
+    def browser_pass_expires_at(self) -> Optional[datetime.datetime]:
+        if self.x_browser_pass is None:
+            return None
+        try:
+            ts = int(self.x_browser_pass.split('.')[0]) // 1000
+            expires_at = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+            return expires_at
+        except Exception:
+            return None
+
+    def browser_pass_ttl(self) -> datetime.timedelta:
+        """Time left until x-browser-pass expiration"""
+        expires_at = self.browser_pass_expires_at()
+        if expires_at is None or expires_at < utcnow():
+            return datetime.timedelta(seconds=0)
+        return expires_at - utcnow()
 
     @classmethod
     def from_request_headers(cls, headers: Union[Dict[str, str], CIMultiDictProxy[str], None]) -> Optional['Token']:

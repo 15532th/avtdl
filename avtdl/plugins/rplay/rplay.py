@@ -187,11 +187,13 @@ class RplayMonitor(BaseFeedMonitor):
             return
         records = self.parse_livestreams(data)
 
-        if self.token_provider.active_token is not None:
-            browser_pass = self.token_provider.active_token.x_browser_pass
-            if browser_pass is not None:
-                for record in records:
-                    record.x_browser_pass = browser_pass
+        if records:
+            if self.token_provider.active_token is not None and not self.token_provider.active_token.has_expired():
+                self.logger.debug(f'adding x-browser-pass (expires in {self.token_provider.active_token.browser_pass_ttl()}) to {len(records)} records')
+                browser_pass = self.token_provider.active_token.x_browser_pass
+                if browser_pass is not None:
+                    for record in records:
+                        record.x_browser_pass = browser_pass
 
         for record in records:
             for name, queue in self.consumers.items():
@@ -410,7 +412,7 @@ def parse_livestream(item: dict) -> RplayRecord:
         url=get_livestream_url(creator_oid),
         title=item['title'],
         description=item['description'],
-        thumbnail_url=live_thumbnail_url(creator_oid),
+        thumbnail_url=item.get('thumbnailUrl'),
         start=dateutil.parser.parse(item['streamStartTime']),
         user_id=item['_id'],
         creator_id=creator_oid,
