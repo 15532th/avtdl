@@ -48,7 +48,7 @@ class Token:
             try:
                 ts = int(self.x_browser_pass.split('.')[0]) // 1000
                 expires_at = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
-                return utcnow() < expires_at
+                return utcnow() > expires_at
             except Exception:
                 return True
 
