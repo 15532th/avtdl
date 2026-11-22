@@ -562,7 +562,7 @@ X-Request-ID: f058ebd6-02f7-4d3f-942e-904344e8cde5
 Some actors must be able to pass Turnstile (non-interactive js challenge) in order to access certain endpoints. avtdl does not do it itself and instead relies on an external solver, accessed through http endpoint. Endpoint url and request parameters are configured per actor through a set of configuration options starting with `turnstile_`:
 
 - `turnstile_solver_url`: url of the external challenge solver
-- `turnstile_solver_data`: body of the request sent to the external challenge solver, in plaintext. Also affects request method: POST when body is provided, GET otherwise
+- `turnstile_solver_data`: body of the request sent to the external challenge solver, in plaintext. Also affects request method: POST when body is provided, GET when left empty
 - `turnstile_solver_headers`: headers of the request sent to the external challenge solver, in case it needs any
 - `turnstile_token_expression`: regular expression used to extract token from the solver response. Must contain exactly one group
 - `turnstile_failsafe`: when enabled, prevent requests to protected endpoint from being sent if retrieving token from solver has failed for any reason

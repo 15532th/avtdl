@@ -8,8 +8,7 @@ from multidict import CIMultiDictProxy
 
 from avtdl.core.interfaces import utcnow
 from avtdl.core.monitors import BaseFeedMonitorConfig, HttpTaskMonitorEntity, load_headers
-from avtdl.core.request import HttpClient, MaybeHttpResponse, NoResponse
-from avtdl.core.request import RequestDetails as BaseRequestDetails
+from avtdl.core.request import HttpClient, MaybeHttpResponse, NoResponse, RequestDetails as BaseRequestDetails
 from avtdl.core.utils import with_prefix
 
 
@@ -21,8 +20,8 @@ class RequestDetails(BaseRequestDetails):
 class TurnstileSolverConfigMixin(BaseFeedMonitorConfig):
     turnstile_solver_url: Optional[str] = None
     """url of an external challenge solver"""
-    turnstile_solver_data: Optional[str] = '{"sitekey":"0x4AAAAAAFpJTWip4zXSkTi4","siteurl":"https://rplay.live","timeout":60}'
-    """body of the request sent to the external challenge solver, in plaintext. Also affects request method: POST when body is provided, GET otherwise"""
+    turnstile_solver_data: Optional[str] = None
+    """body of the request sent to the external challenge solver, in plaintext. Also affects request method: POST when body is provided, GET when left empty"""
     turnstile_solver_headers: Dict[str, str] = {'Content-Type': 'application/json'}
     """headers of the request sent to the external challenge solver"""
     turnstile_token_expression: str = r'"token": ?"([^"]+)"'
