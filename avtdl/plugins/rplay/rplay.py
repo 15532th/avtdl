@@ -211,6 +211,9 @@ class RplayMonitor(BaseFeedMonitor):
                 self.logger.warning(f'failed to parse record: {type(e)} {e}. Raw data: "{data}"')
         return records
 
+    def record_got_updated(self, record: RplayRecord, entity: RplayMonitorEntity) -> bool:
+        excluded_fields = {'x_browser_pass', 'thumbnail_url'}
+        return self.db.record_has_changed(record, entity.name, excluded_fields)
 
 @Plugins.register('rplay.user', Plugins.kind.ACTOR_CONFIG)
 class RplayUserMonitorConfig(TurnstileSolverConfigMixin, BaseFeedMonitorConfig):
